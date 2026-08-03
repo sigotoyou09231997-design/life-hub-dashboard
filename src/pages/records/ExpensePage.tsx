@@ -11,8 +11,9 @@ import { ExpenseList } from "../../components/expense/ExpenseList";
 import { ExpenseForm } from "../../components/expense/ExpenseForm";
 import { FixedCostList } from "../../components/expense/FixedCostList";
 import { FixedCostForm } from "../../components/expense/FixedCostForm";
+import { PayPayImport } from "../../components/expense/PayPayImport";
 
-type Tab = "summary" | "history" | "fixed";
+type Tab = "summary" | "history" | "fixed" | "paypay";
 
 export default function ExpensePage() {
   const [tab, setTab] = useState<Tab>("summary");
@@ -30,16 +31,17 @@ export default function ExpensePage() {
     <div className="pb-28">
       <PageHeader title="家計簿" subtitle="収支と固定費を管理" />
 
-      <div className="mx-5 mb-4 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
+      <div className="mx-5 mb-4 grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
         {([
           ["summary", "サマリー"],
           ["history", "履歴"],
           ["fixed", "固定費"],
+          ["paypay", "PayPay"],
         ] as [Tab, string][]).map(([key, label]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`rounded-lg py-2 text-sm font-medium transition-colors ${
+            className={`rounded-lg py-2 text-xs font-medium transition-colors ${
               tab === key ? "bg-white text-accent shadow-sm" : "text-slate-500"
             }`}
           >
@@ -76,6 +78,8 @@ export default function ExpensePage() {
             </Button>
           </>
         )}
+
+        {tab === "paypay" && <PayPayImport />}
       </div>
 
       <Sheet

@@ -10,6 +10,7 @@ import type {
   Habit,
   HabitLog,
   Settings,
+  PayPayLedgerEntry,
 } from "../types";
 
 export class LifeHubDB extends Dexie {
@@ -23,6 +24,7 @@ export class LifeHubDB extends Dexie {
   habits!: EntityTable<Habit, "id">;
   habitLogs!: EntityTable<HabitLog, "id">;
   settings!: EntityTable<Settings, "id">;
+  paypayTransactions!: EntityTable<PayPayLedgerEntry, "id">;
 
   constructor() {
     super("life-hub");
@@ -41,6 +43,11 @@ export class LifeHubDB extends Dexie {
       habitLogs: "++id, habitId, date, [habitId+date]",
       settings: "++id",
     });
+
+    this.version(2).stores({
+      transactions: "++id, type, date, category, externalId",
+      paypayTransactions: "++id, externalId, importedAt",
+    });
   }
 }
 
@@ -55,6 +62,8 @@ export async function ensureDefaultSettings(): Promise<Settings> {
     savingsGoalMonthly: 0,
     notificationsEnabled: false,
     accentColor: "#4f46e5",
+    paypayBalance: 0,
+    paypayBalanceUpdatedAt: 0,
   };
   const id = await db.settings.add(defaults);
   return { ...defaults, id };

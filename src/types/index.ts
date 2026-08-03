@@ -10,7 +10,22 @@ export interface Transaction {
   memo?: string;
   date: string; // YYYY-MM-DD
   isFixed: boolean;
+  /** Dedup key for rows imported from an external source (e.g. PayPay CSV). */
+  externalId?: string;
   createdAt: number;
+}
+
+/** One row from an imported PayPay transaction history CSV, kept for
+ * balance tracking even when it doesn't become a household Transaction
+ * (e.g. wallet charges, bank withdrawals, point-to-balance conversions). */
+export interface PayPayLedgerEntry {
+  id?: number;
+  externalId: string;
+  date: string; // YYYY-MM-DD
+  amount: number; // signed: deposit - withdrawal
+  content: string;
+  counterparty: string;
+  importedAt: number;
 }
 
 export interface FixedCost {
@@ -107,4 +122,7 @@ export interface Settings {
   savingsGoalMonthly: number;
   notificationsEnabled: boolean;
   accentColor: string;
+  /** Manually-confirmed PayPay balance, anchored at paypayBalanceUpdatedAt. */
+  paypayBalance: number;
+  paypayBalanceUpdatedAt: number;
 }
