@@ -7,7 +7,6 @@ import { requestNotificationPermission, isNotificationSupported } from "../lib/n
 import { exportBackup, importBackup } from "../lib/backup";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
-import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 
 const ACCENT_PRESETS = [
@@ -28,18 +27,13 @@ export default function SettingsPage() {
   const initialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [monthlyIncome, setMonthlyIncome] = useState("0");
-  const [savingsGoal, setSavingsGoal] = useState("0");
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [accentColor, setAccentColor] = useState("#4f46e5");
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission | null>(null);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (settings && !initialized.current) {
       initialized.current = true;
-      setMonthlyIncome(settings.monthlyIncome.toString());
-      setSavingsGoal(settings.savingsGoalMonthly.toString());
       setNotificationsEnabled(settings.notificationsEnabled);
       setAccentColor(settings.accentColor);
     }
@@ -48,16 +42,6 @@ export default function SettingsPage() {
   useEffect(() => {
     if (isNotificationSupported()) setPermissionStatus(Notification.permission);
   }, []);
-
-  async function handleSaveBudget() {
-    if (!settings?.id) return;
-    await db.settings.update(settings.id, {
-      monthlyIncome: Number(monthlyIncome) || 0,
-      savingsGoalMonthly: Number(savingsGoal) || 0,
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  }
 
   async function handleToggleNotifications(next: boolean) {
     setNotificationsEnabled(next);
@@ -96,29 +80,6 @@ export default function SettingsPage() {
       <PageHeader title="設定" backTo="/" />
 
       <div className="space-y-4 px-5">
-        <Card>
-          <p className="mb-3 text-sm font-medium text-slate-600">予算設定</p>
-          <div className="space-y-3">
-            <Input
-              label="毎月の収入(目安)"
-              type="number"
-              inputMode="numeric"
-              value={monthlyIncome}
-              onChange={(e) => setMonthlyIncome(e.target.value)}
-            />
-            <Input
-              label="毎月の貯金目標額"
-              type="number"
-              inputMode="numeric"
-              value={savingsGoal}
-              onChange={(e) => setSavingsGoal(e.target.value)}
-            />
-            <Button className="w-full" onClick={handleSaveBudget}>
-              {saved ? "保存しました" : "保存する"}
-            </Button>
-          </div>
-        </Card>
-
         <Card>
           <div className="flex items-center justify-between gap-3">
             <div>

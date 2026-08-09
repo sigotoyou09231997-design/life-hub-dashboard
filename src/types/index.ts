@@ -28,6 +28,15 @@ export interface PayPayLedgerEntry {
   importedAt: number;
 }
 
+export interface SalaryEntry {
+  id?: number;
+  /** Month this salary applies to, e.g. "2026-08". */
+  month: string;
+  payday: number; // 1-31, clamped to the last day of short months
+  amount: number;
+  createdAt: number;
+}
+
 export interface FixedCost {
   id?: number;
   title: string;

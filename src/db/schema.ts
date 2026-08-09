@@ -11,6 +11,7 @@ import type {
   HabitLog,
   Settings,
   PayPayLedgerEntry,
+  SalaryEntry,
 } from "../types";
 
 export class LifeHubDB extends Dexie {
@@ -25,6 +26,7 @@ export class LifeHubDB extends Dexie {
   habitLogs!: EntityTable<HabitLog, "id">;
   settings!: EntityTable<Settings, "id">;
   paypayTransactions!: EntityTable<PayPayLedgerEntry, "id">;
+  salaries!: EntityTable<SalaryEntry, "id">;
 
   constructor() {
     super("life-hub");
@@ -47,6 +49,10 @@ export class LifeHubDB extends Dexie {
     this.version(2).stores({
       transactions: "++id, type, date, category, externalId",
       paypayTransactions: "++id, externalId, importedAt",
+    });
+
+    this.version(3).stores({
+      salaries: "++id, month",
     });
   }
 }
