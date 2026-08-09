@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, ensureDefaultSettings } from "./db/schema";
 import { startNotificationScheduler, stopNotificationScheduler } from "./lib/notifications";
@@ -7,11 +7,9 @@ import { startNotificationScheduler, stopNotificationScheduler } from "./lib/not
 import TopPage from "./pages/TopPage";
 import SchedulePage from "./pages/SchedulePage";
 import TripsPage from "./pages/TripsPage";
-import CalendarPage from "./pages/CalendarPage";
 import RecordsPage from "./pages/RecordsPage";
 import SettingsPage from "./pages/SettingsPage";
 import ExpensePage from "./pages/records/ExpensePage";
-import TaskPage from "./pages/records/TaskPage";
 import NotePage from "./pages/records/NotePage";
 import DiaryPage from "./pages/records/DiaryPage";
 import GoalPage from "./pages/records/GoalPage";
@@ -38,10 +36,11 @@ export default function App() {
         <Route path="/" element={<TopPage />} />
         <Route path="/schedule" element={<SchedulePage />} />
         <Route path="/trips" element={<TripsPage />} />
-        <Route path="/calendar" element={<CalendarPage />} />
+        {/* 予定・タスクは /schedule に統合済み。旧ブックマーク/リンク対策として残す。 */}
+        <Route path="/calendar" element={<Navigate to="/schedule" replace />} />
+        <Route path="/records/tasks" element={<Navigate to="/schedule" replace />} />
         <Route path="/records" element={<RecordsPage />} />
         <Route path="/records/expense" element={<ExpensePage />} />
-        <Route path="/records/tasks" element={<TaskPage />} />
         <Route path="/records/notes" element={<NotePage />} />
         <Route path="/records/diary" element={<DiaryPage />} />
         <Route path="/records/goals" element={<GoalPage />} />

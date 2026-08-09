@@ -1,5 +1,6 @@
 import type { Task } from "../../types";
 import { isOverdue } from "../../lib/date";
+import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { Badge } from "../ui/Badge";
 import { Check, Plus, Trash2 } from "lucide-react";
 
@@ -19,6 +20,18 @@ const PRIORITY_LABEL = { high: "高", medium: "中", low: "低" } as const;
 export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubtask, indent }: Props) {
   const subtasks = allTasks.filter((t) => t.parentTaskId === task.id);
   const overdue = !task.completed && isOverdue(task.dueDate, task.dueTime);
+  const category = getScheduleCategory(task.category);
+
+  function handleDeleteClick() {
+    if (!task.id) return;
+    const message =
+      subtasks.length > 0
+        ? `「${task.title}」を削除しますか?配下のサブタスク(${subtasks.length}件)もすべて削除されます。`
+        : task.parentTaskId
+          ? `サブタスク「${task.title}」を削除しますか?`
+          : `「${task.title}」を削除しますか?`;
+    if (confirm(message)) onDelete(task.id);
+  }
 
   return (
     <div className={indent ? "ml-8" : ""}>
@@ -51,6 +64,7 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
               </Badge>
             )}
             {task.repeat !== "none" && <Badge tone="accent">繰り返し</Badge>}
+            <Badge tone={category.tone}>{category.label}</Badge>
           </div>
         </div>
 
@@ -65,7 +79,7 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
             </button>
           )}
           <button
-            onClick={() => task.id && onDelete(task.id)}
+            onClick={handleDeleteClick}
             aria-label="削除"
             className="rounded-full p-1.5 text-slate-300 active:bg-red-50 active:text-danger"
           >

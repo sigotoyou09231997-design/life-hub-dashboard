@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { db } from "../../db/schema";
-import type { Task, Priority, RepeatRule } from "../../types";
+import type { Task, Priority, RepeatRule, ScheduleCategory } from "../../types";
+import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/Button";
@@ -27,6 +28,7 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
   const [dueTime, setDueTime] = useState(initial?.dueTime ?? "");
   const [notify, setNotify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
   const [repeat, setRepeat] = useState<RepeatRule>(initial?.repeat ?? "none");
+  const [category, setCategory] = useState<ScheduleCategory>(initial?.category ?? "other");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -39,6 +41,7 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
       priority,
       dueDate: dueDate || undefined,
       dueTime: dueTime || undefined,
+      category,
       notifyMinutesBefore: notify ? Number(notify) : undefined,
       notifiedAt: undefined,
       completed: initial?.completed ?? false,
@@ -98,6 +101,18 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
         {(["none", "daily", "weekly", "monthly"] as RepeatRule[]).map((r) => (
           <option key={r} value={r}>
             {REPEAT_LABEL[r]}
+          </option>
+        ))}
+      </Select>
+
+      <Select
+        label="カテゴリ"
+        value={category}
+        onChange={(e) => setCategory(e.target.value as ScheduleCategory)}
+      >
+        {SCHEDULE_CATEGORIES.map((c) => (
+          <option key={c.value} value={c.value}>
+            {c.label}
           </option>
         ))}
       </Select>

@@ -46,14 +46,18 @@ export interface FixedCost {
   active: boolean;
 }
 
+export type ScheduleCategory = "work" | "private" | "important" | "other";
+
 export interface CalendarEvent {
   id?: number;
   title: string;
   date: string; // YYYY-MM-DD
   startTime?: string; // HH:mm
   endTime?: string; // HH:mm
+  allDay?: boolean;
   location?: string;
   memo?: string;
+  category?: ScheduleCategory;
   notifyMinutesBefore?: number;
   notifiedAt?: number;
   createdAt: number;
@@ -68,6 +72,7 @@ export interface Task {
   priority: Priority;
   dueDate?: string; // YYYY-MM-DD
   dueTime?: string; // HH:mm
+  category?: ScheduleCategory;
   notifyMinutesBefore?: number;
   notifiedAt?: number;
   completed: boolean;

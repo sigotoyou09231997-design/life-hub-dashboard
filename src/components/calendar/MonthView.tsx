@@ -18,12 +18,24 @@ interface Props {
   onMonthChange: (date: Date) => void;
   selectedDate: string;
   onSelectDate: (date: string) => void;
-  markedDates: Set<string>;
+  /** Dates with at least one calendar event — shown as a blue dot. */
+  eventDates: Set<string>;
+  /** Dates with at least one task due — shown as an orange dot. These are
+   * fixed type markers, independent of each item's own category color
+   * (which only appears in detail/list Badges). */
+  taskDates: Set<string>;
 }
 
 const WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
 
-export function MonthView({ currentMonth, onMonthChange, selectedDate, onSelectDate, markedDates }: Props) {
+export function MonthView({
+  currentMonth,
+  onMonthChange,
+  selectedDate,
+  onSelectDate,
+  eventDates,
+  taskDates,
+}: Props) {
   const gridStart = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
@@ -61,7 +73,8 @@ export function MonthView({ currentMonth, onMonthChange, selectedDate, onSelectD
           const dateStr = toDateStr(day);
           const inMonth = isSameMonth(day, currentMonth);
           const selected = dateStr === selectedDate;
-          const marked = markedDates.has(dateStr);
+          const hasEvent = eventDates.has(dateStr);
+          const hasTask = taskDates.has(dateStr);
 
           return (
             <button
@@ -82,7 +95,10 @@ export function MonthView({ currentMonth, onMonthChange, selectedDate, onSelectD
               >
                 {format(day, "d")}
               </span>
-              <span className={`h-1 w-1 rounded-full ${marked ? "bg-accent" : "bg-transparent"}`} />
+              <span className="flex h-1.5 items-center gap-0.5">
+                <span className={`h-1 w-1 rounded-full ${hasEvent ? "bg-accent" : "bg-transparent"}`} />
+                <span className={`h-1 w-1 rounded-full ${hasTask ? "bg-warning" : "bg-transparent"}`} />
+              </span>
             </button>
           );
         })}
