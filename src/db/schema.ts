@@ -61,7 +61,7 @@ export async function ensureDefaultSettings(): Promise<Settings> {
     monthlyIncome: 0,
     savingsGoalMonthly: 0,
     notificationsEnabled: false,
-    accentColor: "#4f46e5",
+    accentColor: "#2563eb",
     paypayBalance: 0,
     paypayBalanceUpdatedAt: 0,
   };

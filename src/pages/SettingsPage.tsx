@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
+import { ChevronRight } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import { requestNotificationPermission, isNotificationSupported } from "../lib/notifications";
 import { exportBackup, importBackup } from "../lib/backup";
@@ -90,8 +92,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="pb-28">
-      <PageHeader title="設定" />
+    <div className="pb-10">
+      <PageHeader title="設定" backTo="/" />
 
       <div className="space-y-4 px-5">
         <Card>
@@ -182,6 +184,16 @@ export default function SettingsPage() {
             />
           </div>
         </Card>
+
+        <Link to="/records">
+          <Card className="flex items-center justify-between py-4">
+            <div>
+              <p className="text-sm font-medium text-slate-900">以前のデータ</p>
+              <p className="mt-0.5 text-xs text-slate-400">日記・目標・習慣(新しいメニューには表示されません)</p>
+            </div>
+            <ChevronRight size={18} className="text-slate-300" />
+          </Card>
+        </Link>
       </div>
     </div>
   );

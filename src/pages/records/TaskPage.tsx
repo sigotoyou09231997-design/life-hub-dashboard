@@ -15,8 +15,8 @@ export default function TaskPage() {
   const tasks = useLiveQuery(() => db.tasks.toArray(), []);
 
   return (
-    <div className="pb-28">
-      <PageHeader title="タスク" subtitle="今日やることを整理" />
+    <div className="pb-10">
+      <PageHeader title="タスク" subtitle="今日やることを整理" backTo="/schedule" />
 
       <div className="px-5">
         <TaskList

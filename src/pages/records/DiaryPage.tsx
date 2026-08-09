@@ -13,8 +13,8 @@ export default function DiaryPage() {
   const entries = useLiveQuery(() => db.diaryEntries.toArray(), []);
 
   return (
-    <div className="pb-28">
-      <PageHeader title="日記" />
+    <div className="pb-10">
+      <PageHeader title="日記" backTo="/records" />
 
       <div className="px-5">
         <DiaryList

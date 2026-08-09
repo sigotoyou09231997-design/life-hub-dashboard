@@ -13,8 +13,8 @@ export default function GoalPage() {
   const goals = useLiveQuery(() => db.goals.toArray(), []);
 
   return (
-    <div className="pb-28">
-      <PageHeader title="目標" />
+    <div className="pb-10">
+      <PageHeader title="目標" backTo="/records" />
 
       <div className="px-5">
         <GoalList goals={goals ?? []} onEdit={(g) => setEditing(g)} onDelete={(id) => db.goals.delete(id)} />

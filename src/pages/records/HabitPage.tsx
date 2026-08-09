@@ -13,8 +13,8 @@ export default function HabitPage() {
   const habits = useLiveQuery(() => db.habits.toArray(), []);
 
   return (
-    <div className="pb-28">
-      <PageHeader title="習慣" subtitle="毎日のチェックで続ける" />
+    <div className="pb-10">
+      <PageHeader title="習慣" subtitle="毎日のチェックで続ける" backTo="/records" />
 
       <div className="px-5">
         <HabitList

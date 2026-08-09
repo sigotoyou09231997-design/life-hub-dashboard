@@ -28,8 +28,8 @@ export default function ExpensePage() {
   const fixedCosts = useLiveQuery(() => db.fixedCosts.toArray(), []);
 
   return (
-    <div className="pb-28">
-      <PageHeader title="家計簿" subtitle="収支と固定費を管理" />
+    <div className="pb-10">
+      <PageHeader title="家計簿" subtitle="収支と固定費を管理" backTo="/" />
 
       <div className="mx-5 mb-4 grid grid-cols-4 gap-1 rounded-xl bg-slate-100 p-1">
         {([

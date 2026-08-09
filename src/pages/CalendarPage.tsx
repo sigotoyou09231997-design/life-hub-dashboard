@@ -23,8 +23,8 @@ export default function CalendarPage() {
   const dayEvents = (allEvents ?? []).filter((e) => e.date === selectedDate);
 
   return (
-    <div className="pb-28">
-      <PageHeader title="カレンダー" />
+    <div className="pb-10">
+      <PageHeader title="カレンダー" backTo="/schedule" />
 
       <div className="px-5">
         <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">

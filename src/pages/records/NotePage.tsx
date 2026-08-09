@@ -13,8 +13,8 @@ export default function NotePage() {
   const notes = useLiveQuery(() => db.notes.toArray(), []);
 
   return (
-    <div className="pb-28">
-      <PageHeader title="メモ" />
+    <div className="pb-10">
+      <PageHeader title="メモ" backTo="/" />
 
       <div className="px-5">
         <NoteList

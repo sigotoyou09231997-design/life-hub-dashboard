@@ -1,27 +1,29 @@
 import { Link } from "react-router-dom";
-import { BookHeart, Target, Flame, ChevronRight } from "lucide-react";
+import { Calendar, CheckSquare, ChevronRight } from "lucide-react";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 
 const ITEMS = [
-  { to: "/records/diary", label: "日記", icon: BookHeart },
-  { to: "/records/goals", label: "目標", icon: Target },
-  { to: "/records/habits", label: "習慣", icon: Flame },
+  { to: "/calendar", label: "予定", description: "カレンダーで確認", icon: Calendar },
+  { to: "/records/tasks", label: "タスク", description: "やることを管理", icon: CheckSquare },
 ];
 
-export default function RecordsPage() {
+export default function SchedulePage() {
   return (
     <div className="pb-10">
-      <PageHeader title="以前の記録" subtitle="日記・目標・習慣のデータはそのまま残っています" backTo="/settings" />
+      <PageHeader title="予定・タスク管理" backTo="/" />
       <div className="space-y-2 px-5">
-        {ITEMS.map(({ to, label, icon: Icon }) => (
+        {ITEMS.map(({ to, label, description, icon: Icon }) => (
           <Link key={to} to={to}>
             <Card className="flex items-center justify-between py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-light text-accent">
                   <Icon size={20} />
                 </div>
-                <span className="font-medium text-slate-900">{label}</span>
+                <div>
+                  <p className="font-medium text-slate-900">{label}</p>
+                  <p className="text-xs text-slate-400">{description}</p>
+                </div>
               </div>
               <ChevronRight size={18} className="text-slate-300" />
             </Card>
