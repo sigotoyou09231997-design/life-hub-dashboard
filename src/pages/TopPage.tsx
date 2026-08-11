@@ -1,7 +1,11 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Wallet, CalendarClock, StickyNote, Plane, Mail, Settings, ArrowRight, type LucideIcon } from "lucide-react";
+import { Wallet, CalendarClock, StickyNote, Plane, Mail, Settings, ArrowRight, RefreshCw, type LucideIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { syncNow } from "../lib/sync";
+import { useToast } from "../components/ui/ToastProvider";
 
 type Accent = "money" | "schedule" | "notes" | "trips" | "gmail";
 
@@ -103,6 +107,28 @@ export default function TopPage() {
   const now = new Date();
   const dateLabel = format(now, "yyyy年M月d日(E)", { locale: ja });
   const greeting = getGreeting(now.getHours());
+  const showToast = useToast();
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabase.auth.getSession().then(({ data }) => setLoggedIn(!!data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setLoggedIn(!!session));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function handleSync() {
+    setSyncing(true);
+    try {
+      await syncNow();
+      showToast("同期しました");
+    } catch {
+      showToast("同期に失敗しました", "error");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   return (
     <div className="min-h-screen pb-10">
@@ -124,13 +150,26 @@ export default function TopPage() {
               {greeting}
             </p>
           </div>
-          <Link
-            to="/settings"
-            aria-label="設定"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors active:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-          >
-            <Settings size={20} />
-          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            {loggedIn && (
+              <button
+                type="button"
+                onClick={handleSync}
+                disabled={syncing}
+                aria-label="今すぐ同期"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors active:bg-white/25 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+              >
+                <RefreshCw size={18} className={syncing ? "animate-spin motion-reduce:animate-none" : ""} />
+              </button>
+            )}
+            <Link
+              to="/settings"
+              aria-label="設定"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors active:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            >
+              <Settings size={20} />
+            </Link>
+          </div>
         </div>
       </div>
 

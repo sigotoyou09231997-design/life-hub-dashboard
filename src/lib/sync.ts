@@ -210,6 +210,13 @@ function ensureAuthListener(): void {
     void drainQueue();
     for (const reg of registered) void reconcile(reg);
   });
+
+  // Mobile browsers routinely suspend background tabs, which silently drops the
+  // Realtime WebSocket without an error — re-sync whenever the app is brought
+  // back to the foreground so changes made elsewhere while away show up right away.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") void syncNow();
+  });
 }
 
 /** Enrolls a Dexie table in the PC/スマホ同期 pipeline: local writes get queued
@@ -252,4 +259,15 @@ export function registerSyncedTable<T extends SyncableRow>(table: EntityTable<T,
     void reconcile(reg);
     subscribeRealtime(reg);
   }
+}
+
+/** Manually pulls remote changes and pushes any queued local ones. Realtime
+ * normally keeps devices in sync live, but mobile browsers can silently drop
+ * the WebSocket connection while backgrounded, so this gives users a way to
+ * force a refresh instead of waiting for the next natural trigger. No-op
+ * when signed out. */
+export async function syncNow(): Promise<void> {
+  if (!currentUserId) return;
+  await Promise.all(registered.map((reg) => reconcile(reg)));
+  await drainQueue();
 }
