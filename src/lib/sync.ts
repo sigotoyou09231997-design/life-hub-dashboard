@@ -117,7 +117,7 @@ async function drainQueue(): Promise<void> {
 }
 
 async function applyRemoteRow(reg: RegisteredTable, remoteRow: Record<string, unknown>): Promise<void> {
-  const camel = rowToCamel(remoteRow) as SyncableRow & { deletedAt?: number | string | null };
+  const camel = rowToCamel(remoteRow) as SyncableRow & { deletedAt?: number | string | null; serverUpdatedAt?: unknown };
   if (!camel.id) return;
   if (camel.deviceId && camel.deviceId === getDeviceId()) return; // echo of our own write
 
@@ -130,7 +130,8 @@ async function applyRemoteRow(reg: RegisteredTable, remoteRow: Record<string, un
     const local = await reg.table.get(camel.id);
     if (local && (local.updatedAt ?? 0) > (camel.updatedAt ?? 0)) return; // local wins (LWW)
 
-    const { deletedAt: _deletedAt, ...rest } = camel;
+    // deletedAt/serverUpdatedAt are sync-plumbing columns, not part of the local row shape.
+    const { deletedAt: _deletedAt, serverUpdatedAt: _serverUpdatedAt, ...rest } = camel;
     if (local) {
       await reg.table.update(camel.id, rest);
     } else {
@@ -154,7 +155,11 @@ async function reconcile(reg: RegisteredTable): Promise<ReconcileResult> {
   const key = lastSyncedKey(reg.tableName);
   const since = localStorage.getItem(key) ?? new Date(0).toISOString();
   const nowIso = new Date().toISOString();
-  const { data, error } = await supabase.from(reg.tableName).select("*").gte("updated_at", since);
+  // Filtered on server_updated_at (server-assigned, monotonic) rather than the
+  // client-supplied updated_at used for LWW — a client clock can't be trusted as
+  // a pull cursor, and data pushed late (e.g. a catch-up sync) can carry an
+  // updated_at far in the past relative to when it actually reached the server.
+  const { data, error } = await supabase.from(reg.tableName).select("*").gte("server_updated_at", since);
   if (error) return { tableName: reg.tableName, rows: 0, error: error.message };
   for (const row of data ?? []) {
     await applyRemoteRow(reg, row as Record<string, unknown>);
