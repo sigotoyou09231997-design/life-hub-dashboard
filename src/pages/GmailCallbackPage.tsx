@@ -12,6 +12,7 @@ export default function GmailCallbackPage() {
   const showToast = useToast();
   const ranRef = useRef(false);
   const [status, setStatus] = useState<"working" | "error">("working");
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
 
   useEffect(() => {
     if (ranRef.current) return;
@@ -45,8 +46,11 @@ export default function GmailCallbackPage() {
         });
         showToast(`${result.email} と連携しました`);
         navigate("/settings", { replace: true });
-      } catch {
+      } catch (err) {
         setStatus("error");
+        // TODO: temporary diagnostic detail, revert to a plain message once the cause is found.
+        const detail = err instanceof Error ? err.message : String(err);
+        setErrorDetail(detail);
         showToast("Gmail連携に失敗しました", "error");
       }
     }
@@ -59,6 +63,7 @@ export default function GmailCallbackPage() {
       <p className="text-sm text-slate-500">
         {status === "working" ? "Gmailと連携しています…" : "連携に失敗しました。設定画面に戻ってやり直してください。"}
       </p>
+      {errorDetail && <p className="max-w-sm break-words text-xs text-slate-400">{errorDetail}</p>}
     </div>
   );
 }
