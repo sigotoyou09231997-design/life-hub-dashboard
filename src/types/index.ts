@@ -204,6 +204,41 @@ export interface TripPackingItem {
   createdAt: number;
 }
 
+export interface GmailAccount {
+  id?: number;
+  email: string;
+  accessToken: string;
+  accessTokenExpiresAt: number; // epoch ms
+  refreshToken: string;
+  connectedAt: number;
+  lastSyncedAt?: number;
+}
+
+export type EmailStatus = "unprocessed" | "generating" | "drafted" | "edited" | "sent" | "skipped";
+
+export interface SyncedEmail {
+  id?: number;
+  accountId: number;
+  gmailMessageId: string;
+  threadId: string;
+  from: string;
+  subject: string;
+  snippet: string;
+  receivedAt: number; // epoch ms
+  status: EmailStatus;
+  createdAt: number;
+}
+
+export interface DraftReply {
+  id?: number;
+  emailId: number; // -> SyncedEmail.id
+  accountId: number;
+  body: string;
+  createdAt: number;
+  updatedAt: number;
+  sentAt?: number;
+}
+
 export interface Settings {
   id?: number;
   monthlyIncome: number;

@@ -16,6 +16,9 @@ import type {
   TripScheduleItem,
   TripExpense,
   TripPackingItem,
+  GmailAccount,
+  SyncedEmail,
+  DraftReply,
 } from "../types";
 
 export class LifeHubDB extends Dexie {
@@ -35,6 +38,9 @@ export class LifeHubDB extends Dexie {
   tripSchedule!: EntityTable<TripScheduleItem, "id">;
   tripExpenses!: EntityTable<TripExpense, "id">;
   tripPackingItems!: EntityTable<TripPackingItem, "id">;
+  gmailAccounts!: EntityTable<GmailAccount, "id">;
+  syncedEmails!: EntityTable<SyncedEmail, "id">;
+  draftReplies!: EntityTable<DraftReply, "id">;
 
   constructor() {
     super("life-hub");
@@ -68,6 +74,13 @@ export class LifeHubDB extends Dexie {
       tripSchedule: "++id, tripId",
       tripExpenses: "++id, tripId",
       tripPackingItems: "++id, tripId",
+    });
+
+    // Gmail連携用。refreshTokenとメール本文を含むため、バックアップ書き出し(backup.ts)の対象からは意図的に除外する。
+    this.version(5).stores({
+      gmailAccounts: "++id, email",
+      syncedEmails: "++id, accountId, gmailMessageId, receivedAt, status, [accountId+gmailMessageId]",
+      draftReplies: "++id, emailId, accountId, status",
     });
   }
 }

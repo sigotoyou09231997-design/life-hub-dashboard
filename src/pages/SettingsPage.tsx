@@ -3,10 +3,13 @@ import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ChevronRight } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
+import type { GmailAccount } from "../types";
 import { requestNotificationPermission, isNotificationSupported } from "../lib/notifications";
 import { exportBackup, importBackup } from "../lib/backup";
+import { startGmailOAuth } from "../lib/gmail";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
+import { ListRow } from "../components/ui/ListRow";
 import { Button } from "../components/ui/Button";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -18,6 +21,7 @@ export default function SettingsPage() {
   }, []);
 
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
+  const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   const initialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,6 +93,27 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleDisconnectGmail(account: GmailAccount) {
+    // Best-effort — Google's revoke endpoint doesn't need the client secret, so it's safe to call from the browser.
+    try {
+      await fetch("https://oauth2.googleapis.com/revoke", {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: `token=${encodeURIComponent(account.refreshToken)}`,
+      });
+    } catch {
+      // ignore — we still remove the local account below
+    }
+    if (account.id == null) return;
+    const accountId = account.id;
+    await db.transaction("rw", [db.gmailAccounts, db.syncedEmails, db.draftReplies], async () => {
+      await db.draftReplies.where("accountId").equals(accountId).delete();
+      await db.syncedEmails.where("accountId").equals(accountId).delete();
+      await db.gmailAccounts.delete(accountId);
+    });
+    showToast("Gmail連携を解除しました");
+  }
+
   return (
     <div className="pb-10">
       <PageHeader title="設定" backTo="/" />
@@ -144,6 +169,43 @@ export default function SettingsPage() {
             />
           </div>
         </Card>
+
+        <Card>
+          <p className="mb-1 text-sm font-medium text-slate-600">Gmail連携</p>
+          <p className="mb-3 text-xs text-slate-400">
+            受信メールにAIが返信案を作成します。連携情報はこの端末にのみ保存されます。
+          </p>
+          {gmailAccounts && gmailAccounts.length > 0 && (
+            <div className="mb-3 space-y-2">
+              {gmailAccounts.map((account) => (
+                <ListRow key={account.id} className="flex items-center justify-between py-2.5">
+                  <span className="truncate text-sm text-slate-700">{account.email}</span>
+                  <button
+                    onClick={() => handleDisconnectGmail(account)}
+                    className="shrink-0 text-xs font-medium text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+                  >
+                    解除
+                  </button>
+                </ListRow>
+              ))}
+            </div>
+          )}
+          <Button variant="secondary" className="w-full" onClick={startGmailOAuth}>
+            {gmailAccounts && gmailAccounts.length > 0 ? "+ アカウントを追加" : "連携する"}
+          </Button>
+        </Card>
+
+        {gmailAccounts && gmailAccounts.length > 0 && (
+          <Link to="/gmail" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+            <Card interactive className="flex items-center justify-between py-4">
+              <div>
+                <p className="text-sm font-medium text-slate-900">メールを見る</p>
+                <p className="mt-0.5 text-xs text-slate-400">受信メールとAI下書き</p>
+              </div>
+              <ChevronRight size={18} className="text-slate-300" />
+            </Card>
+          </Link>
+        )}
 
         <Link to="/records" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
           <Card interactive className="flex items-center justify-between py-4">

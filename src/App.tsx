@@ -15,6 +15,8 @@ import NotePage from "./pages/records/NotePage";
 import DiaryPage from "./pages/records/DiaryPage";
 import GoalPage from "./pages/records/GoalPage";
 import HabitPage from "./pages/records/HabitPage";
+import GmailPage from "./pages/GmailPage";
+import GmailCallbackPage from "./pages/GmailCallbackPage";
 
 export default function App() {
   const location = useLocation();
@@ -44,6 +46,8 @@ export default function App() {
           <Route path="/records/goals" element={<GoalPage />} />
           <Route path="/records/habits" element={<HabitPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/gmail" element={<GmailPage />} />
+          <Route path="/gmail/callback" element={<GmailCallbackPage />} />
         </Routes>
       </div>
     </ToastProvider>
