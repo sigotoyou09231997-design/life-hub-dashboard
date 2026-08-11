@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { Wallet, CalendarClock, StickyNote, Plane, Settings, ArrowRight, type LucideIcon } from "lucide-react";
+import { Wallet, CalendarClock, StickyNote, Plane, Mail, Settings, ArrowRight, type LucideIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 
-type Accent = "money" | "schedule" | "notes" | "trips";
+type Accent = "money" | "schedule" | "notes" | "trips" | "gmail";
 
 interface TopCard {
   to: string;
@@ -42,6 +42,13 @@ const TOP_CARDS: TopCard[] = [
     icon: Plane,
     accent: "trips",
   },
+  {
+    to: "/gmail",
+    label: "Gmail自動返信",
+    description: "受信箱の確認とAI返信",
+    icon: Mail,
+    accent: "gmail",
+  },
 ];
 
 // カード識別用の固定カラー。機能を見分けるためだけの補助色であり、
@@ -74,6 +81,13 @@ const ACCENT_STYLES: Record<Accent, { stripe: string; iconBg: string; glow: stri
     glow: "bg-orange-400",
     arrow: "text-orange-500",
     ring: "focus-visible:ring-orange-400",
+  },
+  gmail: {
+    stripe: "bg-pink-500",
+    iconBg: "bg-gradient-to-br from-pink-500 to-pink-600",
+    glow: "bg-pink-400",
+    arrow: "text-pink-500",
+    ring: "focus-visible:ring-pink-400",
   },
 };
 
