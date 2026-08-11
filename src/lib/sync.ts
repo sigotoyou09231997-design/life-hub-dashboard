@@ -148,12 +148,12 @@ interface ReconcileResult {
   error: string | null;
 }
 
-async function reconcile(reg: RegisteredTable): Promise<ReconcileResult> {
+async function reconcile(reg: RegisteredTable, forceFull = false): Promise<ReconcileResult> {
   if (!currentUserId) {
     return { tableName: reg.tableName, rows: 0, error: "not signed in" };
   }
   const key = lastSyncedKey(reg.tableName);
-  const since = localStorage.getItem(key) ?? new Date(0).toISOString();
+  const since = forceFull ? new Date(0).toISOString() : (localStorage.getItem(key) ?? new Date(0).toISOString());
   const nowIso = new Date().toISOString();
   // Filtered on server_updated_at (server-assigned, monotonic) rather than the
   // client-supplied updated_at used for LWW — a client clock can't be trusted as
@@ -282,7 +282,11 @@ export function registerSyncedTable<T extends SyncableRow>(table: EntityTable<T,
  * when signed out. */
 export async function syncNow(): Promise<string> {
   if (!currentUserId) return "ログインしていません";
-  const results = await Promise.all(registered.map((reg) => reconcile(reg)));
+  // A manual tap is infrequent and explicit, so always pull the full table rather
+  // than trusting the incremental watermark — cheap at personal-app data volumes,
+  // and it's the one guaranteed way to recover if the watermark ever gets stuck
+  // ahead of data it hasn't actually seen (as happened once already).
+  const results = await Promise.all(registered.map((reg) => reconcile(reg, true)));
   const queuedBefore = await db.syncQueue.count();
   await drainQueue();
   const queuedAfter = await db.syncQueue.count();
