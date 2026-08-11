@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import { syncNow } from "../lib/sync";
+import { getDeviceId } from "../lib/deviceId";
 
 type Accent = "money" | "schedule" | "notes" | "trips" | "gmail";
 
@@ -121,7 +122,7 @@ export default function TopPage() {
     try {
       const summary = await syncNow();
       // TODO: temporary diagnostic alert, switch back to a plain toast once sync is confirmed working everywhere.
-      alert(summary);
+      alert(`この端末のID: ${getDeviceId()}\n${summary}`);
     } catch (err) {
       alert(`同期に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
