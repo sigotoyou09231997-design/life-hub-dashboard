@@ -5,7 +5,6 @@ import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import { syncNow } from "../lib/sync";
-import { useToast } from "../components/ui/ToastProvider";
 
 type Accent = "money" | "schedule" | "notes" | "trips" | "gmail";
 
@@ -107,7 +106,6 @@ export default function TopPage() {
   const now = new Date();
   const dateLabel = format(now, "yyyy年M月d日(E)", { locale: ja });
   const greeting = getGreeting(now.getHours());
-  const showToast = useToast();
   const [loggedIn, setLoggedIn] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
@@ -121,10 +119,11 @@ export default function TopPage() {
   async function handleSync() {
     setSyncing(true);
     try {
-      await syncNow();
-      showToast("同期しました");
-    } catch {
-      showToast("同期に失敗しました", "error");
+      const summary = await syncNow();
+      // TODO: temporary diagnostic alert, switch back to a plain toast once sync is confirmed working everywhere.
+      alert(summary);
+    } catch (err) {
+      alert(`同期に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSyncing(false);
     }

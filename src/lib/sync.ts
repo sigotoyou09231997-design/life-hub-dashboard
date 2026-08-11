@@ -141,21 +141,26 @@ async function applyRemoteRow(reg: RegisteredTable, remoteRow: Record<string, un
   }
 }
 
-async function reconcile(reg: RegisteredTable): Promise<void> {
+interface ReconcileResult {
+  tableName: string;
+  rows: number;
+  error: string | null;
+}
+
+async function reconcile(reg: RegisteredTable): Promise<ReconcileResult> {
   if (!currentUserId) {
-    console.log("[sync] reconcile skipped: not signed in", reg.tableName);
-    return;
+    return { tableName: reg.tableName, rows: 0, error: "not signed in" };
   }
   const key = lastSyncedKey(reg.tableName);
   const since = localStorage.getItem(key) ?? new Date(0).toISOString();
   const nowIso = new Date().toISOString();
   const { data, error } = await supabase.from(reg.tableName).select("*").gte("updated_at", since);
-  console.log("[sync] reconcile", reg.tableName, { currentUserId, since, rows: data?.length, error });
-  if (error) return;
+  if (error) return { tableName: reg.tableName, rows: 0, error: error.message };
   for (const row of data ?? []) {
     await applyRemoteRow(reg, row as Record<string, unknown>);
   }
   localStorage.setItem(key, nowIso);
+  return { tableName: reg.tableName, rows: data?.length ?? 0, error: null };
 }
 
 const subscribedChannels = new Set<string>();
@@ -270,8 +275,14 @@ export function registerSyncedTable<T extends SyncableRow>(table: EntityTable<T,
  * the WebSocket connection while backgrounded, so this gives users a way to
  * force a refresh instead of waiting for the next natural trigger. No-op
  * when signed out. */
-export async function syncNow(): Promise<void> {
-  if (!currentUserId) return;
-  await Promise.all(registered.map((reg) => reconcile(reg)));
+export async function syncNow(): Promise<string> {
+  if (!currentUserId) return "ログインしていません";
+  const results = await Promise.all(registered.map((reg) => reconcile(reg)));
+  const queuedBefore = await db.syncQueue.count();
   await drainQueue();
+  const queuedAfter = await db.syncQueue.count();
+  return results
+    .map((r) => (r.error ? `${r.tableName}: エラー(${r.error})` : `${r.tableName}: ${r.rows}件受信`))
+    .concat(`送信キュー: ${queuedBefore}→${queuedAfter}`)
+    .join(" / ");
 }
