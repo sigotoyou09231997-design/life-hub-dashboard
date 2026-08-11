@@ -14,7 +14,7 @@ import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 
-export async function deleteTripCascade(tripId: number) {
+export async function deleteTripCascade(tripId: string) {
   await Promise.all([
     db.tripSchedule.where("tripId").equals(tripId).delete(),
     db.tripExpenses.where("tripId").equals(tripId).delete(),
@@ -37,7 +37,7 @@ export default function TripsPage() {
   const trips = tripsResult ?? [];
   const showSkeleton = useDelayedFlag(tripsResult === undefined);
 
-  function handleDelete(id: number) {
+  function handleDelete(id: string) {
     deleteTripCascade(id);
     showToast("削除しました");
   }

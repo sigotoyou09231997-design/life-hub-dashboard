@@ -8,7 +8,7 @@ import { Button } from "../ui/Button";
 
 interface Props {
   initial?: Task;
-  parentTaskId?: number;
+  parentTaskId?: string;
   onSaved: () => void;
   onCancel: () => void;
 }

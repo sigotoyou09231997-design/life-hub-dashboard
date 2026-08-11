@@ -43,7 +43,7 @@ const STATUS_TONE: Record<TripStatus, "accent" | "success" | "neutral"> = {
 
 export default function TripDetailPage() {
   const { id } = useParams();
-  const tripId = Number(id);
+  const tripId = id ?? "";
   const navigate = useNavigate();
   const showToast = useToast();
   const [searchParams] = useSearchParams();
@@ -77,7 +77,7 @@ export default function TripDetailPage() {
 
   const showSkeleton = useDelayedFlag(tripResult === undefined);
 
-  if (Number.isNaN(tripId)) return null;
+  if (!tripId) return null;
 
   if (tripResult === undefined) {
     return showSkeleton ? (

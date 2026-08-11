@@ -8,7 +8,7 @@ import { Button } from "../ui/Button";
 
 interface Props {
   initial?: Trip;
-  onSaved: (id: number) => void;
+  onSaved: (id: string) => void;
   onCancel: () => void;
 }
 
@@ -50,12 +50,12 @@ export function TripForm({ initial, onSaved, onCancel }: Props) {
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
-    let id: number;
+    let id: string;
     if (initial?.id) {
       await db.trips.update(initial.id, record);
       id = initial.id;
     } else {
-      id = await db.trips.add(record) as number;
+      id = (await db.trips.add(record)) as string;
     }
     setSaving(false);
     onSaved(id);

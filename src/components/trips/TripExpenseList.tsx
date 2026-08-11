@@ -10,7 +10,7 @@ interface Props {
   budget?: number;
   expenses: TripExpense[];
   onEdit: (expense: TripExpense) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 function yen(n: number): string {

@@ -42,7 +42,7 @@ export default function NotePage() {
     showToast("保存しました");
   }
 
-  function handleDelete(id: number) {
+  function handleDelete(id: string) {
     db.notes.delete(id);
     showToast("削除しました");
   }

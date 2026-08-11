@@ -6,7 +6,7 @@ import { EmptyState } from "../ui/EmptyState";
 interface Props {
   entries: DiaryEntry[];
   onEdit: (entry: DiaryEntry) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 export function DiaryList({ entries, onEdit, onDelete }: Props) {

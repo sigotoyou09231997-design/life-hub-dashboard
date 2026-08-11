@@ -12,9 +12,9 @@ interface Props {
   tasks: Task[];
   tripAgenda: TripAgendaEntry[];
   onEditEvent: (e: CalendarEvent) => void;
-  onDeleteEvent: (id: number) => void;
+  onDeleteEvent: (id: string) => void;
   onEditTask: (t: Task) => void;
-  onAddSubtask: (parentId: number) => void;
+  onAddSubtask: (parentId: string) => void;
 }
 
 type TypeFilter = "all" | "event" | "task";

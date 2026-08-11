@@ -6,7 +6,7 @@ import { ChevronRight, MapPin, Trash2 } from "lucide-react";
 
 interface Props {
   trip: Trip;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 export function TripCard({ trip, onDelete }: Props) {

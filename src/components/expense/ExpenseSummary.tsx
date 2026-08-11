@@ -74,7 +74,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
             <p className="mt-0.5 font-semibold text-slate-900">{yen(perDayUsable)}</p>
           </div>
           <div>
-            <p className="text-slate-400">給料日までの残り日数</p>
+            <p className="text-slate-400">給料日まで残り</p>
             <p className="mt-0.5 font-semibold text-slate-900">{period.daysUntilNextPayday}日</p>
           </div>
           <div>

@@ -1,7 +1,7 @@
 export type TransactionType = "income" | "expense";
 
 export interface Transaction {
-  id?: number;
+  id?: string;
   type: TransactionType;
   amount: number;
   category: string;
@@ -13,13 +13,17 @@ export interface Transaction {
   /** Dedup key for rows imported from an external source (e.g. PayPay CSV). */
   externalId?: string;
   createdAt: number;
+  updatedAt?: number;
+  /** Present once a row has been touched by the sync engine; absent for purely local, never-synced data. */
+  deviceId?: string;
+  userId?: string;
 }
 
 /** One row from an imported PayPay transaction history CSV, kept for
  * balance tracking even when it doesn't become a household Transaction
  * (e.g. wallet charges, bank withdrawals, point-to-balance conversions). */
 export interface PayPayLedgerEntry {
-  id?: number;
+  id?: string;
   externalId: string;
   date: string; // YYYY-MM-DD
   amount: number; // signed: deposit - withdrawal
@@ -29,27 +33,33 @@ export interface PayPayLedgerEntry {
 }
 
 export interface SalaryEntry {
-  id?: number;
+  id?: string;
   /** Month this salary applies to, e.g. "2026-08". */
   month: string;
   payday: number; // 1-31, clamped to the last day of short months
   amount: number;
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export interface FixedCost {
-  id?: number;
+  id?: string;
   title: string;
   category: string;
   amount: number;
   dueDay: number; // 1-31
   active: boolean;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export type ScheduleCategory = "work" | "private" | "important" | "other";
 
 export interface CalendarEvent {
-  id?: number;
+  id?: string;
   title: string;
   date: string; // YYYY-MM-DD
   startTime?: string; // HH:mm
@@ -61,13 +71,16 @@ export interface CalendarEvent {
   notifyMinutesBefore?: number;
   notifiedAt?: number;
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export type Priority = "low" | "medium" | "high";
 export type RepeatRule = "none" | "daily" | "weekly" | "monthly";
 
 export interface Task {
-  id?: number;
+  id?: string;
   title: string;
   priority: Priority;
   dueDate?: string; // YYYY-MM-DD
@@ -77,9 +90,12 @@ export interface Task {
   notifiedAt?: number;
   completed: boolean;
   completedAt?: number;
-  parentTaskId?: number;
+  parentTaskId?: string;
   repeat: RepeatRule;
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export type NoteType = "memo" | "checklist" | "shopping";
@@ -99,7 +115,7 @@ export interface ShoppingItem {
 }
 
 export interface Note {
-  id?: number;
+  id?: string;
   // Absent on records created before the memo/checklist/shopping split;
   // resolve with getNoteType() rather than reading this directly.
   type?: NoteType;
@@ -111,23 +127,28 @@ export interface Note {
   checklistItems?: ChecklistItem[];
   shoppingItems?: ShoppingItem[];
   createdAt: number;
-  updatedAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export type Mood = "great" | "good" | "okay" | "bad" | "terrible";
 
 export interface DiaryEntry {
-  id?: number;
+  id?: string;
   date: string; // YYYY-MM-DD
   content: string;
   photos: Blob[];
   mood: Mood;
   satisfaction: number; // 1-5
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export interface Goal {
-  id?: number;
+  id?: string;
   title: string;
   deadline?: string; // YYYY-MM-DD
   progress: number; // 0-100
@@ -135,26 +156,35 @@ export interface Goal {
   targetAmount?: number;
   currentAmount?: number;
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export interface Habit {
-  id?: number;
+  id?: string;
   title: string;
   active: boolean;
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export interface HabitLog {
-  id?: number;
-  habitId: number;
+  id?: string;
+  habitId: string;
   date: string; // YYYY-MM-DD
   done: boolean;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export type TripStatus = "planning" | "ongoing" | "completed";
 
 export interface Trip {
-  id?: number;
+  id?: string;
   name: string;
   destination: string;
   startDate: string; // YYYY-MM-DD
@@ -163,13 +193,16 @@ export interface Trip {
   status: TripStatus;
   budget?: number;
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export type TripScheduleType = "sightseeing" | "meal" | "transport" | "lodging" | "other";
 
 export interface TripScheduleItem {
-  id?: number;
-  tripId: number;
+  id?: string;
+  tripId: string;
   date: string; // YYYY-MM-DD
   startTime?: string; // HH:mm
   title: string;
@@ -177,13 +210,16 @@ export interface TripScheduleItem {
   memo?: string;
   type: TripScheduleType;
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export type TripExpenseCategory = "transport" | "lodging" | "meal" | "sightseeing" | "shopping" | "other";
 
 export interface TripExpense {
-  id?: number;
-  tripId: number;
+  id?: string;
+  tripId: string;
   title: string;
   amount: number;
   category: TripExpenseCategory;
@@ -191,21 +227,27 @@ export interface TripExpense {
   paid: boolean;
   memo?: string;
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export type TripPackingCategory = "essentials" | "clothing" | "electronics" | "documents" | "other";
 
 export interface TripPackingItem {
-  id?: number;
-  tripId: number;
+  id?: string;
+  tripId: string;
   title: string;
   category: TripPackingCategory;
   checked: boolean;
   createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export interface GmailAccount {
-  id?: number;
+  id?: string;
   email: string;
   accessToken: string;
   accessTokenExpiresAt: number; // epoch ms
@@ -217,8 +259,8 @@ export interface GmailAccount {
 export type EmailStatus = "unprocessed" | "generating" | "drafted" | "edited" | "sent" | "skipped";
 
 export interface SyncedEmail {
-  id?: number;
-  accountId: number;
+  id?: string;
+  accountId: string;
   gmailMessageId: string;
   threadId: string;
   from: string;
@@ -230,17 +272,17 @@ export interface SyncedEmail {
 }
 
 export interface DraftReply {
-  id?: number;
-  emailId: number; // -> SyncedEmail.id
-  accountId: number;
+  id?: string;
+  emailId: string; // -> SyncedEmail.id
+  accountId: string;
   body: string;
   createdAt: number;
-  updatedAt: number;
+  updatedAt?: number;
   sentAt?: number;
 }
 
 export interface Settings {
-  id?: number;
+  id?: string;
   monthlyIncome: number;
   savingsGoalMonthly: number;
   notificationsEnabled: boolean;

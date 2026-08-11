@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
+import type { Session } from "@supabase/supabase-js";
 import { ChevronRight } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { GmailAccount } from "../types";
 import { requestNotificationPermission, isNotificationSupported } from "../lib/notifications";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
+import { isSupabaseConfigured, supabase, getRedirectUri } from "../lib/supabase";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
@@ -19,6 +21,24 @@ export default function SettingsPage() {
   useEffect(() => {
     ensureDefaultSettings();
   }, []);
+
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function handleGoogleLogin() {
+    await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: getRedirectUri() } });
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    showToast("ログアウトしました");
+  }
 
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
   const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
@@ -169,6 +189,27 @@ export default function SettingsPage() {
             />
           </div>
         </Card>
+
+        {isSupabaseConfigured && (
+          <Card>
+            <p className="mb-1 text-sm font-medium text-slate-600">アカウント連携(PC/スマホ同期)</p>
+            <p className="mb-3 text-xs text-slate-400">
+              ログインした端末同士で、お金管理のデータがリアルタイムに同期されます。
+            </p>
+            {session ? (
+              <div className="flex items-center justify-between gap-3">
+                <span className="truncate text-sm text-slate-700">{session.user.email}</span>
+                <Button variant="secondary" onClick={handleLogout}>
+                  ログアウト
+                </Button>
+              </div>
+            ) : (
+              <Button variant="secondary" className="w-full" onClick={handleGoogleLogin}>
+                Googleでログイン
+              </Button>
+            )}
+          </Card>
+        )}
 
         <Card>
           <p className="mb-1 text-sm font-medium text-slate-600">Gmail連携</p>

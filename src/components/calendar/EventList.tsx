@@ -8,7 +8,7 @@ import { getScheduleCategory } from "../../lib/scheduleCategories";
 interface Props {
   events: CalendarEvent[];
   onEdit: (e: CalendarEvent) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
   emptyMessage?: string;
 }
 

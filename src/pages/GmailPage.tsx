@@ -17,7 +17,7 @@ export default function GmailPage() {
   const navigate = useNavigate();
   const accounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   const showSkeleton = useDelayedFlag(accounts === undefined);
-  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [reviewingEmail, setReviewingEmail] = useState<SyncedEmail | null>(null);
 
   useEffect(() => {
@@ -48,8 +48,8 @@ export default function GmailPage() {
               <div className="mb-4">
                 <Tabs
                   options={accounts.map((a) => ({ value: String(a.id), label: a.email }))}
-                  value={String(selectedAccountId)}
-                  onChange={(v) => setSelectedAccountId(Number(v))}
+                  value={selectedAccountId ?? ""}
+                  onChange={(v) => setSelectedAccountId(v)}
                   dense
                 />
               </div>

@@ -9,7 +9,7 @@ import { Pin, CheckSquare, CalendarPlus, Trash2 } from "lucide-react";
 interface Props {
   note: Note;
   onEdit: (note: Note) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 async function convertToTask(note: Note) {

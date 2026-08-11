@@ -6,7 +6,7 @@ import { EmptyState } from "../ui/EmptyState";
 interface Props {
   salaries: SalaryEntry[];
   onEdit: (s: SalaryEntry) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 function formatMonth(month: string): string {

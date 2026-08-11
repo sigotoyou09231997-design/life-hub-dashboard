@@ -7,7 +7,7 @@ import { Select } from "../ui/Select";
 import { Button } from "../ui/Button";
 
 interface Props {
-  tripId: number;
+  tripId: string;
   initial?: TripExpense;
   onSaved: () => void;
   onCancel: () => void;

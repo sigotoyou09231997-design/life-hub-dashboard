@@ -8,7 +8,7 @@ import { Search, StickyNote } from "lucide-react";
 interface Props {
   notes: Note[];
   onEdit: (note: Note) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 type TypeFilter = "all" | NoteType;
@@ -32,7 +32,7 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
 
   const sorted = [...filtered].sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    return b.updatedAt - a.updatedAt;
+    return (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
   });
 
   return (

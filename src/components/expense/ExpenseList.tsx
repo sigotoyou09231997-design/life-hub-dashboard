@@ -8,7 +8,7 @@ import { Receipt, Trash2 } from "lucide-react";
 interface Props {
   transactions: Transaction[];
   onEdit: (t: Transaction) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 export function ExpenseList({ transactions, onEdit, onDelete }: Props) {

@@ -3,8 +3,8 @@ import { Plane, Clock } from "lucide-react";
 import { ListRow } from "../ui/ListRow";
 
 export interface TripAgendaEntry {
-  id: number;
-  tripId: number;
+  id: string;
+  tripId: string;
   tripName: string;
   date: string;
   startTime?: string;

@@ -9,7 +9,7 @@ interface Props {
   dayList: string[];
   items: TripScheduleItem[];
   onEdit: (item: TripScheduleItem) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
   onLocationTap: (location: string) => void;
 }
 

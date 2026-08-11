@@ -6,7 +6,7 @@ import { EmptyState } from "../ui/EmptyState";
 interface Props {
   goals: Goal[];
   onEdit: (goal: Goal) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 export function GoalList({ goals, onEdit, onDelete }: Props) {

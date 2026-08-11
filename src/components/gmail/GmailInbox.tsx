@@ -40,7 +40,7 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
 export function GmailInbox({ account, onOpenEmail }: Props) {
   const showToast = useToast();
   const [syncing, setSyncing] = useState(false);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [generatingBulk, setGeneratingBulk] = useState(false);
 
   const emails = useLiveQuery(
@@ -107,7 +107,7 @@ export function GmailInbox({ account, onOpenEmail }: Props) {
     }
   }
 
-  function toggleSelected(id: number) {
+  function toggleSelected(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);

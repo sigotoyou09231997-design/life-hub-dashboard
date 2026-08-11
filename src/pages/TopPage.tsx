@@ -23,7 +23,7 @@ const TOP_CARDS: TopCard[] = [
   },
   {
     to: "/schedule",
-    label: "予定・タスク管理",
+    label: "予定・タスク",
     description: "予定とタスクを確認",
     icon: CalendarClock,
     accent: "schedule",

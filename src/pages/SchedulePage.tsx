@@ -23,7 +23,7 @@ type EditingEvent = CalendarEvent | "new" | null;
 type EditingTask =
   | { mode: "new" }
   | { mode: "edit"; task: Task }
-  | { mode: "subtask"; parentId: number }
+  | { mode: "subtask"; parentId: string }
   | null;
 
 export default function SchedulePage() {
@@ -59,10 +59,10 @@ export default function SchedulePage() {
   function handleEditTask(task: Task) {
     setEditingTask({ mode: "edit", task });
   }
-  function handleAddSubtask(parentId: number) {
+  function handleAddSubtask(parentId: string) {
     setEditingTask({ mode: "subtask", parentId });
   }
-  function handleDeleteEvent(id: number) {
+  function handleDeleteEvent(id: string) {
     db.calendarEvents.delete(id);
     showToast("削除しました");
   }

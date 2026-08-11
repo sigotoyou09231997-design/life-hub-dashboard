@@ -9,7 +9,7 @@ import { useToast } from "../ui/ToastProvider";
 interface Props {
   tasks: Task[];
   onEdit: (task: Task) => void;
-  onAddSubtask: (parentId: number) => void;
+  onAddSubtask: (parentId: string) => void;
   emptyMessage?: string;
 }
 
@@ -36,7 +36,7 @@ export async function toggleTaskCompletion(task: Task) {
   }
 }
 
-export async function deleteTaskCascade(id: number) {
+export async function deleteTaskCascade(id: string) {
   const children = await db.tasks.where("parentTaskId").equals(id).toArray();
   await db.tasks.bulkDelete(children.map((c) => c.id!));
   await db.tasks.delete(id);
@@ -45,7 +45,7 @@ export async function deleteTaskCascade(id: number) {
 export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage }: Props) {
   const showToast = useToast();
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: string) {
     await deleteTaskCascade(id);
     showToast("削除しました");
   }

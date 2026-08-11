@@ -8,7 +8,7 @@ import { Trash2 } from "lucide-react";
 interface Props {
   goal: Goal;
   onEdit: (goal: Goal) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 export function GoalCard({ goal, onEdit, onDelete }: Props) {

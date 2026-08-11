@@ -9,7 +9,7 @@ import { Check, Package, Trash2 } from "lucide-react";
 interface Props {
   items: TripPackingItem[];
   onEdit: (item: TripPackingItem) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 export function TripPackingList({ items, onEdit, onDelete }: Props) {

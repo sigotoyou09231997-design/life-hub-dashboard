@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { ensureDefaultSettings } from "./db/schema";
+import { db, ensureDefaultSettings } from "./db/schema";
 import { startNotificationScheduler, stopNotificationScheduler } from "./lib/notifications";
+import { registerSyncedTable } from "./lib/sync";
 import { ToastProvider } from "./components/ui/ToastProvider";
 
 import TopPage from "./pages/TopPage";
@@ -17,6 +18,7 @@ import GoalPage from "./pages/records/GoalPage";
 import HabitPage from "./pages/records/HabitPage";
 import GmailPage from "./pages/GmailPage";
 import GmailCallbackPage from "./pages/GmailCallbackPage";
+import AuthCallbackPage from "./pages/AuthCallbackPage";
 
 export default function App() {
   const location = useLocation();
@@ -25,6 +27,9 @@ export default function App() {
   useEffect(() => {
     ensureDefaultSettings();
     startNotificationScheduler();
+    // PC/スマホ同期のPoC対象。Supabaseにログインしていない間は何もしない安全なno-op —
+    // ログインした瞬間に自動で同期を開始する(src/lib/sync.tsのensureAuthListener参照)。
+    registerSyncedTable(db.transactions, "transactions");
     return () => stopNotificationScheduler();
   }, []);
 
@@ -48,6 +53,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/gmail" element={<GmailPage />} />
           <Route path="/gmail/callback" element={<GmailCallbackPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
         </Routes>
       </div>
     </ToastProvider>

@@ -15,7 +15,7 @@ const MOOD_EMOJI: Record<Mood, string> = {
 interface Props {
   entry: DiaryEntry;
   onEdit: (entry: DiaryEntry) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
 export function DiaryEntryCard({ entry, onEdit, onDelete }: Props) {

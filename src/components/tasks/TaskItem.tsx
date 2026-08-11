@@ -10,8 +10,8 @@ interface Props {
   allTasks: Task[];
   onToggle: (task: Task) => void;
   onEdit: (task: Task) => void;
-  onDelete: (id: number) => void;
-  onAddSubtask: (parentId: number) => void;
+  onDelete: (id: string) => void;
+  onAddSubtask: (parentId: string) => void;
   indent?: boolean;
 }
 

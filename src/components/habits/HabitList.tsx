@@ -11,10 +11,10 @@ import { Check, Flame, Trash2 } from "lucide-react";
 interface Props {
   habits: Habit[];
   onEdit: (habit: Habit) => void;
-  onDelete: (id: number) => void;
+  onDelete: (id: string) => void;
 }
 
-function HabitRow({ habit, onEdit, onDelete }: { habit: Habit; onEdit: (h: Habit) => void; onDelete: (id: number) => void }) {
+function HabitRow({ habit, onEdit, onDelete }: { habit: Habit; onEdit: (h: Habit) => void; onDelete: (id: string) => void }) {
   const today = todayStr();
   const logs = useLiveQuery(() => db.habitLogs.where("habitId").equals(habit.id!).toArray(), [habit.id]);
   const doneToday = (logs ?? []).some((l) => l.date === today && l.done);
