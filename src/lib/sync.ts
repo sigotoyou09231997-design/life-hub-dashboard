@@ -142,11 +142,15 @@ async function applyRemoteRow(reg: RegisteredTable, remoteRow: Record<string, un
 }
 
 async function reconcile(reg: RegisteredTable): Promise<void> {
-  if (!currentUserId) return;
+  if (!currentUserId) {
+    console.log("[sync] reconcile skipped: not signed in", reg.tableName);
+    return;
+  }
   const key = lastSyncedKey(reg.tableName);
   const since = localStorage.getItem(key) ?? new Date(0).toISOString();
   const nowIso = new Date().toISOString();
   const { data, error } = await supabase.from(reg.tableName).select("*").gte("updated_at", since);
+  console.log("[sync] reconcile", reg.tableName, { currentUserId, since, rows: data?.length, error });
   if (error) return;
   for (const row of data ?? []) {
     await applyRemoteRow(reg, row as Record<string, unknown>);
