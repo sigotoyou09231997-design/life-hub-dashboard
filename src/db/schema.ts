@@ -12,6 +12,10 @@ import type {
   Settings,
   PayPayLedgerEntry,
   SalaryEntry,
+  Trip,
+  TripScheduleItem,
+  TripExpense,
+  TripPackingItem,
 } from "../types";
 
 export class LifeHubDB extends Dexie {
@@ -27,6 +31,10 @@ export class LifeHubDB extends Dexie {
   settings!: EntityTable<Settings, "id">;
   paypayTransactions!: EntityTable<PayPayLedgerEntry, "id">;
   salaries!: EntityTable<SalaryEntry, "id">;
+  trips!: EntityTable<Trip, "id">;
+  tripSchedule!: EntityTable<TripScheduleItem, "id">;
+  tripExpenses!: EntityTable<TripExpense, "id">;
+  tripPackingItems!: EntityTable<TripPackingItem, "id">;
 
   constructor() {
     super("life-hub");
@@ -53,6 +61,13 @@ export class LifeHubDB extends Dexie {
 
     this.version(3).stores({
       salaries: "++id, month",
+    });
+
+    this.version(4).stores({
+      trips: "++id",
+      tripSchedule: "++id, tripId",
+      tripExpenses: "++id, tripId",
+      tripPackingItems: "++id, tripId",
     });
   }
 }

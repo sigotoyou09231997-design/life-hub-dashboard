@@ -8,17 +8,11 @@ import { exportBackup, importBackup } from "../lib/backup";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
-
-const ACCENT_PRESETS = [
-  { label: "インディゴ", value: "#4f46e5" },
-  { label: "ブルー", value: "#2563eb" },
-  { label: "グリーン", value: "#059669" },
-  { label: "ピンク", value: "#db2777" },
-  { label: "オレンジ", value: "#ea580c" },
-  { label: "スレート", value: "#475569" },
-];
+import { useToast } from "../components/ui/ToastProvider";
 
 export default function SettingsPage() {
+  const showToast = useToast();
+
   useEffect(() => {
     ensureDefaultSettings();
   }, []);
@@ -28,14 +22,12 @@ export default function SettingsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [accentColor, setAccentColor] = useState("#4f46e5");
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission | null>(null);
 
   useEffect(() => {
     if (settings && !initialized.current) {
       initialized.current = true;
       setNotificationsEnabled(settings.notificationsEnabled);
-      setAccentColor(settings.accentColor);
     }
   }, [settings]);
 
@@ -43,7 +35,21 @@ export default function SettingsPage() {
     if (isNotificationSupported()) setPermissionStatus(Notification.permission);
   }, []);
 
+  // The browser can block notifications outside the app (its own site settings) after the
+  // toggle was already on — reconcile the stored flag with live permission so the switch
+  // never shows "on" while notifications can't actually fire.
+  useEffect(() => {
+    if (permissionStatus === "denied" && notificationsEnabled && settings?.id) {
+      setNotificationsEnabled(false);
+      db.settings.update(settings.id, { notificationsEnabled: false });
+    }
+  }, [permissionStatus, notificationsEnabled, settings?.id]);
+
+  const notificationsBlocked = permissionStatus === "denied";
+  const notificationsOn = notificationsEnabled && !notificationsBlocked;
+
   async function handleToggleNotifications(next: boolean) {
+    if (notificationsBlocked) return;
     setNotificationsEnabled(next);
     if (!settings?.id) return;
     if (next) {
@@ -57,10 +63,13 @@ export default function SettingsPage() {
     }
   }
 
-  async function handleAccentChange(color: string) {
-    setAccentColor(color);
-    document.documentElement.style.setProperty("--color-accent", color);
-    if (settings?.id) await db.settings.update(settings.id, { accentColor: color });
+  async function handleExport() {
+    try {
+      await exportBackup();
+      showToast("バックアップを書き出しました");
+    } catch {
+      showToast("書き出しに失敗しました", "error");
+    }
   }
 
   async function handleImport(e: ChangeEvent<HTMLInputElement>) {
@@ -70,9 +79,14 @@ export default function SettingsPage() {
       e.target.value = "";
       return;
     }
-    await importBackup(file);
-    e.target.value = "";
-    alert("データを復元しました");
+    try {
+      await importBackup(file);
+      showToast("データを復元しました");
+    } catch {
+      showToast("復元に失敗しました。ファイルの形式を確認してください。", "error");
+    } finally {
+      e.target.value = "";
+    }
   }
 
   return (
@@ -88,40 +102,25 @@ export default function SettingsPage() {
             </div>
             <button
               onClick={() => handleToggleNotifications(!notificationsEnabled)}
+              aria-pressed={notificationsOn}
               aria-label="通知を切り替え"
-              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${
-                notificationsEnabled ? "bg-accent" : "bg-slate-200"
+              disabled={notificationsBlocked}
+              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                notificationsOn ? "bg-accent" : "bg-slate-200"
               }`}
             >
               <span
                 className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                  notificationsEnabled ? "translate-x-6" : "translate-x-1"
+                  notificationsOn ? "translate-x-6" : "translate-x-1"
                 }`}
               />
             </button>
           </div>
-          {permissionStatus === "denied" && (
+          {notificationsBlocked && (
             <p className="mt-2 text-xs text-danger">
               ブラウザの通知がブロックされています。ブラウザの設定から許可してください。
             </p>
           )}
-        </Card>
-
-        <Card>
-          <p className="mb-3 text-sm font-medium text-slate-600">アクセントカラー</p>
-          <div className="flex flex-wrap gap-3">
-            {ACCENT_PRESETS.map((preset) => (
-              <button
-                key={preset.value}
-                onClick={() => handleAccentChange(preset.value)}
-                aria-label={preset.label}
-                className={`h-9 w-9 rounded-full border-2 ${
-                  accentColor === preset.value ? "border-slate-900" : "border-transparent"
-                }`}
-                style={{ backgroundColor: preset.value }}
-              />
-            ))}
-          </div>
         </Card>
 
         <Card>
@@ -130,7 +129,7 @@ export default function SettingsPage() {
             すべてのデータは端末内にのみ保存されています。バックアップを取っておくと安心です。
           </p>
           <div className="flex gap-3">
-            <Button variant="secondary" className="flex-1" onClick={exportBackup}>
+            <Button variant="secondary" className="flex-1" onClick={handleExport}>
               書き出す
             </Button>
             <Button variant="secondary" className="flex-1" onClick={() => fileInputRef.current?.click()}>
@@ -146,8 +145,8 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        <Link to="/records">
-          <Card className="flex items-center justify-between py-4">
+        <Link to="/records" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+          <Card interactive className="flex items-center justify-between py-4">
             <div>
               <p className="text-sm font-medium text-slate-900">以前のデータ</p>
               <p className="mt-0.5 text-xs text-slate-400">日記・目標・習慣(新しいメニューには表示されません)</p>

@@ -72,10 +72,11 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
               type="button"
               key={p}
               onClick={() => setPriority(p)}
-              className={`rounded-xl border py-2 text-sm font-medium transition-colors ${
+              aria-pressed={priority === p}
+              className={`rounded-xl border py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
                 priority === p
-                  ? "border-accent bg-accent-light text-accent"
-                  : "border-slate-200 bg-white text-slate-500"
+                  ? "border-accent bg-accent-light font-semibold text-accent"
+                  : "border-slate-200 bg-white font-medium text-slate-500 hover:border-slate-300"
               }`}
             >
               {PRIORITY_LABEL[p]}
@@ -117,7 +118,7 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
         ))}
       </Select>
 
-      <div className="flex gap-3 pt-2">
+      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-slate-100 bg-white px-5 py-3">
         <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
           キャンセル
         </Button>

@@ -3,10 +3,12 @@ import { db } from "../../db/schema";
 import type { Transaction } from "../../types";
 import { formatDisplayDate, toDateStr, todayStr } from "../../lib/date";
 import { usePayPeriodBudget } from "../../hooks/usePayPeriodBudget";
+import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { ProgressBar } from "../ui/ProgressBar";
 import { Button } from "../ui/Button";
+import { ListSkeleton } from "../ui/ListSkeleton";
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
@@ -40,7 +42,8 @@ export function ExpenseSummary({ onAddSalary }: Props) {
   }
   const categoryBreakdown = [...byCategory.entries()].sort((a, b) => b[1] - a[1]);
 
-  if (loading) return null;
+  const showSkeleton = useDelayedFlag(loading);
+  if (loading) return showSkeleton ? <ListSkeleton rows={2} /> : null;
 
   if (!data) {
     return (

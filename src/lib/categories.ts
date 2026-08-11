@@ -23,6 +23,6 @@ export const FIXED_COST_CATEGORIES = [
 
 export const PAYMENT_METHODS = ["現金", "クレジットカード", "電子マネー", "銀行振込", "その他"];
 
-export const NOTE_CATEGORIES = ["仕事", "生活", "買い物", "アイデア", "その他"];
+export const NOTE_CATEGORIES = ["仕事", "プライベート", "重要", "その他"];
 
 export const GOAL_CATEGORIES = ["貯金", "仕事", "健康", "学習", "その他"];

@@ -3,9 +3,11 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction, FixedCost, SalaryEntry } from "../../types";
 import { monthRange } from "../../lib/date";
+import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Sheet } from "../../components/ui/Sheet";
 import { Button } from "../../components/ui/Button";
+import { Tabs } from "../../components/ui/Tabs";
 import { ExpenseSummary } from "../../components/expense/ExpenseSummary";
 import { ExpenseList } from "../../components/expense/ExpenseList";
 import { ExpenseForm } from "../../components/expense/ExpenseForm";
@@ -14,10 +16,14 @@ import { FixedCostForm } from "../../components/expense/FixedCostForm";
 import { SalaryList } from "../../components/expense/SalaryList";
 import { SalaryForm } from "../../components/expense/SalaryForm";
 import { PayPayImport } from "../../components/expense/PayPayImport";
+import { useToast } from "../../components/ui/ToastProvider";
+import { ListSkeleton } from "../../components/ui/ListSkeleton";
+import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 
 type Tab = "summary" | "salary" | "fixed" | "history" | "paypay";
 
 export default function ExpensePage() {
+  const showToast = useToast();
   const [tab, setTab] = useState<Tab>("summary");
   const [editingTransaction, setEditingTransaction] = useState<Transaction | "new" | null>(null);
   const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | "new" | null>(null);
@@ -30,29 +36,27 @@ export default function ExpensePage() {
   );
   const fixedCosts = useLiveQuery(() => db.fixedCosts.toArray(), []);
   const salaries = useLiveQuery(() => db.salaries.toArray(), []);
+  const showSalarySkeleton = useDelayedFlag(salaries === undefined);
+  const showHistorySkeleton = useDelayedFlag(transactions === undefined);
+  const showFixedSkeleton = useDelayedFlag(fixedCosts === undefined);
 
   return (
-    <div className="pb-10">
+    <div className="pb-10" style={AREA_ACCENT_STYLE.money}>
       <PageHeader title="家計簿" subtitle="収支と固定費を管理" backTo="/" />
 
-      <div className="mx-5 mb-4 grid grid-cols-5 gap-1 rounded-xl bg-slate-100 p-1">
-        {([
-          ["summary", "サマリー"],
-          ["salary", "給与"],
-          ["fixed", "固定費"],
-          ["history", "履歴"],
-          ["paypay", "PayPay"],
-        ] as [Tab, string][]).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`rounded-lg py-2 text-[11px] font-medium transition-colors ${
-              tab === key ? "bg-white text-accent shadow-sm" : "text-slate-500"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="mx-5 mb-4">
+        <Tabs
+          options={[
+            { value: "summary", label: "サマリー" },
+            { value: "salary", label: "給与" },
+            { value: "fixed", label: "固定費" },
+            { value: "history", label: "履歴" },
+            { value: "paypay", label: "PayPay" },
+          ]}
+          value={tab}
+          onChange={setTab}
+          dense
+        />
       </div>
 
       <div className="px-5">
@@ -60,11 +64,18 @@ export default function ExpensePage() {
 
         {tab === "salary" && (
           <>
-            <SalaryList
-              salaries={salaries ?? []}
-              onEdit={(s) => setEditingSalary(s)}
-              onDelete={(id) => db.salaries.delete(id)}
-            />
+            {showSalarySkeleton ? (
+              <ListSkeleton />
+            ) : (
+              <SalaryList
+                salaries={salaries ?? []}
+                onEdit={(s) => setEditingSalary(s)}
+                onDelete={(id) => {
+                  db.salaries.delete(id);
+                  showToast("削除しました");
+                }}
+              />
+            )}
             <Button className="mt-4 w-full" onClick={() => setEditingSalary("new")}>
               給与を追加
             </Button>
@@ -73,11 +84,18 @@ export default function ExpensePage() {
 
         {tab === "history" && (
           <>
-            <ExpenseList
-              transactions={transactions ?? []}
-              onEdit={(t) => setEditingTransaction(t)}
-              onDelete={(id) => db.transactions.delete(id)}
-            />
+            {showHistorySkeleton ? (
+              <ListSkeleton />
+            ) : (
+              <ExpenseList
+                transactions={transactions ?? []}
+                onEdit={(t) => setEditingTransaction(t)}
+                onDelete={(id) => {
+                  db.transactions.delete(id);
+                  showToast("削除しました");
+                }}
+              />
+            )}
             <Button className="mt-4 w-full" onClick={() => setEditingTransaction("new")}>
               収支を追加
             </Button>
@@ -86,11 +104,18 @@ export default function ExpensePage() {
 
         {tab === "fixed" && (
           <>
-            <FixedCostList
-              fixedCosts={fixedCosts ?? []}
-              onEdit={(f) => setEditingFixedCost(f)}
-              onDelete={(id) => db.fixedCosts.delete(id)}
-            />
+            {showFixedSkeleton ? (
+              <ListSkeleton />
+            ) : (
+              <FixedCostList
+                fixedCosts={fixedCosts ?? []}
+                onEdit={(f) => setEditingFixedCost(f)}
+                onDelete={(id) => {
+                  db.fixedCosts.delete(id);
+                  showToast("削除しました");
+                }}
+              />
+            )}
             <Button className="mt-4 w-full" onClick={() => setEditingFixedCost("new")}>
               固定費を追加
             </Button>
@@ -108,7 +133,10 @@ export default function ExpensePage() {
         {editingTransaction && (
           <ExpenseForm
             initial={editingTransaction === "new" ? undefined : editingTransaction}
-            onSaved={() => setEditingTransaction(null)}
+            onSaved={() => {
+              setEditingTransaction(null);
+              showToast("保存しました");
+            }}
             onCancel={() => setEditingTransaction(null)}
           />
         )}
@@ -122,7 +150,10 @@ export default function ExpensePage() {
         {editingFixedCost && (
           <FixedCostForm
             initial={editingFixedCost === "new" ? undefined : editingFixedCost}
-            onSaved={() => setEditingFixedCost(null)}
+            onSaved={() => {
+              setEditingFixedCost(null);
+              showToast("保存しました");
+            }}
             onCancel={() => setEditingFixedCost(null)}
           />
         )}
@@ -136,7 +167,10 @@ export default function ExpensePage() {
         {editingSalary && (
           <SalaryForm
             initial={editingSalary === "new" ? undefined : editingSalary}
-            onSaved={() => setEditingSalary(null)}
+            onSaved={() => {
+              setEditingSalary(null);
+              showToast("保存しました");
+            }}
             onCancel={() => setEditingSalary(null)}
           />
         )}

@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --color-accent: #4f46e5;
-  --color-accent-light: #eef2ff;
+  --color-accent: #2563eb;
+  --color-accent-light: #eff6ff;
   --color-navy: #101b36;
 }
 
@@ -15,12 +15,33 @@ body,
 }
 
 body {
-  @apply bg-white text-slate-900 antialiased;
+  @apply text-slate-900 antialiased;
+  /* Visible as letterboxing behind the centered app column on wide
+     viewports; fully covered by the column itself on mobile widths. */
+  background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 45%, #eef2ff 100%);
+  background-attachment: fixed;
   -webkit-tap-highlight-color: transparent;
 }
 
 * {
   -webkit-font-smoothing: antialiased;
+}
+
+@layer utilities {
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: fade-in 200ms ease-out;
+  }
+  .animate-slide-up {
+    animation: slide-up 200ms ease-out;
+  }
 }
 
 ::-webkit-scrollbar {

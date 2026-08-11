@@ -4,13 +4,19 @@ import { Plus, Calendar as CalendarIcon, CheckSquare } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent, Task } from "../types";
 import { todayStr } from "../lib/date";
+import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
+import { Tabs } from "../components/ui/Tabs";
 import { EventForm } from "../components/calendar/EventForm";
 import { TaskForm } from "../components/tasks/TaskForm";
 import { TodayView } from "../components/schedule/TodayView";
 import { CalendarView } from "../components/schedule/CalendarView";
 import { ListView } from "../components/schedule/ListView";
+import type { TripAgendaEntry } from "../components/schedule/TripAgendaList";
+import { useToast } from "../components/ui/ToastProvider";
+import { ListSkeleton } from "../components/ui/ListSkeleton";
+import { useDelayedFlag } from "../hooks/useDelayedFlag";
 
 type Tab = "today" | "calendar" | "list";
 type EditingEvent = CalendarEvent | "new" | null;
@@ -21,6 +27,7 @@ type EditingTask =
   | null;
 
 export default function SchedulePage() {
+  const showToast = useToast();
   const [tab, setTab] = useState<Tab>("today");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -28,8 +35,24 @@ export default function SchedulePage() {
   const [editingEvent, setEditingEvent] = useState<EditingEvent>(null);
   const [editingTask, setEditingTask] = useState<EditingTask>(null);
 
-  const events = useLiveQuery(() => db.calendarEvents.toArray(), []) ?? [];
-  const tasks = useLiveQuery(() => db.tasks.toArray(), []) ?? [];
+  const eventsResult = useLiveQuery(() => db.calendarEvents.toArray(), []);
+  const tasksResult = useLiveQuery(() => db.tasks.toArray(), []);
+  const tripScheduleResult = useLiveQuery(() => db.tripSchedule.toArray(), []);
+  const tripsResult = useLiveQuery(() => db.trips.toArray(), []);
+  const events = eventsResult ?? [];
+  const tasks = tasksResult ?? [];
+  const showSkeleton = useDelayedFlag(eventsResult === undefined || tasksResult === undefined);
+
+  const tripNameById = new Map((tripsResult ?? []).map((t) => [t.id, t.name]));
+  const tripAgenda: TripAgendaEntry[] = (tripScheduleResult ?? []).map((s) => ({
+    id: s.id!,
+    tripId: s.tripId,
+    tripName: tripNameById.get(s.tripId) ?? "旅行",
+    date: s.date,
+    startTime: s.startTime,
+    title: s.title,
+    location: s.location,
+  }));
 
   const addDefaultDate = tab === "calendar" ? selectedDate : todayStr();
 
@@ -41,47 +64,47 @@ export default function SchedulePage() {
   }
   function handleDeleteEvent(id: number) {
     db.calendarEvents.delete(id);
+    showToast("削除しました");
   }
 
   return (
-    <div className="pb-10">
+    <div className="pb-10" style={AREA_ACCENT_STYLE.schedule}>
       <PageHeader
         title="予定・タスク管理"
         backTo="/"
         right={
           <button
             onClick={() => setAddTypeOpen(true)}
-            aria-label="追加"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white active:bg-accent/90"
+            aria-label="予定・タスクを追加"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white shadow-sm transition-colors active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Plus size={20} />
           </button>
         }
       />
 
-      <div className="mx-5 mb-4 grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1">
-        {([
-          ["today", "今日"],
-          ["calendar", "カレンダー"],
-          ["list", "一覧"],
-        ] as [Tab, string][]).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`rounded-lg py-2 text-sm font-medium transition-colors ${
-              tab === key ? "bg-white text-accent shadow-sm" : "text-slate-500"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="mx-5 mb-4">
+        <Tabs
+          options={[
+            { value: "today", label: "今日" },
+            { value: "calendar", label: "カレンダー" },
+            { value: "list", label: "一覧" },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
       </div>
 
       <div className="px-5">
+        {showSkeleton ? (
+          <ListSkeleton />
+        ) : (
+          <>
         {tab === "today" && (
           <TodayView
             events={events}
             tasks={tasks}
+            tripAgenda={tripAgenda}
             onEditEvent={(e) => setEditingEvent(e)}
             onDeleteEvent={handleDeleteEvent}
             onEditTask={handleEditTask}
@@ -93,6 +116,7 @@ export default function SchedulePage() {
           <CalendarView
             events={events}
             tasks={tasks}
+            tripAgenda={tripAgenda}
             currentMonth={currentMonth}
             onMonthChange={setCurrentMonth}
             selectedDate={selectedDate}
@@ -108,11 +132,14 @@ export default function SchedulePage() {
           <ListView
             events={events}
             tasks={tasks}
+            tripAgenda={tripAgenda}
             onEditEvent={(e) => setEditingEvent(e)}
             onDeleteEvent={handleDeleteEvent}
             onEditTask={handleEditTask}
             onAddSubtask={handleAddSubtask}
           />
+        )}
+          </>
         )}
       </div>
 
@@ -150,7 +177,10 @@ export default function SchedulePage() {
           <EventForm
             initial={editingEvent === "new" ? undefined : editingEvent}
             defaultDate={addDefaultDate}
-            onSaved={() => setEditingEvent(null)}
+            onSaved={() => {
+              setEditingEvent(null);
+              showToast("保存しました");
+            }}
             onCancel={() => setEditingEvent(null)}
           />
         )}
@@ -167,7 +197,10 @@ export default function SchedulePage() {
           <TaskForm
             initial={editingTask.mode === "edit" ? editingTask.task : undefined}
             parentTaskId={editingTask.mode === "subtask" ? editingTask.parentId : undefined}
-            onSaved={() => setEditingTask(null)}
+            onSaved={() => {
+              setEditingTask(null);
+              showToast("保存しました");
+            }}
             onCancel={() => setEditingTask(null)}
           />
         )}

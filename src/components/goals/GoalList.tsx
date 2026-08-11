@@ -1,5 +1,7 @@
+import { Target } from "lucide-react";
 import type { Goal } from "../../types";
 import { GoalCard } from "./GoalCard";
+import { EmptyState } from "../ui/EmptyState";
 
 interface Props {
   goals: Goal[];
@@ -9,7 +11,9 @@ interface Props {
 
 export function GoalList({ goals, onEdit, onDelete }: Props) {
   if (goals.length === 0) {
-    return <p className="py-8 text-center text-sm text-slate-400">目標がまだありません</p>;
+    return (
+      <EmptyState icon={Target} title="目標がまだありません" description="下のボタンから最初の目標を追加できます。" />
+    );
   }
 
   const sorted = [...goals].sort((a, b) => (a.deadline ?? "9999-99-99").localeCompare(b.deadline ?? "9999-99-99"));

@@ -1,7 +1,9 @@
 import type { Note } from "../../types";
 import { db } from "../../db/schema";
 import { todayStr } from "../../lib/date";
+import { getNoteType, getNoteTypeDef } from "../../lib/noteTypes";
 import { Badge } from "../ui/Badge";
+import { ListRow } from "../ui/ListRow";
 import { Pin, CheckSquare, CalendarPlus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -29,49 +31,106 @@ async function convertToEvent(note: Note) {
   });
 }
 
+function yen(n: number): string {
+  return `¥${Math.round(n).toLocaleString()}`;
+}
+
+function NoteSummary({ note }: { note: Note }) {
+  const type = getNoteType(note);
+
+  if (type === "checklist") {
+    const items = note.checklistItems ?? [];
+    const checkedCount = items.filter((i) => i.checked).length;
+    return (
+      <p className="mt-1 text-xs text-slate-500">
+        {items.length === 0 ? "項目がありません" : `${checkedCount}/${items.length} 完了`}
+      </p>
+    );
+  }
+
+  if (type === "shopping") {
+    const items = note.shoppingItems ?? [];
+    const planned = items.reduce((sum, i) => sum + (i.price ?? 0), 0);
+    const purchased = items.filter((i) => i.purchased).reduce((sum, i) => sum + (i.price ?? 0), 0);
+    return (
+      <p className="mt-1 text-xs text-slate-500">
+        {items.length === 0 ? "商品がありません" : `${yen(purchased)} / ${yen(planned)}`}
+      </p>
+    );
+  }
+
+  return note.body ? <p className="mt-1 line-clamp-2 text-xs text-slate-500">{note.body}</p> : null;
+}
+
 export function NoteCard({ note, onEdit, onDelete }: Props) {
+  const type = getNoteType(note);
+  const typeDef = getNoteTypeDef(type);
+  const TypeIcon = typeDef.icon;
+
   return (
-    <div className="rounded-xl border border-slate-100 bg-white p-3.5">
-      <div className="flex items-start justify-between gap-2" onClick={() => onEdit(note)}>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            {note.pinned && <Pin size={13} className="shrink-0 text-accent" />}
-            <p className="truncate text-sm font-medium text-slate-900">{note.title}</p>
-          </div>
-          {note.body && <p className="mt-1 line-clamp-2 text-xs text-slate-500">{note.body}</p>}
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {note.category && <Badge tone="accent">{note.category}</Badge>}
-            {note.tags.map((tag) => (
-              <Badge key={tag} tone="neutral">
-                #{tag}
-              </Badge>
-            ))}
+    <ListRow interactive className="p-0">
+      <button
+        type="button"
+        onClick={() => onEdit(note)}
+        aria-label={`${note.title}を編集`}
+        className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+      />
+      <div className="pointer-events-none relative z-10 p-3.5">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <TypeIcon size={14} className="shrink-0 text-slate-400" />
+              {note.pinned && <Pin size={13} className="shrink-0 text-accent" />}
+              <p className="line-clamp-2 text-sm font-medium text-slate-900" title={note.title}>
+                {note.title}
+              </p>
+            </div>
+            <NoteSummary note={note} />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Badge tone={typeDef.tone}>{typeDef.label}</Badge>
+              {note.category && <Badge tone="accent">{note.category}</Badge>}
+              {note.tags.map((tag) => (
+                <Badge key={tag} tone="neutral">
+                  #{tag}
+                </Badge>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="mt-3 flex items-center gap-2 border-t border-slate-50 pt-2.5">
-        <button
-          onClick={() => convertToTask(note)}
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 active:bg-slate-100"
-        >
-          <CheckSquare size={14} />
-          タスク化
-        </button>
-        <button
-          onClick={() => convertToEvent(note)}
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 active:bg-slate-100"
-        >
-          <CalendarPlus size={14} />
-          予定化
-        </button>
-        <button
-          onClick={() => note.id && onDelete(note.id)}
-          className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-400 active:bg-red-50 active:text-danger"
-        >
-          <Trash2 size={14} />
-        </button>
+        <div className="pointer-events-auto mt-3 flex items-center gap-2 border-t border-slate-50 pt-2.5">
+          {type === "memo" && (
+            <>
+              <button
+                type="button"
+                onClick={() => convertToTask(note)}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+              >
+                <CheckSquare size={14} />
+                タスク化
+              </button>
+              <button
+                type="button"
+                onClick={() => convertToEvent(note)}
+                className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+              >
+                <CalendarPlus size={14} />
+                予定化
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              if (note.id && confirm(`「${note.title}」を削除しますか?`)) onDelete(note.id);
+            }}
+            aria-label="削除"
+            className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-400 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
-    </div>
+    </ListRow>
   );
 }

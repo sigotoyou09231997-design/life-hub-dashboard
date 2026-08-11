@@ -2,6 +2,7 @@ import type { Task } from "../../types";
 import { isOverdue } from "../../lib/date";
 import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { Badge } from "../ui/Badge";
+import { ListRow } from "../ui/ListRow";
 import { Check, Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -35,7 +36,7 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
 
   return (
     <div className={indent ? "ml-8" : ""}>
-      <div className="flex items-start gap-3 rounded-xl border border-slate-100 bg-white p-3.5">
+      <ListRow className="flex items-start gap-3">
         <button
           onClick={() => onToggle(task)}
           aria-label="完了切り替え"
@@ -46,9 +47,15 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
           {task.completed && <Check size={12} strokeWidth={3} />}
         </button>
 
-        <div className="min-w-0 flex-1" onClick={() => onEdit(task)}>
+        <button
+          type="button"
+          onClick={() => onEdit(task)}
+          aria-label={`タスク「${task.title}」を編集`}
+          className="block min-w-0 flex-1 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
           <p
-            className={`truncate text-sm font-medium ${
+            title={task.title}
+            className={`line-clamp-2 text-sm font-medium ${
               task.completed ? "text-slate-400 line-through" : "text-slate-900"
             }`}
           >
@@ -66,14 +73,14 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
             {task.repeat !== "none" && <Badge tone="accent">繰り返し</Badge>}
             <Badge tone={category.tone}>{category.label}</Badge>
           </div>
-        </div>
+        </button>
 
         <div className="flex shrink-0 items-center gap-1">
           {!indent && (
             <button
               onClick={() => task.id && onAddSubtask(task.id)}
               aria-label="サブタスク追加"
-              className="rounded-full p-1.5 text-slate-300 active:bg-slate-100"
+              className="rounded-full p-1.5 text-slate-300 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <Plus size={16} />
             </button>
@@ -81,12 +88,12 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
           <button
             onClick={handleDeleteClick}
             aria-label="削除"
-            className="rounded-full p-1.5 text-slate-300 active:bg-red-50 active:text-danger"
+            className="rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
           >
             <Trash2 size={16} />
           </button>
         </div>
-      </div>
+      </ListRow>
 
       {subtasks.length > 0 && (
         <div className="mt-2 space-y-2">

@@ -5,10 +5,10 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "md" | "lg" | "icon";
 
 const variantClasses: Record<Variant, string> = {
-  primary: "bg-accent text-white active:bg-accent/90",
-  secondary: "bg-accent-light text-accent active:bg-accent-light/70",
-  ghost: "bg-transparent text-slate-600 active:bg-slate-100",
-  danger: "bg-red-50 text-danger active:bg-red-100",
+  primary: "bg-accent text-white active:bg-accent/90 focus-visible:ring-accent",
+  secondary: "bg-accent-light text-accent active:bg-accent-light/70 focus-visible:ring-accent",
+  ghost: "bg-transparent text-slate-600 active:bg-slate-100 focus-visible:ring-accent",
+  danger: "bg-red-50 text-danger active:bg-red-100 focus-visible:ring-danger",
 };
 
 const sizeClasses: Record<Size, string> = {
@@ -32,7 +32,7 @@ export function Button({
   return (
     <button
       className={twMerge(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-colors disabled:opacity-40",
+        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:active:scale-100",
         variantClasses[variant],
         sizeClasses[size],
         className,

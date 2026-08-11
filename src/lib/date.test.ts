@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { isOverdue, advanceByRepeat } from "./date";
+import { isOverdue, advanceByRepeat, tripDayList, tripDurationLabel } from "./date";
 
 describe("isOverdue", () => {
   beforeEach(() => {
@@ -58,5 +58,65 @@ describe("advanceByRepeat", () => {
 
   it("crosses the year boundary correctly", () => {
     expect(advanceByRepeat("2026-12-25", "monthly")).toBe("2027-01-25");
+  });
+});
+
+describe("tripDayList", () => {
+  it("returns a single day for a day trip", () => {
+    expect(tripDayList("2026-08-15", "2026-08-15")).toEqual(["2026-08-15"]);
+  });
+
+  it("lists every day for a multi-day trip", () => {
+    expect(tripDayList("2026-08-15", "2026-08-18")).toEqual([
+      "2026-08-15",
+      "2026-08-16",
+      "2026-08-17",
+      "2026-08-18",
+    ]);
+  });
+
+  it("spans a month-end boundary", () => {
+    expect(tripDayList("2026-01-30", "2026-02-02")).toEqual([
+      "2026-01-30",
+      "2026-01-31",
+      "2026-02-01",
+      "2026-02-02",
+    ]);
+  });
+
+  it("spans a year-end boundary", () => {
+    expect(tripDayList("2026-12-30", "2027-01-02")).toEqual([
+      "2026-12-30",
+      "2026-12-31",
+      "2027-01-01",
+      "2027-01-02",
+    ]);
+  });
+
+  it("includes Feb 29 for a trip crossing a leap year", () => {
+    expect(tripDayList("2028-02-27", "2028-03-01")).toEqual([
+      "2028-02-27",
+      "2028-02-28",
+      "2028-02-29",
+      "2028-03-01",
+    ]);
+  });
+
+  it("returns an empty list when the end date precedes the start date", () => {
+    expect(tripDayList("2026-08-15", "2026-08-10")).toEqual([]);
+  });
+});
+
+describe("tripDurationLabel", () => {
+  it("labels a same-day trip as a day trip", () => {
+    expect(tripDurationLabel("2026-08-15", "2026-08-15")).toBe("日帰り");
+  });
+
+  it("labels a multi-day trip as n泊m日", () => {
+    expect(tripDurationLabel("2026-08-15", "2026-08-18")).toBe("3泊4日");
+  });
+
+  it("counts nights correctly across a leap-year February", () => {
+    expect(tripDurationLabel("2028-02-27", "2028-03-01")).toBe("3泊4日");
   });
 });

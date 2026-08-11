@@ -82,13 +82,34 @@ export interface Task {
   createdAt: number;
 }
 
+export type NoteType = "memo" | "checklist" | "shopping";
+
+export interface ChecklistItem {
+  id: string;
+  title: string;
+  checked: boolean;
+}
+
+export interface ShoppingItem {
+  id: string;
+  name: string;
+  quantity?: number;
+  price?: number;
+  purchased: boolean;
+}
+
 export interface Note {
   id?: number;
+  // Absent on records created before the memo/checklist/shopping split;
+  // resolve with getNoteType() rather than reading this directly.
+  type?: NoteType;
   title: string;
   body: string;
   tags: string[];
   category?: string;
   pinned: boolean;
+  checklistItems?: ChecklistItem[];
+  shoppingItems?: ShoppingItem[];
   createdAt: number;
   updatedAt: number;
 }
@@ -128,6 +149,59 @@ export interface HabitLog {
   habitId: number;
   date: string; // YYYY-MM-DD
   done: boolean;
+}
+
+export type TripStatus = "planning" | "ongoing" | "completed";
+
+export interface Trip {
+  id?: number;
+  name: string;
+  destination: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  memo?: string;
+  status: TripStatus;
+  budget?: number;
+  createdAt: number;
+}
+
+export type TripScheduleType = "sightseeing" | "meal" | "transport" | "lodging" | "other";
+
+export interface TripScheduleItem {
+  id?: number;
+  tripId: number;
+  date: string; // YYYY-MM-DD
+  startTime?: string; // HH:mm
+  title: string;
+  location?: string;
+  memo?: string;
+  type: TripScheduleType;
+  createdAt: number;
+}
+
+export type TripExpenseCategory = "transport" | "lodging" | "meal" | "sightseeing" | "shopping" | "other";
+
+export interface TripExpense {
+  id?: number;
+  tripId: number;
+  title: string;
+  amount: number;
+  category: TripExpenseCategory;
+  paidDate?: string; // YYYY-MM-DD
+  paid: boolean;
+  memo?: string;
+  createdAt: number;
+}
+
+export type TripPackingCategory = "essentials" | "clothing" | "electronics" | "documents" | "other";
+
+export interface TripPackingItem {
+  id?: number;
+  tripId: number;
+  title: string;
+  category: TripPackingCategory;
+  checked: boolean;
+  createdAt: number;
 }
 
 export interface Settings {

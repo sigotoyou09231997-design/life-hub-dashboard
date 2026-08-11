@@ -4,7 +4,9 @@ import type { Habit } from "../../types";
 import { todayStr } from "../../lib/date";
 import { calculateStreak } from "../../lib/habits";
 import { HabitStreakBadge } from "./HabitStreakBadge";
-import { Check, Trash2 } from "lucide-react";
+import { ListRow } from "../ui/ListRow";
+import { EmptyState } from "../ui/EmptyState";
+import { Check, Flame, Trash2 } from "lucide-react";
 
 interface Props {
   habits: Habit[];
@@ -28,7 +30,7 @@ function HabitRow({ habit, onEdit, onDelete }: { habit: Habit; onEdit: (h: Habit
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white p-3.5">
+    <ListRow className="flex items-center gap-3">
       <button
         onClick={toggleToday}
         aria-label="今日の達成を切り替え"
@@ -39,26 +41,40 @@ function HabitRow({ habit, onEdit, onDelete }: { habit: Habit; onEdit: (h: Habit
         {doneToday && <Check size={16} strokeWidth={3} />}
       </button>
 
-      <div className="min-w-0 flex-1" onClick={() => onEdit(habit)}>
-        <p className="truncate text-sm font-medium text-slate-900">{habit.title}</p>
+      <button
+        type="button"
+        onClick={() => onEdit(habit)}
+        aria-label={`習慣「${habit.title}」を編集`}
+        className="block min-w-0 flex-1 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+      >
+        <p className="line-clamp-2 text-sm font-medium text-slate-900" title={habit.title}>
+          {habit.title}
+        </p>
         <div className="mt-1">
           <HabitStreakBadge streak={streak} />
         </div>
-      </div>
+      </button>
 
       <button
-        onClick={() => habit.id && onDelete(habit.id)}
-        className="shrink-0 rounded-full p-1.5 text-slate-300 active:bg-red-50 active:text-danger"
+        onClick={() => {
+          if (habit.id && confirm(`「${habit.title}」を削除しますか?これまでの達成記録もすべて削除されます。`)) {
+            onDelete(habit.id);
+          }
+        }}
+        aria-label="削除"
+        className="shrink-0 rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
       >
         <Trash2 size={16} />
       </button>
-    </div>
+    </ListRow>
   );
 }
 
 export function HabitList({ habits, onEdit, onDelete }: Props) {
   if (habits.length === 0) {
-    return <p className="py-8 text-center text-sm text-slate-400">習慣がまだ登録されていません</p>;
+    return (
+      <EmptyState icon={Flame} title="習慣がまだ登録されていません" description="下のボタンから登録できます。" />
+    );
   }
 
   return (

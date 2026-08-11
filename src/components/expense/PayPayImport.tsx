@@ -5,6 +5,7 @@ import { decodePayPayCsvFile, parsePayPayCsv, classifyForHousehold } from "../..
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
+import { useToast } from "../ui/ToastProvider";
 
 interface ImportResult {
   total: number;
@@ -18,6 +19,7 @@ function yen(n: number): string {
 }
 
 export function PayPayImport() {
+  const showToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [balanceInput, setBalanceInput] = useState("");
   const [importing, setImporting] = useState(false);
@@ -97,8 +99,10 @@ export function PayPayImport() {
       }
 
       setResult({ total: rows.length, householdImported, skippedInternal, duplicates });
+      showToast(`${householdImported}件を取り込みました`);
     } catch {
       setError("CSVの読み込みに失敗しました。ファイル形式を確認してください。");
+      showToast("CSVの読み込みに失敗しました", "error");
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -113,6 +117,7 @@ export function PayPayImport() {
       paypayBalanceUpdatedAt: Date.now(),
     });
     setBalanceInput("");
+    showToast("残高を更新しました");
   }
 
   return (

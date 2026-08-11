@@ -7,8 +7,10 @@ import { Sheet } from "../../components/ui/Sheet";
 import { Button } from "../../components/ui/Button";
 import { HabitList } from "../../components/habits/HabitList";
 import { HabitForm } from "../../components/habits/HabitForm";
+import { useToast } from "../../components/ui/ToastProvider";
 
 export default function HabitPage() {
+  const showToast = useToast();
   const [editing, setEditing] = useState<Habit | "new" | null>(null);
   const habits = useLiveQuery(() => db.habits.toArray(), []);
 
@@ -23,6 +25,7 @@ export default function HabitPage() {
           onDelete={async (id) => {
             await db.habitLogs.where("habitId").equals(id).delete();
             await db.habits.delete(id);
+            showToast("削除しました");
           }}
         />
         <Button className="mt-4 w-full" onClick={() => setEditing("new")}>
@@ -38,7 +41,10 @@ export default function HabitPage() {
         {editing && (
           <HabitForm
             initial={editing === "new" ? undefined : editing}
-            onSaved={() => setEditing(null)}
+            onSaved={() => {
+              setEditing(null);
+              showToast("保存しました");
+            }}
             onCancel={() => setEditing(null)}
           />
         )}

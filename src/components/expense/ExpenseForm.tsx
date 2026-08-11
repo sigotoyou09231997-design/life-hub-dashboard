@@ -6,6 +6,7 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "../../li
 import { Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/Button";
+import { Tabs } from "../ui/Tabs";
 
 interface Props {
   initial?: Transaction;
@@ -63,20 +64,14 @@ export function ExpenseForm({ initial, defaultType = "expense", onSaved, onCance
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
-        {(["expense", "income"] as TransactionType[]).map((t) => (
-          <button
-            type="button"
-            key={t}
-            onClick={() => handleTypeChange(t)}
-            className={`rounded-lg py-2 text-sm font-medium transition-colors ${
-              type === t ? "bg-white text-accent shadow-sm" : "text-slate-500"
-            }`}
-          >
-            {t === "expense" ? "支出" : "収入"}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        options={[
+          { value: "expense", label: "支出" },
+          { value: "income", label: "収入" },
+        ]}
+        value={type}
+        onChange={handleTypeChange}
+      />
 
       <Input
         label="金額"
@@ -123,7 +118,7 @@ export function ExpenseForm({ initial, defaultType = "expense", onSaved, onCance
 
       <Textarea label="メモ" value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} placeholder="任意" />
 
-      <div className="flex gap-3 pt-2">
+      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-slate-100 bg-white px-5 py-3">
         <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
           キャンセル
         </Button>

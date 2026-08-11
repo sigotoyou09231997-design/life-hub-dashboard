@@ -10,6 +10,8 @@ import {
   addDays,
   addWeeks,
   addMonths,
+  eachDayOfInterval,
+  differenceInCalendarDays,
 } from "date-fns";
 import type { RepeatRule } from "../types";
 
@@ -88,4 +90,23 @@ export function isOverdue(dueDate?: string, dueTime?: string): boolean {
   const target = parseISO(dueTime ? `${dueDate}T${dueTime}` : `${dueDate}T23:59:59`);
   if (!isValid(target)) return false;
   return target.getTime() < now.getTime();
+}
+
+/** Every calendar day from startDate to endDate inclusive, correctly
+ * spanning month-end, year-end, and leap-year boundaries. */
+export function tripDayList(startDate: string, endDate: string): string[] {
+  const start = parseISO(startDate);
+  const end = parseISO(endDate);
+  if (!isValid(start) || !isValid(end) || end < start) return [];
+  return eachDayOfInterval({ start, end }).map(toDateStr);
+}
+
+/** "日帰り" for a same-day trip, otherwise "n泊m日". */
+export function tripDurationLabel(startDate: string, endDate: string): string {
+  const start = parseISO(startDate);
+  const end = parseISO(endDate);
+  if (!isValid(start) || !isValid(end) || end < start) return "";
+  const nights = differenceInCalendarDays(end, start);
+  if (nights <= 0) return "日帰り";
+  return `${nights}泊${nights + 1}日`;
 }

@@ -1,7 +1,9 @@
 import type { Transaction } from "../../types";
 import { formatDisplayDate } from "../../lib/date";
 import { Badge } from "../ui/Badge";
-import { Trash2 } from "lucide-react";
+import { ListRow } from "../ui/ListRow";
+import { EmptyState } from "../ui/EmptyState";
+import { Receipt, Trash2 } from "lucide-react";
 
 interface Props {
   transactions: Transaction[];
@@ -11,7 +13,9 @@ interface Props {
 
 export function ExpenseList({ transactions, onEdit, onDelete }: Props) {
   if (transactions.length === 0) {
-    return <p className="py-8 text-center text-sm text-slate-400">記録がまだありません</p>;
+    return (
+      <EmptyState icon={Receipt} title="今月の記録がまだありません" description="下のボタンから収支を追加できます。" />
+    );
   }
 
   const byDate = new Map<string, Transaction[]>();
@@ -27,40 +31,46 @@ export function ExpenseList({ transactions, onEdit, onDelete }: Props) {
           <p className="mb-2 text-xs font-medium text-slate-400">{formatDisplayDate(date)}</p>
           <div className="space-y-2">
             {items.map((t) => (
-              <div
-                key={t.id}
-                onClick={() => onEdit(t)}
-                className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3.5 active:bg-slate-50"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-slate-900">{t.category}</span>
-                    {t.isFixed && <Badge tone="neutral">固定費</Badge>}
+              <ListRow key={t.id} interactive className="p-0">
+                <button
+                  type="button"
+                  onClick={() => onEdit(t)}
+                  aria-label={`${t.category}を編集`}
+                  className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                />
+                <div className="pointer-events-none relative z-10 flex items-center justify-between gap-3 p-3.5">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium text-slate-900">{t.category}</span>
+                      {t.isFixed && <Badge tone="neutral">固定費</Badge>}
+                    </div>
+                    {(t.store || t.memo) && (
+                      <p className="mt-0.5 truncate text-xs text-slate-400">{t.store || t.memo}</p>
+                    )}
                   </div>
-                  {(t.store || t.memo) && (
-                    <p className="mt-0.5 truncate text-xs text-slate-400">{t.store || t.memo}</p>
-                  )}
+                  <div className="flex shrink-0 items-center gap-3">
+                    <span
+                      className={`text-sm font-semibold ${
+                        t.type === "income" ? "text-success" : "text-slate-900"
+                      }`}
+                    >
+                      {t.type === "income" ? "+" : "-"}¥{t.amount.toLocaleString()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (t.id && confirm(`「${t.category}」(¥${t.amount.toLocaleString()})を削除しますか?`)) {
+                          onDelete(t.id);
+                        }
+                      }}
+                      aria-label="削除"
+                      className="pointer-events-auto rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <span
-                    className={`text-sm font-semibold ${
-                      t.type === "income" ? "text-success" : "text-slate-900"
-                    }`}
-                  >
-                    {t.type === "income" ? "+" : "-"}¥{t.amount.toLocaleString()}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (t.id) onDelete(t.id);
-                    }}
-                    aria-label="削除"
-                    className="rounded-full p-1.5 text-slate-300 active:bg-red-50 active:text-danger"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
+              </ListRow>
             ))}
           </div>
         </div>

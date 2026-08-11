@@ -44,7 +44,7 @@ export function HabitForm({ initial, onSaved, onCancel }: Props) {
         required
         autoFocus
       />
-      <div className="flex gap-3 pt-2">
+      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-slate-100 bg-white px-5 py-3">
         <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
           キャンセル
         </Button>

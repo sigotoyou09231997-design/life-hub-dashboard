@@ -7,8 +7,10 @@ import { Sheet } from "../../components/ui/Sheet";
 import { Button } from "../../components/ui/Button";
 import { GoalList } from "../../components/goals/GoalList";
 import { GoalForm } from "../../components/goals/GoalForm";
+import { useToast } from "../../components/ui/ToastProvider";
 
 export default function GoalPage() {
+  const showToast = useToast();
   const [editing, setEditing] = useState<Goal | "new" | null>(null);
   const goals = useLiveQuery(() => db.goals.toArray(), []);
 
@@ -17,7 +19,14 @@ export default function GoalPage() {
       <PageHeader title="目標" backTo="/records" />
 
       <div className="px-5">
-        <GoalList goals={goals ?? []} onEdit={(g) => setEditing(g)} onDelete={(id) => db.goals.delete(id)} />
+        <GoalList
+          goals={goals ?? []}
+          onEdit={(g) => setEditing(g)}
+          onDelete={(id) => {
+            db.goals.delete(id);
+            showToast("削除しました");
+          }}
+        />
         <Button className="mt-4 w-full" onClick={() => setEditing("new")}>
           目標を追加
         </Button>
@@ -31,7 +40,10 @@ export default function GoalPage() {
         {editing && (
           <GoalForm
             initial={editing === "new" ? undefined : editing}
-            onSaved={() => setEditing(null)}
+            onSaved={() => {
+              setEditing(null);
+              showToast("保存しました");
+            }}
             onCancel={() => setEditing(null)}
           />
         )}

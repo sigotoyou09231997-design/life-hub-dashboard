@@ -1,5 +1,7 @@
+import { BookHeart } from "lucide-react";
 import type { DiaryEntry } from "../../types";
 import { DiaryEntryCard } from "./DiaryEntryCard";
+import { EmptyState } from "../ui/EmptyState";
 
 interface Props {
   entries: DiaryEntry[];
@@ -9,7 +11,9 @@ interface Props {
 
 export function DiaryList({ entries, onEdit, onDelete }: Props) {
   if (entries.length === 0) {
-    return <p className="py-8 text-center text-sm text-slate-400">日記がまだありません</p>;
+    return (
+      <EmptyState icon={BookHeart} title="日記がまだありません" description="下のボタンから今日の日記を書けます。" />
+    );
   }
 
   const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date));

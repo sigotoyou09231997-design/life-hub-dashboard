@@ -1,12 +1,16 @@
+import { CheckSquare } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Task } from "../../types";
 import { advanceByRepeat } from "../../lib/date";
 import { TaskItem } from "./TaskItem";
+import { EmptyState } from "../ui/EmptyState";
+import { useToast } from "../ui/ToastProvider";
 
 interface Props {
   tasks: Task[];
   onEdit: (task: Task) => void;
   onAddSubtask: (parentId: number) => void;
+  emptyMessage?: string;
 }
 
 export async function toggleTaskCompletion(task: Task) {
@@ -38,7 +42,14 @@ export async function deleteTaskCascade(id: number) {
   await db.tasks.delete(id);
 }
 
-export function TaskList({ tasks, onEdit, onAddSubtask }: Props) {
+export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage }: Props) {
+  const showToast = useToast();
+
+  async function handleDelete(id: number) {
+    await deleteTaskCascade(id);
+    showToast("削除しました");
+  }
+
   const topLevel = tasks.filter((t) => !t.parentTaskId);
   const incomplete = topLevel
     .filter((t) => !t.completed)
@@ -46,7 +57,11 @@ export function TaskList({ tasks, onEdit, onAddSubtask }: Props) {
   const completed = topLevel.filter((t) => t.completed);
 
   if (topLevel.length === 0) {
-    return <p className="py-8 text-center text-sm text-slate-400">タスクがありません</p>;
+    return emptyMessage ? (
+      <EmptyState title={emptyMessage} />
+    ) : (
+      <EmptyState icon={CheckSquare} title="タスクがまだありません" description="右上の「+」から追加できます。" />
+    );
   }
 
   return (
@@ -58,7 +73,7 @@ export function TaskList({ tasks, onEdit, onAddSubtask }: Props) {
           allTasks={tasks}
           onToggle={toggleTaskCompletion}
           onEdit={onEdit}
-          onDelete={deleteTaskCascade}
+          onDelete={handleDelete}
           onAddSubtask={onAddSubtask}
         />
       ))}
@@ -74,7 +89,7 @@ export function TaskList({ tasks, onEdit, onAddSubtask }: Props) {
                 allTasks={tasks}
                 onToggle={toggleTaskCompletion}
                 onEdit={onEdit}
-                onDelete={deleteTaskCascade}
+                onDelete={handleDelete}
                 onAddSubtask={onAddSubtask}
               />
             ))}

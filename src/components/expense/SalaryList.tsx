@@ -1,5 +1,7 @@
 import type { SalaryEntry } from "../../types";
-import { Trash2 } from "lucide-react";
+import { Trash2, Wallet } from "lucide-react";
+import { ListRow } from "../ui/ListRow";
+import { EmptyState } from "../ui/EmptyState";
 
 interface Props {
   salaries: SalaryEntry[];
@@ -15,7 +17,9 @@ function formatMonth(month: string): string {
 
 export function SalaryList({ salaries, onEdit, onDelete }: Props) {
   if (salaries.length === 0) {
-    return <p className="py-6 text-center text-sm text-slate-400">給与がまだ登録されていません</p>;
+    return (
+      <EmptyState icon={Wallet} title="給与がまだ登録されていません" description="下のボタンから登録できます。" />
+    );
   }
 
   const sorted = [...salaries].sort((a, b) => b.month.localeCompare(a.month));
@@ -23,29 +27,33 @@ export function SalaryList({ salaries, onEdit, onDelete }: Props) {
   return (
     <div className="space-y-2">
       {sorted.map((s) => (
-        <div
-          key={s.id}
-          onClick={() => onEdit(s)}
-          className="flex items-center justify-between rounded-xl border border-slate-100 bg-white p-3.5 active:bg-slate-50"
-        >
-          <div>
-            <span className="text-sm font-medium text-slate-900">{formatMonth(s.month)}</span>
-            <p className="mt-0.5 text-xs text-slate-400">給料日: 毎月{s.payday}日</p>
+        <ListRow key={s.id} interactive className="p-0">
+          <button
+            type="button"
+            onClick={() => onEdit(s)}
+            aria-label={`${formatMonth(s.month)}の給与を編集`}
+            className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          />
+          <div className="pointer-events-none relative z-10 flex items-center justify-between gap-3 p-3.5">
+            <div>
+              <span className="text-sm font-medium text-slate-900">{formatMonth(s.month)}</span>
+              <p className="mt-0.5 text-xs text-slate-400">給料日: 毎月{s.payday}日</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-slate-900">¥{s.amount.toLocaleString()}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (s.id && confirm(`「${formatMonth(s.month)}」の給与を削除しますか?`)) onDelete(s.id);
+                }}
+                aria-label="削除"
+                className="pointer-events-auto rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-semibold text-slate-900">¥{s.amount.toLocaleString()}</span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (s.id) onDelete(s.id);
-              }}
-              aria-label="削除"
-              className="rounded-full p-1.5 text-slate-300 active:bg-red-50 active:text-danger"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        </div>
+        </ListRow>
       ))}
     </div>
   );

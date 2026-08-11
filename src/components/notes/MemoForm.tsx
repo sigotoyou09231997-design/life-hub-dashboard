@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { db } from "../../db/schema";
 import type { Note } from "../../types";
-import { NOTE_CATEGORIES } from "../../lib/categories";
 import { Input, Textarea } from "../ui/Input";
-import { Select } from "../ui/Select";
 import { Button } from "../ui/Button";
+import { CategorySelect } from "./CategorySelect";
+import { NOTE_CATEGORIES } from "../../lib/categories";
 
 interface Props {
   initial?: Note;
@@ -12,7 +12,7 @@ interface Props {
   onCancel: () => void;
 }
 
-export function NoteForm({ initial, onSaved, onCancel }: Props) {
+export function MemoForm({ initial, onSaved, onCancel }: Props) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [body, setBody] = useState(initial?.body ?? "");
   const [tagsInput, setTagsInput] = useState(initial?.tags.join(", ") ?? "");
@@ -32,6 +32,7 @@ export function NoteForm({ initial, onSaved, onCancel }: Props) {
       .filter(Boolean);
 
     const record: Note = {
+      type: "memo",
       title: title.trim(),
       body,
       tags,
@@ -54,13 +55,7 @@ export function NoteForm({ initial, onSaved, onCancel }: Props) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <Input label="タイトル" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
       <Textarea label="本文" value={body} onChange={(e) => setBody(e.target.value)} rows={5} />
-      <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value)}>
-        {NOTE_CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </Select>
+      <CategorySelect value={category} onChange={setCategory} />
       <Input
         label="タグ(カンマ区切り)"
         value={tagsInput}
@@ -77,7 +72,7 @@ export function NoteForm({ initial, onSaved, onCancel }: Props) {
         ピン留めする
       </label>
 
-      <div className="flex gap-3 pt-2">
+      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-slate-100 bg-white px-5 py-3">
         <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
           キャンセル
         </Button>

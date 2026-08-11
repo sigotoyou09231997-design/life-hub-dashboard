@@ -15,8 +15,12 @@ export default function RecordsPage() {
       <PageHeader title="以前の記録" subtitle="日記・目標・習慣のデータはそのまま残っています" backTo="/settings" />
       <div className="space-y-2 px-5">
         {ITEMS.map(({ to, label, icon: Icon }) => (
-          <Link key={to} to={to}>
-            <Card className="flex items-center justify-between py-4">
+          <Link
+            key={to}
+            to={to}
+            className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          >
+            <Card interactive className="flex items-center justify-between py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-light text-accent">
                   <Icon size={20} />
