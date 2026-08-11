@@ -1,7 +1,6 @@
 import type { Handler } from "@netlify/functions";
 
 const TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token";
-const USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v2/userinfo";
 
 type ExchangeBody =
   | { grantType: "authorization_code"; code: string; redirectUri: string }
@@ -13,6 +12,22 @@ function jsonResponse(statusCode: number, body: unknown) {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   };
+}
+
+/** Reads the `email` claim out of the ID token JWT Google returns alongside the
+ * access token when the `openid email` scopes are granted — avoids a second,
+ * separately-authenticated call to a userinfo endpoint. Signature isn't verified
+ * since the token came directly from Google's token endpoint over TLS, not from
+ * an untrusted client. */
+function readEmailFromIdToken(idToken: string): string | null {
+  const payloadSegment = idToken.split(".")[1];
+  if (!payloadSegment) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(payloadSegment, "base64url").toString("utf8")) as { email?: string };
+    return payload.email ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Proxies Google's OAuth token endpoint so the client secret never reaches the browser. */
@@ -66,28 +81,25 @@ export const handler: Handler = async (event) => {
     access_token: string;
     expires_in: number;
     refresh_token?: string;
+    id_token?: string;
   };
 
   if (payload.grantType === "authorization_code") {
-    const userRes = await fetch(USERINFO_ENDPOINT, {
-      headers: { Authorization: `Bearer ${tokenData.access_token}` },
-    });
-    if (!userRes.ok) {
-      const text = await userRes.text();
-      return jsonResponse(502, { error: `Failed to fetch Google account email: ${text}` });
-    }
-    const userData = (await userRes.json()) as { email: string };
     if (!tokenData.refresh_token) {
       return jsonResponse(502, {
         error:
           "Googleがrefresh_tokenを返しませんでした。既に連携済みのアカウントは一度連携を解除してから再度お試しください。",
       });
     }
+    const email = tokenData.id_token ? readEmailFromIdToken(tokenData.id_token) : null;
+    if (!email) {
+      return jsonResponse(502, { error: "Googleのレスポンスからメールアドレスを取得できませんでした" });
+    }
     return jsonResponse(200, {
       accessToken: tokenData.access_token,
       expiresIn: tokenData.expires_in,
       refreshToken: tokenData.refresh_token,
-      email: userData.email,
+      email,
     });
   }
 

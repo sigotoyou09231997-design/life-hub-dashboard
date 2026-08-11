@@ -1,8 +1,7 @@
 import { db } from "../db/schema";
 import type { EmailStatus, GmailAccount, SyncedEmail } from "../types";
 
-const GMAIL_SCOPES =
-  "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email";
+const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send openid email";
 const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 /** Refresh proactively so a call never starts on a token that expires mid-request. */
 const TOKEN_REFRESH_MARGIN_MS = 2 * 60 * 1000;
