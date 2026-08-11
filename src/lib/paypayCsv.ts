@@ -1,4 +1,6 @@
 import type { TransactionType } from "../types";
+import { parseCsvRows, parseAmount } from "./csv";
+export { parseCsvLine } from "./csv";
 
 export interface ParsedPayPayRow {
   /** Composite dedup key: PayPay's own 取引番号 isn't unique per row — a
@@ -22,47 +24,6 @@ export interface ClassifiedHouseholdEntry {
   memo?: string;
 }
 
-/** Parses a single CSV line, respecting double-quoted fields (which may
- * contain commas, e.g. `"1,197"`) and doubled-quote escaping. */
-export function parseCsvLine(line: string): string[] {
-  const result: string[] = [];
-  let cur = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (line[i + 1] === '"') {
-          cur += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        cur += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ",") {
-      result.push(cur);
-      cur = "";
-    } else {
-      cur += ch;
-    }
-  }
-  result.push(cur);
-  return result;
-}
-
-function parseAmount(cell: string | undefined): number {
-  if (!cell) return 0;
-  const trimmed = cell.trim();
-  if (trimmed === "-" || trimmed === "") return 0;
-  const n = Number(trimmed.replace(/,/g, ""));
-  return Number.isFinite(n) ? n : 0;
-}
-
 /**
  * Parses a PayPay "取引履歴" export. Expected columns (PayPay's standard
  * format, no balance column included):
@@ -70,12 +31,12 @@ function parseAmount(cell: string | undefined): number {
  * 利用国, 取引内容, 取引先, 取引方法, 支払い区分, 利用者, 取引番号
  */
 export function parsePayPayCsv(text: string): ParsedPayPayRow[] {
-  const lines = text.split(/\r\n|\r|\n/).filter((l) => l.trim().length > 0);
+  const lines = parseCsvRows(text);
   if (lines.length < 2) return [];
 
   const rows: ParsedPayPayRow[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cells = parseCsvLine(lines[i]);
+    const cells = lines[i];
     if (cells.length < 13) continue;
 
     const dateTimeRaw = cells[0].replace(/^﻿/, "").trim();

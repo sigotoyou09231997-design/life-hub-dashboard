@@ -16,6 +16,7 @@ import { FixedCostForm } from "../../components/expense/FixedCostForm";
 import { SalaryList } from "../../components/expense/SalaryList";
 import { SalaryForm } from "../../components/expense/SalaryForm";
 import { PayPayImport } from "../../components/expense/PayPayImport";
+import { GenericCsvImport } from "../../components/expense/GenericCsvImport";
 import { useToast } from "../../components/ui/ToastProvider";
 import { ListSkeleton } from "../../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
@@ -28,6 +29,7 @@ export default function ExpensePage() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | "new" | null>(null);
   const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | "new" | null>(null);
   const [editingSalary, setEditingSalary] = useState<SalaryEntry | "new" | null>(null);
+  const [csvImportOpen, setCsvImportOpen] = useState(false);
 
   const { start, end } = monthRange();
   const transactions = useLiveQuery(
@@ -96,9 +98,14 @@ export default function ExpensePage() {
                 }}
               />
             )}
-            <Button className="mt-4 w-full" onClick={() => setEditingTransaction("new")}>
-              収支を追加
-            </Button>
+            <div className="mt-4 flex gap-2">
+              <Button className="flex-1" onClick={() => setEditingTransaction("new")}>
+                収支を追加
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setCsvImportOpen(true)}>
+                CSVから取込
+              </Button>
+            </div>
           </>
         )}
 
@@ -174,6 +181,10 @@ export default function ExpensePage() {
             onCancel={() => setEditingSalary(null)}
           />
         )}
+      </Sheet>
+
+      <Sheet open={csvImportOpen} onClose={() => setCsvImportOpen(false)} title="CSVから取込">
+        {csvImportOpen && <GenericCsvImport onClose={() => setCsvImportOpen(false)} />}
       </Sheet>
     </div>
   );
