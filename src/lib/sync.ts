@@ -116,27 +116,34 @@ async function drainQueue(): Promise<void> {
   }
 }
 
-async function applyRemoteRow(reg: RegisteredTable, remoteRow: Record<string, unknown>): Promise<void> {
+type ApplyOutcome = "added" | "updated" | "deleted" | "skipped-echo" | "skipped-lww" | "skipped-no-id" | "error";
+
+async function applyRemoteRow(reg: RegisteredTable, remoteRow: Record<string, unknown>): Promise<ApplyOutcome> {
   const camel = rowToCamel(remoteRow) as SyncableRow & { deletedAt?: number | string | null; serverUpdatedAt?: unknown };
-  if (!camel.id) return;
-  if (camel.deviceId && camel.deviceId === getDeviceId()) return; // echo of our own write
+  if (!camel.id) return "skipped-no-id";
+  if (camel.deviceId && camel.deviceId === getDeviceId()) return "skipped-echo";
 
   applyingRemoteChange = true;
   try {
     if (camel.deletedAt) {
       await reg.table.delete(camel.id);
-      return;
+      return "deleted";
     }
     const local = await reg.table.get(camel.id);
-    if (local && (local.updatedAt ?? 0) > (camel.updatedAt ?? 0)) return; // local wins (LWW)
+    if (local && (local.updatedAt ?? 0) > (camel.updatedAt ?? 0)) return "skipped-lww";
 
     // deletedAt/serverUpdatedAt are sync-plumbing columns, not part of the local row shape.
     const { deletedAt: _deletedAt, serverUpdatedAt: _serverUpdatedAt, ...rest } = camel;
     if (local) {
       await reg.table.update(camel.id, rest);
+      return "updated";
     } else {
       await reg.table.add(rest as SyncableRow);
+      return "added";
     }
+  } catch (err) {
+    console.error("[sync] applyRemoteRow failed:", err, remoteRow);
+    return "error";
   } finally {
     applyingRemoteChange = false;
   }
@@ -145,12 +152,13 @@ async function applyRemoteRow(reg: RegisteredTable, remoteRow: Record<string, un
 interface ReconcileResult {
   tableName: string;
   rows: number;
+  outcomes: Partial<Record<ApplyOutcome, number>>;
   error: string | null;
 }
 
 async function reconcile(reg: RegisteredTable, forceFull = false): Promise<ReconcileResult> {
   if (!currentUserId) {
-    return { tableName: reg.tableName, rows: 0, error: "not signed in" };
+    return { tableName: reg.tableName, rows: 0, outcomes: {}, error: "not signed in" };
   }
   const key = lastSyncedKey(reg.tableName);
   const since = forceFull ? new Date(0).toISOString() : (localStorage.getItem(key) ?? new Date(0).toISOString());
@@ -160,12 +168,14 @@ async function reconcile(reg: RegisteredTable, forceFull = false): Promise<Recon
   // a pull cursor, and data pushed late (e.g. a catch-up sync) can carry an
   // updated_at far in the past relative to when it actually reached the server.
   const { data, error } = await supabase.from(reg.tableName).select("*").gte("server_updated_at", since);
-  if (error) return { tableName: reg.tableName, rows: 0, error: error.message };
+  if (error) return { tableName: reg.tableName, rows: 0, outcomes: {}, error: error.message };
+  const outcomes: Partial<Record<ApplyOutcome, number>> = {};
   for (const row of data ?? []) {
-    await applyRemoteRow(reg, row as Record<string, unknown>);
+    const outcome = await applyRemoteRow(reg, row as Record<string, unknown>);
+    outcomes[outcome] = (outcomes[outcome] ?? 0) + 1;
   }
   localStorage.setItem(key, nowIso);
-  return { tableName: reg.tableName, rows: data?.length ?? 0, error: null };
+  return { tableName: reg.tableName, rows: data?.length ?? 0, outcomes, error: null };
 }
 
 const subscribedChannels = new Set<string>();
@@ -291,7 +301,13 @@ export async function syncNow(): Promise<string> {
   await drainQueue();
   const queuedAfter = await db.syncQueue.count();
   return results
-    .map((r) => (r.error ? `${r.tableName}: エラー(${r.error})` : `${r.tableName}: ${r.rows}件受信`))
+    .map((r) => {
+      if (r.error) return `${r.tableName}: エラー(${r.error})`;
+      const breakdown = Object.entries(r.outcomes)
+        .map(([k, v]) => `${k}:${v}`)
+        .join(",");
+      return `${r.tableName}: ${r.rows}件受信 [${breakdown}]`;
+    })
     .concat(`送信キュー: ${queuedBefore}→${queuedAfter}`)
     .join(" / ");
 }
