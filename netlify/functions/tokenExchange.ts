@@ -73,7 +73,8 @@ export const handler: Handler = async (event) => {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
     if (!userRes.ok) {
-      return jsonResponse(502, { error: "Failed to fetch Google account email" });
+      const text = await userRes.text();
+      return jsonResponse(502, { error: `Failed to fetch Google account email: ${text}` });
     }
     const userData = (await userRes.json()) as { email: string };
     if (!tokenData.refresh_token) {
