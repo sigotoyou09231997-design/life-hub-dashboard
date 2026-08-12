@@ -161,7 +161,7 @@ const handlerImpl: Handler = async () => {
   return { statusCode: 200, body: "ok" };
 };
 
-/** 10分ごとに全ユーザーのGmailをポーリングし、新着があればWeb Pushで通知する。
- * バックグラウンド通知を有効にしたユーザーだけ(src/lib/pushNotifications.tsのsubscribeToPush経由で)
- * refresh_tokenがgmail_server_accountsに存在する — それ以外は対象外。 */
-export const handler = schedule("*/10 * * * *", handlerImpl);
+/** 2分ごとに全ユーザーのGmailをポーリングし、新着があればWeb Pushで通知する(最悪ケースで検知まで
+ * 2分弱の遅延)。バックグラウンド通知を有効にしたユーザーだけ(src/lib/pushNotifications.tsの
+ * subscribeToPush経由で)refresh_tokenがgmail_server_accountsに存在する — それ以外は対象外。 */
+export const handler = schedule("*/2 * * * *", handlerImpl);
