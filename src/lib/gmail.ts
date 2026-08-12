@@ -1,10 +1,13 @@
 import { db } from "../db/schema";
 import type { EmailStatus, GmailAccount, SyncedEmail } from "../types";
+import { toDateStr, todayStr } from "./date";
 
 const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send openid email";
 const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 /** Refresh proactively so a call never starts on a token that expires mid-request. */
 const TOKEN_REFRESH_MARGIN_MS = 2 * 60 * 1000;
+/** How far ahead the AI draft looks at the calendar to propose real open dates. */
+const SCHEDULE_LOOKAHEAD_DAYS = 21;
 /** sessionStorage key shared between the OAuth-initiating page and the callback page for CSRF-state verification. */
 export const GMAIL_OAUTH_STATE_KEY = "gmailOAuthState";
 
@@ -106,21 +109,43 @@ export async function ensureFreshAccessToken(account: GmailAccount): Promise<Gma
   return updated;
 }
 
+export interface BusySlot {
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  allDay?: boolean;
+}
+
 export interface GenerateDraftInput {
   from: string;
   subject: string;
   body: string;
+  busySlots?: BusySlot[];
 }
 
-export async function generateDraft(input: GenerateDraftInput): Promise<string> {
-  const result = await callFunction<{ draft: string }>("generateDraft", input);
-  return result.draft;
+export interface GenerateDraftResult {
+  draft: string;
+  keyPoints: string[];
+}
+
+export async function generateDraft(input: GenerateDraftInput): Promise<GenerateDraftResult> {
+  return callFunction<GenerateDraftResult>("generateDraft", input);
+}
+
+/** Upcoming calendar events (date/time only — no titles/locations, to keep what's
+ * sent to the AI minimal) so a scheduling reply can propose genuinely open dates
+ * instead of inventing them. */
+async function getUpcomingBusySlots(): Promise<BusySlot[]> {
+  const start = todayStr();
+  const end = toDateStr(new Date(Date.now() + SCHEDULE_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000));
+  const events = await db.calendarEvents.where("date").between(start, end, true, true).sortBy("date");
+  return events.map((e) => ({ date: e.date, startTime: e.startTime, endTime: e.endTime, allDay: e.allDay }));
 }
 
 /** Fetches the email body, asks the AI to draft a reply, and upserts it into
  * draftReplies (one row per email, updated in place on regenerate). Shared by
  * the inbox's per-row/bulk "AI下書きを作成" and the review sheet's "再生成". */
-export async function generateDraftForEmail(account: GmailAccount, email: SyncedEmail): Promise<string> {
+export async function generateDraftForEmail(account: GmailAccount, email: SyncedEmail): Promise<GenerateDraftResult> {
   if (!email.id || !account.id) throw new Error("email/account is missing an id");
   const emailId = email.id;
   const fallbackStatus: EmailStatus =
@@ -130,16 +155,17 @@ export async function generateDraftForEmail(account: GmailAccount, email: Synced
   try {
     const fresh = await ensureFreshAccessToken(account);
     const body = await getMessageBody(fresh.accessToken, email.gmailMessageId);
-    const draft = await generateDraft({ from: email.from, subject: email.subject, body: body || email.snippet });
+    const busySlots = await getUpcomingBusySlots();
+    const result = await generateDraft({ from: email.from, subject: email.subject, body: body || email.snippet, busySlots });
     const now = Date.now();
     const existing = await db.draftReplies.where("emailId").equals(emailId).first();
     if (existing?.id) {
-      await db.draftReplies.update(existing.id, { body: draft, updatedAt: now });
+      await db.draftReplies.update(existing.id, { body: result.draft, updatedAt: now });
     } else {
-      await db.draftReplies.add({ emailId, accountId: account.id, body: draft, createdAt: now, updatedAt: now });
+      await db.draftReplies.add({ emailId, accountId: account.id, body: result.draft, createdAt: now, updatedAt: now });
     }
     await db.syncedEmails.update(emailId, { status: "drafted" });
-    return draft;
+    return result;
   } catch (err) {
     await db.syncedEmails.update(emailId, { status: fallbackStatus });
     throw err;

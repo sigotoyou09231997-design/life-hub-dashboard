@@ -49,6 +49,7 @@ export function DraftReview({ email, account, onSent }: Props) {
   const [sending, setSending] = useState(false);
   const [originalBody, setOriginalBody] = useState<string | null>(null);
   const [loadingOriginal, setLoadingOriginal] = useState(true);
+  const [keyPoints, setKeyPoints] = useState<string[]>([]);
 
   useEffect(() => {
     if (draft && !initializedRef.current) {
@@ -81,7 +82,8 @@ export function DraftReview({ email, account, onSent }: Props) {
   async function handleGenerate() {
     setGenerating(true);
     try {
-      await generateDraftForEmail(account, email);
+      const result = await generateDraftForEmail(account, email);
+      setKeyPoints(result.keyPoints);
       initializedRef.current = false; // let the freshly generated body overwrite the textarea
     } catch {
       showToast("AI下書きの作成に失敗しました", "error");
@@ -189,6 +191,19 @@ export function DraftReview({ email, account, onSent }: Props) {
           </Button>
         ) : (
           <>
+            {keyPoints.length > 0 && (
+              <Card className="space-y-1.5 bg-accent-light/40">
+                <p className="text-xs font-medium text-accent">返信に含めたいポイント</p>
+                <ul className="space-y-1 text-xs text-slate-600">
+                  {keyPoints.map((point, i) => (
+                    <li key={i} className="flex gap-1.5">
+                      <span className="shrink-0 text-accent">・</span>
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
             <Textarea
               label={alreadySent ? "送信済みの返信内容" : "返信本文"}
               value={bodyText}
