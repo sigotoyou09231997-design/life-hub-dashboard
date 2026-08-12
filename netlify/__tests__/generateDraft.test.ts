@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBusySlots, parseModelOutput } from "../functions/generateDraft";
+import { formatBusySlots, parseModelOutput, stripKnownGreetingAndClosing } from "../functions/generateDraft";
 
 describe("parseModelOutput", () => {
   it("splits the [ポイント]/[本文] sections and strips bullet markers", () => {
@@ -19,6 +19,23 @@ describe("parseModelOutput", () => {
     const result = parseModelOutput("[本文]\n本文のみ");
     expect(result.keyPoints).toEqual([]);
     expect(result.body).toBe("本文のみ");
+  });
+});
+
+describe("stripKnownGreetingAndClosing", () => {
+  it("removes a leading greeting+self-introduction the model echoed despite instructions", () => {
+    const result = stripKnownGreetingAndClosing("お世話になっております。\n船田です。\n\nご連絡ありがとうございます。");
+    expect(result).toBe("ご連絡ありがとうございます。");
+  });
+
+  it("removes a trailing closing line", () => {
+    const result = stripKnownGreetingAndClosing("承知いたしました。\n\n以上、よろしくお願いいたします。");
+    expect(result).toBe("承知いたしました。");
+  });
+
+  it("leaves body text untouched when there's no greeting/closing to strip", () => {
+    const result = stripKnownGreetingAndClosing("承知いたしました。日程はご相談させてください。");
+    expect(result).toBe("承知いたしました。日程はご相談させてください。");
   });
 });
 

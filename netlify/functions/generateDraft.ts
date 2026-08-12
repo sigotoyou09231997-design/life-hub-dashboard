@@ -55,13 +55,26 @@ export function parseModelOutput(text: string): { keyPoints: string[]; body: str
   return { keyPoints, body };
 }
 
+/** Defensive cleanup for when the model includes the greeting/closing our fixed
+ * template already adds despite the system prompt telling it not to — without
+ * this, "お世話になっております。船田です。" (or the closing) could end up doubled. */
+export function stripKnownGreetingAndClosing(body: string): string {
+  let result = body;
+  result = result.replace(/^\s*お世話になっております[。.]?\s*\n*/, "");
+  result = result.replace(/^\s*船田です[。.]?\s*\n*/, "");
+  result = result.replace(/\s*以上、?よろしくお願い(いたします|します)[。.]?\s*$/, "");
+  return result.trim();
+}
+
 const SYSTEM_PROMPT = `あなたはユーザーの代わりにメール返信を検討するアシスタントです。必ず以下の2セクションをこの順で出力してください。
 
 ${POINTS_MARKER}
 返信で押さえておくべき点を2〜4個、箇条書きで(各行「- 」から始める)。相手の質問・依頼への回答や、使うとよい言葉・フレーズなど。
 
 ${BODY_MARKER}
-受信メールへの返信文の本文のみ(そのメールと同じ言語)。件名や署名は含めない。
+受信メールへの返信文の、要件部分の本文のみ(そのメールと同じ言語)。件名は含めない。
+冒頭の挨拶(「お世話になっております」等)・名乗り(「船田です」等)・結びの言葉(「よろしくお願いします」等)は
+呼び出し側で別途付け足すので、${BODY_MARKER}にはそれらを一切含めず、要件そのものから書き始めること。
 
 共通ルール:
 - 簡潔かつ丁寧な文面にする
@@ -116,7 +129,8 @@ export const handler: Handler = async (event) => {
   const data = (await res.json()) as { content: { type: string; text?: string }[] };
   const generated = data.content.find((block) => block.type === "text")?.text ?? "";
   const { keyPoints, body: generatedBody } = parseModelOutput(generated);
-  const draft = `お世話になっております。\n船田です。\n\n${generatedBody}\n\n以上、よろしくお願いします。`;
+  const cleanedBody = stripKnownGreetingAndClosing(generatedBody);
+  const draft = `お世話になっております。\n船田です。\n\n${cleanedBody}\n\n以上、よろしくお願いします。`;
 
   return jsonResponse(200, { draft, keyPoints });
 };
