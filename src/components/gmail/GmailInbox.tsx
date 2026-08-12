@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Ban, Mail, RefreshCw, Search } from "lucide-react";
 import { db } from "../../db/schema";
@@ -104,6 +104,11 @@ export function GmailInbox({ account }: Props) {
       setSyncing(false);
     }
   }
+
+  // 画面を開いた瞬間に最新化する — 「同期」ボタンは以降の手動リフレッシュ用として残す。
+  useEffect(() => {
+    void handleSync();
+  }, [account.id]);
 
   async function handleUnblock(id: string) {
     await db.blockedSenders.delete(id);
