@@ -152,11 +152,7 @@ export function DraftReview({ email, account, onSent }: Props) {
 
       <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
 
-      <Card className="whitespace-pre-wrap break-words text-sm text-slate-700">
-        {loadingOriginal ? "本文を読み込み中..." : originalBody}
-      </Card>
-
-      <div className="space-y-3 border-t border-slate-100 pt-4">
+      <div className="space-y-3 border-b border-slate-100 pb-4">
         {!hasDraft && !generating ? (
           <Button type="button" className="w-full" onClick={handleGenerate}>
             AI下書きを作成
@@ -197,6 +193,10 @@ export function DraftReview({ email, account, onSent }: Props) {
           </>
         )}
       </div>
+
+      <Card className="whitespace-pre-wrap break-words text-sm text-slate-700">
+        {loadingOriginal ? "本文を読み込み中..." : originalBody}
+      </Card>
     </div>
   );
 }
