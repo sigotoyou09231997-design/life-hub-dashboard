@@ -1,17 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { formatBusySlots, parseModelOutput, stripKnownGreetingAndClosing } from "../functions/generateDraft";
+import { formatBusySlots, formatCandidateLabel, parseModelOutput, stripKnownGreetingAndClosing } from "../functions/generateDraft";
 
 describe("parseModelOutput", () => {
   it("splits the [ポイント]/[本文] sections and strips bullet markers", () => {
     const text = `[ポイント]\n- 面接日程を2件提案する\n- お礼の言葉を入れる\n\n[本文]\nこの度は面接のご案内をいただき、ありがとうございます。`;
     const result = parseModelOutput(text);
     expect(result.keyPoints).toEqual(["面接日程を2件提案する", "お礼の言葉を入れる"]);
+    expect(result.candidateDates).toEqual([]);
     expect(result.body).toBe("この度は面接のご案内をいただき、ありがとうございます。");
   });
 
   it("falls back to treating the whole response as the body when the model skips the format", () => {
     const result = parseModelOutput("ただの返信文だけが返ってきた場合");
     expect(result.keyPoints).toEqual([]);
+    expect(result.candidateDates).toEqual([]);
     expect(result.body).toBe("ただの返信文だけが返ってきた場合");
   });
 
@@ -19,6 +21,35 @@ describe("parseModelOutput", () => {
     const result = parseModelOutput("[本文]\n本文のみ");
     expect(result.keyPoints).toEqual([]);
     expect(result.body).toBe("本文のみ");
+  });
+
+  it("parses the [候補日] section into structured dates, ignoring malformed lines", () => {
+    const text = `[ポイント]\n- 候補日を2件提案する\n\n[候補日]\n2026-08-20|14:00|15:00\n2026-08-21||\nnot-a-date|foo\n\n[本文]\n8/20(木) 14:00〜15:00、8/21(金)でご都合いかがでしょうか。`;
+    const result = parseModelOutput(text);
+    expect(result.candidateDates).toEqual([
+      { date: "2026-08-20", startTime: "14:00", endTime: "15:00" },
+      { date: "2026-08-21", startTime: undefined, endTime: undefined },
+    ]);
+    expect(result.body).toBe("8/20(木) 14:00〜15:00、8/21(金)でご都合いかがでしょうか。");
+  });
+
+  it("returns no candidate dates when [候補日] is omitted (no scheduling proposed)", () => {
+    const result = parseModelOutput("[ポイント]\n- お礼を伝える\n\n[本文]\nありがとうございます。");
+    expect(result.candidateDates).toEqual([]);
+  });
+});
+
+describe("formatCandidateLabel", () => {
+  it('formats a date+time range as "M/D(曜) HH:mm〜HH:mm"', () => {
+    expect(formatCandidateLabel({ date: "2026-08-20", startTime: "14:00", endTime: "15:00" })).toBe("8/20(木) 14:00〜15:00");
+  });
+
+  it("formats a date with only a start time", () => {
+    expect(formatCandidateLabel({ date: "2026-08-20", startTime: "14:00" })).toBe("8/20(木) 14:00〜");
+  });
+
+  it("formats a date with no time as just the date+weekday", () => {
+    expect(formatCandidateLabel({ date: "2026-08-20" })).toBe("8/20(木)");
   });
 });
 

@@ -123,13 +123,35 @@ export interface GenerateDraftInput {
   busySlots?: BusySlot[];
 }
 
+export interface CandidateDate {
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  label: string;
+}
+
 export interface GenerateDraftResult {
   draft: string;
   keyPoints: string[];
+  candidateDates: CandidateDate[];
 }
 
 export async function generateDraft(input: GenerateDraftInput): Promise<GenerateDraftResult> {
   return callFunction<GenerateDraftResult>("generateDraft", input);
+}
+
+const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** Mirrors netlify/functions/generateDraft.ts's formatCandidateLabel exactly — used
+ * when the user edits a candidate date, so the newly-computed label matches the
+ * format the AI was instructed to use in the draft body (needed for the
+ * find-and-replace in DraftReview.tsx to locate the right text). */
+export function formatCandidateLabel(slot: { date: string; startTime?: string; endTime?: string }): string {
+  const d = new Date(`${slot.date}T00:00:00`);
+  const md = `${d.getMonth() + 1}/${d.getDate()}(${WEEKDAY_JA[d.getDay()]})`;
+  if (slot.startTime && slot.endTime) return `${md} ${slot.startTime}〜${slot.endTime}`;
+  if (slot.startTime) return `${md} ${slot.startTime}〜`;
+  return md;
 }
 
 /** Upcoming calendar events (date/time only — no titles/locations, to keep what's

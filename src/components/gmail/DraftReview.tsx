@@ -7,15 +7,18 @@ import {
   avatarColor,
   avatarInitial,
   ensureFreshAccessToken,
+  formatCandidateLabel,
   generateDraftForEmail,
   getMessageBody,
   parseSender,
   sendReply,
+  type CandidateDate,
 } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
 import { Card } from "../ui/Card";
-import { Textarea } from "../ui/Input";
+import { Input, Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
+import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 
 interface Props {
@@ -50,6 +53,11 @@ export function DraftReview({ email, account, onSent }: Props) {
   const [originalBody, setOriginalBody] = useState<string | null>(null);
   const [loadingOriginal, setLoadingOriginal] = useState(true);
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
+  const [candidateDates, setCandidateDates] = useState<CandidateDate[]>([]);
+  const [editingCandidateIndex, setEditingCandidateIndex] = useState<number | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
 
   useEffect(() => {
     if (draft && !initializedRef.current) {
@@ -84,12 +92,36 @@ export function DraftReview({ email, account, onSent }: Props) {
     try {
       const result = await generateDraftForEmail(account, email);
       setKeyPoints(result.keyPoints);
+      setCandidateDates(result.candidateDates);
       initializedRef.current = false; // let the freshly generated body overwrite the textarea
     } catch {
       showToast("AI下書きの作成に失敗しました", "error");
     } finally {
       setGenerating(false);
     }
+  }
+
+  function openEditCandidate(index: number) {
+    const c = candidateDates[index];
+    setEditDate(c.date);
+    setEditStartTime(c.startTime ?? "");
+    setEditEndTime(c.endTime ?? "");
+    setEditingCandidateIndex(index);
+  }
+
+  function handleApplyCandidateDate() {
+    if (editingCandidateIndex === null || !editDate) return;
+    const old = candidateDates[editingCandidateIndex];
+    const newSlot = { date: editDate, startTime: editStartTime || undefined, endTime: editEndTime || undefined };
+    const newLabel = formatCandidateLabel(newSlot);
+    if (!bodyText.includes(old.label)) {
+      showToast("本文中に該当の候補日が見つかりませんでした。本文を直接編集してください", "error");
+      setEditingCandidateIndex(null);
+      return;
+    }
+    setBodyText((prev) => prev.replace(old.label, newLabel));
+    setCandidateDates((prev) => prev.map((c, i) => (i === editingCandidateIndex ? { ...newSlot, label: newLabel } : c)));
+    setEditingCandidateIndex(null);
   }
 
   async function handleSave() {
@@ -204,6 +236,20 @@ export function DraftReview({ email, account, onSent }: Props) {
                 </ul>
               </Card>
             )}
+            {candidateDates.length > 0 && !alreadySent && (
+              <div className="flex flex-wrap gap-2">
+                {candidateDates.map((c, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => openEditCandidate(i)}
+                    className="rounded-full border border-accent/30 bg-accent-light px-3 py-1.5 text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                  >
+                    {c.label} を変更
+                  </button>
+                ))}
+              </div>
+            )}
             <Textarea
               label={alreadySent ? "送信済みの返信内容" : "返信本文"}
               value={bodyText}
@@ -242,6 +288,19 @@ export function DraftReview({ email, account, onSent }: Props) {
       <Card className="whitespace-pre-wrap break-words text-sm text-slate-700">
         {loadingOriginal ? "本文を読み込み中..." : originalBody}
       </Card>
+
+      <Sheet open={editingCandidateIndex !== null} onClose={() => setEditingCandidateIndex(null)} title="候補日を変更">
+        <div className="space-y-4">
+          <Input label="日付" type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} autoFocus />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="開始時刻(任意)" type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} />
+            <Input label="終了時刻(任意)" type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} />
+          </div>
+          <Button type="button" className="w-full" onClick={handleApplyCandidateDate} disabled={!editDate}>
+            本文に反映する
+          </Button>
+        </div>
+      </Sheet>
     </div>
   );
 }
