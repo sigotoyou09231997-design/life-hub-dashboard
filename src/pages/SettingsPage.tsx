@@ -9,6 +9,7 @@ import { requestNotificationPermission, isNotificationSupported } from "../lib/n
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
 import { isSupabaseConfigured, supabase, getRedirectUri } from "../lib/supabase";
+import { isPushConfigured, getPushSubscription, subscribeToPush, unsubscribeFromPush } from "../lib/pushNotifications";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
@@ -72,6 +73,34 @@ export default function SettingsPage() {
   const notificationsBlocked = permissionStatus === "denied";
   const notificationsOn = notificationsEnabled && !notificationsBlocked;
 
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  useEffect(() => {
+    if (!isPushConfigured) return;
+    getPushSubscription().then((sub) => setPushEnabled(Boolean(sub)));
+  }, []);
+
+  async function handleTogglePush(next: boolean) {
+    if (!session || !gmailAccounts || gmailAccounts.length === 0 || pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (next) {
+        await subscribeToPush(gmailAccounts, session.user.id);
+        setPushEnabled(true);
+        showToast("バックグラウンド通知を有効にしました");
+      } else {
+        await unsubscribeFromPush();
+        setPushEnabled(false);
+        showToast("バックグラウンド通知を無効にしました");
+      }
+    } catch {
+      showToast("通知の設定に失敗しました", "error");
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
   async function handleToggleNotifications(next: boolean) {
     if (notificationsBlocked) return;
     setNotificationsEnabled(next);
@@ -123,6 +152,16 @@ export default function SettingsPage() {
       });
     } catch {
       // ignore — we still remove the local account below
+    }
+    if (session) {
+      // best-effort — stops background push polling for this account; a missed delete
+      // just means checkGmailAndNotify.ts keeps polling with an access token that will
+      // start failing anyway once Google's revoke above takes effect.
+      try {
+        await supabase.from("gmail_server_accounts").delete().eq("user_id", session.user.id).eq("email", account.email);
+      } catch {
+        // ignore
+      }
     }
     if (account.id == null) return;
     const accountId = account.id;
@@ -214,7 +253,8 @@ export default function SettingsPage() {
         <Card>
           <p className="mb-1 text-sm font-medium text-slate-600">Gmail連携</p>
           <p className="mb-3 text-xs text-slate-400">
-            受信メールにAIが返信案を作成します。連携情報はこの端末にのみ保存されます。
+            受信メールにAIが返信案を作成します。
+            {!pushEnabled && "連携情報はこの端末にのみ保存されます。"}
           </p>
           {gmailAccounts && gmailAccounts.length > 0 && (
             <div className="mb-3 space-y-2">
@@ -234,6 +274,32 @@ export default function SettingsPage() {
           <Button variant="secondary" className="w-full" onClick={startGmailOAuth}>
             {gmailAccounts && gmailAccounts.length > 0 ? "+ アカウントを追加" : "連携する"}
           </Button>
+
+          {isSupabaseConfigured && isPushConfigured && session && gmailAccounts && gmailAccounts.length > 0 && (
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+              <div>
+                <p className="text-sm text-slate-700">バックグラウンド通知</p>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  アプリを閉じていても新着メールを通知します(refresh tokenをサーバーにも保存します)
+                </p>
+              </div>
+              <button
+                onClick={() => handleTogglePush(!pushEnabled)}
+                aria-pressed={pushEnabled}
+                aria-label="バックグラウンド通知を切り替え"
+                disabled={pushBusy}
+                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                  pushEnabled ? "bg-accent" : "bg-slate-200"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                    pushEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+          )}
         </Card>
 
         {gmailAccounts && gmailAccounts.length > 0 && (

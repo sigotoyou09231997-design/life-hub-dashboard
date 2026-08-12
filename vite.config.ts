@@ -16,6 +16,13 @@ export default defineConfig({
       // reload/reinstall).
       injectRegister: false,
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+      workbox: {
+        // Loads push-sw.js's push/notificationclick listeners into the existing
+        // generateSW-mode service worker via a plain importScripts() call — the
+        // precache/update-banner machinery above is untouched, no need to switch
+        // to injectManifest mode just for background push notifications.
+        importScripts: ["push-sw.js"],
+      },
       manifest: {
         name: "LIFE HUB",
         short_name: "LIFE HUB",
