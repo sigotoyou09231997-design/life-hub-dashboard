@@ -122,14 +122,29 @@ type ApplyOutcome = "added" | "updated" | "deleted" | "skipped-echo" | "skipped-
 async function applyRemoteRow(reg: RegisteredTable, remoteRow: Record<string, unknown>): Promise<ApplyOutcome> {
   const camel = rowToCamel(remoteRow) as SyncableRow & { deletedAt?: number | string | null; serverUpdatedAt?: unknown };
   if (!camel.id) return "skipped-no-id";
+
+  // A delete push only sets deleted_at, never device_id — so a deleted row's device_id
+  // can still be whichever device originally created it. Checking the echo-skip before
+  // this would mean that original-creator device could never apply a delete performed
+  // by any OTHER device. Always process deletes first; deleting an already-absent (or
+  // already-deleted) local row is a harmless no-op.
+  if (camel.deletedAt) {
+    applyingRemoteChange = true;
+    try {
+      await reg.table.delete(camel.id);
+      return "deleted";
+    } catch (err) {
+      console.error("[sync] applyRemoteRow failed:", err, remoteRow);
+      return "error";
+    } finally {
+      applyingRemoteChange = false;
+    }
+  }
+
   if (camel.deviceId && camel.deviceId === getDeviceId()) return "skipped-echo";
 
   applyingRemoteChange = true;
   try {
-    if (camel.deletedAt) {
-      await reg.table.delete(camel.id);
-      return "deleted";
-    }
     const local = await reg.table.get(camel.id);
     if (local && (local.updatedAt ?? 0) > (camel.updatedAt ?? 0)) return "skipped-lww";
 
