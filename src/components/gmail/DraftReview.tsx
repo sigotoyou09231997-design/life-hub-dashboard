@@ -2,7 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
-import { ensureFreshAccessToken, generateDraftForEmail, sendReply } from "../../lib/gmail";
+import {
+  avatarColor,
+  avatarInitial,
+  ensureFreshAccessToken,
+  generateDraftForEmail,
+  getMessageBody,
+  parseSender,
+  sendReply,
+} from "../../lib/gmail";
+import { formatGmailTimestamp } from "../../lib/date";
 import { Card } from "../ui/Card";
 import { Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -28,10 +37,11 @@ export function DraftReview({ email, account, onSent }: Props) {
 
   const [bodyText, setBodyText] = useState("");
   const initializedRef = useRef(false);
-  const autoStartedRef = useRef(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [originalBody, setOriginalBody] = useState<string | null>(null);
+  const [loadingOriginal, setLoadingOriginal] = useState(true);
 
   useEffect(() => {
     if (draft && !initializedRef.current) {
@@ -40,18 +50,28 @@ export function DraftReview({ email, account, onSent }: Props) {
     }
   }, [draft]);
 
-  // First time this email is opened (no draft yet), kick off generation automatically.
+  // Fetch the original message body for reading context (separate from AI draft generation,
+  // which is only triggered by the button below so opening an email never spends API credit).
   useEffect(() => {
-    if (draftResult && !draftResult.draft && !autoStartedRef.current) {
-      autoStartedRef.current = true;
-      setGenerating(true);
-      generateDraftForEmail(account, email)
-        .catch(() => showToast("AI下書きの作成に失敗しました", "error"))
-        .finally(() => setGenerating(false));
-    }
-  }, [draftResult, account, email, showToast]);
+    let cancelled = false;
+    setLoadingOriginal(true);
+    (async () => {
+      try {
+        const fresh = await ensureFreshAccessToken(account);
+        const text = await getMessageBody(fresh.accessToken, email.gmailMessageId);
+        if (!cancelled) setOriginalBody(text || email.snippet);
+      } catch {
+        if (!cancelled) setOriginalBody(email.snippet);
+      } finally {
+        if (!cancelled) setLoadingOriginal(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [account, email.gmailMessageId, email.snippet]);
 
-  async function handleRegenerate() {
+  async function handleGenerate() {
     setGenerating(true);
     try {
       await generateDraftForEmail(account, email);
@@ -110,45 +130,73 @@ export function DraftReview({ email, account, onSent }: Props) {
   }
 
   const alreadySent = email.status === "sent";
+  const sender = parseSender(email.from);
+  const hasDraft = !!draft;
 
   return (
     <div className="space-y-4">
-      <Card className="space-y-1 text-sm">
-        <p className="text-slate-400">差出人: {email.from}</p>
-        <p className="font-medium text-slate-900">{email.subject}</p>
+      <div className="flex items-start gap-3">
+        <div
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(sender.email)}`}
+        >
+          {avatarInitial(sender.name)}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="truncate text-sm font-semibold text-slate-900">{sender.name}</p>
+            <span className="shrink-0 text-xs text-slate-400">{formatGmailTimestamp(email.receivedAt)}</span>
+          </div>
+          {sender.email !== sender.name && <p className="truncate text-xs text-slate-400">{sender.email}</p>}
+        </div>
+      </div>
+
+      <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
+
+      <Card className="whitespace-pre-wrap break-words text-sm text-slate-700">
+        {loadingOriginal ? "本文を読み込み中..." : originalBody}
       </Card>
 
-      <Textarea
-        label={alreadySent ? "送信済みの返信内容" : "返信本文"}
-        value={bodyText}
-        onChange={(e) => setBodyText(e.target.value)}
-        rows={10}
-        placeholder={generating ? "AIが下書きを作成しています…" : ""}
-        disabled={generating}
-      />
+      <div className="space-y-3 border-t border-slate-100 pt-4">
+        {!hasDraft && !generating ? (
+          <Button type="button" className="w-full" onClick={handleGenerate}>
+            AI下書きを作成
+          </Button>
+        ) : (
+          <>
+            <Textarea
+              label={alreadySent ? "送信済みの返信内容" : "返信本文"}
+              value={bodyText}
+              onChange={(e) => setBodyText(e.target.value)}
+              rows={10}
+              placeholder={generating ? "AIが下書きを作成しています…" : ""}
+              disabled={generating}
+            />
 
-      <div className="flex gap-3">
-        <Button
-          type="button"
-          variant="secondary"
-          className="flex-1"
-          onClick={handleRegenerate}
-          disabled={generating || sending}
-        >
-          {generating ? "生成中..." : "下書きを再生成"}
-        </Button>
-        <Button type="button" variant="secondary" className="flex-1" onClick={handleSave} disabled={saving || generating}>
-          {saving ? "保存中..." : "保存"}
-        </Button>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={handleGenerate}
+                disabled={generating || sending}
+              >
+                {generating ? "生成中..." : "下書きを再生成"}
+              </Button>
+              <Button type="button" variant="secondary" className="flex-1" onClick={handleSave} disabled={saving || generating}>
+                {saving ? "保存中..." : "保存"}
+              </Button>
+            </div>
+            <Button
+              type="button"
+              className="w-full"
+              onClick={handleSend}
+              disabled={sending || generating || !bodyText.trim() || alreadySent}
+            >
+              {alreadySent ? "送信済み" : sending ? "送信中..." : "送信する"}
+            </Button>
+          </>
+        )}
       </div>
-      <Button
-        type="button"
-        className="w-full"
-        onClick={handleSend}
-        disabled={sending || generating || !bodyText.trim() || alreadySent}
-      >
-        {alreadySent ? "送信済み" : sending ? "送信中..." : "送信する"}
-      </Button>
     </div>
   );
 }

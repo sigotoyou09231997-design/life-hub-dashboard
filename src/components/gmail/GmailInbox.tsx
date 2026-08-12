@@ -3,8 +3,8 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Mail, RefreshCw } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount, SyncedEmail } from "../../types";
-import { ensureFreshAccessToken, generateDraftForEmail, getMessageMeta, listRecentMessageIds } from "../../lib/gmail";
-import { ListRow } from "../ui/ListRow";
+import { avatarColor, avatarInitial, ensureFreshAccessToken, getMessageMeta, listRecentMessageIds, parseSender } from "../../lib/gmail";
+import { formatGmailTimestamp } from "../../lib/date";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
@@ -40,8 +40,6 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
 export function GmailInbox({ account, onOpenEmail }: Props) {
   const showToast = useToast();
   const [syncing, setSyncing] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [generatingBulk, setGeneratingBulk] = useState(false);
 
   const emails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
@@ -85,37 +83,6 @@ export function GmailInbox({ account, onOpenEmail }: Props) {
     }
   }
 
-  async function generateForEmail(email: SyncedEmail) {
-    try {
-      await generateDraftForEmail(account, email);
-    } catch {
-      showToast(`「${email.subject}」の下書き作成に失敗しました`, "error");
-    }
-  }
-
-  async function handleGenerateSelected() {
-    if (!emails) return;
-    setGeneratingBulk(true);
-    try {
-      const targets = emails.filter((e) => e.id != null && selected.has(e.id));
-      for (const email of targets) {
-        await generateForEmail(email);
-      }
-      setSelected(new Set());
-    } finally {
-      setGeneratingBulk(false);
-    }
-  }
-
-  function toggleSelected(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
   return (
     <div className="space-y-3">
       <Button variant="secondary" className="w-full" onClick={handleSync} disabled={syncing}>
@@ -123,44 +90,45 @@ export function GmailInbox({ account, onOpenEmail }: Props) {
         {syncing ? "同期中..." : "同期"}
       </Button>
 
-      {selected.size > 0 && (
-        <Button className="w-full" onClick={handleGenerateSelected} disabled={generatingBulk}>
-          {generatingBulk ? "生成中..." : `選択した${selected.size}件にAI下書きを作成`}
-        </Button>
-      )}
-
       {showSkeleton ? (
         <ListSkeleton />
       ) : emails && emails.length > 0 ? (
-        <div className="space-y-2">
-          {emails.map((email) => (
-            <ListRow key={email.id} className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={!!email.id && selected.has(email.id)}
-                onChange={() => email.id != null && toggleSelected(email.id)}
-                aria-label={`「${email.subject}」を選択`}
-                className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-accent focus:ring-accent"
-              />
-              <button type="button" onClick={() => onOpenEmail(email)} className="min-w-0 flex-1 text-left">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="truncate text-sm font-medium text-slate-900">{email.from}</p>
-                  <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
-                </div>
-                <p className="mt-0.5 truncate text-sm text-slate-700">{email.subject}</p>
-                <p className="mt-0.5 line-clamp-1 text-xs text-slate-400">{email.snippet}</p>
-              </button>
-              {email.status === "unprocessed" && (
-                <button
-                  type="button"
-                  onClick={() => generateForEmail(email)}
-                  className="shrink-0 self-center text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 bg-white">
+          {emails.map((email) => {
+            const sender = parseSender(email.from);
+            const unread = email.status === "unprocessed";
+            return (
+              <button
+                key={email.id}
+                type="button"
+                onClick={() => onOpenEmail(email)}
+                className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors active:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
+              >
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(sender.email)}`}
                 >
-                  AI下書き
-                </button>
-              )}
-            </ListRow>
-          ))}
+                  {avatarInitial(sender.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className={`truncate text-sm ${unread ? "font-semibold text-slate-900" : "font-medium text-slate-500"}`}>
+                      {sender.name}
+                    </p>
+                    <span className="shrink-0 text-xs text-slate-400">{formatGmailTimestamp(email.receivedAt)}</span>
+                  </div>
+                  <p className={`mt-0.5 truncate text-sm ${unread ? "font-medium text-slate-800" : "text-slate-500"}`}>
+                    {email.subject}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-slate-400">{email.snippet}</p>
+                  {email.status !== "unprocessed" && (
+                    <div className="mt-1.5">
+                      <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
       ) : (
         <EmptyState

@@ -12,6 +12,8 @@ import {
   addMonths,
   eachDayOfInterval,
   differenceInCalendarDays,
+  isToday,
+  isThisYear,
 } from "date-fns";
 import type { RepeatRule } from "../types";
 
@@ -67,6 +69,14 @@ export function formatDisplayDate(dateStr: string): string {
 
 export function formatMonthTitle(date: Date): string {
   return format(date, "yyyy年M月");
+}
+
+/** Gmail-style timestamp: time for today, "M月d日" within this year, full date otherwise. */
+export function formatGmailTimestamp(epochMs: number): string {
+  const d = new Date(epochMs);
+  if (isToday(d)) return format(d, "HH:mm");
+  if (isThisYear(d)) return format(d, "M月d日");
+  return format(d, "yyyy/M/d");
 }
 
 export function advanceByRepeat(dateStr: string, repeat: RepeatRule): string {

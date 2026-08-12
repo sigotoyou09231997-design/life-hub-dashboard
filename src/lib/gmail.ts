@@ -164,6 +164,48 @@ export async function listRecentMessageIds(accessToken: string, sinceEpochSec: n
   return ((data.messages ?? []) as { id: string }[]).map((m) => m.id);
 }
 
+export interface ParsedSender {
+  name: string;
+  email: string;
+}
+
+/** Splits a `From` header (`"Taro Yamada" <taro@example.com>` or a bare address) into a display name + email. */
+export function parseSender(from: string): ParsedSender {
+  const match = from.match(/^"?([^"<]*?)"?\s*<([^>]+)>$/);
+  if (match) {
+    const name = match[1].trim();
+    const email = match[2].trim();
+    return { name: name || email, email };
+  }
+  return { name: from.trim(), email: from.trim() };
+}
+
+const AVATAR_COLORS = [
+  "bg-rose-400",
+  "bg-orange-400",
+  "bg-amber-500",
+  "bg-lime-500",
+  "bg-emerald-500",
+  "bg-teal-500",
+  "bg-cyan-500",
+  "bg-sky-500",
+  "bg-indigo-500",
+  "bg-violet-500",
+  "bg-fuchsia-500",
+  "bg-pink-500",
+];
+
+/** Deterministic avatar background so the same sender always gets the same color. */
+export function avatarColor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[hash % AVATAR_COLORS.length];
+}
+
+export function avatarInitial(name: string): string {
+  return (name.trim()[0] ?? "?").toUpperCase();
+}
+
 function findHeader(headers: { name: string; value: string }[], name: string): string {
   return headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
 }
