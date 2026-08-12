@@ -46,13 +46,18 @@ export function UpdateBanner() {
     const raf = requestAnimationFrame(() => setFilled(true));
     let cancelled = false;
     let timeoutId: number;
+    const startedAt = Date.now();
+    // Upper bound on how long an open form can keep deferring the reload —
+    // without this, a form that never closes (or a stuck overflow flag) would
+    // keep rescheduling forever and the banner would never go away.
+    const MAX_DEFER_MS = 15_000;
 
     // Re-checked at fire time (and re-armed if needed) so a form opened *during*
     // the animation still gets to finish before the reload happens.
     function scheduleApply(delay: number) {
       timeoutId = window.setTimeout(() => {
         if (cancelled) return;
-        if (isFormOpen()) {
+        if (isFormOpen() && Date.now() - startedAt < MAX_DEFER_MS) {
           scheduleApply(1000);
           return;
         }

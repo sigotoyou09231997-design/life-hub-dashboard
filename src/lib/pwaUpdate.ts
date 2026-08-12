@@ -30,7 +30,21 @@ export function subscribeUpdateAvailable(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
-/** Tells the waiting service worker to take over and reloads the page once it does. */
+/** Tells the waiting service worker to take over and reloads the page once it does.
+ * The reload itself is driven by a "controlling" service-worker event registered
+ * back when the update was first detected — it normally fires within a moment of
+ * skip-waiting, but isn't guaranteed to (e.g. several deploys landing back-to-back
+ * can leave a stale listener pointed at a since-superseded worker). Force a reload
+ * shortly after regardless, so the banner can never hang open indefinitely; a no-op
+ * once the natural reload has already navigated the page away. */
 export async function applyUpdate(): Promise<void> {
   if (applyFn) await applyFn(true);
+  if (typeof window === "undefined") return; // non-browser environment (tests)
+  window.setTimeout(() => {
+    try {
+      window.location.reload();
+    } catch {
+      // reload not implemented in this environment — nothing more to do
+    }
+  }, 2000);
 }
