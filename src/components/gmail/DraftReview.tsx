@@ -20,7 +20,7 @@ import { useToast } from "../ui/ToastProvider";
 interface Props {
   email: SyncedEmail;
   account: GmailAccount;
-  onSent: () => void;
+  onSent?: () => void;
 }
 
 export function DraftReview({ email, account, onSent }: Props) {
@@ -121,7 +121,7 @@ export function DraftReview({ email, account, onSent }: Props) {
       }
       await db.syncedEmails.update(email.id, { status: "sent" });
       showToast("返信を送信しました");
-      onSent();
+      onSent?.();
     } catch {
       showToast("送信に失敗しました", "error");
     } finally {

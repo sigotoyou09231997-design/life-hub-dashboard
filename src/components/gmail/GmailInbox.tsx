@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Mail, RefreshCw } from "lucide-react";
 import { db } from "../../db/schema";
-import type { EmailStatus, GmailAccount, SyncedEmail } from "../../types";
+import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, ensureFreshAccessToken, getMessageMeta, listRecentMessageIds, parseSender } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
 import { Badge } from "../ui/Badge";
@@ -14,7 +14,6 @@ import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 
 interface Props {
   account: GmailAccount;
-  onOpenEmail: (email: SyncedEmail) => void;
 }
 
 const SYNC_WINDOW_DAYS = 30;
@@ -37,7 +36,7 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
   skipped: "neutral",
 };
 
-export function GmailInbox({ account, onOpenEmail }: Props) {
+export function GmailInbox({ account }: Props) {
   const showToast = useToast();
   const [syncing, setSyncing] = useState(false);
 
@@ -98,10 +97,14 @@ export function GmailInbox({ account, onOpenEmail }: Props) {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed";
             return (
-              <button
+              // A real anchor (not a button + window.open) so the browser's own new-tab
+              // handling applies: cmd/ctrl-click, middle-click, and "open in new tab" all
+              // work natively, and it isn't subject to popup-blocker heuristics.
+              <a
                 key={email.id}
-                type="button"
-                onClick={() => onOpenEmail(email)}
+                href={`/gmail/mail/${email.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors active:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
               >
                 <div
@@ -126,7 +129,7 @@ export function GmailInbox({ account, onOpenEmail }: Props) {
                     </div>
                   )}
                 </div>
-              </button>
+              </a>
             );
           })}
         </div>

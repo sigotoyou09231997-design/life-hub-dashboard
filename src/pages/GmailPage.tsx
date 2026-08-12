@@ -3,14 +3,11 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
 import { Mail } from "lucide-react";
 import { db } from "../db/schema";
-import type { SyncedEmail } from "../types";
 import { PageHeader } from "../components/ui/PageHeader";
-import { Sheet } from "../components/ui/Sheet";
 import { Tabs } from "../components/ui/Tabs";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { GmailInbox } from "../components/gmail/GmailInbox";
-import { DraftReview } from "../components/gmail/DraftReview";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 
 export default function GmailPage() {
@@ -18,7 +15,6 @@ export default function GmailPage() {
   const accounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   const showSkeleton = useDelayedFlag(accounts === undefined);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [reviewingEmail, setReviewingEmail] = useState<SyncedEmail | null>(null);
 
   useEffect(() => {
     if (accounts && accounts.length > 0 && selectedAccountId == null) {
@@ -54,16 +50,10 @@ export default function GmailPage() {
                 />
               </div>
             )}
-            {selectedAccount && <GmailInbox account={selectedAccount} onOpenEmail={setReviewingEmail} />}
+            {selectedAccount && <GmailInbox account={selectedAccount} />}
           </>
         )}
       </div>
-
-      <Sheet open={reviewingEmail !== null} onClose={() => setReviewingEmail(null)} title="返信の確認">
-        {reviewingEmail && selectedAccount && (
-          <DraftReview email={reviewingEmail} account={selectedAccount} onSent={() => setReviewingEmail(null)} />
-        )}
-      </Sheet>
     </div>
   );
 }

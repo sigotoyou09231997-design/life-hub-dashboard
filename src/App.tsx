@@ -18,6 +18,7 @@ import DiaryPage from "./pages/records/DiaryPage";
 import GoalPage from "./pages/records/GoalPage";
 import HabitPage from "./pages/records/HabitPage";
 import GmailPage from "./pages/GmailPage";
+import GmailMailPage from "./pages/GmailMailPage";
 import GmailCallbackPage from "./pages/GmailCallbackPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
 
@@ -70,6 +71,7 @@ export default function App() {
           <Route path="/records/habits" element={<HabitPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/gmail" element={<GmailPage />} />
+          <Route path="/gmail/mail/:emailId" element={<GmailMailPage />} />
           <Route path="/gmail/callback" element={<GmailCallbackPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
         </Routes>
