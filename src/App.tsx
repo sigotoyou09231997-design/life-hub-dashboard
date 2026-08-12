@@ -27,9 +27,25 @@ export default function App() {
   useEffect(() => {
     ensureDefaultSettings();
     startNotificationScheduler();
-    // PC/スマホ同期のPoC対象。Supabaseにログインしていない間は何もしない安全なno-op —
+    // PC/スマホ同期対象。Supabaseにログインしていない間は何もしない安全なno-op —
     // ログインした瞬間に自動で同期を開始する(src/lib/sync.tsのensureAuthListener参照)。
+    // 対象外: settings(端末ごとに別IDで作られるsingletonのため)、
+    // diaryEntries(photosがBlobでJSON化できないため)、
+    // gmailAccounts/syncedEmails/draftReplies(トークン・メール本文を含むためローカル限定)。
     registerSyncedTable(db.transactions, "transactions");
+    registerSyncedTable(db.fixedCosts, "fixed_costs");
+    registerSyncedTable(db.calendarEvents, "calendar_events");
+    registerSyncedTable(db.tasks, "tasks");
+    registerSyncedTable(db.notes, "notes");
+    registerSyncedTable(db.goals, "goals");
+    registerSyncedTable(db.habits, "habits");
+    registerSyncedTable(db.habitLogs, "habit_logs");
+    registerSyncedTable(db.salaries, "salaries");
+    registerSyncedTable(db.trips, "trips");
+    registerSyncedTable(db.tripSchedule, "trip_schedule");
+    registerSyncedTable(db.tripExpenses, "trip_expenses");
+    registerSyncedTable(db.tripPackingItems, "trip_packing_items");
+    registerSyncedTable(db.paypayTransactions, "paypay_transactions");
     return () => stopNotificationScheduler();
   }, []);
 

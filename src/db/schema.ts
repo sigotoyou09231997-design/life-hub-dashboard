@@ -65,7 +65,7 @@ const TABLE_SCHEMAS: TableSchema[] = [
     hasUpdatedAt: true,
   },
   { name: "settings", indexes: "", fks: [], hasUpdatedAt: false },
-  { name: "paypayTransactions", indexes: "externalId, importedAt", fks: [], hasUpdatedAt: false },
+  { name: "paypayTransactions", indexes: "externalId, importedAt", fks: [], hasUpdatedAt: true },
   { name: "salaries", indexes: "month", fks: [], hasUpdatedAt: true },
   { name: "trips", indexes: "", fks: [], hasUpdatedAt: true },
   { name: "tripSchedule", indexes: "tripId", fks: [{ field: "tripId", refTable: "trips" }], hasUpdatedAt: true },

@@ -30,6 +30,9 @@ export interface PayPayLedgerEntry {
   content: string;
   counterparty: string;
   importedAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
 }
 
 export interface SalaryEntry {
