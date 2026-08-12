@@ -91,22 +91,29 @@ async function checkAccount(
   const accessToken = await refreshAccessToken(account.refresh_token, clientId, clientSecret);
   if (!accessToken) {
     // リフレッシュトークンが失効済み(連携解除・パスワード変更など) — このアカウントの監視を止める
+    console.error(`[checkGmailAndNotify] refresh token invalid for ${account.email}, removing account`);
     await supabase.from("gmail_server_accounts").delete().eq("id", account.id);
     return;
   }
 
   const sinceEpochSec = Math.floor(new Date(account.last_checked_at).getTime() / 1000);
   const { count, latest } = await checkForNewMail(accessToken, sinceEpochSec);
+  console.log(
+    `[checkGmailAndNotify] ${account.email}: since=${new Date(sinceEpochSec * 1000).toISOString()} newMessages=${count}${latest ? ` latestFrom=${latest.from}` : ""}`,
+  );
 
   if (count > 0) {
     const { data: subs } = await supabase.from("push_subscriptions").select("*").eq("user_id", account.user_id);
+    console.log(`[checkGmailAndNotify] ${account.email}: found ${subs?.length ?? 0} push subscription(s) for user ${account.user_id}`);
     const payload = buildNotificationPayload(count, latest);
     for (const sub of (subs ?? []) as PushSubscriptionRow[]) {
       try {
         await sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, payload);
+        console.log(`[checkGmailAndNotify] push sent OK to ${sub.endpoint.slice(0, 60)}...`);
       } catch (err) {
         if (err instanceof WebPushError && (err.statusCode === 404 || err.statusCode === 410)) {
           // 購読切れ(ブラウザ側で解除済み) — このデバイスの購読情報を削除する
+          console.error(`[checkGmailAndNotify] subscription gone (${err.statusCode}), removing:`, sub.endpoint.slice(0, 60));
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
         } else {
           console.error(`[checkGmailAndNotify] push send failed for ${account.email}:`, err);
@@ -141,6 +148,7 @@ const handlerImpl: Handler = async () => {
     console.error("[checkGmailAndNotify] failed to load gmail_server_accounts:", error.message);
     return { statusCode: 500, body: error.message };
   }
+  console.log(`[checkGmailAndNotify] run start: ${accounts?.length ?? 0} account(s) registered`);
 
   for (const account of (accounts ?? []) as GmailServerAccountRow[]) {
     try {
