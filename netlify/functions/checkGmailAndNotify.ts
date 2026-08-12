@@ -46,7 +46,7 @@ export function buildNotificationPayload(newMessageCount: number, latest: Latest
   }
   const senderName = parseSenderName(latest.from);
   const title = newMessageCount === 1 ? senderName : `${senderName} 他${newMessageCount - 1}件`;
-  const body = [latest.subject, latest.snippet].filter(Boolean).join("\n");
+  const body = [`件名: ${latest.subject}`, latest.snippet].filter(Boolean).join("\n");
   return JSON.stringify({ title, body, url: "/gmail" });
 }
 
