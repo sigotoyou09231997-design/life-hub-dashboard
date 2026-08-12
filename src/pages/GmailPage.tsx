@@ -26,7 +26,7 @@ export default function GmailPage() {
 
   return (
     <div className="pb-10">
-      <PageHeader title="メール" subtitle="受信メールとAI下書き" backTo="/settings" />
+      <PageHeader title="メール" subtitle="受信メールとAI下書き" backTo="/" />
 
       <div className="px-5">
         {showSkeleton ? (
