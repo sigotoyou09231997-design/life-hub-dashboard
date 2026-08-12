@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Mail, RefreshCw } from "lucide-react";
+import { Mail, RefreshCw, Search } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, ensureFreshAccessToken, getMessageMeta, listRecentMessageIds, parseSender } from "../../lib/gmail";
@@ -39,12 +39,23 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
 export function GmailInbox({ account }: Props) {
   const showToast = useToast();
   const [syncing, setSyncing] = useState(false);
+  const [query, setQuery] = useState("");
 
   const emails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
     [account.id],
   );
   const showSkeleton = useDelayedFlag(emails === undefined);
+
+  const filteredEmails = emails?.filter((email) => {
+    if (!query.trim()) return true;
+    const q = query.toLowerCase();
+    return (
+      email.from.toLowerCase().includes(q) ||
+      email.subject.toLowerCase().includes(q) ||
+      email.snippet.toLowerCase().includes(q)
+    );
+  });
 
   async function handleSync() {
     if (!account.id) return;
@@ -89,11 +100,23 @@ export function GmailInbox({ account }: Props) {
         {syncing ? "同期中..." : "同期"}
       </Button>
 
+      {!showSkeleton && emails && emails.length > 0 && (
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="送信者・件名・本文を検索"
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+          />
+        </div>
+      )}
+
       {showSkeleton ? (
         <ListSkeleton />
-      ) : emails && emails.length > 0 ? (
+      ) : filteredEmails && filteredEmails.length > 0 ? (
         <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 bg-white">
-          {emails.map((email) => {
+          {filteredEmails.map((email) => {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed";
             return (
@@ -133,6 +156,8 @@ export function GmailInbox({ account }: Props) {
             );
           })}
         </div>
+      ) : emails && emails.length > 0 ? (
+        <EmptyState title="該当する結果が見つかりませんでした" description="検索条件を変えてみてください。" />
       ) : (
         <EmptyState
           icon={Mail}
