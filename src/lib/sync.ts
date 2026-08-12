@@ -97,7 +97,8 @@ async function drainQueue(): Promise<void> {
       }
       try {
         if (entry.op === "delete") {
-          await supabase.from(entry.table).update({ deleted_at: new Date().toISOString() }).eq("id", entry.rowId);
+          const { error } = await supabase.from(entry.table).update({ deleted_at: new Date().toISOString() }).eq("id", entry.rowId);
+          if (error) throw error;
         } else {
           const row = await reg.table.get(entry.rowId);
           if (row) {
