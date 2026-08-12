@@ -68,7 +68,8 @@ export const handler: Handler = async (event) => {
   }
 
   const data = (await res.json()) as { content: { type: string; text?: string }[] };
-  const draft = data.content.find((block) => block.type === "text")?.text ?? "";
+  const generated = data.content.find((block) => block.type === "text")?.text ?? "";
+  const draft = `お世話になっております。\n船田です。\n\n${generated}\n\n以上、よろしくお願いします。`;
 
   return jsonResponse(200, { draft });
 };
