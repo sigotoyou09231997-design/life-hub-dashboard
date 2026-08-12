@@ -41,8 +41,8 @@ export const handler: Handler = async (event) => {
   } catch {
     return jsonResponse(400, { error: "Invalid JSON body" });
   }
-  if (!payload.subject || !payload.body) {
-    return jsonResponse(400, { error: "subject and body are required" });
+  if (!payload.from || !payload.subject || !payload.body) {
+    return jsonResponse(400, { error: "from, subject, and body are required" });
   }
 
   const userMessage = `差出人: ${payload.from}\n件名: ${payload.subject}\n本文:\n${payload.body}`;
