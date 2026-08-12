@@ -23,14 +23,30 @@ interface PushSubscriptionRow {
 interface LatestMessageMeta {
   from: string;
   subject: string;
+  snippet: string;
+}
+
+/** Extracts just the display name from a "From" header ("\"Name\" <email>" or a bare
+ * address) — same shape as src/lib/gmail.ts's parseSender, duplicated here since
+ * Netlify Functions bundle separately from the app's client code. */
+function parseSenderName(from: string): string {
+  const match = from.match(/^"?([^"<]*?)"?\s*<([^>]+)>$/);
+  if (match) return match[1].trim() || match[2].trim();
+  return from.trim();
 }
 
 /** Builds the JSON payload consumed by public/push-sw.js's `push` handler — kept
  * pure/exported so the notification-text logic is unit-testable without a live
- * Gmail/web-push round trip. */
+ * Gmail/web-push round trip. Title is the sender so it's visible even collapsed;
+ * body carries the subject + a content preview (Gmail's own snippet field). */
 export function buildNotificationPayload(newMessageCount: number, latest: LatestMessageMeta | null): string {
-  const title = newMessageCount === 1 ? "新着メール" : `新着メール ${newMessageCount}件`;
-  const body = latest ? `${latest.from}: ${latest.subject}` : "";
+  if (!latest) {
+    const title = newMessageCount === 1 ? "新着メール" : `新着メール ${newMessageCount}件`;
+    return JSON.stringify({ title, body: "", url: "/gmail" });
+  }
+  const senderName = parseSenderName(latest.from);
+  const title = newMessageCount === 1 ? senderName : `${senderName} 他${newMessageCount - 1}件`;
+  const body = [latest.subject, latest.snippet].filter(Boolean).join("\n");
   return JSON.stringify({ title, body, url: "/gmail" });
 }
 
@@ -55,8 +71,9 @@ function findHeader(headers: { name: string; value: string }[], name: string): s
 }
 
 /** Same after:{epoch} query shape as src/lib/gmail.ts's listRecentMessageIds.
- * Only fetches metadata (From/Subject) for the newest message — the notification
- * body doesn't need the full message content. */
+ * Only fetches metadata (From/Subject) for the newest message — Gmail already
+ * includes `snippet` on a metadata-format response, so no extra full-body fetch
+ * is needed just to preview the content in the notification. */
 async function checkForNewMail(accessToken: string, sinceEpochSec: number): Promise<{ count: number; latest: LatestMessageMeta | null }> {
   const listParams = new URLSearchParams({ q: `after:${sinceEpochSec}`, maxResults: "10" });
   const listRes = await fetch(`${GMAIL_MESSAGES_ENDPOINT}?${listParams.toString()}`, {
@@ -74,11 +91,15 @@ async function checkForNewMail(accessToken: string, sinceEpochSec: number): Prom
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!metaRes.ok) return { count: messages.length, latest: null };
-  const metaData = (await metaRes.json()) as { payload?: { headers?: { name: string; value: string }[] } };
+  const metaData = (await metaRes.json()) as { snippet?: string; payload?: { headers?: { name: string; value: string }[] } };
   const headers = metaData.payload?.headers ?? [];
   return {
     count: messages.length,
-    latest: { from: findHeader(headers, "From"), subject: findHeader(headers, "Subject") || "(件名なし)" },
+    latest: {
+      from: findHeader(headers, "From"),
+      subject: findHeader(headers, "Subject") || "(件名なし)",
+      snippet: metaData.snippet ?? "",
+    },
   };
 }
 
