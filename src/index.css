@@ -36,11 +36,18 @@ body {
     from { opacity: 0; transform: translateY(12px); }
     to { opacity: 1; transform: translateY(0); }
   }
+  @keyframes slide-down {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
   .animate-fade-in {
     animation: fade-in 200ms ease-out;
   }
   .animate-slide-up {
     animation: slide-up 200ms ease-out;
+  }
+  .animate-slide-down {
+    animation: slide-down 200ms ease-out;
   }
 }
 

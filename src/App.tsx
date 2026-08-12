@@ -4,6 +4,7 @@ import { db, ensureDefaultSettings } from "./db/schema";
 import { startNotificationScheduler, stopNotificationScheduler } from "./lib/notifications";
 import { registerSyncedTable } from "./lib/sync";
 import { ToastProvider } from "./components/ui/ToastProvider";
+import { UpdateBanner } from "./components/ui/UpdateBanner";
 
 import TopPage from "./pages/TopPage";
 import SchedulePage from "./pages/SchedulePage";
@@ -51,6 +52,7 @@ export default function App() {
 
   return (
     <ToastProvider>
+      <UpdateBanner />
       <div className={`mx-auto min-h-screen bg-white md:shadow-xl ${isTop ? "max-w-3xl" : "max-w-md"}`}>
         <Routes>
           <Route path="/" element={<TopPage />} />

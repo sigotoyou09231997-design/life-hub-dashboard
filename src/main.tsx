@@ -3,14 +3,20 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App";
+import { markUpdateAvailable, setUpdateApplier } from "./lib/pwaUpdate";
 import "./index.css";
 
-// registerType: "autoUpdate" only applies an update once one is found — but a tab
-// left open never re-checks on its own, so it kept serving a stale build until a
-// full reload/reinstall. Polling registration.update() (here + on tab refocus)
-// means an already-open session picks up new deploys without any manual action.
-registerSW({
+// A tab left open never re-checks for updates on its own, so it kept serving a
+// stale build until a full reload/reinstall. Polling registration.update()
+// (here + on tab refocus) means an already-open session notices new deploys
+// without any manual action. registerType: "prompt" (see vite.config.ts) means
+// a found update just sits waiting here instead of reloading the tab out from
+// under the user — UpdateBanner.tsx applies it at the next safe interaction.
+const updateSW = registerSW({
   immediate: true,
+  onNeedRefresh() {
+    markUpdateAvailable();
+  },
   onRegisteredSW(_swScriptUrl, registration) {
     if (!registration) return;
     const checkForUpdate = () => void registration.update();
@@ -20,6 +26,7 @@ registerSW({
     });
   },
 });
+setUpdateApplier(updateSW);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -6,7 +6,10 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      // "prompt" (not "autoUpdate") so a found update sits waiting instead of
+      // silently reloading the tab out from under the user — src/main.tsx +
+      // UpdateBanner.tsx decide exactly when to apply it (next safe interaction).
+      registerType: "prompt",
       // Registration is done by hand in main.tsx so we can poll for updates on an
       // already-open tab (the default auto-injected registerSW.js only checks once
       // per page load, which is why devices kept serving a stale build until a full
