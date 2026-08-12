@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotificationPayload } from "./checkGmailAndNotify";
+import { buildNotificationPayload } from "../functions/checkGmailAndNotify";
 
 describe("buildNotificationPayload", () => {
   it("uses the singular title and includes sender/subject when exactly one new message arrived", () => {
