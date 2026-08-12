@@ -7,6 +7,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // Registration is done by hand in main.tsx so we can poll for updates on an
+      // already-open tab (the default auto-injected registerSW.js only checks once
+      // per page load, which is why devices kept serving a stale build until a full
+      // reload/reinstall).
+      injectRegister: false,
       includeAssets: ["favicon.svg", "apple-touch-icon.png"],
       manifest: {
         name: "LIFE HUB",
