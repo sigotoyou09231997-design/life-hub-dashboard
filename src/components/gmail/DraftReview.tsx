@@ -14,12 +14,15 @@ import {
   sendReply,
   type CandidateDate,
 } from "../../lib/gmail";
-import { formatGmailTimestamp } from "../../lib/date";
+import { formatGmailTimestamp, parseDate } from "../../lib/date";
 import { Card } from "../ui/Card";
 import { Input, Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
+import { MonthView } from "../calendar/MonthView";
+
+const EMPTY_DATE_SET = new Set<string>();
 
 interface Props {
   email: SyncedEmail;
@@ -58,6 +61,12 @@ export function DraftReview({ email, account, onSent }: Props) {
   const [editDate, setEditDate] = useState("");
   const [editStartTime, setEditStartTime] = useState("");
   const [editEndTime, setEditEndTime] = useState("");
+  const [pickerMonth, setPickerMonth] = useState(new Date());
+
+  // Shown as dots on the date picker so the user can see at a glance which days
+  // already have something booked while choosing a candidate date.
+  const calendarEvents = useLiveQuery(() => db.calendarEvents.toArray(), []);
+  const busyDateSet = new Set((calendarEvents ?? []).map((e) => e.date));
 
   useEffect(() => {
     if (draft && !initializedRef.current) {
@@ -106,6 +115,7 @@ export function DraftReview({ email, account, onSent }: Props) {
     setEditDate(c.date);
     setEditStartTime(c.startTime ?? "");
     setEditEndTime(c.endTime ?? "");
+    setPickerMonth(parseDate(c.date));
     setEditingCandidateIndex(index);
   }
 
@@ -291,7 +301,14 @@ export function DraftReview({ email, account, onSent }: Props) {
 
       <Sheet open={editingCandidateIndex !== null} onClose={() => setEditingCandidateIndex(null)} title="候補日を変更">
         <div className="space-y-4">
-          <Input label="日付" type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} autoFocus />
+          <MonthView
+            currentMonth={pickerMonth}
+            onMonthChange={setPickerMonth}
+            selectedDate={editDate}
+            onSelectDate={setEditDate}
+            eventDates={busyDateSet}
+            taskDates={EMPTY_DATE_SET}
+          />
           <div className="grid grid-cols-2 gap-3">
             <Input label="開始時刻(任意)" type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} />
             <Input label="終了時刻(任意)" type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} />
