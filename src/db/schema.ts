@@ -19,6 +19,7 @@ import type {
   GmailAccount,
   SyncedEmail,
   DraftReply,
+  BlockedSender,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -146,6 +147,7 @@ export class LifeHubDB extends Dexie {
   gmailAccounts!: EntityTable<GmailAccount, "id">;
   syncedEmails!: EntityTable<SyncedEmail, "id">;
   draftReplies!: EntityTable<DraftReply, "id">;
+  blockedSenders!: EntityTable<BlockedSender, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   constructor() {
@@ -220,6 +222,14 @@ export class LifeHubDB extends Dexie {
     for (const schema of TABLE_SCHEMAS) dropV2[`${schema.name}_v2`] = null;
     this.version(9).stores(dropV2);
 
+    // ブロックした送信者(このアプリ内でのみ受信一覧から除外、Gmail本体には影響しない)。
+    // TABLE_SCHEMASには加えない — その配列はv6-v9のUUID移行チェーンにも使われており、
+    // 追加すると新規インストール時にそのチェーンがこのテーブルをまだ存在しない時点で
+    // 参照してしまう。UUID採番フックはこのテーブル専用に個別登録する。
+    this.version(10).stores({
+      blockedSenders: "id, accountId, email, [accountId+email]",
+    });
+
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに
     // UUIDを補うフックを全テーブルへ登録する(Dexie公式が示すUUID主キーの標準パターン)。
     for (const schema of TABLE_SCHEMAS) {
@@ -227,6 +237,9 @@ export class LifeHubDB extends Dexie {
         if (!obj.id) obj.id = crypto.randomUUID();
       });
     }
+    this.table("blockedSenders").hook("creating", (_primKey, obj: { id?: string }) => {
+      if (!obj.id) obj.id = crypto.randomUUID();
+    });
 
     // updatedAtはLWW同期の判定に使うため、同期対象になり得るテーブルでは常にDB層で付与する
     // (まだsrc/lib/sync.tsのregisterSyncedTableを呼んでいないテーブルの.add()/.update()呼び出し

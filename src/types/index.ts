@@ -284,6 +284,15 @@ export interface DraftReply {
   sentAt?: number;
 }
 
+/** A sender address hidden from this app's inbox view. Gmail itself is never
+ * touched — matching SyncedEmail rows are only filtered out of the UI. */
+export interface BlockedSender {
+  id?: string;
+  accountId: string;
+  email: string; // lowercased address, e.g. "spam@example.com"
+  createdAt: number;
+}
+
 export interface Settings {
   id?: string;
   monthlyIncome: number;

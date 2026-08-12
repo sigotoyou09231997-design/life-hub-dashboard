@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Mail, RefreshCw, Search } from "lucide-react";
+import { Ban, Mail, RefreshCw, Search } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, ensureFreshAccessToken, getMessageMeta, listRecentMessageIds, parseSender } from "../../lib/gmail";
@@ -8,7 +8,9 @@ import { formatGmailTimestamp } from "../../lib/date";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
+import { ListRow } from "../ui/ListRow";
 import { ListSkeleton } from "../ui/ListSkeleton";
+import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 
@@ -40,6 +42,7 @@ export function GmailInbox({ account }: Props) {
   const showToast = useToast();
   const [syncing, setSyncing] = useState(false);
   const [query, setQuery] = useState("");
+  const [manageBlockedOpen, setManageBlockedOpen] = useState(false);
 
   const emails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
@@ -47,7 +50,15 @@ export function GmailInbox({ account }: Props) {
   );
   const showSkeleton = useDelayedFlag(emails === undefined);
 
-  const filteredEmails = emails?.filter((email) => {
+  const blockedSenders = useLiveQuery(
+    () => (account.id ? db.blockedSenders.where("accountId").equals(account.id).toArray() : []),
+    [account.id],
+  );
+  const blockedSet = new Set((blockedSenders ?? []).map((b) => b.email));
+
+  const visibleEmails = emails?.filter((email) => !blockedSet.has(parseSender(email.from).email.toLowerCase()));
+
+  const filteredEmails = visibleEmails?.filter((email) => {
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     return (
@@ -71,6 +82,7 @@ export function GmailInbox({ account }: Props) {
       let added = 0;
       for (const id of newIds) {
         const meta = await getMessageMeta(fresh.accessToken, id);
+        if (blockedSet.has(parseSender(meta.from).email.toLowerCase())) continue;
         await db.syncedEmails.add({
           accountId: account.id,
           gmailMessageId: id,
@@ -93,6 +105,11 @@ export function GmailInbox({ account }: Props) {
     }
   }
 
+  async function handleUnblock(id: string) {
+    await db.blockedSenders.delete(id);
+    showToast("ブロックを解除しました");
+  }
+
   return (
     <div className="space-y-3">
       <Button variant="secondary" className="w-full" onClick={handleSync} disabled={syncing}>
@@ -110,6 +127,17 @@ export function GmailInbox({ account }: Props) {
             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
           />
         </div>
+      )}
+
+      {blockedSenders && blockedSenders.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setManageBlockedOpen(true)}
+          className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          <Ban size={13} />
+          ブロック中の送信者({blockedSenders.length})
+        </button>
       )}
 
       {showSkeleton ? (
@@ -165,6 +193,23 @@ export function GmailInbox({ account }: Props) {
           description="「同期」を押すと直近30日分の受信メールを取得します"
         />
       )}
+
+      <Sheet open={manageBlockedOpen} onClose={() => setManageBlockedOpen(false)} title="ブロック中の送信者">
+        <div className="space-y-2">
+          {(blockedSenders ?? []).map((b) => (
+            <ListRow key={b.id} className="flex items-center justify-between py-2.5">
+              <span className="min-w-0 truncate text-sm text-slate-700">{b.email}</span>
+              <button
+                type="button"
+                onClick={() => b.id && handleUnblock(b.id)}
+                className="shrink-0 text-xs font-medium text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+              >
+                解除
+              </button>
+            </ListRow>
+          ))}
+        </div>
+      </Sheet>
     </div>
   );
 }

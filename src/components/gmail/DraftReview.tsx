@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { Ban } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
@@ -34,6 +35,12 @@ export function DraftReview({ email, account, onSent }: Props) {
     [email.id],
   );
   const draft = draftResult?.draft;
+  const sender = parseSender(email.from);
+
+  const blockedEntry = useLiveQuery(
+    () => (account.id ? db.blockedSenders.where("[accountId+email]").equals([account.id, sender.email.toLowerCase()]).first() : undefined),
+    [account.id, sender.email],
+  );
 
   const [bodyText, setBodyText] = useState("");
   const initializedRef = useRef(false);
@@ -129,8 +136,20 @@ export function DraftReview({ email, account, onSent }: Props) {
     }
   }
 
+  async function handleToggleBlock() {
+    if (!account.id) return;
+    const normalizedEmail = sender.email.toLowerCase();
+    if (blockedEntry?.id) {
+      await db.blockedSenders.delete(blockedEntry.id);
+      showToast("ブロックを解除しました");
+    } else {
+      if (!confirm(`${sender.email} からのメールを今後この一覧に表示しないようにしますか？(Gmail自体には影響しません)`)) return;
+      await db.blockedSenders.add({ accountId: account.id, email: normalizedEmail, createdAt: Date.now() });
+      showToast("送信者をブロックしました");
+    }
+  }
+
   const alreadySent = email.status === "sent";
-  const sender = parseSender(email.from);
   const hasDraft = !!draft;
 
   return (
@@ -148,6 +167,17 @@ export function DraftReview({ email, account, onSent }: Props) {
           </div>
           {sender.email !== sender.name && <p className="truncate text-xs text-slate-400">{sender.email}</p>}
         </div>
+        <button
+          type="button"
+          onClick={handleToggleBlock}
+          aria-label={blockedEntry ? "ブロックを解除" : "送信者をブロック"}
+          title={blockedEntry ? "ブロックを解除" : "この送信者をブロック"}
+          className={`shrink-0 rounded-full p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50 ${
+            blockedEntry ? "text-danger active:bg-red-50" : "text-slate-300 active:bg-red-50 active:text-danger"
+          }`}
+        >
+          <Ban size={16} />
+        </button>
       </div>
 
       <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
