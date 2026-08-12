@@ -23,9 +23,6 @@ export default {
           "sans-serif",
         ],
       },
-      borderRadius: {
-        xl2: "1.25rem",
-      },
     },
   },
   plugins: [],
