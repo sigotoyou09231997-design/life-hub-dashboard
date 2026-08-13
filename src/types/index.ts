@@ -278,6 +278,8 @@ export interface DraftReply {
   id?: string;
   emailId: string; // -> SyncedEmail.id
   accountId: string;
+  to?: string; // user-editable reply recipient; defaults to the original sender's address
+  subject?: string; // user-editable, AI-suggested reply subject (already includes "Re: ")
   body: string;
   createdAt: number;
   updatedAt?: number;

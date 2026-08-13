@@ -37,6 +37,25 @@ describe("parseModelOutput", () => {
     const result = parseModelOutput("[ポイント]\n- お礼を伝える\n\n[本文]\nありがとうございます。");
     expect(result.candidateDates).toEqual([]);
   });
+
+  it("parses the [件名] section as a single trimmed line, ahead of [本文]", () => {
+    const text = `[ポイント]\n- お礼を伝える\n\n[件名]\nご案内のお礼\n\n[本文]\nありがとうございます。`;
+    const result = parseModelOutput(text);
+    expect(result.subject).toBe("ご案内のお礼");
+    expect(result.body).toBe("ありがとうございます。");
+  });
+
+  it("parses [件名] correctly even when [候補日] is also present", () => {
+    const text = `[ポイント]\n- 日程を提案する\n\n[候補日]\n2026-08-20|14:00|15:00\n\n[件名]\n面接日程のご案内\n\n[本文]\n8/20(木) 14:00〜15:00でいかがでしょうか。`;
+    const result = parseModelOutput(text);
+    expect(result.subject).toBe("面接日程のご案内");
+    expect(result.candidateDates).toEqual([{ date: "2026-08-20", startTime: "14:00", endTime: "15:00" }]);
+  });
+
+  it("returns an empty subject when [件名] is omitted", () => {
+    const result = parseModelOutput("[本文]\n本文のみ");
+    expect(result.subject).toBe("");
+  });
 });
 
 describe("formatCandidateLabel", () => {

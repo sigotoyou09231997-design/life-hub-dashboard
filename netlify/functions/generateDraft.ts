@@ -39,6 +39,7 @@ export function formatBusySlots(slots: BusySlot[] | undefined): string {
 
 const POINTS_MARKER = "[ポイント]";
 const CANDIDATES_MARKER = "[候補日]";
+const SUBJECT_MARKER = "[件名]";
 const BODY_MARKER = "[本文]";
 
 export interface CandidateDate {
@@ -72,25 +73,33 @@ function parseCandidateLines(section: string): CandidateDate[] {
     });
 }
 
-/** Splits the model's [ポイント]/[候補日]/[本文] sections apart. Falls back to treating
- * the whole response as the body (no points/dates) if the model didn't follow the format. */
-export function parseModelOutput(text: string): { keyPoints: string[]; candidateDates: CandidateDate[]; body: string } {
+/** Splits the model's [ポイント]/[候補日]/[件名]/[本文] sections apart. Falls back to
+ * treating the whole response as the body (no points/dates/subject) if the model
+ * didn't follow the format. Section boundaries chain forward through whichever
+ * optional markers are actually present, ending at [本文] (always last, and always
+ * required — everything after it is body text). */
+export function parseModelOutput(text: string): { keyPoints: string[]; candidateDates: CandidateDate[]; subject: string; body: string } {
   const bodyIdx = text.indexOf(BODY_MARKER);
-  if (bodyIdx === -1) return { keyPoints: [], candidateDates: [], body: text.trim() };
+  if (bodyIdx === -1) return { keyPoints: [], candidateDates: [], subject: "", body: text.trim() };
 
+  const subjectIdx = text.indexOf(SUBJECT_MARKER);
   const candidatesIdx = text.indexOf(CANDIDATES_MARKER);
   const pointsIdx = text.indexOf(POINTS_MARKER);
-  const pointsEnd = candidatesIdx !== -1 ? candidatesIdx : bodyIdx;
+
+  const pointsEnd = candidatesIdx !== -1 ? candidatesIdx : subjectIdx !== -1 ? subjectIdx : bodyIdx;
   const pointsSection = pointsIdx !== -1 ? text.slice(pointsIdx + POINTS_MARKER.length, pointsEnd) : "";
   const keyPoints = pointsSection
     .split("\n")
     .map((line) => line.trim().replace(/^[-・]\s*/, ""))
     .filter(Boolean);
 
-  const candidateDates = candidatesIdx !== -1 ? parseCandidateLines(text.slice(candidatesIdx + CANDIDATES_MARKER.length, bodyIdx)) : [];
+  const candidatesEnd = subjectIdx !== -1 ? subjectIdx : bodyIdx;
+  const candidateDates = candidatesIdx !== -1 ? parseCandidateLines(text.slice(candidatesIdx + CANDIDATES_MARKER.length, candidatesEnd)) : [];
+
+  const subject = subjectIdx !== -1 ? (text.slice(subjectIdx + SUBJECT_MARKER.length, bodyIdx).trim().split("\n")[0] ?? "").trim() : "";
 
   const body = text.slice(bodyIdx + BODY_MARKER.length).trim();
-  return { keyPoints, candidateDates, body };
+  return { keyPoints, candidateDates, subject, body };
 }
 
 /** Defensive cleanup for when the model includes the greeting/closing our fixed
@@ -112,6 +121,9 @@ ${POINTS_MARKER}
 ${CANDIDATES_MARKER}
 ${BODY_MARKER}内で日程(面接・打ち合わせ等の候補日)を提案する場合のみ、提案した日付を1行1件、
 "YYYY-MM-DD|開始HH:mm|終了HH:mm" の形式で出力する(時刻未定なら2〜3列目は空でよい。例: 2026-08-20|14:00|15:00 や 2026-08-21|| )。
+
+${SUBJECT_MARKER}
+この返信メールの件名を1行で(「Re:」は付けない)。元の件名をそのまま繰り返すのではなく、返信の要件が一目で伝わる件名を考えること。話題が元のメールと変わっていなければ、元の件名の要点を踏襲してよい。
 
 ${BODY_MARKER}
 受信メールへの返信文の、要件部分の本文のみ(そのメールと同じ言語)。件名は含めない。
@@ -172,10 +184,14 @@ export const handler: Handler = async (event) => {
 
   const data = (await res.json()) as { content: { type: string; text?: string }[] };
   const generated = data.content.find((block) => block.type === "text")?.text ?? "";
-  const { keyPoints, candidateDates, body: generatedBody } = parseModelOutput(generated);
+  const { keyPoints, candidateDates, subject, body: generatedBody } = parseModelOutput(generated);
   const cleanedBody = stripKnownGreetingAndClosing(generatedBody);
   const draft = `お世話になっております。\n船田です。\n\n${cleanedBody}\n\n以上、よろしくお願いします。`;
   const candidateDatesWithLabel = candidateDates.map((c) => ({ ...c, label: formatCandidateLabel(c) }));
+  // モデルが件名を返さなかった場合は元の件名を踏襲する(候補日と違い、件名は常に必要なフィールドのため)。
+  // 元の件名が既に"Re:"始まりだったり、モデルが指示に反して自分で付けてしまった場合の二重付与を防ぐ。
+  const rawSubject = subject || payload.subject;
+  const finalSubject = rawSubject.startsWith("Re:") ? rawSubject : `Re: ${rawSubject}`;
 
-  return jsonResponse(200, { draft, keyPoints, candidateDates: candidateDatesWithLabel });
+  return jsonResponse(200, { draft, keyPoints, candidateDates: candidateDatesWithLabel, subject: finalSubject });
 };

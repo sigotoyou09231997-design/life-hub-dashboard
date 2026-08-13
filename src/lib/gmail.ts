@@ -134,6 +134,7 @@ export interface GenerateDraftResult {
   draft: string;
   keyPoints: string[];
   candidateDates: CandidateDate[];
+  subject: string;
 }
 
 export async function generateDraft(input: GenerateDraftInput): Promise<GenerateDraftResult> {
@@ -182,9 +183,9 @@ export async function generateDraftForEmail(account: GmailAccount, email: Synced
     const now = Date.now();
     const existing = await db.draftReplies.where("emailId").equals(emailId).first();
     if (existing?.id) {
-      await db.draftReplies.update(existing.id, { body: result.draft, updatedAt: now });
+      await db.draftReplies.update(existing.id, { body: result.draft, subject: result.subject, updatedAt: now });
     } else {
-      await db.draftReplies.add({ emailId, accountId: account.id, body: result.draft, createdAt: now, updatedAt: now });
+      await db.draftReplies.add({ emailId, accountId: account.id, body: result.draft, subject: result.subject, createdAt: now, updatedAt: now });
     }
     await db.syncedEmails.update(emailId, { status: "drafted" });
     return result;

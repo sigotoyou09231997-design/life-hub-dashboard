@@ -50,7 +50,10 @@ export function DraftReview({ email, account, onSent }: Props) {
   );
 
   const [bodyText, setBodyText] = useState("");
+  const [subjectText, setSubjectText] = useState("");
+  const [toText, setToText] = useState("");
   const initializedRef = useRef(false);
+  const toInitializedRef = useRef(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -73,8 +76,19 @@ export function DraftReview({ email, account, onSent }: Props) {
     if (draft && !initializedRef.current) {
       initializedRef.current = true;
       setBodyText(draft.body);
+      setSubjectText(draft.subject || `Re: ${email.subject}`);
     }
-  }, [draft]);
+  }, [draft, email.subject]);
+
+  // Separate from the body/subject init above: "to" isn't AI-generated and must
+  // NOT reset when handleGenerate() re-runs the effect above (initializedRef.current
+  // = false) to pull a freshly-regenerated body/subject into the textarea/input.
+  useEffect(() => {
+    if (draftResult && !toInitializedRef.current) {
+      toInitializedRef.current = true;
+      setToText(draft?.to || sender.email);
+    }
+  }, [draftResult, draft, sender.email]);
 
   // Fetch the original message body for reading context (separate from AI draft generation,
   // which is only triggered by the button below so opening an email never spends API credit).
@@ -141,9 +155,17 @@ export function DraftReview({ email, account, onSent }: Props) {
     try {
       const now = Date.now();
       if (draft?.id) {
-        await db.draftReplies.update(draft.id, { body: bodyText, updatedAt: now });
+        await db.draftReplies.update(draft.id, { body: bodyText, subject: subjectText, to: toText, updatedAt: now });
       } else {
-        await db.draftReplies.add({ emailId: email.id, accountId: account.id!, body: bodyText, createdAt: now, updatedAt: now });
+        await db.draftReplies.add({
+          emailId: email.id,
+          accountId: account.id!,
+          body: bodyText,
+          subject: subjectText,
+          to: toText,
+          createdAt: now,
+          updatedAt: now,
+        });
       }
       if (email.status !== "sent") {
         await db.syncedEmails.update(email.id, { status: "edited" });
@@ -162,14 +184,14 @@ export function DraftReview({ email, account, onSent }: Props) {
     try {
       const fresh = await ensureFreshAccessToken(account);
       await sendReply(fresh.accessToken, {
-        to: email.from,
-        subject: email.subject,
+        to: toText,
+        subject: subjectText,
         body: bodyText,
         threadId: email.threadId,
       });
       const now = Date.now();
       if (draft?.id) {
-        await db.draftReplies.update(draft.id, { body: bodyText, updatedAt: now, sentAt: now });
+        await db.draftReplies.update(draft.id, { body: bodyText, subject: subjectText, to: toText, updatedAt: now, sentAt: now });
       }
       await db.syncedEmails.update(email.id, { status: "sent" });
       showToast("返信を送信しました");
@@ -236,6 +258,20 @@ export function DraftReview({ email, account, onSent }: Props) {
           </Button>
         ) : (
           <>
+            <Input
+              label="宛先"
+              type="email"
+              value={toText}
+              onChange={(e) => setToText(e.target.value)}
+              disabled={generating || alreadySent}
+            />
+            <Input
+              label="件名"
+              value={subjectText}
+              onChange={(e) => setSubjectText(e.target.value)}
+              placeholder={generating ? "AIが件名を考えています…" : ""}
+              disabled={generating || alreadySent}
+            />
             {keyPoints.length > 0 && (
               <Card className="space-y-1.5 bg-accent-light/40">
                 <p className="text-xs font-medium text-accent">返信に含めたいポイント</p>
@@ -290,7 +326,7 @@ export function DraftReview({ email, account, onSent }: Props) {
               type="button"
               className="w-full"
               onClick={handleSend}
-              disabled={sending || generating || !bodyText.trim() || alreadySent}
+              disabled={sending || generating || !bodyText.trim() || !toText.trim() || !subjectText.trim() || alreadySent}
             >
               {alreadySent ? "送信済み" : sending ? "送信中..." : "送信する"}
             </Button>
