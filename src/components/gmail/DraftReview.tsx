@@ -25,6 +25,12 @@ import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders
 
 const EMPTY_DATE_SET = new Set<string>();
 
+/** How long "送信する" holds off actually calling the Gmail API, showing a cancel
+ * button in the meantime — mirrors Gmail's own "送信取り消し" UX. There's no Gmail
+ * API to recall an email already delivered, so this delay-then-send is the only
+ * part of "undo send" that's actually implementable. */
+const UNDO_SEND_SECONDS = 6;
+
 interface Props {
   email: SyncedEmail;
   account: GmailAccount;
@@ -59,6 +65,9 @@ export function DraftReview({ email, account, onSent }: Props) {
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
+  const [undoSecondsLeft, setUndoSecondsLeft] = useState<number | null>(null);
+  const undoTimeoutRef = useRef<number | undefined>(undefined);
+  const undoIntervalRef = useRef<number | undefined>(undefined);
   const [originalBody, setOriginalBody] = useState<string | null>(null);
   const [loadingOriginal, setLoadingOriginal] = useState(true);
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
@@ -123,6 +132,16 @@ export function DraftReview({ email, account, onSent }: Props) {
       cancelled = true;
     };
   }, [account, email.gmailMessageId, email.snippet]);
+
+  // Closing the tab/navigating away mid-countdown kills these timers along with the
+  // page, so an in-flight undo window silently never sends — same as it would if the
+  // component simply weren't there to fire the setTimeout.
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(undoTimeoutRef.current);
+      window.clearInterval(undoIntervalRef.current);
+    };
+  }, []);
 
   async function handleGenerate() {
     setGenerating(true);
@@ -193,7 +212,7 @@ export function DraftReview({ email, account, onSent }: Props) {
     }
   }
 
-  async function handleSend() {
+  async function performSend() {
     if (!email.id) return;
     setSending(true);
     try {
@@ -218,6 +237,28 @@ export function DraftReview({ email, account, onSent }: Props) {
     }
   }
 
+  // "送信する" doesn't call the Gmail API right away — it starts a cancelable countdown
+  // first (see UNDO_SEND_SECONDS) so a slip-of-the-thumb tap can still be undone, the
+  // same way Gmail's own "送信取り消し" works.
+  function handleStartSend() {
+    setUndoSecondsLeft(UNDO_SEND_SECONDS);
+    undoIntervalRef.current = window.setInterval(() => {
+      setUndoSecondsLeft((s) => (s !== null ? s - 1 : s));
+    }, 1000);
+    undoTimeoutRef.current = window.setTimeout(() => {
+      window.clearInterval(undoIntervalRef.current);
+      setUndoSecondsLeft(null);
+      void performSend();
+    }, UNDO_SEND_SECONDS * 1000);
+  }
+
+  function handleCancelSend() {
+    window.clearTimeout(undoTimeoutRef.current);
+    window.clearInterval(undoIntervalRef.current);
+    setUndoSecondsLeft(null);
+    showToast("送信を取り消しました");
+  }
+
   async function handleToggleBlock() {
     if (!account.id) return;
     const normalizedEmail = sender.email.toLowerCase();
@@ -235,6 +276,7 @@ export function DraftReview({ email, account, onSent }: Props) {
 
   const alreadySent = email.status === "sent";
   const hasDraft = !!draft;
+  const undoActive = undoSecondsLeft !== null;
 
   return (
     <div className="space-y-4">
@@ -288,14 +330,14 @@ export function DraftReview({ email, account, onSent }: Props) {
               type="email"
               value={toText}
               onChange={(e) => setToText(e.target.value)}
-              disabled={generating || alreadySent}
+              disabled={generating || alreadySent || undoActive}
             />
             <Input
               label="件名"
               value={subjectText}
               onChange={(e) => setSubjectText(e.target.value)}
               placeholder={generating ? "AIが件名を考えています…" : ""}
-              disabled={generating || alreadySent}
+              disabled={generating || alreadySent || undoActive}
             />
             {keyPoints.length > 0 && (
               <Card className="space-y-1.5 bg-accent-light/40">
@@ -330,7 +372,7 @@ export function DraftReview({ email, account, onSent }: Props) {
               onChange={(e) => setBodyText(e.target.value)}
               rows={10}
               placeholder={generating ? "AIが下書きを作成しています…" : ""}
-              disabled={generating}
+              disabled={generating || undoActive}
             />
 
             <div className="flex gap-3">
@@ -339,22 +381,34 @@ export function DraftReview({ email, account, onSent }: Props) {
                 variant="secondary"
                 className="flex-1"
                 onClick={handleGenerate}
-                disabled={generating || sending}
+                disabled={generating || sending || undoActive}
               >
                 {generating ? "生成中..." : "下書きを再生成"}
               </Button>
-              <Button type="button" variant="secondary" className="flex-1" onClick={handleSave} disabled={saving || generating}>
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={handleSave}
+                disabled={saving || generating || undoActive}
+              >
                 {saving ? "保存中..." : "保存"}
               </Button>
             </div>
-            <Button
-              type="button"
-              className="w-full"
-              onClick={handleSend}
-              disabled={sending || generating || !bodyText.trim() || !toText.trim() || !subjectText.trim() || alreadySent}
-            >
-              {alreadySent ? "送信済み" : sending ? "送信中..." : "送信する"}
-            </Button>
+            {undoActive ? (
+              <Button type="button" variant="secondary" className="w-full" onClick={handleCancelSend}>
+                送信を取り消す（{undoSecondsLeft}）
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="w-full"
+                onClick={handleStartSend}
+                disabled={sending || generating || !bodyText.trim() || !toText.trim() || !subjectText.trim() || alreadySent}
+              >
+                {alreadySent ? "送信済み" : sending ? "送信中..." : "送信する"}
+              </Button>
+            )}
           </>
         )}
       </div>
