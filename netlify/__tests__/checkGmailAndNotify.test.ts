@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNotificationPayload } from "../functions/checkGmailAndNotify";
+import { buildNotificationPayload, parseSenderEmail } from "../functions/checkGmailAndNotify";
 
 describe("buildNotificationPayload", () => {
   it("uses the sender's display name as the title, and a labeled subject+snippet as the body", () => {
@@ -26,5 +26,15 @@ describe("buildNotificationPayload", () => {
     const payload = JSON.parse(buildNotificationPayload(2, null));
     expect(payload.title).toBe("新着メール 2件");
     expect(payload.body).toBe("");
+  });
+});
+
+describe("parseSenderEmail", () => {
+  it("extracts and lowercases the address from a display-name From header", () => {
+    expect(parseSenderEmail('"田中太郎" <Taro@Example.com>')).toBe("taro@example.com");
+  });
+
+  it("lowercases a bare address with no display name", () => {
+    expect(parseSenderEmail("A@Example.com")).toBe("a@example.com");
   });
 });

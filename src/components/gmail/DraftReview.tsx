@@ -21,6 +21,7 @@ import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 import { MonthView } from "../calendar/MonthView";
+import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 
 const EMPTY_DATE_SET = new Set<string>();
 
@@ -185,10 +186,12 @@ export function DraftReview({ email, account, onSent }: Props) {
     const normalizedEmail = sender.email.toLowerCase();
     if (blockedEntry?.id) {
       await db.blockedSenders.delete(blockedEntry.id);
+      void unblockSenderRemote(account.email, normalizedEmail);
       showToast("ブロックを解除しました");
     } else {
       if (!confirm(`${sender.email} からのメールを今後この一覧に表示しないようにしますか？(Gmail自体には影響しません)`)) return;
       await db.blockedSenders.add({ accountId: account.id, email: normalizedEmail, createdAt: Date.now() });
+      void blockSenderRemote(account.email, normalizedEmail);
       showToast("送信者をブロックしました");
     }
   }

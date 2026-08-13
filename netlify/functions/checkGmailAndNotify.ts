@@ -35,6 +35,15 @@ function parseSenderName(from: string): string {
   return from.trim();
 }
 
+/** Extracts just the email address from a "From" header, lowercased so it can be
+ * compared against blocked_senders rows (which are stored lowercased by
+ * src/lib/blockedSenders.ts, matching the local db.blockedSenders convention). */
+export function parseSenderEmail(from: string): string {
+  const match = from.match(/^"?([^"<]*?)"?\s*<([^>]+)>$/);
+  const email = match ? match[2].trim() : from.trim();
+  return email.toLowerCase();
+}
+
 /** Builds the JSON payload consumed by public/push-sw.js's `push` handler — kept
  * pure/exported so the notification-text logic is unit-testable without a live
  * Gmail/web-push round trip. Title is the sender so it's visible even collapsed;
@@ -70,11 +79,34 @@ function findHeader(headers: { name: string; value: string }[], name: string): s
   return headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
 }
 
+async function fetchMessageMeta(accessToken: string, messageId: string): Promise<LatestMessageMeta | null> {
+  const metaParams = new URLSearchParams({ format: "metadata" });
+  metaParams.append("metadataHeaders", "From");
+  metaParams.append("metadataHeaders", "Subject");
+  const metaRes = await fetch(`${GMAIL_MESSAGES_ENDPOINT}/${messageId}?${metaParams.toString()}`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!metaRes.ok) return null;
+  const metaData = (await metaRes.json()) as { snippet?: string; payload?: { headers?: { name: string; value: string }[] } };
+  const headers = metaData.payload?.headers ?? [];
+  return {
+    from: findHeader(headers, "From"),
+    subject: findHeader(headers, "Subject") || "(件名なし)",
+    snippet: metaData.snippet ?? "",
+  };
+}
+
 /** Same after:{epoch} query shape as src/lib/gmail.ts's listRecentMessageIds.
- * Only fetches metadata (From/Subject) for the newest message — Gmail already
- * includes `snippet` on a metadata-format response, so no extra full-body fetch
- * is needed just to preview the content in the notification. */
-async function checkForNewMail(accessToken: string, sinceEpochSec: number): Promise<{ count: number; latest: LatestMessageMeta | null }> {
+ * Fetches metadata (From/Subject, Gmail already includes `snippet` on a
+ * metadata-format response) for every candidate message — not just the newest —
+ * so messages from a blocked sender can be excluded before counting/picking the
+ * "latest" one for the notification. A message whose metadata couldn't be fetched
+ * is kept in the count (can't confirm it's blocked) but never used as `latest`. */
+async function checkForNewMail(
+  accessToken: string,
+  sinceEpochSec: number,
+  blockedEmails: Set<string>,
+): Promise<{ count: number; latest: LatestMessageMeta | null }> {
   const listParams = new URLSearchParams({ q: `after:${sinceEpochSec}`, maxResults: "10" });
   const listRes = await fetch(`${GMAIL_MESSAGES_ENDPOINT}?${listParams.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -84,23 +116,10 @@ async function checkForNewMail(accessToken: string, sinceEpochSec: number): Prom
   const messages = listData.messages ?? [];
   if (messages.length === 0) return { count: 0, latest: null };
 
-  const metaParams = new URLSearchParams({ format: "metadata" });
-  metaParams.append("metadataHeaders", "From");
-  metaParams.append("metadataHeaders", "Subject");
-  const metaRes = await fetch(`${GMAIL_MESSAGES_ENDPOINT}/${messages[0].id}?${metaParams.toString()}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!metaRes.ok) return { count: messages.length, latest: null };
-  const metaData = (await metaRes.json()) as { snippet?: string; payload?: { headers?: { name: string; value: string }[] } };
-  const headers = metaData.payload?.headers ?? [];
-  return {
-    count: messages.length,
-    latest: {
-      from: findHeader(headers, "From"),
-      subject: findHeader(headers, "Subject") || "(件名なし)",
-      snippet: metaData.snippet ?? "",
-    },
-  };
+  const metas = await Promise.all(messages.map((m) => fetchMessageMeta(accessToken, m.id)));
+  const visible = metas.filter((meta) => meta === null || !blockedEmails.has(parseSenderEmail(meta.from)));
+  const latest = visible.find((meta): meta is LatestMessageMeta => meta !== null) ?? null;
+  return { count: visible.length, latest };
 }
 
 async function checkAccount(
@@ -117,8 +136,21 @@ async function checkAccount(
     return;
   }
 
+  // ブロック済み送信者(src/lib/blockedSenders.tsがブロック/解除のたびに直接upsert/deleteする、
+  // アカウント単位のブロックリスト)を読み、そこからのメールは通知の対象外にする。テーブルが
+  // まだ存在しない場合(SQLをまだ実行していない環境)はエラーを無視して「ブロックなし」扱いにする。
+  const { data: blocked, error: blockedError } = await supabase
+    .from("blocked_senders")
+    .select("sender_email")
+    .eq("user_id", account.user_id)
+    .eq("account_email", account.email);
+  if (blockedError) {
+    console.error(`[checkGmailAndNotify] failed to load blocked_senders for ${account.email}:`, blockedError.message);
+  }
+  const blockedEmails = new Set(((blocked ?? []) as { sender_email: string }[]).map((b) => b.sender_email.toLowerCase()));
+
   const sinceEpochSec = Math.floor(new Date(account.last_checked_at).getTime() / 1000);
-  const { count, latest } = await checkForNewMail(accessToken, sinceEpochSec);
+  const { count, latest } = await checkForNewMail(accessToken, sinceEpochSec, blockedEmails);
   console.log(
     `[checkGmailAndNotify] ${account.email}: since=${new Date(sinceEpochSec * 1000).toISOString()} newMessages=${count}${latest ? ` latestFrom=${latest.from}` : ""}`,
   );

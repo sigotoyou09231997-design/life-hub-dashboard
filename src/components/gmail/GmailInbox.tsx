@@ -5,6 +5,7 @@ import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, ensureFreshAccessToken, getMessageMeta, listRecentMessageIds, parseSender } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
+import { unblockSenderRemote } from "../../lib/blockedSenders";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
@@ -110,8 +111,9 @@ export function GmailInbox({ account }: Props) {
     void handleSync();
   }, [account.id]);
 
-  async function handleUnblock(id: string) {
+  async function handleUnblock(id: string, email: string) {
     await db.blockedSenders.delete(id);
+    void unblockSenderRemote(account.email, email);
     showToast("ブロックを解除しました");
   }
 
@@ -206,7 +208,7 @@ export function GmailInbox({ account }: Props) {
               <span className="min-w-0 truncate text-sm text-slate-700">{b.email}</span>
               <button
                 type="button"
-                onClick={() => b.id && handleUnblock(b.id)}
+                onClick={() => b.id && handleUnblock(b.id, b.email)}
                 className="shrink-0 text-xs font-medium text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
               >
                 解除
