@@ -121,6 +121,7 @@ export interface GenerateDraftInput {
   subject: string;
   body: string;
   busySlots?: BusySlot[];
+  userNotes?: string;
 }
 
 export interface CandidateDate {
@@ -168,7 +169,11 @@ async function getUpcomingBusySlots(): Promise<BusySlot[]> {
 /** Fetches the email body, asks the AI to draft a reply, and upserts it into
  * draftReplies (one row per email, updated in place on regenerate). Shared by
  * the inbox's per-row/bulk "AI下書きを作成" and the review sheet's "再生成". */
-export async function generateDraftForEmail(account: GmailAccount, email: SyncedEmail): Promise<GenerateDraftResult> {
+export async function generateDraftForEmail(
+  account: GmailAccount,
+  email: SyncedEmail,
+  userNotes?: string,
+): Promise<GenerateDraftResult> {
   if (!email.id || !account.id) throw new Error("email/account is missing an id");
   const emailId = email.id;
   const fallbackStatus: EmailStatus =
@@ -179,13 +184,21 @@ export async function generateDraftForEmail(account: GmailAccount, email: Synced
     const fresh = await ensureFreshAccessToken(account);
     const body = await getMessageBody(fresh.accessToken, email.gmailMessageId);
     const busySlots = await getUpcomingBusySlots();
-    const result = await generateDraft({ from: email.from, subject: email.subject, body: body || email.snippet, busySlots });
+    const result = await generateDraft({ from: email.from, subject: email.subject, body: body || email.snippet, busySlots, userNotes });
     const now = Date.now();
     const existing = await db.draftReplies.where("emailId").equals(emailId).first();
     if (existing?.id) {
-      await db.draftReplies.update(existing.id, { body: result.draft, subject: result.subject, updatedAt: now });
+      await db.draftReplies.update(existing.id, { body: result.draft, subject: result.subject, userNotes, updatedAt: now });
     } else {
-      await db.draftReplies.add({ emailId, accountId: account.id, body: result.draft, subject: result.subject, createdAt: now, updatedAt: now });
+      await db.draftReplies.add({
+        emailId,
+        accountId: account.id,
+        body: result.draft,
+        subject: result.subject,
+        userNotes,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
     await db.syncedEmails.update(emailId, { status: "drafted" });
     return result;

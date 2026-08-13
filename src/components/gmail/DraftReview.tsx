@@ -52,8 +52,10 @@ export function DraftReview({ email, account, onSent }: Props) {
   const [bodyText, setBodyText] = useState("");
   const [subjectText, setSubjectText] = useState("");
   const [toText, setToText] = useState("");
+  const [userNotes, setUserNotes] = useState("");
   const initializedRef = useRef(false);
   const toInitializedRef = useRef(false);
+  const userNotesInitializedRef = useRef(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
@@ -90,6 +92,16 @@ export function DraftReview({ email, account, onSent }: Props) {
     }
   }, [draftResult, draft, sender.email]);
 
+  // Same reasoning as "to" above: the user's own instructions to the AI aren't
+  // something handleGenerate() should ever overwrite, so this has its own guard
+  // separate from the body/subject one.
+  useEffect(() => {
+    if (draftResult && !userNotesInitializedRef.current) {
+      userNotesInitializedRef.current = true;
+      setUserNotes(draft?.userNotes ?? "");
+    }
+  }, [draftResult, draft]);
+
   // Fetch the original message body for reading context (separate from AI draft generation,
   // which is only triggered by the button below so opening an email never spends API credit).
   useEffect(() => {
@@ -114,7 +126,7 @@ export function DraftReview({ email, account, onSent }: Props) {
   async function handleGenerate() {
     setGenerating(true);
     try {
-      const result = await generateDraftForEmail(account, email);
+      const result = await generateDraftForEmail(account, email, userNotes.trim() || undefined);
       setKeyPoints(result.keyPoints);
       setCandidateDates(result.candidateDates);
       initializedRef.current = false; // let the freshly generated body overwrite the textarea
@@ -155,7 +167,7 @@ export function DraftReview({ email, account, onSent }: Props) {
     try {
       const now = Date.now();
       if (draft?.id) {
-        await db.draftReplies.update(draft.id, { body: bodyText, subject: subjectText, to: toText, updatedAt: now });
+        await db.draftReplies.update(draft.id, { body: bodyText, subject: subjectText, to: toText, userNotes, updatedAt: now });
       } else {
         await db.draftReplies.add({
           emailId: email.id,
@@ -163,6 +175,7 @@ export function DraftReview({ email, account, onSent }: Props) {
           body: bodyText,
           subject: subjectText,
           to: toText,
+          userNotes,
           createdAt: now,
           updatedAt: now,
         });
@@ -252,6 +265,16 @@ export function DraftReview({ email, account, onSent }: Props) {
       <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
 
       <div className="space-y-3 border-b border-slate-100 pb-4">
+        {!alreadySent && (
+          <Textarea
+            label="AIに伝えたいこと（任意）"
+            value={userNotes}
+            onChange={(e) => setUserNotes(e.target.value)}
+            rows={3}
+            placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
+            disabled={generating}
+          />
+        )}
         {!hasDraft && !generating ? (
           <Button type="button" className="w-full" onClick={handleGenerate}>
             AI下書きを作成

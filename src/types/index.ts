@@ -280,6 +280,7 @@ export interface DraftReply {
   accountId: string;
   to?: string; // user-editable reply recipient; defaults to the original sender's address
   subject?: string; // user-editable, AI-suggested reply subject (already includes "Re: ")
+  userNotes?: string; // free-text instructions the user wants the AI draft to incorporate
   body: string;
   createdAt: number;
   updatedAt?: number;

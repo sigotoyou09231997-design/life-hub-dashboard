@@ -15,6 +15,7 @@ interface GenerateDraftBody {
   subject: string;
   body: string;
   busySlots?: BusySlot[];
+  userNotes?: string;
 }
 
 function jsonResponse(statusCode: number, body: unknown) {
@@ -102,6 +103,17 @@ export function parseModelOutput(text: string): { keyPoints: string[]; candidate
   return { keyPoints, candidateDates, subject, body };
 }
 
+/** Builds the Messages API user turn from the request payload. userNotes (free-text
+ * instructions from the DraftReview.tsx textarea) is appended as its own labeled
+ * section, only when non-blank, so the model treats it as a distinct override rather
+ * than conflating it with the original email's own content. */
+export function buildUserMessage(payload: GenerateDraftBody): string {
+  const userNotesSection = payload.userNotes?.trim()
+    ? `\n\nユーザーからの追加指示(必ず反映すること):\n${payload.userNotes.trim()}`
+    : "";
+  return `差出人: ${payload.from}\n件名: ${payload.subject}\n本文:\n${payload.body}\n\n予定が入っている日時(候補日を提案する場合はこれらを避ける):\n${formatBusySlots(payload.busySlots)}${userNotesSection}`;
+}
+
 /** Defensive cleanup for when the model includes the greeting/closing our fixed
  * template already adds despite the system prompt telling it not to — without
  * this, "お世話になっております。船田です。" (or the closing) could end up doubled. */
@@ -137,6 +149,7 @@ ${CANDIDATES_MARKER}に書いた内容と表記を完全に一致させること
 - ${POINTS_MARKER}に挙げた点は、要約として別表示するためのものであり、必ず全て${BODY_MARKER}の文面自体にも反映すること。${POINTS_MARKER}にだけ書いて${BODY_MARKER}に書かない、ということがあってはならない
 - 受信メール、および渡された「予定が入っている日時」に書かれていない事実を作り上げない
 - 相手が日程調整(面接・打ち合わせ等の候補日)を求めている場合、「予定が入っている日時」に記載のない日から2〜3件、具体的な候補日(可能なら時間帯も)を提案してよい。予定情報が空の場合は候補日を作り上げず、一般的な調整の申し出にとどめる
+- 「ユーザーからの追加指示」が渡されている場合、それは受信メールの内容より優先される要件である。必ず${BODY_MARKER}に反映し、内容によっては${POINTS_MARKER}にも項目として加えること
 - 上記のセクション以外の説明や前置きは書かない`;
 
 /** Proxies Anthropic's Messages API so the API key never reaches the browser. */
@@ -160,7 +173,7 @@ export const handler: Handler = async (event) => {
     return jsonResponse(400, { error: "from, subject, and body are required" });
   }
 
-  const userMessage = `差出人: ${payload.from}\n件名: ${payload.subject}\n本文:\n${payload.body}\n\n予定が入っている日時(候補日を提案する場合はこれらを避ける):\n${formatBusySlots(payload.busySlots)}`;
+  const userMessage = buildUserMessage(payload);
 
   const res = await fetch(ANTHROPIC_ENDPOINT, {
     method: "POST",

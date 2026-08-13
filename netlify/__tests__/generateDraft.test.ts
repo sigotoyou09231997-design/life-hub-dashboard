@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBusySlots, formatCandidateLabel, parseModelOutput, stripKnownGreetingAndClosing } from "../functions/generateDraft";
+import { buildUserMessage, formatBusySlots, formatCandidateLabel, parseModelOutput, stripKnownGreetingAndClosing } from "../functions/generateDraft";
 
 describe("parseModelOutput", () => {
   it("splits the [ポイント]/[本文] sections and strips bullet markers", () => {
@@ -55,6 +55,20 @@ describe("parseModelOutput", () => {
   it("returns an empty subject when [件名] is omitted", () => {
     const result = parseModelOutput("[本文]\n本文のみ");
     expect(result.subject).toBe("");
+  });
+});
+
+describe("buildUserMessage", () => {
+  const basePayload = { from: "a@example.com", subject: "件名", body: "本文" };
+
+  it("omits the user-notes section entirely when userNotes is absent or blank", () => {
+    expect(buildUserMessage(basePayload)).not.toContain("ユーザーからの追加指示");
+    expect(buildUserMessage({ ...basePayload, userNotes: "   " })).not.toContain("ユーザーからの追加指示");
+  });
+
+  it("appends a labeled, trimmed user-notes section when present", () => {
+    const text = buildUserMessage({ ...basePayload, userNotes: "  火曜以外で調整したい  " });
+    expect(text).toContain("ユーザーからの追加指示(必ず反映すること):\n火曜以外で調整したい");
   });
 });
 
