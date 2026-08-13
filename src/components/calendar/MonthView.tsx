@@ -30,6 +30,10 @@ interface Props {
    * fixed to the trips area's own identity color regardless of the current
    * screen's accent, so it reads as "trip data" wherever it shows up. */
   tripDates?: Set<string>;
+  /** Dates before this (YYYY-MM-DD) render unselectable — e.g. a constraint the
+   * AI found stated in an email ("8月17日以降で") that a manually-picked
+   * replacement date shouldn't be able to violate. */
+  minDate?: string;
 }
 
 const WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
@@ -42,6 +46,7 @@ export function MonthView({
   eventDates,
   taskDates,
   tripDates,
+  minDate,
 }: Props) {
   const gridStart = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 });
@@ -88,25 +93,29 @@ export function MonthView({
           const hasTask = taskDates.has(dateStr);
           const hasTrip = tripDates?.has(dateStr) ?? false;
           const holidayName = holidayMap.get(dateStr);
+          const disabled = Boolean(minDate) && dateStr < minDate!;
 
           return (
             <button
               key={dateStr}
-              onClick={() => onSelectDate(dateStr)}
-              title={holidayName}
-              className="flex flex-col items-center gap-0.5 py-1"
+              onClick={() => !disabled && onSelectDate(dateStr)}
+              disabled={disabled}
+              title={disabled ? `${minDate}以降のみ選択できます` : holidayName}
+              className="flex flex-col items-center gap-0.5 py-1 disabled:cursor-not-allowed"
             >
               <span
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors ${
-                  selected
-                    ? "bg-accent text-white font-semibold"
-                    : isToday(day)
-                      ? "text-accent font-semibold"
-                      : holidayName && inMonth
-                        ? "text-red-500 font-semibold"
-                        : inMonth
-                          ? "text-slate-700"
-                          : "text-slate-300"
+                  disabled
+                    ? "text-slate-200"
+                    : selected
+                      ? "bg-accent text-white font-semibold"
+                      : isToday(day)
+                        ? "text-accent font-semibold"
+                        : holidayName && inMonth
+                          ? "text-red-500 font-semibold"
+                          : inMonth
+                            ? "text-slate-700"
+                            : "text-slate-300"
                 }`}
               >
                 {format(day, "d")}

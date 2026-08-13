@@ -56,6 +56,25 @@ describe("parseModelOutput", () => {
     const result = parseModelOutput("[本文]\n本文のみ");
     expect(result.subject).toBe("");
   });
+
+  it("parses [日程制約] as the earliest allowed date when present", () => {
+    const text = `[候補日]\n2026-08-20|14:00|15:00\n\n[日程制約]\n2026-08-17\n\n[件名]\n面接日程\n\n[本文]\n本文`;
+    const result = parseModelOutput(text);
+    expect(result.earliestDate).toBe("2026-08-17");
+    expect(result.candidateDates).toEqual([{ date: "2026-08-20", startTime: "14:00", endTime: "15:00" }]);
+    expect(result.subject).toBe("面接日程");
+  });
+
+  it("returns an empty earliestDate when [日程制約] is omitted (no constraint stated)", () => {
+    const result = parseModelOutput("[本文]\n本文のみ");
+    expect(result.earliestDate).toBe("");
+  });
+
+  it("ignores a malformed [日程制約] value instead of passing it through", () => {
+    const text = `[日程制約]\n来週以降\n\n[本文]\n本文`;
+    const result = parseModelOutput(text);
+    expect(result.earliestDate).toBe("");
+  });
 });
 
 describe("buildUserMessage", () => {

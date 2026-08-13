@@ -40,6 +40,7 @@ export function formatBusySlots(slots: BusySlot[] | undefined): string {
 
 const POINTS_MARKER = "[ポイント]";
 const CANDIDATES_MARKER = "[候補日]";
+const EARLIEST_DATE_MARKER = "[日程制約]";
 const SUBJECT_MARKER = "[件名]";
 const BODY_MARKER = "[本文]";
 
@@ -74,33 +75,45 @@ function parseCandidateLines(section: string): CandidateDate[] {
     });
 }
 
-/** Splits the model's [ポイント]/[候補日]/[件名]/[本文] sections apart. Falls back to
- * treating the whole response as the body (no points/dates/subject) if the model
- * didn't follow the format. Section boundaries chain forward through whichever
+/** Splits the model's [ポイント]/[候補日]/[日程制約]/[件名]/[本文] sections apart. Falls
+ * back to treating the whole response as the body (no points/dates/subject) if the
+ * model didn't follow the format. Section boundaries chain forward through whichever
  * optional markers are actually present, ending at [本文] (always last, and always
  * required — everything after it is body text). */
-export function parseModelOutput(text: string): { keyPoints: string[]; candidateDates: CandidateDate[]; subject: string; body: string } {
+export function parseModelOutput(text: string): {
+  keyPoints: string[];
+  candidateDates: CandidateDate[];
+  earliestDate: string;
+  subject: string;
+  body: string;
+} {
   const bodyIdx = text.indexOf(BODY_MARKER);
-  if (bodyIdx === -1) return { keyPoints: [], candidateDates: [], subject: "", body: text.trim() };
+  if (bodyIdx === -1) return { keyPoints: [], candidateDates: [], earliestDate: "", subject: "", body: text.trim() };
 
   const subjectIdx = text.indexOf(SUBJECT_MARKER);
+  const earliestDateIdx = text.indexOf(EARLIEST_DATE_MARKER);
   const candidatesIdx = text.indexOf(CANDIDATES_MARKER);
   const pointsIdx = text.indexOf(POINTS_MARKER);
 
-  const pointsEnd = candidatesIdx !== -1 ? candidatesIdx : subjectIdx !== -1 ? subjectIdx : bodyIdx;
+  const pointsEnd = candidatesIdx !== -1 ? candidatesIdx : earliestDateIdx !== -1 ? earliestDateIdx : subjectIdx !== -1 ? subjectIdx : bodyIdx;
   const pointsSection = pointsIdx !== -1 ? text.slice(pointsIdx + POINTS_MARKER.length, pointsEnd) : "";
   const keyPoints = pointsSection
     .split("\n")
     .map((line) => line.trim().replace(/^[-・]\s*/, ""))
     .filter(Boolean);
 
-  const candidatesEnd = subjectIdx !== -1 ? subjectIdx : bodyIdx;
+  const candidatesEnd = earliestDateIdx !== -1 ? earliestDateIdx : subjectIdx !== -1 ? subjectIdx : bodyIdx;
   const candidateDates = candidatesIdx !== -1 ? parseCandidateLines(text.slice(candidatesIdx + CANDIDATES_MARKER.length, candidatesEnd)) : [];
+
+  const earliestDateEnd = subjectIdx !== -1 ? subjectIdx : bodyIdx;
+  const earliestDateRaw =
+    earliestDateIdx !== -1 ? (text.slice(earliestDateIdx + EARLIEST_DATE_MARKER.length, earliestDateEnd).trim().split("\n")[0] ?? "").trim() : "";
+  const earliestDate = /^\d{4}-\d{2}-\d{2}$/.test(earliestDateRaw) ? earliestDateRaw : "";
 
   const subject = subjectIdx !== -1 ? (text.slice(subjectIdx + SUBJECT_MARKER.length, bodyIdx).trim().split("\n")[0] ?? "").trim() : "";
 
   const body = text.slice(bodyIdx + BODY_MARKER.length).trim();
-  return { keyPoints, candidateDates, subject, body };
+  return { keyPoints, candidateDates, earliestDate, subject, body };
 }
 
 /** Builds the Messages API user turn from the request payload. userNotes (free-text
@@ -133,6 +146,12 @@ ${POINTS_MARKER}
 ${CANDIDATES_MARKER}
 ${BODY_MARKER}内で日程(面接・打ち合わせ等の候補日)を提案する場合のみ、提案した日付を1行1件、
 "YYYY-MM-DD|開始HH:mm|終了HH:mm" の形式で出力する(時刻未定なら2〜3列目は空でよい。例: 2026-08-20|14:00|15:00 や 2026-08-21|| )。
+受信メールの本文に「8月17日以降で」「◯日より後で」のような下限の指定がある場合、それより前の日付は絶対に提案しない。
+
+${EARLIEST_DATE_MARKER}
+受信メールの本文中に、日程調整についての明示的な下限(「◯月◯日以降で」「◯日より後で」など)が書かれている場合のみ、
+該当する最も早い日付をYYYY-MM-DD形式で1行だけ出力する。存在しない制約を推測して作らないこと。書かれていなければ
+このセクション自体を省略する(候補日を出す出さないに関わらず、下限の記載があれば必ず出力する)。
 
 ${SUBJECT_MARKER}
 この返信メールの件名を1行で(「Re:」は付けない)。元の件名をそのまま繰り返すのではなく、返信の要件が一目で伝わる件名を考えること。話題が元のメールと変わっていなければ、元の件名の要点を踏襲してよい。
@@ -197,7 +216,7 @@ export const handler: Handler = async (event) => {
 
   const data = (await res.json()) as { content: { type: string; text?: string }[] };
   const generated = data.content.find((block) => block.type === "text")?.text ?? "";
-  const { keyPoints, candidateDates, subject, body: generatedBody } = parseModelOutput(generated);
+  const { keyPoints, candidateDates, earliestDate, subject, body: generatedBody } = parseModelOutput(generated);
   const cleanedBody = stripKnownGreetingAndClosing(generatedBody);
   const draft = `お世話になっております。\n船田です。\n\n${cleanedBody}\n\n以上、よろしくお願いします。`;
   const candidateDatesWithLabel = candidateDates.map((c) => ({ ...c, label: formatCandidateLabel(c) }));
@@ -206,5 +225,5 @@ export const handler: Handler = async (event) => {
   const rawSubject = subject || payload.subject;
   const finalSubject = rawSubject.startsWith("Re:") ? rawSubject : `Re: ${rawSubject}`;
 
-  return jsonResponse(200, { draft, keyPoints, candidateDates: candidateDatesWithLabel, subject: finalSubject });
+  return jsonResponse(200, { draft, keyPoints, candidateDates: candidateDatesWithLabel, earliestDate, subject: finalSubject });
 };

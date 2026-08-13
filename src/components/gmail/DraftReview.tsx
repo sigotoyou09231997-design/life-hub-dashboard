@@ -63,6 +63,7 @@ export function DraftReview({ email, account, onSent }: Props) {
   const [loadingOriginal, setLoadingOriginal] = useState(true);
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
   const [candidateDates, setCandidateDates] = useState<CandidateDate[]>([]);
+  const [earliestDate, setEarliestDate] = useState("");
   const [editingCandidateIndex, setEditingCandidateIndex] = useState<number | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editStartTime, setEditStartTime] = useState("");
@@ -129,6 +130,7 @@ export function DraftReview({ email, account, onSent }: Props) {
       const result = await generateDraftForEmail(account, email, userNotes.trim() || undefined);
       setKeyPoints(result.keyPoints);
       setCandidateDates(result.candidateDates);
+      setEarliestDate(result.earliestDate);
       initializedRef.current = false; // let the freshly generated body overwrite the textarea
     } catch {
       showToast("AI下書きの作成に失敗しました", "error");
@@ -370,7 +372,13 @@ export function DraftReview({ email, account, onSent }: Props) {
             onSelectDate={setEditDate}
             eventDates={busyDateSet}
             taskDates={EMPTY_DATE_SET}
+            minDate={earliestDate || undefined}
           />
+          {earliestDate && (
+            <p className="text-xs text-slate-400">
+              メール本文の記載により、{earliestDate}以降のみ選択できます。
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Input label="開始時刻(任意)" type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} />
             <Input label="終了時刻(任意)" type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} />

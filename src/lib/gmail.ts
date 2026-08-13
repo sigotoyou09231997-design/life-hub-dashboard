@@ -135,6 +135,9 @@ export interface GenerateDraftResult {
   draft: string;
   keyPoints: string[];
   candidateDates: CandidateDate[];
+  /** Earliest date the AI found explicitly stated in the original email (e.g. "8月17日以降で"),
+   * as YYYY-MM-DD — empty string when the email states no such constraint. */
+  earliestDate: string;
   subject: string;
 }
 
