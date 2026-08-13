@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/supabase-js";
-import { ChevronRight } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { GmailAccount } from "../types";
 import { requestNotificationPermission, isNotificationSupported } from "../lib/notifications";
@@ -301,28 +299,6 @@ export default function SettingsPage() {
             </div>
           )}
         </Card>
-
-        {gmailAccounts && gmailAccounts.length > 0 && (
-          <Link to="/gmail" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
-            <Card interactive className="flex items-center justify-between py-4">
-              <div>
-                <p className="text-sm font-medium text-slate-900">メールを見る</p>
-                <p className="mt-0.5 text-xs text-slate-400">受信メールとAI下書き</p>
-              </div>
-              <ChevronRight size={18} className="text-slate-300" />
-            </Card>
-          </Link>
-        )}
-
-        <Link to="/records" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
-          <Card interactive className="flex items-center justify-between py-4">
-            <div>
-              <p className="text-sm font-medium text-slate-900">以前のデータ</p>
-              <p className="mt-0.5 text-xs text-slate-400">日記・目標・習慣(新しいメニューには表示されません)</p>
-            </div>
-            <ChevronRight size={18} className="text-slate-300" />
-          </Card>
-        </Link>
       </div>
     </div>
   );
