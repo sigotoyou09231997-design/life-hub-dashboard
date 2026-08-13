@@ -28,7 +28,7 @@ export function TripMapView({ destination, locations, selectedQuery, onSelectQue
         href={buildMapSearchUrl(query)}
         target="_blank"
         rel="noreferrer"
-        className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 py-2.5 text-sm font-medium text-accent active:bg-slate-50"
+        className="flex items-center justify-center gap-2 rounded-xl border border-white/50 py-2.5 text-sm font-medium text-accent active:bg-white/50"
       >
         <ExternalLink size={16} />
         「{query}」をGoogleマップで開く
@@ -39,8 +39,8 @@ export function TripMapView({ destination, locations, selectedQuery, onSelectQue
         <div className="space-y-2">
           <button
             onClick={() => onSelectQuery(destination)}
-            className={`flex w-full items-center gap-2 rounded-xl border p-3 text-left text-sm active:bg-slate-50 ${
-              query === destination ? "border-accent bg-accent-light text-accent" : "border-slate-100 bg-white text-slate-700"
+            className={`flex w-full items-center gap-2 rounded-xl border p-3 text-left text-sm active:bg-white/50 ${
+              query === destination ? "border-accent bg-accent-light text-accent" : "border-white/50 bg-white/40 text-slate-700"
             }`}
           >
             <MapPin size={14} />
@@ -50,8 +50,8 @@ export function TripMapView({ destination, locations, selectedQuery, onSelectQue
             <button
               key={loc}
               onClick={() => onSelectQuery(loc)}
-              className={`flex w-full items-center gap-2 rounded-xl border p-3 text-left text-sm active:bg-slate-50 ${
-                query === loc ? "border-accent bg-accent-light text-accent" : "border-slate-100 bg-white text-slate-700"
+              className={`flex w-full items-center gap-2 rounded-xl border p-3 text-left text-sm active:bg-white/50 ${
+                query === loc ? "border-accent bg-accent-light text-accent" : "border-white/50 bg-white/40 text-slate-700"
               }`}
             >
               <MapPin size={14} />

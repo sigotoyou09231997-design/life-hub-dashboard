@@ -6,13 +6,14 @@ import type { GmailAccount } from "../types";
 import { requestNotificationPermission, isNotificationSupported } from "../lib/notifications";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
-import { isSupabaseConfigured, supabase, getRedirectUri } from "../lib/supabase";
+import { isSupabaseConfigured, supabase } from "../lib/supabase";
 import { isPushConfigured, getPushSubscription, subscribeToPush, unsubscribeFromPush } from "../lib/pushNotifications";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
 import { Button } from "../components/ui/Button";
 import { useToast } from "../components/ui/ToastProvider";
+import { AccentColorPicker } from "../components/settings/AccentColorPicker";
 
 export default function SettingsPage() {
   const showToast = useToast();
@@ -29,15 +30,6 @@ export default function SettingsPage() {
     const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
     return () => listener.subscription.unsubscribe();
   }, []);
-
-  async function handleGoogleLogin() {
-    await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: getRedirectUri() } });
-  }
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    showToast("ログアウトしました");
-  }
 
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
   const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
@@ -227,26 +219,11 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        {isSupabaseConfigured && (
-          <Card>
-            <p className="mb-1 text-sm font-medium text-slate-600">アカウント連携(PC/スマホ同期)</p>
-            <p className="mb-3 text-xs text-slate-400">
-              ログインした端末同士で、お金管理のデータがリアルタイムに同期されます。
-            </p>
-            {session ? (
-              <div className="flex items-center justify-between gap-3">
-                <span className="truncate text-sm text-slate-700">{session.user.email}</span>
-                <Button variant="secondary" onClick={handleLogout}>
-                  ログアウト
-                </Button>
-              </div>
-            ) : (
-              <Button variant="secondary" className="w-full" onClick={handleGoogleLogin}>
-                Googleでログイン
-              </Button>
-            )}
-          </Card>
-        )}
+        <Card>
+          <p className="mb-2 text-sm font-medium text-slate-600">外観</p>
+          <p className="mb-3 text-xs text-slate-400">アプリのアクセントカラーを選択します</p>
+          <AccentColorPicker />
+        </Card>
 
         <Card>
           <p className="mb-1 text-sm font-medium text-slate-600">Gmail連携</p>
@@ -274,7 +251,7 @@ export default function SettingsPage() {
           </Button>
 
           {isSupabaseConfigured && isPushConfigured && session && gmailAccounts && gmailAccounts.length > 0 && (
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+            <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/40 pt-3">
               <div>
                 <p className="text-sm text-slate-700">バックグラウンド通知</p>
                 <p className="mt-0.5 text-xs text-slate-400">

@@ -14,13 +14,52 @@ body,
   height: 100%;
 }
 
+/* The matte backdrop lives on `html`, not `body`: html's box reliably covers
+   the whole scrollable canvas regardless of content height, so a long page
+   can never scroll past the end of the background into a seam or color
+   change. body/#root are explicitly transparent (not just "unset") so
+   nothing accidentally paints its own background between html and the glass
+   shell. This is a near-flat matte charcoal — the gradient stops are
+   deliberately close together so the shift is barely perceptable, not a
+   visible blue/purple/silver sweep. */
+html {
+  background: linear-gradient(165deg, #16181c 0%, #111318 55%, #15171a 100%);
+}
+
 body {
   @apply text-slate-900 antialiased;
-  /* Visible as letterboxing behind the centered app column on wide
-     viewports; fully covered by the column itself on mobile widths. */
-  background: linear-gradient(160deg, #eef2ff 0%, #f8fafc 45%, #eef2ff 100%);
-  background-attachment: fixed;
+  background: transparent;
   -webkit-tap-highlight-color: transparent;
+}
+
+#root {
+  background: transparent;
+}
+
+/* Thin, non-glowing decorative arcs — plain SVG strokes at very low opacity,
+   not blurred circles/orbs. Fixed + sized off the viewport so they never
+   tile or repeat on a long page. Background stays flat matte, not glass:
+   no blur here at all. */
+html::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='1600' viewBox='0 0 1600 1600'%3E%3Ccircle cx='1650' cy='-120' r='680' fill='none' stroke='white' stroke-opacity='0.08' stroke-width='1'/%3E%3Ccircle cx='-180' cy='1720' r='620' fill='none' stroke='white' stroke-opacity='0.06' stroke-width='1'/%3E%3Ccircle cx='1500' cy='1650' r='420' fill='none' stroke='white' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+}
+
+/* Very faint grain over the dark backdrop only — kept as a fixed, near-invisible
+   pseudo-element so it never needs to be laid out per-page or affect scroll. */
+html::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 * {
@@ -48,6 +87,103 @@ body {
   }
   .animate-slide-down {
     animation: slide-down 200ms ease-out;
+  }
+
+  /* Light glassmorphism tokens — not dark mode. The whole app is a white/light
+     glass UI floating on the dark charcoal body background above, in a
+     deliberate 4-tier hierarchy from most to least transparent:
+       shell (app frame) < card (main surface) < row (list items) < modal (Sheet)
+     Composite classes already bundle background+border+shadow; glass-border/
+     glass-highlight/glass-shadow are exposed separately for one-off cases that
+     only need a single piece. glass-row intentionally carries NO
+     backdrop-filter — only the shell/card/modal tiers blur, so a long list
+     doesn't stack a blur per row on mobile. */
+  .glass-border {
+    border: 1px solid rgba(255, 255, 255, 0.55);
+  }
+  .glass-highlight {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  }
+  .glass-shadow {
+    box-shadow:
+      0 24px 64px -24px rgba(10, 12, 16, 0.55),
+      0 2px 10px rgba(10, 12, 16, 0.18);
+  }
+  /* Shell: a diagonal tint (cool near-white top-left → warmer grey bottom-right),
+     not a flat single rgba — that flatness was read as an inert grey overlay
+     rather than glass. Inset top/bottom highlights fake the edge-lit look of
+     real frosted glass; the outer shadow is what actually separates it from
+     the dark backdrop. */
+  .glass-shell {
+    background:
+      radial-gradient(120% 85% at 8% 0%, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0) 48%),
+      linear-gradient(145deg, rgba(241, 244, 248, 0.76) 0%, rgba(217, 222, 229, 0.67) 52%, rgba(199, 205, 214, 0.61) 100%);
+    backdrop-filter: blur(30px) saturate(108%) brightness(1.04);
+    -webkit-backdrop-filter: blur(30px) saturate(108%) brightness(1.04);
+    border: 1px solid rgba(255, 255, 255, 0.62);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.72),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.12),
+      0 24px 70px rgba(0, 0, 0, 0.32);
+  }
+  /* Header: same gradient family/hue as the shell (so it reads as continuous
+     with it, not a separate opaque plate) but brighter/more opaque, since it
+     sits above scrolling content and needs to stay legible while sticky. */
+  .glass-header {
+    background: linear-gradient(145deg, rgba(242, 245, 249, 0.82), rgba(206, 212, 221, 0.66));
+    backdrop-filter: blur(22px) saturate(120%);
+    -webkit-backdrop-filter: blur(22px) saturate(120%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  }
+  /* Card: pure white (not the shell's cool grey tint) and a hair more opaque
+     than the shell's average, so it reads as the whiter, thicker material
+     sitting inside the shell frame. Thin top highlight, no flat #fff/#f0f0f0. */
+  .glass-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(247, 249, 252, 0.55));
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.58);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.82),
+      0 12px 30px rgba(15, 20, 28, 0.1);
+  }
+  .glass-row {
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+  }
+  .glass-modal {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(40px) saturate(150%);
+    -webkit-backdrop-filter: blur(40px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.65);
+    box-shadow:
+      0 -12px 50px -12px rgba(10, 12, 16, 0.45),
+      0 2px 0 rgba(255, 255, 255, 0.5) inset;
+  }
+  .glass-smoked {
+    background: linear-gradient(to top, rgba(12, 16, 24, 0.82), rgba(12, 16, 24, 0.2) 65%, transparent);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+}
+
+/* backdrop-filter fallback: solid-ish light surfaces instead of translucent glass. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-shell {
+    background: rgba(214, 219, 227, 0.96);
+  }
+  .glass-header {
+    background: rgba(232, 235, 240, 0.97);
+  }
+  .glass-card {
+    background: rgba(249, 250, 251, 0.97);
+  }
+  .glass-row {
+    background: rgba(255, 255, 255, 0.96);
+  }
+  .glass-modal {
+    background: rgba(255, 255, 255, 0.98);
   }
 }
 

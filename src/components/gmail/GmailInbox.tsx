@@ -131,7 +131,7 @@ export function GmailInbox({ account }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="送信者・件名・本文を検索"
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+            className="w-full rounded-xl border border-white/50 bg-white/40 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
           />
         </div>
       )}
@@ -150,7 +150,7 @@ export function GmailInbox({ account }: Props) {
       {showSkeleton ? (
         <ListSkeleton />
       ) : filteredEmails && filteredEmails.length > 0 ? (
-        <div className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-100 bg-white">
+        <div className="glass-card divide-y divide-white/40 overflow-hidden rounded-2xl">
           {filteredEmails.map((email) => {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed";
@@ -163,7 +163,7 @@ export function GmailInbox({ account }: Props) {
                 href={`/gmail/mail/${email.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors active:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
+                className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors active:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
               >
                 <div
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(sender.email)}`}

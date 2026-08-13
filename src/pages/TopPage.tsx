@@ -1,210 +1,290 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Wallet, CalendarClock, StickyNote, Plane, Mail, Settings, ArrowRight, RefreshCw, type LucideIcon } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { isSupabaseConfigured, supabase } from "../lib/supabase";
-import { syncNow } from "../lib/sync";
-import { getDeviceId } from "../lib/deviceId";
+import { CheckSquare, Wallet, Mail, Plane, ChevronRight, Check, MapPin } from "lucide-react";
+import { db } from "../db/schema";
+import { todayStr, formatDisplayDate, formatGmailTimestamp } from "../lib/date";
+import { parseSender, avatarColor, avatarInitial } from "../lib/gmail";
+import { NOTE_TYPE_DEFS, getNoteType } from "../lib/noteTypes";
+import { getScheduleCategory } from "../lib/scheduleCategories";
+import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
+import { toggleTaskCompletion } from "../components/tasks/TaskList";
+import { Card } from "../components/ui/Card";
+import { EmptyState } from "../components/ui/EmptyState";
+import { ProgressBar } from "../components/ui/ProgressBar";
+import { Badge } from "../components/ui/Badge";
 
-type Accent = "money" | "schedule" | "notes" | "trips" | "gmail";
+const EVENT_PREVIEW_LIMIT = 3;
+const TASK_PREVIEW_LIMIT = 4;
+const GMAIL_PREVIEW_LIMIT = 3;
 
-interface TopCard {
-  to: string;
-  label: string;
-  description: string;
-  icon: LucideIcon;
-  accent: Accent;
-}
-
-const TOP_CARDS: TopCard[] = [
-  {
-    to: "/records/expense",
-    label: "お金管理",
-    description: "収支・固定費・給与",
-    icon: Wallet,
-    accent: "money",
-  },
-  {
-    to: "/schedule",
-    label: "予定・タスク",
-    description: "予定とタスクを確認",
-    icon: CalendarClock,
-    accent: "schedule",
-  },
-  {
-    to: "/records/notes",
-    label: "メモ・リスト",
-    description: "メモや各種リスト",
-    icon: StickyNote,
-    accent: "notes",
-  },
-  {
-    to: "/trips",
-    label: "旅行計画",
-    description: "旅の準備をまとめて",
-    icon: Plane,
-    accent: "trips",
-  },
-  {
-    to: "/gmail",
-    label: "Gmail自動返信",
-    description: "受信箱の確認とAI返信",
-    icon: Mail,
-    accent: "gmail",
-  },
-];
-
-// カード識別用の固定カラー。機能を見分けるためだけの補助色であり、
-// ボタンなど主要な操作色(--color-accent)には流用しない。
-const ACCENT_STYLES: Record<Accent, { stripe: string; iconBg: string; glow: string; arrow: string; ring: string }> = {
-  money: {
-    stripe: "bg-blue-500",
-    iconBg: "bg-gradient-to-br from-blue-500 to-blue-600",
-    glow: "bg-blue-400",
-    arrow: "text-blue-500",
-    ring: "focus-visible:ring-blue-400",
-  },
-  schedule: {
-    stripe: "bg-violet-500",
-    iconBg: "bg-gradient-to-br from-violet-500 to-violet-600",
-    glow: "bg-violet-400",
-    arrow: "text-violet-500",
-    ring: "focus-visible:ring-violet-400",
-  },
-  notes: {
-    stripe: "bg-teal-500",
-    iconBg: "bg-gradient-to-br from-teal-500 to-teal-600",
-    glow: "bg-teal-400",
-    arrow: "text-teal-500",
-    ring: "focus-visible:ring-teal-400",
-  },
-  trips: {
-    stripe: "bg-orange-500",
-    iconBg: "bg-gradient-to-br from-orange-500 to-orange-600",
-    glow: "bg-orange-400",
-    arrow: "text-orange-500",
-    ring: "focus-visible:ring-orange-400",
-  },
-  gmail: {
-    stripe: "bg-pink-500",
-    iconBg: "bg-gradient-to-br from-pink-500 to-pink-600",
-    glow: "bg-pink-400",
-    arrow: "text-pink-500",
-    ring: "focus-visible:ring-pink-400",
-  },
-};
-
-// 端末のローカル時刻(Date#getHours)を基準に判定する。
-// 5:00-10:59 おはよう / 11:00-17:59 こんにちは / 18:00-4:59 おつかれさま。
-function getGreeting(hour: number): string {
-  if (hour >= 5 && hour < 11) return "おはようございます";
-  if (hour >= 11 && hour < 18) return "こんにちは";
-  return "おつかれさまです";
-}
+const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
 export default function TopPage() {
-  const now = new Date();
-  const dateLabel = format(now, "yyyy年M月d日(E)", { locale: ja });
-  const greeting = getGreeting(now.getHours());
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-
+  const [now, setNow] = useState(new Date());
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    supabase.auth.getSession().then(({ data }) => setLoggedIn(!!data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setLoggedIn(!!session));
-    return () => listener.subscription.unsubscribe();
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const today = todayStr();
+
+  const eventsResult = useLiveQuery(() => db.calendarEvents.where("date").equals(today).toArray(), [today]);
+  const todayEvents = [...(eventsResult ?? [])]
+    .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""))
+    .slice(0, EVENT_PREVIEW_LIMIT);
+
+  const tasksResult = useLiveQuery(
+    () => db.tasks.where("dueDate").equals(today).toArray(),
+    [today],
+  );
+  const todayTasks = (tasksResult ?? []).filter((t) => !t.parentTaskId);
+  const doneCount = todayTasks.filter((t) => t.completed).length;
+  const previewTasks = [...todayTasks].sort((a, b) => a.createdAt - b.createdAt).slice(0, TASK_PREVIEW_LIMIT);
+
+  const { data: budget } = usePayPeriodBudget();
+
+  const gmailPreview = useLiveQuery(async () => {
+    const accounts = await db.gmailAccounts.toArray();
+    if (accounts.length === 0) return { connected: false, emails: [] };
+    const [blocked, allEmails] = await Promise.all([
+      db.blockedSenders.toArray(),
+      db.syncedEmails.orderBy("receivedAt").reverse().toArray(),
+    ]);
+    const blockedSet = new Set(blocked.map((b) => `${b.accountId}:${b.email}`));
+    const emails = allEmails
+      .filter((e) => !blockedSet.has(`${e.accountId}:${parseSender(e.from).email.toLowerCase()}`))
+      .slice(0, GMAIL_PREVIEW_LIMIT);
+    return { connected: true, emails };
   }, []);
 
-  async function handleSync() {
-    setSyncing(true);
-    try {
-      const summary = await syncNow();
-      // TODO: temporary diagnostic alert, switch back to a plain toast once sync is confirmed working everywhere.
-      alert(`この端末のID: ${getDeviceId()}\n${summary}`);
-    } catch (err) {
-      alert(`同期に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setSyncing(false);
-    }
-  }
+  const notesResult = useLiveQuery(() => db.notes.toArray(), []);
+  const noteSummaries = NOTE_TYPE_DEFS.map((def) => {
+    const items = (notesResult ?? []).filter((n) => getNoteType(n) === def.value);
+    const latest = [...items].sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt))[0];
+    return { def, count: items.length, latestTitle: latest?.title };
+  });
+
+  const tripsResult = useLiveQuery(() => db.trips.toArray(), []);
+  const featuredTrip =
+    tripsResult?.find((t) => t.status === "ongoing") ??
+    [...(tripsResult ?? [])].filter((t) => t.status === "planning").sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
 
   return (
-    <div className="min-h-screen pb-10">
-      <div className="relative overflow-hidden bg-gradient-to-br from-navy via-navy to-accent px-5 pb-6 pt-[calc(env(safe-area-inset-top)+1.5rem)]">
-        <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-          <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full bg-white/10 blur-3xl" />
-          <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/5 blur-3xl" />
-        </div>
+    <div className="space-y-5 px-5 pb-6 pt-5">
+      {/* 時刻・日付 — 挨拶文は表示しない */}
+      <div className="relative overflow-hidden rounded-2xl">
+        <div className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-accent/10 blur-2xl" aria-hidden="true" />
+        <p className="text-4xl font-bold tabular-nums tracking-tight text-navy">{format(now, "H:mm")}</p>
+        <p className="mt-1 text-sm font-medium text-slate-500">{format(now, "yyyy年M月d日(E)", { locale: ja })}</p>
+        <div className="mt-3 h-1 w-16 rounded-full bg-accent/40" aria-hidden="true" />
+      </div>
 
-        {/* タイトル+日付・挨拶を2行に収め、文言が変わってもヘッダー高さが伸びないようにtruncateする */}
-        <div className="relative flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold leading-tight tracking-tight text-white">LIFE HUB</h1>
-            <p className="mt-1.5 truncate text-xs font-medium text-white/70">
-              {dateLabel}
-              <span className="mx-1.5 text-white/40" aria-hidden="true">
-                ・
-              </span>
-              {greeting}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {loggedIn && (
-              <button
-                type="button"
-                onClick={handleSync}
-                disabled={syncing}
-                aria-label="今すぐ同期"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors active:bg-white/25 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-              >
-                <RefreshCw size={18} className={syncing ? "animate-spin motion-reduce:animate-none" : ""} />
-              </button>
+      {/* 今日カード：予定 + タスク */}
+      <Card className="overflow-hidden p-0">
+        <div className="grid gap-0 lg:grid-cols-2">
+          <div className="p-5 lg:border-r lg:border-white/40">
+            <p className="mb-3 text-sm font-semibold text-slate-600">今日の予定</p>
+            {todayEvents.length === 0 ? (
+              <EmptyState title="今日の予定はありません" />
+            ) : (
+              <div className="space-y-3">
+                {todayEvents.map((event) => {
+                  const category = getScheduleCategory(event.category);
+                  return (
+                    <Link
+                      key={event.id}
+                      to="/schedule?view=calendar"
+                      className="flex items-center gap-3 rounded-xl transition-colors hover:bg-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                    >
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+                      <span className="w-11 shrink-0 text-xs tabular-nums text-slate-500">{event.startTime ?? "終日"}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-900">{event.title}</span>
+                      <Badge tone={category.tone}>{category.label}</Badge>
+                    </Link>
+                  );
+                })}
+              </div>
             )}
-            <Link
-              to="/settings"
-              aria-label="設定"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors active:bg-white/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-            >
-              <Settings size={20} />
+            <Link to="/schedule?view=calendar" className="mt-4 inline-block text-xs font-medium text-accent">
+              予定を見る →
+            </Link>
+          </div>
+
+          <div className="border-t border-white/40 p-5 lg:border-t-0">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-600">今日のタスク</p>
+              {todayTasks.length > 0 && (
+                <span className="text-xs font-medium text-slate-400">
+                  {doneCount} / {todayTasks.length} 完了
+                </span>
+              )}
+            </div>
+            {todayTasks.length > 0 && (
+              <div className="mb-3">
+                <ProgressBar value={(doneCount / todayTasks.length) * 100} />
+              </div>
+            )}
+            {previewTasks.length === 0 ? (
+              <EmptyState icon={CheckSquare} title="今日期限のタスクはありません" />
+            ) : (
+              <div className="space-y-2">
+                {previewTasks.map((task) => (
+                  <div key={task.id} className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleTaskCompletion(task)}
+                      aria-label="完了切り替え"
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                        task.completed ? "border-success bg-success text-white" : "border-slate-300"
+                      }`}
+                    >
+                      {task.completed && <Check size={12} strokeWidth={3} />}
+                    </button>
+                    <Link
+                      to="/schedule?view=list"
+                      className={`min-w-0 flex-1 truncate rounded text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+                        task.completed ? "text-slate-400 line-through" : "text-slate-900"
+                      }`}
+                    >
+                      {task.title}
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Link to="/schedule?view=list" className="mt-4 inline-block text-xs font-medium text-accent">
+              タスクを見る →
             </Link>
           </div>
         </div>
-      </div>
+      </Card>
 
-      {/* sm以上ではカード幅を広げず4列にして、PC幅でもカードが不必要に肥大化しないようにする */}
-      <div className="grid grid-cols-2 gap-3 px-5 pt-5 sm:grid-cols-4">
-        {TOP_CARDS.map(({ to, label, description, icon: Icon, accent }) => {
-          const style = ACCENT_STYLES[accent];
-          return (
-            <Link
-              key={to}
-              to={to}
-              className={`group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-slate-100 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100 ${style.ring}`}
-            >
-              <div className={`absolute inset-x-0 top-0 h-1 ${style.stripe}`} aria-hidden="true" />
-              <div
-                className={`pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-[0.07] ${style.glow}`}
-                aria-hidden="true"
-              />
+      {/* 家計：今月の残高のみ */}
+      <Link to="/records/expense" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+        <Card interactive className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-slate-500">今月の残高</p>
+            {budget ? (
+              <p className={`mt-1 text-2xl font-bold tabular-nums ${budget.remaining < 0 ? "text-danger" : "text-navy"}`}>
+                ¥{budget.remaining.toLocaleString()}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-slate-400">給与が未設定です</p>
+            )}
+            <span className="mt-1 inline-block text-xs font-medium text-accent">お金管理を開く →</span>
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-500">
+            <Wallet size={22} />
+          </div>
+        </Card>
+      </Link>
 
-              <div className={`flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-sm ${style.iconBg}`}>
-                <Icon size={22} />
-              </div>
+      {/* Gmail自動返信：ステータスに関係なく直近3件 */}
+      <Card className="overflow-hidden p-0">
+        <div className="flex items-center justify-between px-5 pt-5">
+          <div className="flex items-center gap-2">
+            <Mail size={16} className="text-pink-500" />
+            <p className="text-sm font-semibold text-slate-600">Gmail自動返信</p>
+          </div>
+          {gmailPreview?.connected && <Badge tone="success">同期済み</Badge>}
+        </div>
+        {!gmailPreview || gmailPreview.emails.length === 0 ? (
+          <div className="px-5 pb-5">
+            <EmptyState
+              icon={Mail}
+              title={gmailPreview?.connected ? "メールがありません" : "Gmail未連携"}
+              description={gmailPreview?.connected ? undefined : "設定画面からGmailアカウントを連携してください"}
+            />
+          </div>
+        ) : (
+          <div className="mt-3 divide-y divide-white/40 border-t border-white/40">
+            {gmailPreview.emails.map((email) => {
+              const sender = parseSender(email.from);
+              return (
+                <a
+                  key={email.id}
+                  href={`/gmail/mail/${email.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-white/40"
+                >
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${avatarColor(sender.email)}`}
+                  >
+                    {avatarInitial(sender.name)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">{sender.name}</p>
+                    <p className="truncate text-xs text-slate-500">{email.subject}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-slate-400">{formatGmailTimestamp(email.receivedAt)}</span>
+                </a>
+              );
+            })}
+          </div>
+        )}
+        <Link to="/gmail" className="block px-5 py-3 text-xs font-medium text-accent">
+          メールを確認 →
+        </Link>
+      </Card>
+
+      {/* メモ・リスト：種類ごとに件数＋直近1件 */}
+      <Link to="/records/notes" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+        <Card interactive>
+          <p className="mb-3 text-sm font-semibold text-slate-600">メモ・リスト</p>
+          <div className="space-y-2.5">
+            {noteSummaries.map(({ def, count, latestTitle }) => {
+              const Icon = def.icon;
+              return (
+                <div key={def.value} className="flex items-center gap-3">
+                  <Icon size={16} className="shrink-0 text-slate-400" />
+                  <span className="min-w-0 flex-1 truncate text-sm text-slate-700">{latestTitle ?? def.label}</span>
+                  <Badge tone={def.tone}>{count}件</Badge>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </Link>
+
+      {/* 旅行計画：直近/進行中の1件。写真フィールドが無いためグラデーションで代替 */}
+      <Link to="/trips" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+        {featuredTrip ? (
+          <div className="glass-border glass-shadow relative overflow-hidden rounded-2xl">
+            <div className="h-28 bg-gradient-to-br from-slate-700 via-slate-800 to-navy" />
+            <div className="glass-smoked absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4">
               <div className="min-w-0">
-                <p className="font-semibold leading-snug text-navy">{label}</p>
-                <p className="mt-0.5 line-clamp-2 text-xs text-slate-400">{description}</p>
+                <div className="flex items-center gap-2">
+                  <p className="truncate font-semibold text-white">{featuredTrip.name}</p>
+                  <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[11px] font-medium text-white">
+                    {TRIP_STATUS_LABEL[featuredTrip.status]}
+                  </span>
+                </div>
+                <p className="mt-1 flex items-center gap-1 truncate text-xs text-white/80">
+                  <MapPin size={11} />
+                  {formatDisplayDate(featuredTrip.startDate)} 〜 {formatDisplayDate(featuredTrip.endDate)}
+                </p>
               </div>
-              <div className="h-3" aria-hidden="true" />
-              <ArrowRight
-                size={14}
-                className={`absolute bottom-3.5 right-3.5 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none ${style.arrow}`}
-              />
-            </Link>
-          );
-        })}
-      </div>
+              <ChevronRight size={18} className="shrink-0 text-white/80" />
+            </div>
+          </div>
+        ) : (
+          <Card interactive className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-600">
+                <Plane size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-700">旅行の予定はありません</p>
+                <span className="text-xs font-medium text-accent">旅行を見る →</span>
+              </div>
+            </div>
+            <ChevronRight size={18} className="shrink-0 text-slate-300" />
+          </Card>
+        )}
+      </Link>
     </div>
   );
 }

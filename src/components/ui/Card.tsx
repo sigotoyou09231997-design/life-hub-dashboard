@@ -10,7 +10,7 @@ export function Card({ className = "", interactive = false, children, ...props }
   return (
     <div
       className={twMerge(
-        "rounded-2xl border border-slate-100 bg-white p-5 shadow-sm",
+        "glass-card rounded-2xl p-5",
         interactive &&
           "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100",
         className,

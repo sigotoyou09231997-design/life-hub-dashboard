@@ -193,7 +193,7 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
                         })
                       }
                       placeholder="—"
-                      className="w-14 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-slate-900 outline-none focus:border-accent focus:bg-white"
+                      className="w-14 rounded-lg border border-white/50 bg-white/40 px-2 py-1 text-slate-900 outline-none focus:border-accent focus:bg-white"
                     />
                   </label>
                   <label className="flex items-center gap-1 text-slate-400">
@@ -209,7 +209,7 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
                         })
                       }
                       placeholder="—"
-                      className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-slate-900 outline-none focus:border-accent focus:bg-white"
+                      className="w-20 rounded-lg border border-white/50 bg-white/40 px-2 py-1 text-slate-900 outline-none focus:border-accent focus:bg-white"
                     />
                   </label>
                 </div>
@@ -229,7 +229,7 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
               }
             }}
             placeholder="商品を追加"
-            className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+            className="min-w-0 flex-1 rounded-xl border border-white/50 bg-white/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
           />
           <Button type="button" variant="secondary" onClick={addItem}>
             追加
@@ -237,7 +237,7 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
         </div>
       </div>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-slate-100 bg-white px-5 py-3">
+      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
         <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
           キャンセル
         </Button>

@@ -31,7 +31,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div
         aria-live="polite"
         role="status"
-        className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] z-[60] flex justify-center px-5"
+        // Cleared to sit above QuickActionBar (a fixed bottom bar on every page since
+        // the glass redesign), not just the safe-area inset.
+        className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+6rem)] z-[60] flex justify-center px-5"
       >
         {toast && (
           <div

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Plus, Calendar as CalendarIcon, CheckSquare } from "lucide-react";
 import { db } from "../db/schema";
@@ -26,9 +27,23 @@ type EditingTask =
   | { mode: "subtask"; parentId: string }
   | null;
 
+function tabFromView(view: string | null): Tab {
+  if (view === "calendar") return "calendar";
+  if (view === "list") return "list";
+  return "today";
+}
+
 export default function SchedulePage() {
   const showToast = useToast();
-  const [tab, setTab] = useState<Tab>("today");
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => tabFromView(searchParams.get("view")));
+
+  // QuickActionBar's 予定/タスク icons link to /schedule?view=... while this page
+  // may already be mounted (same route, only the query changes) — re-sync the
+  // tab in that case rather than relying solely on the initial state above.
+  useEffect(() => {
+    setTab(tabFromView(searchParams.get("view")));
+  }, [searchParams]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [addTypeOpen, setAddTypeOpen] = useState(false);
@@ -150,7 +165,7 @@ export default function SchedulePage() {
               setAddTypeOpen(false);
               setEditingEvent("new");
             }}
-            className="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 py-5 active:bg-slate-100"
+            className="flex flex-col items-center gap-2 rounded-2xl glass-row py-5 active:bg-white/70"
           >
             <CalendarIcon size={24} className="text-accent" />
             <span className="text-sm font-medium text-slate-700">予定</span>
@@ -160,7 +175,7 @@ export default function SchedulePage() {
               setAddTypeOpen(false);
               setEditingTask({ mode: "new" });
             }}
-            className="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 py-5 active:bg-slate-100"
+            className="flex flex-col items-center gap-2 rounded-2xl glass-row py-5 active:bg-white/70"
           >
             <CheckSquare size={24} className="text-accent" />
             <span className="text-sm font-medium text-slate-700">タスク</span>

@@ -247,9 +247,9 @@ export function GenericCsvImport({ onClose }: Props) {
 
       <Card className="space-y-2">
         <p className="text-xs font-medium text-slate-500">プレビュー(先頭{preview.sampleRows.length}行)</p>
-        <div className="overflow-x-auto rounded-xl border border-slate-100">
+        <div className="overflow-x-auto rounded-xl border border-white/40">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-500">
+            <thead className="bg-white/40 text-slate-500">
               <tr>
                 {columnIndices.map((i) => (
                   <th key={i} scope="col" className="whitespace-nowrap px-2.5 py-2 font-medium">
@@ -408,14 +408,14 @@ export function GenericCsvImport({ onClose }: Props) {
         ))}
       </Select>
 
-      <div className="rounded-xl bg-slate-50 p-3.5 text-sm text-slate-600">
+      <div className="rounded-xl bg-white/40 p-3.5 text-sm text-slate-600">
         {liveResult.rows.length}件を取込予定(支出{expenseCount}件・収入{incomeCount}件、解析できない行
         {liveResult.skippedUnparseable}件)
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-slate-100 bg-white px-5 py-3">
+      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
         <Button type="button" variant="secondary" className="flex-1" onClick={handlePickAnotherFile}>
           別のファイルを選ぶ
         </Button>

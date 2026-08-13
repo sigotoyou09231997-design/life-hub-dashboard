@@ -171,7 +171,7 @@ export function PayPayImport() {
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
         {result && (
-          <div className="mt-4 space-y-1 rounded-xl bg-slate-50 p-3.5 text-sm text-slate-600">
+          <div className="mt-4 space-y-1 rounded-xl bg-white/40 p-3.5 text-sm text-slate-600">
             <p>取込対象: {result.total}件</p>
             <p>家計簿に登録: {result.householdImported}件(支払い・送金・受取)</p>
             <p>ウォレット内移動としてスキップ: {result.skippedInternal}件(チャージ・口座出金など)</p>

@@ -15,6 +15,7 @@ import {
   isToday,
   isThisYear,
 } from "date-fns";
+import { ja } from "date-fns/locale";
 import type { RepeatRule } from "../types";
 
 export const DATE_FMT = "yyyy-MM-dd";
@@ -64,7 +65,7 @@ export function daysElapsedInMonth(date: Date = new Date()): number {
 export function formatDisplayDate(dateStr: string): string {
   const d = parseISO(dateStr);
   if (!isValid(d)) return dateStr;
-  return format(d, "M月d日(E)");
+  return format(d, "M月d日(E)", { locale: ja });
 }
 
 export function formatMonthTitle(date: Date): string {

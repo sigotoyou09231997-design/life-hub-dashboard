@@ -82,9 +82,9 @@ export function Sheet({ open, onClose, title, children }: Props) {
       <div className="absolute inset-0 bg-black/30 animate-fade-in motion-reduce:animate-none" onClick={onClose} aria-hidden />
       <div
         ref={panelRef}
-        className="relative z-10 flex max-h-[88vh] w-full max-w-md flex-col rounded-t-3xl bg-white shadow-xl animate-slide-up motion-reduce:animate-none"
+        className="glass-modal relative z-10 flex max-h-[88vh] w-full max-w-md flex-col rounded-t-3xl animate-slide-up motion-reduce:animate-none"
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4">
+        <div className="flex shrink-0 items-center justify-between border-b border-white/40 px-5 py-4">
           <h2 className="text-base font-semibold text-slate-900">{title}</h2>
           <button
             onClick={onClose}

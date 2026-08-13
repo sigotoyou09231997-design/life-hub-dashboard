@@ -308,7 +308,7 @@ export function DraftReview({ email, account, onSent }: Props) {
 
       <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
 
-      <div className="space-y-3 border-b border-slate-100 pb-4">
+      <div className="space-y-3 border-b border-white/40 pb-4">
         {!alreadySent && (
           <Textarea
             label="AIに伝えたいこと（任意）"

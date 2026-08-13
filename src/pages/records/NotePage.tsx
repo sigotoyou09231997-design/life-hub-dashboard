@@ -86,7 +86,7 @@ export default function NotePage() {
                   setAddTypeOpen(false);
                   setEditing({ mode: "new", type: def.value });
                 }}
-                className="flex flex-col items-center gap-2 rounded-2xl border border-slate-100 bg-slate-50 py-5 active:bg-slate-100"
+                className="flex flex-col items-center gap-2 rounded-2xl glass-row py-5 active:bg-white/70"
               >
                 <Icon size={24} className="text-accent" />
                 <span className="text-xs font-medium text-slate-700">{def.label}</span>

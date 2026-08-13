@@ -43,7 +43,7 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="メモ・リストを検索"
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+          className="w-full rounded-xl border border-white/50 bg-white/40 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
         />
       </div>
 
@@ -55,7 +55,7 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
           className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
             typeFilter === "all"
               ? "border-accent bg-accent-light font-semibold text-accent"
-              : "border-slate-200 font-medium text-slate-500 hover:border-slate-300"
+              : "border-white/50 font-medium text-slate-500 hover:border-white/80"
           }`}
         >
           すべて
@@ -69,7 +69,7 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
             className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
               typeFilter === def.value
                 ? "border-accent bg-accent-light font-semibold text-accent"
-                : "border-slate-200 font-medium text-slate-500 hover:border-slate-300"
+                : "border-white/50 font-medium text-slate-500 hover:border-white/80"
             }`}
           >
             {def.label}

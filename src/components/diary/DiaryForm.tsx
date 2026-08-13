@@ -113,7 +113,7 @@ export function DiaryForm({ initial, onSaved, onCancel }: Props) {
               aria-pressed={mood === m.value}
               aria-label={m.label}
               className={`flex flex-col items-center gap-1 rounded-xl border py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-                mood === m.value ? "border-accent bg-accent-light" : "border-slate-200 bg-white hover:border-slate-300"
+                mood === m.value ? "border-accent bg-accent-light" : "border-white/50 bg-white/40 hover:border-white/80"
               }`}
             >
               <span className="text-xl">{m.emoji}</span>
@@ -136,7 +136,7 @@ export function DiaryForm({ initial, onSaved, onCancel }: Props) {
               aria-pressed={satisfaction >= n}
               aria-label={`満足度 ${n}`}
               className={`flex-1 rounded-xl border py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-                satisfaction >= n ? "border-accent bg-accent text-white" : "border-slate-200 text-slate-400 hover:border-slate-300"
+                satisfaction >= n ? "border-accent bg-accent text-white" : "border-white/50 text-slate-400 hover:border-white/80"
               }`}
             >
               {n}
@@ -175,7 +175,7 @@ export function DiaryForm({ initial, onSaved, onCancel }: Props) {
         <input type="file" accept="image/*" multiple onChange={handlePhotoChange} className="text-sm" />
       </div>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-slate-100 bg-white px-5 py-3">
+      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
         <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
           キャンセル
         </Button>

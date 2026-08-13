@@ -18,7 +18,9 @@ const BACK_BUTTON_CLASS =
 
 export function PageHeader({ title, subtitle, right, backTo, onBack }: Props) {
   return (
-    <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-[calc(env(safe-area-inset-top)+1.5rem)]">
+    // Safe-area top spacing is handled once by the global AppHeader above this;
+    // this only needs a normal-flow gap beneath it.
+    <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-6">
       <div className="flex items-start gap-2 min-w-0">
         {onBack ? (
           <button type="button" onClick={onBack} aria-label="戻る" className={BACK_BUTTON_CLASS}>
