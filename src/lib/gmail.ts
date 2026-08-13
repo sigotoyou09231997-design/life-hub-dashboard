@@ -208,7 +208,9 @@ async function gmailFetch(accessToken: string, path: string, init?: RequestInit)
 }
 
 export async function listRecentMessageIds(accessToken: string, sinceEpochSec: number): Promise<string[]> {
-  const params = new URLSearchParams({ q: `after:${sinceEpochSec}`, maxResults: "100" });
+  // in:inbox を付けないと、Gmail検索のデフォルト範囲(受信トレイ+送信済み)により、この
+  // アプリ自身が送信した返信(送信済みフォルダ行き)まで受信一覧に混ざってしまう。
+  const params = new URLSearchParams({ q: `in:inbox after:${sinceEpochSec}`, maxResults: "100" });
   const data = await gmailFetch(accessToken, `/messages?${params.toString()}`);
   return ((data.messages ?? []) as { id: string }[]).map((m) => m.id);
 }

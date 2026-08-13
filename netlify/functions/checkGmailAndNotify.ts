@@ -107,7 +107,9 @@ async function checkForNewMail(
   sinceEpochSec: number,
   blockedEmails: Set<string>,
 ): Promise<{ count: number; latest: LatestMessageMeta | null }> {
-  const listParams = new URLSearchParams({ q: `after:${sinceEpochSec}`, maxResults: "10" });
+  // in:inbox を付けないと、Gmail検索のデフォルト範囲(受信トレイ+送信済み)により、この
+  // アプリ自身が送信した返信(送信済みフォルダ行き)まで「新着メール」として拾ってしまう。
+  const listParams = new URLSearchParams({ q: `in:inbox after:${sinceEpochSec}`, maxResults: "10" });
   const listRes = await fetch(`${GMAIL_MESSAGES_ENDPOINT}?${listParams.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
