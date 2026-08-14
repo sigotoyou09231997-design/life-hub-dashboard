@@ -579,10 +579,14 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     // ページ全体が自然にスクロールする通常のページとして表示する(固定高さ+内部
     // overflow-y-autoにはしない) — 長い本文/AI返信文が小さな内部スクロール領域に
     // 閉じ込められ、全文を見るのにスクロールが必要になっていたのを解消するため。
-    <div className="grid grid-cols-1 gap-5 lg:items-start lg:grid-cols-[minmax(320px,0.95fr)_minmax(360px,1.15fr)]">
+    <div className="grid grid-cols-1 gap-6 lg:items-start lg:gap-5 lg:grid-cols-[minmax(320px,0.95fr)_minmax(360px,1.15fr)]">
       {/* 返信: AI下書きの作成・プレビュー・編集・送信。モバイルでは元メール本文より
-          先(上)に表示する — スクロールなしですぐ返信内容が見えるように。 */}
-      <div className="glass-card flex flex-col rounded-2xl p-5">
+          先(上)に表示する — スクロールなしですぐ返信内容が見えるように。
+          一覧画面(GmailInbox)と同じく、外側をglass-cardで包まない — ページ自身の
+          px-5に直接乗せ、本文だけが.glass-rowカードとして見える構成にする(以前は
+          ページpx-5 + このカードのp-5 + 本文.glass-rowのpx-4が重なり、横方向の
+          paddingが過大だったため)。 */}
+      <div className="flex flex-col">
         <div className="flex shrink-0 items-center justify-between gap-2">
           <p className="text-sm font-semibold text-slate-700">AI返信案</p>
           {hasDraft && <Badge tone="success">準備完了</Badge>}
@@ -625,7 +629,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       </div>
 
       {/* 読む: 件名→送信者→区切り線→元メール本文 */}
-      <div className="glass-card flex flex-col rounded-2xl p-5">
+      <div className="flex flex-col">
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
           {hasDraft && <Badge tone="accent">AI下書き</Badge>}
