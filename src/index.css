@@ -93,18 +93,49 @@ body {
      pushed higher) so backdrop-filter renders consistently across browsers/
      iOS Safari — the lift instead comes from the background gradient's own
      alpha/color, with a separate top-left radial layer standing in for a
-     reflection highlight. */
+     reflection highlight.
+
+     background/backdrop-filter deliberately live on ::before, NOT on the
+     element itself: a `backdrop-filter` value makes ITS OWN element the
+     CSS containing block for any `position: fixed` descendant (spec-defined,
+     same family as transform/filter/perspective) — so QuickActionBar and any
+     Sheet nested under the app shell were positioning themselves against the
+     shell's own (content-height-dependent) box instead of the viewport,
+     scrolling away or clipping on any page taller than one screen. Moving
+     backdrop-filter onto a decorative ::before (border-radius: inherit,
+     inset: 0, negative z-index so it paints behind real content) keeps the
+     identical visual result while leaving the real .glass-shell element with
+     no filter/transform of its own, so its `position: fixed` descendants
+     resolve their containing block up to the viewport as normal. Found via a
+     since-fixed real bug: QuickActionBar not staying pinned on long pages
+     (TOP/収支/予定) — see PR notes for the reproduction. */
   .glass-shell {
-    background:
-      radial-gradient(85% 60% at 12% 0%, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 58%),
-      linear-gradient(145deg, rgba(246, 249, 253, 0.9) 0%, rgba(230, 235, 241, 0.87) 52%, rgba(214, 220, 228, 0.84) 100%);
-    backdrop-filter: blur(30px) saturate(112%) brightness(1.1);
-    -webkit-backdrop-filter: blur(30px) saturate(112%) brightness(1.1);
+    position: relative;
+    /* isolation: isolate makes .glass-shell itself establish a stacking
+       context, so ::before's z-index: -1 is guaranteed to paint just behind
+       this element's own real children and nothing further back (e.g. a
+       sibling's content outside the shell) — without it, a negative z-index
+       child's paint order relative to unrelated ancestors/siblings is only
+       reliable by accident of there being nothing else there today. */
+    isolation: isolate;
     border: 1px solid rgba(255, 255, 255, 0.62);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.86),
       inset 0 -1px 0 rgba(255, 255, 255, 0.22),
       0 24px 70px rgba(0, 0, 0, 0.3);
+  }
+  .glass-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      radial-gradient(85% 60% at 12% 0%, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 58%),
+      linear-gradient(145deg, rgba(246, 249, 253, 0.9) 0%, rgba(230, 235, 241, 0.87) 52%, rgba(214, 220, 228, 0.84) 100%);
+    backdrop-filter: blur(30px) saturate(112%) brightness(1.1);
+    -webkit-backdrop-filter: blur(30px) saturate(112%) brightness(1.1);
   }
   /* Header: same gradient family/hue as the shell (so it reads as continuous
      with it, not a separate opaque plate) but brighter/more opaque, since it
@@ -157,7 +188,7 @@ body {
 
 /* backdrop-filter fallback: solid-ish light surfaces instead of translucent glass. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass-shell {
+  .glass-shell::before {
     background: rgba(203, 208, 216, 0.97);
   }
   .glass-header {
