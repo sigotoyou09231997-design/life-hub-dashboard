@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban } from "lucide-react";
+import { Ban, Copy, ExternalLink, Pencil } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
@@ -16,6 +16,7 @@ import {
 } from "../../lib/gmail";
 import { formatGmailTimestamp, parseDate } from "../../lib/date";
 import { Card } from "../ui/Card";
+import { Badge } from "../ui/Badge";
 import { Input, Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
@@ -35,9 +36,13 @@ interface Props {
   email: SyncedEmail;
   account: GmailAccount;
   onSent?: () => void;
+  /** "pane": always-expanded desktop 3-pane layout (PC reference). "sheet":
+   * compact mobile bottom-sheet layout where the original body and AI返信案
+   * sections start collapsed so the mail list stays visible behind it. */
+  variant?: "pane" | "sheet";
 }
 
-export function DraftReview({ email, account, onSent }: Props) {
+export function DraftReview({ email, account, onSent, variant = "pane" }: Props) {
   const showToast = useToast();
 
   // Wrapped in an object so `undefined` unambiguously means "still loading" —
@@ -70,6 +75,7 @@ export function DraftReview({ email, account, onSent }: Props) {
   const undoIntervalRef = useRef<number | undefined>(undefined);
   const [originalBody, setOriginalBody] = useState<string | null>(null);
   const [loadingOriginal, setLoadingOriginal] = useState(true);
+  const [bodyIsFallback, setBodyIsFallback] = useState(false);
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
   const [candidateDates, setCandidateDates] = useState<CandidateDate[]>([]);
   const [earliestDate, setEarliestDate] = useState("");
@@ -79,10 +85,24 @@ export function DraftReview({ email, account, onSent }: Props) {
   const [editEndTime, setEditEndTime] = useState("");
   const [pickerMonth, setPickerMonth] = useState(new Date());
 
+  // 編集モードに入るまでは、参考画像どおり「AI返信案」を読み取り専用のプレビューとして
+  // 表示する(誤って本文を書き換えたまま送信するのを防ぐ意図もある)。編集は明示的に
+  // 「編集」を押した場合のみ。email.idが変わったら都度リセットする。
+  const [editMode, setEditMode] = useState(false);
+  // variant="sheet"のみで使う折りたたみ状態(初期表示をコンパクトに保つため)。
+  const [originalExpanded, setOriginalExpanded] = useState(false);
+  const [replyExpanded, setReplyExpanded] = useState(false);
+
   // Shown as dots on the date picker so the user can see at a glance which days
   // already have something booked while choosing a candidate date.
   const calendarEvents = useLiveQuery(() => db.calendarEvents.toArray(), []);
   const busyDateSet = new Set((calendarEvents ?? []).map((e) => e.date));
+
+  useEffect(() => {
+    setEditMode(false);
+    setOriginalExpanded(false);
+    setReplyExpanded(false);
+  }, [email.id]);
 
   useEffect(() => {
     if (draft && !initializedRef.current) {
@@ -117,13 +137,20 @@ export function DraftReview({ email, account, onSent }: Props) {
   useEffect(() => {
     let cancelled = false;
     setLoadingOriginal(true);
+    setBodyIsFallback(false);
     (async () => {
       try {
         const fresh = await ensureFreshAccessToken(account);
         const text = await getMessageBody(fresh.accessToken, email.gmailMessageId);
-        if (!cancelled) setOriginalBody(text || email.snippet);
+        if (!cancelled) {
+          setOriginalBody(text || email.snippet);
+          setBodyIsFallback(!text);
+        }
       } catch {
-        if (!cancelled) setOriginalBody(email.snippet);
+        if (!cancelled) {
+          setOriginalBody(email.snippet);
+          setBodyIsFallback(true);
+        }
       } finally {
         if (!cancelled) setLoadingOriginal(false);
       }
@@ -274,174 +301,337 @@ export function DraftReview({ email, account, onSent }: Props) {
     }
   }
 
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(bodyText);
+      showToast("返信内容をコピーしました");
+    } catch {
+      showToast("コピーに失敗しました", "error");
+    }
+  }
+
   const alreadySent = email.status === "sent";
   const hasDraft = !!draft;
   const undoActive = undoSecondsLeft !== null;
+  const showEditForm = editMode || (!hasDraft && !alreadySent);
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start gap-3">
-        <div
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(sender.email)}`}
-        >
-          {avatarInitial(sender.name)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-2">
-            <p className="truncate text-sm font-semibold text-slate-900">{sender.name}</p>
-            <span className="shrink-0 text-xs text-slate-400">{formatGmailTimestamp(email.receivedAt)}</span>
-          </div>
-          {sender.email !== sender.name && <p className="truncate text-xs text-slate-400">{sender.email}</p>}
-        </div>
+  const senderRow = (
+    <div className="flex items-start gap-3">
+      <div
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(sender.email)}`}
+      >
+        {avatarInitial(sender.name)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-slate-900">{sender.name}</p>
+        {sender.email !== sender.name && <p className="truncate text-xs text-slate-500">{sender.email}</p>}
+      </div>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="text-xs text-slate-500">{formatGmailTimestamp(email.receivedAt)}</span>
         <button
           type="button"
           onClick={handleToggleBlock}
           aria-label={blockedEntry ? "ブロックを解除" : "送信者をブロック"}
           title={blockedEntry ? "ブロックを解除" : "この送信者をブロック"}
-          className={`shrink-0 rounded-full p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50 ${
+          className={`rounded-full p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50 ${
             blockedEntry ? "text-danger active:bg-red-50" : "text-slate-300 active:bg-red-50 active:text-danger"
           }`}
         >
           <Ban size={16} />
         </button>
       </div>
+    </div>
+  );
 
-      <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
-
-      <div className="space-y-3 border-b border-white/40 pb-4">
-        {!alreadySent && (
-          <Textarea
-            label="AIに伝えたいこと（任意）"
-            value={userNotes}
-            onChange={(e) => setUserNotes(e.target.value)}
-            rows={3}
-            placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
-            disabled={generating}
-          />
-        )}
-        {!hasDraft && !generating ? (
-          <Button type="button" className="w-full" onClick={handleGenerate}>
-            AI下書きを作成
-          </Button>
-        ) : (
-          <>
-            <Input
-              label="宛先"
-              type="email"
-              value={toText}
-              onChange={(e) => setToText(e.target.value)}
-              disabled={generating || alreadySent || undoActive}
-            />
-            <Input
-              label="件名"
-              value={subjectText}
-              onChange={(e) => setSubjectText(e.target.value)}
-              placeholder={generating ? "AIが件名を考えています…" : ""}
-              disabled={generating || alreadySent || undoActive}
-            />
-            {keyPoints.length > 0 && (
-              <Card className="space-y-1.5 bg-accent-light/40">
-                <p className="text-xs font-medium text-accent">返信に含めたいポイント</p>
-                <ul className="space-y-1 text-xs text-slate-600">
-                  {keyPoints.map((point, i) => (
-                    <li key={i} className="flex gap-1.5">
-                      <span className="shrink-0 text-accent">・</span>
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            )}
-            {candidateDates.length > 0 && !alreadySent && (
-              <div className="flex flex-wrap gap-2">
-                {candidateDates.map((c, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => openEditCandidate(i)}
-                    className="rounded-full border border-accent/30 bg-accent-light px-3 py-1.5 text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-                  >
-                    {c.label} を変更
-                  </button>
-                ))}
-              </div>
-            )}
-            <Textarea
-              label={alreadySent ? "送信済みの返信内容" : "返信本文"}
-              value={bodyText}
-              onChange={(e) => setBodyText(e.target.value)}
-              rows={10}
-              placeholder={generating ? "AIが下書きを作成しています…" : ""}
-              disabled={generating || undoActive}
-            />
-
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex-1"
-                onClick={handleGenerate}
-                disabled={generating || sending || undoActive}
-              >
-                {generating ? "生成中..." : "下書きを再生成"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="flex-1"
-                onClick={handleSave}
-                disabled={saving || generating || undoActive}
-              >
-                {saving ? "保存中..." : "保存"}
-              </Button>
-            </div>
-            {undoActive ? (
-              <Button type="button" variant="secondary" className="w-full" onClick={handleCancelSend}>
-                送信を取り消す（{undoSecondsLeft}）
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                className="w-full"
-                onClick={handleStartSend}
-                disabled={sending || generating || !bodyText.trim() || !toText.trim() || !subjectText.trim() || alreadySent}
-              >
-                {alreadySent ? "送信済み" : sending ? "送信中..." : "送信する"}
-              </Button>
-            )}
-          </>
-        )}
-      </div>
-
-      <Card className="whitespace-pre-wrap break-words text-sm text-slate-700">
+  const originalBodyBlock = (
+    <>
+      {bodyIsFallback && !loadingOriginal && (
+        <p className="mb-2 text-xs text-slate-400">本文は保存済みの抜粋を表示しています</p>
+      )}
+      <div className="glass-mail-row min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
         {loadingOriginal ? "本文を読み込み中..." : originalBody}
-      </Card>
+      </div>
+    </>
+  );
 
-      <Sheet open={editingCandidateIndex !== null} onClose={() => setEditingCandidateIndex(null)} title="候補日を変更">
-        <div className="space-y-4">
-          <MonthView
-            currentMonth={pickerMonth}
-            onMonthChange={setPickerMonth}
-            selectedDate={editDate}
-            onSelectDate={setEditDate}
-            eventDates={busyDateSet}
-            taskDates={EMPTY_DATE_SET}
-            minDate={earliestDate || undefined}
-          />
-          {earliestDate && (
-            <p className="text-xs text-slate-400">
-              メール本文の記載により、{earliestDate}以降のみ選択できます。
-            </p>
-          )}
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="開始時刻(任意)" type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} />
-            <Input label="終了時刻(任意)" type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} />
-          </div>
-          <Button type="button" className="w-full" onClick={handleApplyCandidateDate} disabled={!editDate}>
-            本文に反映する
+  const replyFormFields = (
+    <>
+      <Input
+        label="宛先"
+        type="email"
+        value={toText}
+        onChange={(e) => setToText(e.target.value)}
+        disabled={generating || alreadySent || undoActive}
+      />
+      <Input
+        label="件名"
+        value={subjectText}
+        onChange={(e) => setSubjectText(e.target.value)}
+        placeholder={generating ? "AIが件名を考えています…" : ""}
+        disabled={generating || alreadySent || undoActive}
+      />
+      {keyPoints.length > 0 && (
+        <Card className="space-y-1.5 bg-accent-light/40">
+          <p className="text-xs font-medium text-accent">返信に含めたいポイント</p>
+          <ul className="space-y-1 text-xs text-slate-600">
+            {keyPoints.map((point, i) => (
+              <li key={i} className="flex gap-1.5">
+                <span className="shrink-0 text-accent">・</span>
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {candidateDates.length > 0 && !alreadySent && (
+        <div className="flex flex-wrap gap-2">
+          {candidateDates.map((c, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => openEditCandidate(i)}
+              className="rounded-full border border-accent/30 bg-accent-light px-3 py-1.5 text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            >
+              {c.label} を変更
+            </button>
+          ))}
+        </div>
+      )}
+      <Textarea
+        label={alreadySent ? "送信済みの返信内容" : "返信本文"}
+        value={bodyText}
+        onChange={(e) => setBodyText(e.target.value)}
+        rows={variant === "sheet" ? 6 : 10}
+        placeholder={generating ? "AIが下書きを作成しています…" : ""}
+        disabled={generating || undoActive}
+      />
+      <p className="text-right text-xs text-slate-400">{bodyText.length}文字</p>
+      <div className="flex gap-3">
+        <Button
+          type="button"
+          variant="secondary"
+          className="flex-1"
+          onClick={handleGenerate}
+          disabled={generating || sending || undoActive}
+        >
+          {generating ? "生成中..." : "下書きを再生成"}
+        </Button>
+        <Button type="button" variant="secondary" className="flex-1" onClick={handleSave} disabled={saving || generating || undoActive}>
+          {saving ? "保存中..." : "保存"}
+        </Button>
+      </div>
+      {undoActive ? (
+        <Button type="button" variant="secondary" className="w-full" onClick={handleCancelSend}>
+          送信を取り消す（{undoSecondsLeft}）
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          className="w-full"
+          onClick={handleStartSend}
+          disabled={sending || generating || !bodyText.trim() || !toText.trim() || !subjectText.trim() || alreadySent}
+        >
+          {alreadySent ? "送信済み" : sending ? "送信中..." : "送信する"}
+        </Button>
+      )}
+    </>
+  );
+
+  const replyPreviewBlock = (
+    <>
+      <div className="glass-mail-row min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
+        {bodyText}
+      </div>
+      <p className="mt-1.5 text-right text-xs text-slate-400">{bodyText.length}文字</p>
+      {!alreadySent && (
+        <div className="mt-2 flex gap-3">
+          <Button type="button" variant="secondary" className="flex-1" onClick={() => setEditMode(true)}>
+            <Pencil size={15} />
+            編集
+          </Button>
+          <Button type="button" variant="secondary" className="flex-1" onClick={handleCopy}>
+            <Copy size={15} />
+            コピー
           </Button>
         </div>
-      </Sheet>
+      )}
+    </>
+  );
+
+  const gmailLink = (
+    <a
+      href={`https://mail.google.com/mail/u/0/#all/${email.threadId}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:active:scale-100"
+    >
+      Gmailで確認
+      <ExternalLink size={15} />
+    </a>
+  );
+
+  const candidateSheet = (
+    <Sheet open={editingCandidateIndex !== null} onClose={() => setEditingCandidateIndex(null)} title="候補日を変更">
+      <div className="space-y-4">
+        <MonthView
+          currentMonth={pickerMonth}
+          onMonthChange={setPickerMonth}
+          selectedDate={editDate}
+          onSelectDate={setEditDate}
+          eventDates={busyDateSet}
+          taskDates={EMPTY_DATE_SET}
+          minDate={earliestDate || undefined}
+        />
+        {earliestDate && <p className="text-xs text-slate-400">メール本文の記載により、{earliestDate}以降のみ選択できます。</p>}
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="開始時刻(任意)" type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} />
+          <Input label="終了時刻(任意)" type="time" value={editEndTime} onChange={(e) => setEditEndTime(e.target.value)} />
+        </div>
+        <Button type="button" className="w-full" onClick={handleApplyCandidateDate} disabled={!editDate}>
+          本文に反映する
+        </Button>
+      </div>
+    </Sheet>
+  );
+
+  if (variant === "sheet") {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-semibold leading-snug text-slate-900">{email.subject}</h2>
+          {hasDraft && <Badge tone="accent">AI下書き</Badge>}
+        </div>
+
+        {senderRow}
+
+        {/* 元メール本文: 初期は折りたたみ、タップで全文表示 */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setOriginalExpanded((v) => !v)}
+            className="mb-1.5 text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          >
+            {originalExpanded ? "元のメールを閉じる" : "元のメールを表示"}
+          </button>
+          {originalExpanded ? (
+            <div className="glass-mail-row whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
+              {bodyIsFallback && !loadingOriginal && <p className="mb-2 text-xs text-slate-400">本文は保存済みの抜粋を表示しています</p>}
+              {loadingOriginal ? "本文を読み込み中..." : originalBody}
+            </div>
+          ) : (
+            <p className="glass-mail-row line-clamp-2 rounded-xl px-4 py-3 text-sm text-slate-600">{email.snippet}</p>
+          )}
+        </div>
+
+        <div className="border-t border-white/40 pt-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-slate-700">AI返信案</p>
+            {hasDraft && <Badge tone="success">準備完了</Badge>}
+          </div>
+
+          {!hasDraft && !generating ? (
+            <div className="mt-3 space-y-3">
+              {!alreadySent && (
+                <Textarea
+                  label="AIに伝えたいこと（任意）"
+                  value={userNotes}
+                  onChange={(e) => setUserNotes(e.target.value)}
+                  rows={3}
+                  placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
+                />
+              )}
+              <Button type="button" className="w-full" onClick={handleGenerate}>
+                AI下書きを作成
+              </Button>
+            </div>
+          ) : !replyExpanded && !editMode ? (
+            <button
+              type="button"
+              onClick={() => setReplyExpanded(true)}
+              className="mt-2 text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            >
+              返信本文を表示
+            </button>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {!alreadySent && !editMode && (
+                <Textarea
+                  label="AIに伝えたいこと（任意）"
+                  value={userNotes}
+                  onChange={(e) => setUserNotes(e.target.value)}
+                  rows={2}
+                  placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
+                  disabled={generating}
+                />
+              )}
+              {showEditForm ? replyFormFields : replyPreviewBlock}
+            </div>
+          )}
+        </div>
+
+        {gmailLink}
+        {candidateSheet}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid h-full min-h-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(360px,1.15fr)_minmax(320px,0.95fr)]">
+      {/* 読む: 件名→送信者→区切り線→元メール本文(参考画像の並び順) */}
+      <div className="glass-pane flex h-full min-h-0 flex-col rounded-2xl p-5">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
+          {hasDraft && <Badge tone="accent">AI下書き</Badge>}
+        </div>
+        <div className="mt-3 shrink-0">{senderRow}</div>
+        <div className="my-4 shrink-0 border-t border-white/40" />
+        {originalBodyBlock}
+      </div>
+
+      {/* 返信: AI下書きの作成・プレビュー・編集・送信 */}
+      <div className="glass-pane flex h-full min-h-0 flex-col rounded-2xl p-5">
+        <div className="flex shrink-0 items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-slate-700">AI返信案</p>
+          {hasDraft && <Badge tone="success">準備完了</Badge>}
+        </div>
+
+        {!hasDraft && !generating ? (
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
+            {!alreadySent && (
+              <Textarea
+                label="AIに伝えたいこと（任意）"
+                value={userNotes}
+                onChange={(e) => setUserNotes(e.target.value)}
+                rows={4}
+                placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
+              />
+            )}
+            <Button type="button" className="w-full" onClick={handleGenerate}>
+              AI下書きを作成
+            </Button>
+          </div>
+        ) : showEditForm ? (
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
+            {!alreadySent && (
+              <Textarea
+                label="AIに伝えたいこと（任意）"
+                value={userNotes}
+                onChange={(e) => setUserNotes(e.target.value)}
+                rows={3}
+                placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
+                disabled={generating}
+              />
+            )}
+            {replyFormFields}
+          </div>
+        ) : (
+          <div className="mt-3 flex min-h-0 flex-1 flex-col">{replyPreviewBlock}</div>
+        )}
+
+        <div className="mt-3 shrink-0">{gmailLink}</div>
+      </div>
+
+      {candidateSheet}
     </div>
   );
 }

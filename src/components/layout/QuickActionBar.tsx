@@ -1,23 +1,36 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CalendarDays, CheckSquare, Wallet, StickyNote, Mail, type LucideIcon } from "lucide-react";
+import { CalendarDays, CheckSquare, Wallet, StickyNote, type LucideIcon } from "lucide-react";
 import { AllFeaturesSheet } from "./AllFeaturesSheet";
+import { GmailLogo } from "../gmail/GmailLogo";
+
+type IconComponent = LucideIcon | typeof GmailLogo;
 
 interface QuickAction {
   key: string;
   label: string;
-  icon: LucideIcon;
+  icon: IconComponent;
+  /** Gmail's icon is already multicolor — it must never be tinted like the
+   * plain-outline lucide icons the other 4 actions use. */
+  tintIcon: boolean;
   to: string;
   color: string;
   activeBg: string;
+  underline: string;
 }
 
+// `underline` is spelled out as a literal bg-*-500 string (not derived from
+// `color` at runtime) because Tailwind's build only generates classes it can
+// see as literal text in source — a `.replace("text-", "bg-")` string would
+// silently produce no CSS in the production build.
 const QUICK_ACTIONS: QuickAction[] = [
-  { key: "schedule-calendar", label: "予定", icon: CalendarDays, to: "/schedule?view=calendar", color: "text-blue-500", activeBg: "bg-blue-50" },
-  { key: "schedule-tasks", label: "タスク", icon: CheckSquare, to: "/schedule?view=list", color: "text-emerald-500", activeBg: "bg-emerald-50" },
-  { key: "money", label: "収支", icon: Wallet, to: "/records/expense", color: "text-orange-500", activeBg: "bg-orange-50" },
-  { key: "notes", label: "メモ", icon: StickyNote, to: "/records/notes", color: "text-violet-500", activeBg: "bg-violet-50" },
-  { key: "gmail", label: "Gmail", icon: Mail, to: "/gmail", color: "text-pink-500", activeBg: "bg-pink-50" },
+  { key: "schedule-calendar", label: "予定", icon: CalendarDays, tintIcon: true, to: "/schedule?view=calendar", color: "text-blue-500", activeBg: "bg-blue-50", underline: "bg-blue-500" },
+  { key: "schedule-tasks", label: "タスク", icon: CheckSquare, tintIcon: true, to: "/schedule?view=list", color: "text-emerald-500", activeBg: "bg-emerald-50", underline: "bg-emerald-500" },
+  { key: "money", label: "収支", icon: Wallet, tintIcon: true, to: "/records/expense", color: "text-orange-500", activeBg: "bg-orange-50", underline: "bg-orange-500" },
+  { key: "notes", label: "メモ", icon: StickyNote, tintIcon: true, to: "/records/notes", color: "text-violet-500", activeBg: "bg-violet-50", underline: "bg-violet-500" },
+  // Gmailの実際のロゴ(マルチカラー)を使う。他4つと違い常時ブランド色そのままで、
+  // アクティブ時もアイコン自体は着色しない(ラベル文字と下線だけ赤くする)。
+  { key: "gmail", label: "Gmail", icon: GmailLogo, tintIcon: false, to: "/gmail", color: "text-red-500", activeBg: "bg-red-50", underline: "bg-red-500" },
 ];
 
 /** pathname alone can't tell 予定 and タスク apart — both live on /schedule —
@@ -42,12 +55,14 @@ function useActiveQuickActionKey(): string | null {
 export function QuickActionBar() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const activeKey = useActiveQuickActionKey();
+  // Gmail画面限定でシェルを明るいパールグレーへ調整中(承認までは他ページに展開しない)。
+  const isGmailRoute = useLocation().pathname.startsWith("/gmail");
 
   return (
     <>
       <div className="fixed inset-x-0 bottom-0 z-30">
         <div className="mx-auto max-w-md px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2">
-          <div className="glass-shell rounded-3xl">
+          <div className={`${isGmailRoute ? "glass-shell-light" : "glass-shell"} rounded-3xl`}>
             <button
               type="button"
               onClick={() => setSheetOpen(true)}
@@ -57,18 +72,21 @@ export function QuickActionBar() {
               <span className="h-1 w-9 rounded-full bg-slate-300/70" aria-hidden="true" />
             </button>
             <div className="grid grid-cols-5 gap-1 px-2 pb-2">
-              {QUICK_ACTIONS.map(({ key, label, icon: Icon, to, color, activeBg }) => {
+              {QUICK_ACTIONS.map(({ key, label, icon: Icon, tintIcon, to, color, activeBg, underline }) => {
                 const isActive = activeKey === key;
                 return (
                   <Link
                     key={key}
                     to={to}
-                    className={`flex flex-col items-center gap-1 rounded-2xl py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+                    className={`relative flex flex-col items-center gap-1 rounded-2xl py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
                       isActive ? activeBg : ""
                     }`}
                   >
-                    <Icon size={20} className={isActive ? color : "text-slate-400"} />
-                    <span className={`text-[11px] font-medium ${isActive ? color : "text-slate-500"}`}>{label}</span>
+                    {/* アイコンは選択有無に関わらず常にブランドカラー(未選択でも薄いグレーにしない)。
+                        Gmailのロゴだけは元から多色なので着色しない。 */}
+                    <Icon size={20} className={tintIcon ? color : ""} />
+                    <span className={`text-[11px] font-medium ${isActive ? `${color} font-semibold` : "text-slate-500"}`}>{label}</span>
+                    {isActive && <span className={`absolute -bottom-0.5 h-0.5 w-6 rounded-full ${underline}`} aria-hidden="true" />}
                   </Link>
                 );
               })}

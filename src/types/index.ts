@@ -305,4 +305,9 @@ export interface Settings {
   /** Manually-confirmed PayPay balance, anchored at paypayBalanceUpdatedAt. */
   paypayBalance: number;
   paypayBalanceUpdatedAt: number;
+  /** Auto-generates an AI draft for each newly-synced email (GmailInbox's
+   * handleSync). Deliberately separate from any push/notification setting —
+   * this only controls draft generation, never sending; sending still always
+   * requires the user to press 送信する in DraftReview. */
+  autoDraftEnabled: boolean;
 }

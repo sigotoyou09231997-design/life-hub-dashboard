@@ -272,6 +272,7 @@ export async function ensureDefaultSettings(): Promise<Settings> {
     accentColor: "#2563eb",
     paypayBalance: 0,
     paypayBalanceUpdatedAt: 0,
+    autoDraftEnabled: false,
   };
   const id = await db.settings.add(defaults);
   return { ...defaults, id };

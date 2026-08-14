@@ -47,6 +47,8 @@ function innerContentWidthClass(pathname: string): string {
 export default function App() {
   const location = useLocation();
   const isTop = location.pathname === "/";
+  // Gmail画面限定でシェルを明るいパールグレーへ調整中(承認までは他ページに展開しない)。
+  const isGmailRoute = location.pathname.startsWith("/gmail");
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
 
   useEffect(() => {
@@ -82,6 +84,12 @@ export default function App() {
     document.documentElement.style.setProperty("--color-accent-light", preset.light);
   }, [settings?.accentColor]);
 
+  // html自体の背景はグローバルCSSなので、Gmail画面限定のライト背景(.gmail-bg,
+  // index.css参照)をルート単位でON/OFFする。他画面は承認までダーク背景のまま。
+  useEffect(() => {
+    document.documentElement.classList.toggle("gmail-bg", isGmailRoute);
+  }, [isGmailRoute]);
+
   return (
     <ToastProvider>
       <UpdateBanner />
@@ -93,34 +101,49 @@ export default function App() {
           stuck at the left and becomes a centered, genuinely wide desktop
           panel (width 100%-4rem capped at 1180px) — this is what lets TOP's
           own lg:grid-cols-2 today-card actually get the room it needs. */}
-      <div
-        className={`relative mx-2 my-2 min-h-[calc(100vh-1rem)] glass-shell rounded-2xl md:mx-8 md:my-6 md:min-h-[calc(100vh-3rem)] md:rounded-3xl md:shadow-xl lg:mx-auto lg:my-6 lg:min-h-[calc(100vh-3rem)] lg:w-[calc(100%-4rem)] lg:max-w-[1180px] ${isTop ? "max-w-3xl" : "max-w-md"}`}
-      >
-        <AppHeader />
-        <div className={`pb-28 ${innerContentWidthClass(location.pathname)}`}>
-          <Routes>
-            <Route path="/" element={<TopPage />} />
-            <Route path="/schedule" element={<SchedulePage />} />
-            <Route path="/trips" element={<TripsPage />} />
-            <Route path="/trips/:id" element={<TripDetailPage />} />
-            {/* 予定・タスクは /schedule に統合済み。旧ブックマーク/リンク対策として残す。 */}
-            <Route path="/calendar" element={<Navigate to="/schedule" replace />} />
-            <Route path="/records/tasks" element={<Navigate to="/schedule" replace />} />
-            <Route path="/records" element={<RecordsPage />} />
-            <Route path="/records/expense" element={<ExpensePage />} />
-            <Route path="/records/notes" element={<NotePage />} />
-            <Route path="/records/diary" element={<DiaryPage />} />
-            <Route path="/records/goals" element={<GoalPage />} />
-            <Route path="/records/habits" element={<HabitPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/account" element={<AccountPage />} />
-            <Route path="/gmail" element={<GmailPage />} />
-            <Route path="/gmail/mail/:emailId" element={<GmailMailPage />} />
-            <Route path="/gmail/callback" element={<GmailCallbackPage />} />
-            <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          </Routes>
+      {/* flow-root here exists purely to stop the shell's own my-2/lg:my-6
+          margin from collapsing through into #root — with the Gmail route's
+          fixed-height shell below, that collapse otherwise adds a phantom
+          ~24px of scrollable space past the shell's real bottom edge (nothing
+          renders there, but the page technically becomes scrollable). Unlike
+          overflow-hidden, flow-root blocks the collapse without clipping the
+          shell's own box-shadow, so this is a pure no-op everywhere else. */}
+      <div className="flow-root">
+        <div
+          className={`relative mx-2 my-2 min-h-[calc(100vh-1rem)] ${isGmailRoute ? "glass-shell-light" : "glass-shell"} rounded-2xl md:mx-8 md:my-6 md:min-h-[calc(100vh-3rem)] md:rounded-3xl md:shadow-xl lg:mx-auto lg:my-6 lg:w-[calc(100%-4rem)] lg:max-w-[1180px] ${
+            isGmailRoute ? "lg:flex lg:h-[calc(100dvh-3rem)] lg:flex-col lg:overflow-hidden" : "lg:min-h-[calc(100vh-3rem)]"
+          } ${isTop ? "max-w-3xl" : "max-w-md"}`}
+        >
+          <AppHeader />
+          <div
+            className={`pb-28 ${innerContentWidthClass(location.pathname)} ${
+              isGmailRoute ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden" : ""
+            }`}
+          >
+            <Routes>
+              <Route path="/" element={<TopPage />} />
+              <Route path="/schedule" element={<SchedulePage />} />
+              <Route path="/trips" element={<TripsPage />} />
+              <Route path="/trips/:id" element={<TripDetailPage />} />
+              {/* 予定・タスクは /schedule に統合済み。旧ブックマーク/リンク対策として残す。 */}
+              <Route path="/calendar" element={<Navigate to="/schedule" replace />} />
+              <Route path="/records/tasks" element={<Navigate to="/schedule" replace />} />
+              <Route path="/records" element={<RecordsPage />} />
+              <Route path="/records/expense" element={<ExpensePage />} />
+              <Route path="/records/notes" element={<NotePage />} />
+              <Route path="/records/diary" element={<DiaryPage />} />
+              <Route path="/records/goals" element={<GoalPage />} />
+              <Route path="/records/habits" element={<HabitPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/account" element={<AccountPage />} />
+              <Route path="/gmail" element={<GmailPage />} />
+              <Route path="/gmail/mail/:emailId" element={<GmailMailPage />} />
+              <Route path="/gmail/callback" element={<GmailCallbackPage />} />
+              <Route path="/auth/callback" element={<AuthCallbackPage />} />
+            </Routes>
+          </div>
+          <QuickActionBar />
         </div>
-        <QuickActionBar />
       </div>
     </ToastProvider>
   );
