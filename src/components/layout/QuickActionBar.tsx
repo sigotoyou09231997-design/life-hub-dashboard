@@ -55,14 +55,12 @@ function useActiveQuickActionKey(): string | null {
 export function QuickActionBar() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const activeKey = useActiveQuickActionKey();
-  // Gmail画面限定でシェルを明るいパールグレーへ調整中(承認までは他ページに展開しない)。
-  const isGmailRoute = useLocation().pathname.startsWith("/gmail");
 
   return (
     <>
       <div className="fixed inset-x-0 bottom-0 z-30">
         <div className="mx-auto max-w-md px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2">
-          <div className={`${isGmailRoute ? "glass-shell-light" : "glass-shell"} rounded-3xl`}>
+          <div className="glass-shell rounded-3xl">
             <button
               type="button"
               onClick={() => setSheetOpen(true)}

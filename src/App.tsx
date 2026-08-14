@@ -47,7 +47,7 @@ function innerContentWidthClass(pathname: string): string {
 export default function App() {
   const location = useLocation();
   const isTop = location.pathname === "/";
-  // Gmail画面限定でシェルを明るいパールグレーへ調整中(承認までは他ページに展開しない)。
+  // Gmailの3ペインだけ、固定高さのflexレイアウト(下記)が必要なため引き続き判定。
   const isGmailRoute = location.pathname.startsWith("/gmail");
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
 
@@ -84,23 +84,18 @@ export default function App() {
     document.documentElement.style.setProperty("--color-accent-light", preset.light);
   }, [settings?.accentColor]);
 
-  // html自体の背景はグローバルCSSなので、Gmail画面限定のライト背景(.gmail-bg,
-  // index.css参照)をルート単位でON/OFFする。他画面は承認までダーク背景のまま。
-  useEffect(() => {
-    document.documentElement.classList.toggle("gmail-bg", isGmailRoute);
-  }, [isGmailRoute]);
-
   return (
     <ToastProvider>
       <UpdateBanner />
-      {/* The dark backdrop must stay visible as a margin around the shell at
-          every width, not just md+ — a small ~8px gap on mobile, a generous
-          one on desktop. min-h uses a calc matching the vertical margin so
-          the shell doesn't add extra scrollable height beyond the viewport.
-          At lg+ (1024px) the shell stops being a narrow mobile-width column
-          stuck at the left and becomes a centered, genuinely wide desktop
-          panel (width 100%-4rem capped at 1180px) — this is what lets TOP's
-          own lg:grid-cols-2 today-card actually get the room it needs. */}
+      {/* The page background must stay visible as a margin around the shell
+          at every width, not just md+ — a small ~8px gap on mobile, a
+          generous one on desktop. min-h uses a calc matching the vertical
+          margin so the shell doesn't add extra scrollable height beyond the
+          viewport. At lg+ (1024px) the shell stops being a narrow
+          mobile-width column stuck at the left and becomes a centered,
+          genuinely wide desktop panel (width 100%-4rem capped at 1180px) —
+          this is what lets TOP's own lg:grid-cols-2 today-card actually get
+          the room it needs. */}
       {/* flow-root here exists purely to stop the shell's own my-2/lg:my-6
           margin from collapsing through into #root — with the Gmail route's
           fixed-height shell below, that collapse otherwise adds a phantom
@@ -110,7 +105,7 @@ export default function App() {
           shell's own box-shadow, so this is a pure no-op everywhere else. */}
       <div className="flow-root">
         <div
-          className={`relative mx-2 my-2 min-h-[calc(100vh-1rem)] ${isGmailRoute ? "glass-shell-light" : "glass-shell"} rounded-2xl md:mx-8 md:my-6 md:min-h-[calc(100vh-3rem)] md:rounded-3xl md:shadow-xl lg:mx-auto lg:my-6 lg:w-[calc(100%-4rem)] lg:max-w-[1180px] ${
+          className={`relative mx-2 my-2 min-h-[calc(100vh-1rem)] glass-shell rounded-2xl md:mx-8 md:my-6 md:min-h-[calc(100vh-3rem)] md:rounded-3xl md:shadow-xl lg:mx-auto lg:my-6 lg:w-[calc(100%-4rem)] lg:max-w-[1180px] ${
             isGmailRoute ? "lg:flex lg:h-[calc(100dvh-3rem)] lg:flex-col lg:overflow-hidden" : "lg:min-h-[calc(100vh-3rem)]"
           } ${isTop ? "max-w-3xl" : "max-w-md"}`}
         >

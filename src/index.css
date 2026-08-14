@@ -14,34 +14,18 @@ body,
   height: 100%;
 }
 
-/* The matte backdrop lives on `html`, not `body`: html's box reliably covers
-   the whole scrollable canvas regardless of content height, so a long page
-   can never scroll past the end of the background into a seam or color
+/* Soft neutral gray backdrop lives on `html`, not `body`: html's box reliably
+   covers the whole scrollable canvas regardless of content height, so a long
+   page can never scroll past the end of the background into a seam or color
    change. body/#root are explicitly transparent (not just "unset") so
    nothing accidentally paints its own background between html and the glass
-   shell. This is a near-flat matte charcoal — the gradient stops are
-   deliberately close together so the shift is barely perceptable, not a
-   visible blue/purple/silver sweep. */
+   shell. Originally a matte charcoal gradient — replaced app-wide (2026-08-14)
+   after live use showed the dark backdrop read as "ugly"/heavy; #d7dade was
+   approved after a side-by-side white/gray/deep-gray comparison specifically
+   because it keeps the pearl glass shell visibly separated from the page
+   background (a near-white backdrop made the shell's edge nearly disappear). */
 html {
-  background: linear-gradient(165deg, #16181c 0%, #111318 55%, #15171a 100%);
-}
-
-/* Gmail-only, lighter backdrop — the matte charcoal read as "ugly"/heavy once
- * seen live, so the Gmail route swaps to a soft neutral gray behind the glass
- * shell instead. Scoped via a class toggled on <html> (see App.tsx's
- * isGmailRoute effect) rather than editing the rule above, since every other
- * route is still pending its own design review and must keep the dark
- * backdrop until it's separately approved. */
-html.gmail-bg {
   background: #d7dade;
-}
-
-/* The decorative arcs/grain above were tuned as faint white detail against a
- * near-black backdrop — against a light gray they'd read as a stray smudge,
- * so both are switched off for this variant rather than re-tuned. */
-html.gmail-bg::after,
-html.gmail-bg::before {
-  display: none;
 }
 
 body {
@@ -52,32 +36,6 @@ body {
 
 #root {
   background: transparent;
-}
-
-/* Thin, non-glowing decorative arcs — plain SVG strokes at very low opacity,
-   not blurred circles/orbs. Fixed + sized off the viewport so they never
-   tile or repeat on a long page. Background stays flat matte, not glass:
-   no blur here at all. */
-html::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='1600' viewBox='0 0 1600 1600'%3E%3Ccircle cx='1650' cy='-120' r='680' fill='none' stroke='white' stroke-opacity='0.08' stroke-width='1'/%3E%3Ccircle cx='-180' cy='1720' r='620' fill='none' stroke='white' stroke-opacity='0.06' stroke-width='1'/%3E%3Ccircle cx='1500' cy='1650' r='420' fill='none' stroke='white' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-}
-
-/* Very faint grain over the dark backdrop only — kept as a fixed, near-invisible
-   pseudo-element so it never needs to be laid out per-page or affect scroll. */
-html::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.02;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 * {
@@ -108,7 +66,7 @@ html::before {
   }
 
   /* Light glassmorphism tokens — not dark mode. The whole app is a white/light
-     glass UI floating on the dark charcoal body background above, in a
+     pearl glass UI floating on the #d7dade page background above, in a
      deliberate 4-tier hierarchy from most to least transparent:
        shell (app frame) < card (main surface) < row (list items) < modal (Sheet)
      Composite classes already bundle background+border+shadow; glass-border/
@@ -131,27 +89,12 @@ html::before {
      not a flat single rgba — that flatness was read as an inert grey overlay
      rather than glass. Inset top/bottom highlights fake the edge-lit look of
      real frosted glass; the outer shadow is what actually separates it from
-     the dark backdrop. */
+     the page background. Brightness is kept in the normal 1.0-1.15 range (not
+     pushed higher) so backdrop-filter renders consistently across browsers/
+     iOS Safari — the lift instead comes from the background gradient's own
+     alpha/color, with a separate top-left radial layer standing in for a
+     reflection highlight. */
   .glass-shell {
-    background:
-      radial-gradient(120% 85% at 8% 0%, rgba(255, 255, 255, 0.32) 0%, rgba(255, 255, 255, 0) 48%),
-      linear-gradient(145deg, rgba(241, 244, 248, 0.76) 0%, rgba(217, 222, 229, 0.67) 52%, rgba(199, 205, 214, 0.61) 100%);
-    backdrop-filter: blur(30px) saturate(108%) brightness(1.04);
-    -webkit-backdrop-filter: blur(30px) saturate(108%) brightness(1.04);
-    border: 1px solid rgba(255, 255, 255, 0.62);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.72),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.12),
-      0 24px 70px rgba(0, 0, 0, 0.32);
-  }
-  /* Gmail-only, brighter pearl-silver variant of .glass-shell. .glass-shell
-     itself is untouched (every other page still uses it) — this is scoped to
-     the Gmail route only until the tone is approved for a wider rollout.
-     Brightness is kept in the normal 1.0-1.15 range (not pushed higher) so
-     backdrop-filter renders consistently across browsers/iOS Safari — the
-     lift instead comes from the background gradient's own alpha/color, with
-     a separate top-left radial layer standing in for a reflection highlight. */
-  .glass-shell-light {
     background:
       radial-gradient(85% 60% at 12% 0%, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 58%),
       linear-gradient(145deg, rgba(246, 249, 253, 0.9) 0%, rgba(230, 235, 241, 0.87) 52%, rgba(214, 220, 228, 0.84) 100%);
@@ -173,27 +116,11 @@ html::before {
     border-bottom: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
   }
-  /* Card: pure white (not the shell's cool grey tint) and a hair more opaque
-     than the shell's average, so it reads as the whiter, thicker material
-     sitting inside the shell frame. Thin top highlight, no flat #fff/#f0f0f0. */
+  /* Card: a touch more transparent than the shell average so it reads as
+     material continuous with .glass-shell rather than a separate opaque
+     plate (also used for Gmail's 3-pane surfaces). Thin top highlight, no
+     flat #fff/#f0f0f0. */
   .glass-card {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.72), rgba(247, 249, 252, 0.55));
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    border: 1px solid rgba(255, 255, 255, 0.58);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.82),
-      0 12px 30px rgba(15, 20, 28, 0.1);
-  }
-  .glass-row {
-    background: rgba(255, 255, 255, 0.78);
-    border: 1px solid rgba(255, 255, 255, 0.55);
-  }
-  /* Gmail-only pane tier: a touch more transparent than .glass-card so it
-     reads as material continuous with .glass-shell-light rather than a
-     separate opaque plate. .glass-card itself is untouched — every other
-     page's Card component keeps its current look. */
-  .glass-pane {
     background: linear-gradient(145deg, rgba(255, 255, 255, 0.66), rgba(244, 247, 251, 0.54));
     backdrop-filter: blur(20px) saturate(140%);
     -webkit-backdrop-filter: blur(20px) saturate(140%);
@@ -201,6 +128,16 @@ html::before {
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.82),
       0 12px 30px rgba(15, 20, 28, 0.1);
+  }
+  /* Row: one notch brighter/more separated than .glass-card (which is meant
+     to sit flush inside the shell with no shadow of its own) — also used for
+     Gmail's mail list and original/reply body surfaces. */
+  .glass-row {
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.75),
+      0 3px 10px rgba(15, 20, 28, 0.08);
   }
   .glass-modal {
     background: rgba(255, 255, 255, 0.88);
@@ -216,35 +153,17 @@ html::before {
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
   }
-  /* Gmail-specific row tier, one notch brighter/more separated than the
-     generic .glass-row (which is meant to sit flush inside a card with no
-     shadow of its own). Scoped to Gmail's mail list and original/reply body
-     surfaces only — .glass-row itself is untouched so every other list in
-     the app keeps its current look. */
-  .glass-mail-row {
-    background: rgba(255, 255, 255, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.75),
-      0 3px 10px rgba(15, 20, 28, 0.08);
-  }
 }
 
 /* backdrop-filter fallback: solid-ish light surfaces instead of translucent glass. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass-shell {
-    background: rgba(214, 219, 227, 0.96);
-  }
-  .glass-shell-light {
     background: rgba(203, 208, 216, 0.97);
   }
   .glass-header {
     background: rgba(232, 235, 240, 0.97);
   }
   .glass-card {
-    background: rgba(249, 250, 251, 0.97);
-  }
-  .glass-pane {
     background: rgba(249, 250, 251, 0.97);
   }
   .glass-row {

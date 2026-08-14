@@ -348,7 +348,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       {bodyIsFallback && !loadingOriginal && (
         <p className="mb-2 text-xs text-slate-400">本文は保存済みの抜粋を表示しています</p>
       )}
-      <div className="glass-mail-row min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
+      <div className="glass-row min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
         {loadingOriginal ? "本文を読み込み中..." : originalBody}
       </div>
     </>
@@ -439,7 +439,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
 
   const replyPreviewBlock = (
     <>
-      <div className="glass-mail-row min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
+      <div className="glass-row min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
         {bodyText}
       </div>
       <p className="mt-1.5 text-right text-xs text-slate-400">{bodyText.length}文字</p>
@@ -514,12 +514,12 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
             {originalExpanded ? "元のメールを閉じる" : "元のメールを表示"}
           </button>
           {originalExpanded ? (
-            <div className="glass-mail-row whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
+            <div className="glass-row whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
               {bodyIsFallback && !loadingOriginal && <p className="mb-2 text-xs text-slate-400">本文は保存済みの抜粋を表示しています</p>}
               {loadingOriginal ? "本文を読み込み中..." : originalBody}
             </div>
           ) : (
-            <p className="glass-mail-row line-clamp-2 rounded-xl px-4 py-3 text-sm text-slate-600">{email.snippet}</p>
+            <p className="glass-row line-clamp-2 rounded-xl px-4 py-3 text-sm text-slate-600">{email.snippet}</p>
           )}
         </div>
 
@@ -578,7 +578,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(360px,1.15fr)_minmax(320px,0.95fr)]">
       {/* 読む: 件名→送信者→区切り線→元メール本文(参考画像の並び順) */}
-      <div className="glass-pane flex h-full min-h-0 flex-col rounded-2xl p-5">
+      <div className="glass-card flex h-full min-h-0 flex-col rounded-2xl p-5">
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
           {hasDraft && <Badge tone="accent">AI下書き</Badge>}
@@ -589,7 +589,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       </div>
 
       {/* 返信: AI下書きの作成・プレビュー・編集・送信 */}
-      <div className="glass-pane flex h-full min-h-0 flex-col rounded-2xl p-5">
+      <div className="glass-card flex h-full min-h-0 flex-col rounded-2xl p-5">
         <div className="flex shrink-0 items-center justify-between gap-2">
           <p className="text-sm font-semibold text-slate-700">AI返信案</p>
           {hasDraft && <Badge tone="success">準備完了</Badge>}

@@ -166,7 +166,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     // 1本の独立したガラスパネル(左ペイン)。lg以上は高さを親グリッドに合わせて固定し、
     // リスト部分だけが内部スクロールする(検索・タブ・ブロック中リンクは常に見える)。
     // lg未満(モバイル)はflex-colのまま自然に積み重なり、ページ全体でスクロールする。
-    <div className="glass-pane flex flex-col gap-3 rounded-2xl p-4 lg:h-full lg:min-h-0">
+    <div className="glass-card flex flex-col gap-3 rounded-2xl p-4 lg:h-full lg:min-h-0">
       {!showSkeleton && emails && emails.length > 0 && (
         <div className="relative shrink-0">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
@@ -230,7 +230,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
                 type="button"
                 onClick={() => onSelectEmail(email)}
                 aria-pressed={selected}
-                className={`glass-mail-row flex w-full items-start gap-3 rounded-xl border-l-[3px] px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
+                className={`glass-row flex w-full items-start gap-3 rounded-xl border-l-[3px] px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
                   selected ? "border-l-accent bg-accent-light/50" : "border-l-transparent active:bg-white/60"
                 }`}
               >

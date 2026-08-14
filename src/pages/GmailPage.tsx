@@ -106,7 +106,7 @@ export default function GmailPage() {
           <>
             {/* PC: 参考画像どおり、文字ラベル付きのガラスボタン(44px以上)を並べる */}
             <div className="hidden items-center gap-2.5 lg:flex">
-              <div className="glass-mail-row flex items-center gap-2 rounded-full px-3.5 py-2.5">
+              <div className="glass-row flex items-center gap-2 rounded-full px-3.5 py-2.5">
                 <span className="text-xs font-medium text-slate-600">自動下書き</span>
                 {autoDraftToggle}
               </div>
@@ -114,7 +114,7 @@ export default function GmailPage() {
                 type="button"
                 onClick={handleSyncClick}
                 disabled={syncing}
-                className="glass-mail-row flex h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium text-slate-600 transition-colors active:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:opacity-50"
+                className="glass-row flex h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium text-slate-600 transition-colors active:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:opacity-50"
               >
                 <RefreshCw size={16} className={syncing ? "animate-spin motion-reduce:animate-none" : ""} />
                 今すぐ同期
@@ -122,7 +122,7 @@ export default function GmailPage() {
               <button
                 type="button"
                 onClick={() => navigate("/settings")}
-                className="glass-mail-row flex h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium text-slate-600 transition-colors active:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                className="glass-row flex h-11 items-center gap-1.5 rounded-full px-4 text-sm font-medium text-slate-600 transition-colors active:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 <SettingsIcon size={16} />
                 設定
@@ -194,7 +194,7 @@ export default function GmailPage() {
                   {activeEmail ? (
                     <DraftReview key={activeEmail.id} email={activeEmail} account={selectedAccount} variant="pane" />
                   ) : (
-                    <div className="glass-pane flex h-full min-h-[420px] flex-col items-center justify-center gap-2 rounded-2xl p-8 text-center">
+                    <div className="glass-card flex h-full min-h-[420px] flex-col items-center justify-center gap-2 rounded-2xl p-8 text-center">
                       <Mail size={28} className="text-slate-300" />
                       <p className="text-sm text-slate-400">左のリストからメールを選択してください</p>
                     </div>
