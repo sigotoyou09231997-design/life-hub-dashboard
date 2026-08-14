@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Settings as SettingsIcon } from "lucide-react";
+import { Bell, Home, Settings as SettingsIcon } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "../../lib/supabase";
 import { avatarColor, avatarInitial, parseSender } from "../../lib/gmail";
@@ -41,7 +41,7 @@ export function AppHeader() {
           Sheet), so this alignment is what keeps square corners from poking
           out past the shell's rounded top instead of relying on clipping. */}
       <header className="glass-header sticky top-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-t-2xl px-5 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:rounded-t-3xl">
-        <div className="flex justify-start">
+        <div className="flex items-center justify-start gap-1">
           <Link
             to="/account"
             aria-label="アカウント"
@@ -56,6 +56,15 @@ export function AppHeader() {
                 {avatarInitial(displayName)}
               </div>
             )}
+          </Link>
+          {/* どのページからでもTOPへ1タップで戻れるように — Gmailのメール詳細のような
+              単独ページ(新規タブで開き、「戻る」がタブを閉じるだけ)からも同様に使える。 */}
+          <Link
+            to="/"
+            aria-label="ホーム"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors active:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          >
+            <Home size={19} />
           </Link>
         </div>
 
