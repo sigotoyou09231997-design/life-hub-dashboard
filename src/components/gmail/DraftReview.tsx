@@ -576,19 +576,9 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(360px,1.15fr)_minmax(320px,0.95fr)]">
-      {/* 読む: 件名→送信者→区切り線→元メール本文(参考画像の並び順) */}
-      <div className="glass-card flex h-full min-h-0 flex-col rounded-2xl p-5">
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
-          {hasDraft && <Badge tone="accent">AI下書き</Badge>}
-        </div>
-        <div className="mt-3 shrink-0">{senderRow}</div>
-        <div className="my-4 shrink-0 border-t border-white/40" />
-        {originalBodyBlock}
-      </div>
-
-      {/* 返信: AI下書きの作成・プレビュー・編集・送信 */}
+    <div className="grid h-full min-h-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(320px,0.95fr)_minmax(360px,1.15fr)]">
+      {/* 返信: AI下書きの作成・プレビュー・編集・送信。モバイルでは元メール本文より
+          先(上)に表示する — スクロールなしですぐ返信内容が見えるように。 */}
       <div className="glass-card flex h-full min-h-0 flex-col rounded-2xl p-5">
         <div className="flex shrink-0 items-center justify-between gap-2">
           <p className="text-sm font-semibold text-slate-700">AI返信案</p>
@@ -629,6 +619,17 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         )}
 
         <div className="mt-3 shrink-0">{gmailLink}</div>
+      </div>
+
+      {/* 読む: 件名→送信者→区切り線→元メール本文 */}
+      <div className="glass-card flex h-full min-h-0 flex-col rounded-2xl p-5">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
+          {hasDraft && <Badge tone="accent">AI下書き</Badge>}
+        </div>
+        <div className="mt-3 shrink-0">{senderRow}</div>
+        <div className="my-4 shrink-0 border-t border-white/40" />
+        {originalBodyBlock}
       </div>
 
       {candidateSheet}
