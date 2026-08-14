@@ -48,8 +48,12 @@ function innerContentWidthClass(pathname: string): string {
 export default function App() {
   const location = useLocation();
   const isTop = location.pathname === "/";
-  // Gmailの3ペインだけ、固定高さのflexレイアウト(下記)が必要なため引き続き判定。
-  const isGmailRoute = location.pathname.startsWith("/gmail");
+  // 一覧(/gmail)だけ、内部スクロールのメールリストを1画面に収める固定高さのflex
+  // レイアウト(下記)が必要。/gmail/mail/:id(新規タブで開く単独のメール詳細ページ)は
+  // 他の通常ページと同じ、ページ全体が自然にスクロールする挙動にする — 固定高さ+
+  // overflow-hiddenのままだと、長い本文/AI返信文が内部スクロール領域に閉じ込められ、
+  // スクロールしないと全文が見えなくなってしまうため(2026-08-15 修正)。
+  const isGmailListRoute = location.pathname === "/gmail";
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
 
   useEffect(() => {
@@ -110,13 +114,13 @@ export default function App() {
       <div className="flow-root">
         <div
           className={`relative mx-2 my-2 min-h-[calc(100vh-1rem)] glass-shell rounded-2xl md:mx-8 md:my-6 md:min-h-[calc(100vh-3rem)] md:rounded-3xl md:shadow-xl lg:mx-auto lg:my-6 lg:w-[calc(100%-4rem)] lg:max-w-[1180px] ${
-            isGmailRoute ? "lg:flex lg:h-[calc(100dvh-3rem)] lg:flex-col lg:overflow-hidden" : "lg:min-h-[calc(100vh-3rem)]"
+            isGmailListRoute ? "lg:flex lg:h-[calc(100dvh-3rem)] lg:flex-col lg:overflow-hidden" : "lg:min-h-[calc(100vh-3rem)]"
           } ${isTop ? "max-w-3xl" : "max-w-md"}`}
         >
           <AppHeader />
           <div
             className={`pb-28 ${innerContentWidthClass(location.pathname)} ${
-              isGmailRoute ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden" : ""
+              isGmailListRoute ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden" : ""
             }`}
           >
             <Routes>

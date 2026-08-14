@@ -348,7 +348,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       {bodyIsFallback && !loadingOriginal && (
         <p className="mb-2 text-xs text-slate-400">本文は保存済みの抜粋を表示しています</p>
       )}
-      <div className="glass-row min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
+      <div className="glass-row whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
         {loadingOriginal ? "本文を読み込み中..." : originalBody}
       </div>
     </>
@@ -439,7 +439,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
 
   const replyPreviewBlock = (
     <>
-      <div className="glass-row min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
+      <div className="glass-row whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
         {bodyText}
       </div>
       <p className="mt-1.5 text-right text-xs text-slate-400">{bodyText.length}文字</p>
@@ -576,17 +576,20 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   }
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-5 lg:grid-cols-[minmax(320px,0.95fr)_minmax(360px,1.15fr)]">
+    // ページ全体が自然にスクロールする通常のページとして表示する(固定高さ+内部
+    // overflow-y-autoにはしない) — 長い本文/AI返信文が小さな内部スクロール領域に
+    // 閉じ込められ、全文を見るのにスクロールが必要になっていたのを解消するため。
+    <div className="grid grid-cols-1 gap-5 lg:items-start lg:grid-cols-[minmax(320px,0.95fr)_minmax(360px,1.15fr)]">
       {/* 返信: AI下書きの作成・プレビュー・編集・送信。モバイルでは元メール本文より
           先(上)に表示する — スクロールなしですぐ返信内容が見えるように。 */}
-      <div className="glass-card flex h-full min-h-0 flex-col rounded-2xl p-5">
+      <div className="glass-card flex flex-col rounded-2xl p-5">
         <div className="flex shrink-0 items-center justify-between gap-2">
           <p className="text-sm font-semibold text-slate-700">AI返信案</p>
           {hasDraft && <Badge tone="success">準備完了</Badge>}
         </div>
 
         {!hasDraft && !generating ? (
-          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3">
+          <div className="mt-3 flex flex-col gap-3">
             {!alreadySent && (
               <Textarea
                 label="AIに伝えたいこと（任意）"
@@ -601,7 +604,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
             </Button>
           </div>
         ) : showEditForm ? (
-          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-0.5">
+          <div className="mt-3 flex flex-col gap-3">
             {!alreadySent && (
               <Textarea
                 label="AIに伝えたいこと（任意）"
@@ -615,14 +618,14 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
             {replyFormFields}
           </div>
         ) : (
-          <div className="mt-3 flex min-h-0 flex-1 flex-col">{replyPreviewBlock}</div>
+          <div className="mt-3 flex flex-col">{replyPreviewBlock}</div>
         )}
 
         <div className="mt-3 shrink-0">{gmailLink}</div>
       </div>
 
       {/* 読む: 件名→送信者→区切り線→元メール本文 */}
-      <div className="glass-card flex h-full min-h-0 flex-col rounded-2xl p-5">
+      <div className="glass-card flex flex-col rounded-2xl p-5">
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
           {hasDraft && <Badge tone="accent">AI下書き</Badge>}
