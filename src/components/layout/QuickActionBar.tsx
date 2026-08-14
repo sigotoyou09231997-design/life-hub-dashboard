@@ -58,16 +58,13 @@ export function QuickActionBar() {
 
   return (
     <>
-      {/* bottom-2/md:bottom-6 deliberately mirrors the app shell's own
-          my-2/md:my-6 bottom margin (App.tsx) — now that .glass-shell no
-          longer makes itself the containing block for fixed descendants
-          (see index.css's .glass-shell::before comment), this bar's
-          `fixed`/`bottom` resolves against the real viewport, so it no
-          longer inherits that margin "for free" the way it used to. Without
-          this offset the bar would sit flush with the true screen edge
-          instead of nesting just above the shell's own rounded bottom
-          corner, poking below it. */}
-      <div className="fixed inset-x-0 bottom-2 z-30 md:bottom-6">
+      {/* Mobile sits flush with the true viewport bottom (bottom-0) per explicit
+          request — safe-area clearance for the home indicator is handled by the
+          inner pb-[...env(safe-area-inset-bottom)...] padding below, not by this
+          offset. md:bottom-6 (desktop) is untouched, still mirroring the app
+          shell's own md:my-6 bottom margin (App.tsx) so it nests just above the
+          shell's rounded bottom corner there. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 md:bottom-6">
         <div className="mx-auto max-w-md px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2">
           <div className="glass-shell rounded-3xl">
             <button
