@@ -79,6 +79,20 @@ export async function subscribeToPush(accounts: GmailAccount[], userId: string):
   }
 }
 
+/** Closes any OS notifications from this app still sitting open on this device
+ * (e.g. Gmail push notifications not yet tapped/dismissed) — called on app load so
+ * stale notifications (including ones from a sender blocked after they were sent)
+ * don't linger once the user has actually opened the app and can see the inbox
+ * directly. Uses `getRegistration()` rather than `navigator.serviceWorker.ready`,
+ * which never resolves if no service worker is registered (e.g. local dev). */
+export async function clearShownPushNotifications(): Promise<void> {
+  if (!("serviceWorker" in navigator)) return;
+  const registration = await navigator.serviceWorker.getRegistration();
+  if (!registration) return;
+  const notifications = await registration.getNotifications();
+  notifications.forEach((notification) => notification.close());
+}
+
 /** Removes only this device's push subscription (both locally and in Supabase).
  * Deliberately leaves gmail_server_accounts untouched — another device's subscription
  * may still rely on it; that table is cleaned up per-account when a Gmail account is

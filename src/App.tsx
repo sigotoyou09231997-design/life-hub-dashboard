@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, ensureDefaultSettings } from "./db/schema";
 import { startNotificationScheduler, stopNotificationScheduler } from "./lib/notifications";
+import { clearShownPushNotifications } from "./lib/pushNotifications";
 import { registerSyncedTable } from "./lib/sync";
 import { resolveAccentPreset } from "./lib/accentColors";
 import { ToastProvider } from "./components/ui/ToastProvider";
@@ -54,6 +55,9 @@ export default function App() {
   useEffect(() => {
     ensureDefaultSettings();
     startNotificationScheduler();
+    // アプリを開いた時点でGmailプッシュ通知はもう本人が確認できる状態なので、端末の通知
+    // センターに残っている分(ブロック後に届いた古い通知を含む)をここでまとめて閉じる。
+    void clearShownPushNotifications();
     // PC/スマホ同期対象。Supabaseにログインしていない間は何もしない安全なno-op —
     // ログインした瞬間に自動で同期を開始する(src/lib/sync.tsのensureAuthListener参照)。
     // 対象外: settings(端末ごとに別IDで作られるsingletonのため)、

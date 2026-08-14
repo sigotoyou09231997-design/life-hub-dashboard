@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { urlBase64ToUint8Array } from "./pushNotifications";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { clearShownPushNotifications, urlBase64ToUint8Array } from "./pushNotifications";
 
 describe("urlBase64ToUint8Array", () => {
   it("decodes a URL-safe base64 VAPID-style key into the matching bytes", () => {
@@ -27,5 +27,36 @@ describe("urlBase64ToUint8Array", () => {
     expect(urlSafeNoPad.length % 4).not.toBe(0);
     const bytes = urlBase64ToUint8Array(urlSafeNoPad);
     expect(Array.from(bytes)).toEqual(Array.from(original));
+  });
+});
+
+describe("clearShownPushNotifications", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("does nothing when the browser has no serviceWorker support", async () => {
+    vi.stubGlobal("navigator", {});
+    await expect(clearShownPushNotifications()).resolves.toBeUndefined();
+  });
+
+  it("does nothing when no service worker is registered yet", async () => {
+    const getRegistration = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { serviceWorker: { getRegistration } });
+    await clearShownPushNotifications();
+    expect(getRegistration).toHaveBeenCalled();
+  });
+
+  it("closes every currently-shown notification for this origin", async () => {
+    const close1 = vi.fn();
+    const close2 = vi.fn();
+    const getNotifications = vi.fn().mockResolvedValue([{ close: close1 }, { close: close2 }]);
+    const getRegistration = vi.fn().mockResolvedValue({ getNotifications });
+    vi.stubGlobal("navigator", { serviceWorker: { getRegistration } });
+
+    await clearShownPushNotifications();
+
+    expect(close1).toHaveBeenCalledOnce();
+    expect(close2).toHaveBeenCalledOnce();
   });
 });
