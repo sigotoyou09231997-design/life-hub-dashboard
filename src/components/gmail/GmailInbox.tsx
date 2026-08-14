@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Ban, Mail, Search } from "lucide-react";
 import { db } from "../../db/schema";
-import type { EmailStatus, GmailAccount, SyncedEmail } from "../../types";
+import type { EmailStatus, GmailAccount } from "../../types";
 import {
   avatarColor,
   avatarInitial,
@@ -24,8 +24,6 @@ import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 
 interface Props {
   account: GmailAccount;
-  selectedEmailId: string | null;
-  onSelectEmail: (email: SyncedEmail) => void;
 }
 
 /** Lets GmailPage's header "今すぐ同期" button trigger this component's own
@@ -56,10 +54,7 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
   skipped: "neutral",
 };
 
-export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbox(
-  { account, selectedEmailId, onSelectEmail },
-  ref,
-) {
+export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbox({ account }, ref) {
   const showToast = useToast();
   const [syncing, setSyncing] = useState(false);
   const [query, setQuery] = useState("");
@@ -223,16 +218,13 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
           {filteredEmails.map((email) => {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed";
-            const selected = email.id === selectedEmailId;
             return (
-              <button
+              <a
                 key={email.id}
-                type="button"
-                onClick={() => onSelectEmail(email)}
-                aria-pressed={selected}
-                className={`glass-row flex w-full items-start gap-3 rounded-xl border-l-[3px] px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
-                  selected ? "border-l-accent bg-accent-light/50" : "border-l-transparent active:bg-white/60"
-                }`}
+                href={`/gmail/mail/${email.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="glass-row flex w-full items-start gap-3 rounded-xl border-l-[3px] border-l-transparent px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 active:bg-white/60"
               >
                 <div
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(sender.email)}`}
@@ -256,7 +248,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
                     </div>
                   )}
                 </div>
-              </button>
+              </a>
             );
           })}
         </div>

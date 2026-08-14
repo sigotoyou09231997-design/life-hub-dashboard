@@ -3,17 +3,13 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, CheckCircle2, Mail, RefreshCw, Settings as SettingsIcon } from "lucide-react";
 import { db } from "../db/schema";
-import type { SyncedEmail } from "../types";
 import { GmailLogo } from "../components/gmail/GmailLogo";
 import { Tabs } from "../components/ui/Tabs";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
-import { Sheet } from "../components/ui/Sheet";
 import { GmailInbox, type GmailInboxHandle } from "../components/gmail/GmailInbox";
-import { DraftReview } from "../components/gmail/DraftReview";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
-import { useIsDesktop } from "../hooks/useIsDesktop";
 
 const BACK_BUTTON_CLASS =
   "-ml-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50";
@@ -24,10 +20,8 @@ export default function GmailPage() {
   const accounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   const showSkeleton = useDelayedFlag(accounts === undefined);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [selectedEmail, setSelectedEmail] = useState<SyncedEmail | null>(null);
   const inboxRef = useRef<GmailInboxHandle>(null);
   const [syncing, setSyncing] = useState(false);
-  const isDesktop = useIsDesktop();
 
   useEffect(() => {
     if (accounts && accounts.length > 0 && selectedAccountId == null) {
@@ -36,14 +30,6 @@ export default function GmailPage() {
   }, [accounts, selectedAccountId]);
 
   const selectedAccount = accounts?.find((a) => a.id === selectedAccountId);
-
-  // Re-fetch the selected email's own row live (status/etc. can change under it,
-  // e.g. after AI draft generation) rather than holding a stale snapshot.
-  const selectedEmailLive = useLiveQuery(
-    () => (selectedEmail?.id ? db.syncedEmails.get(selectedEmail.id) : undefined),
-    [selectedEmail?.id],
-  );
-  const activeEmail = selectedEmailLive ?? selectedEmail;
 
   // 「自動下書き」＝新着メール同期時にAI下書きを自動生成するかどうか。
   // 通知(プッシュ)設定とは別のsettings.autoDraftEnabledを使う — 同じ値を共有しない。
@@ -167,61 +153,22 @@ export default function GmailPage() {
                 <Tabs
                   options={accounts.map((a) => ({ value: String(a.id), label: a.email }))}
                   value={selectedAccountId ?? ""}
-                  onChange={(v) => {
-                    setSelectedAccountId(v);
-                    setSelectedEmail(null);
-                  }}
+                  onChange={(v) => setSelectedAccountId(v)}
                   dense
                 />
               </div>
             )}
 
             {selectedAccount && (
-              // 3ペイン(左:一覧/中央:読む/右:AI返信案)は全て同じ高さの独立したガラスパネル。
-              // lg以上では親(このページの残り高さ)いっぱいに伸び、各ペインの中だけがスクロールする
-              // — 固定vh値をやめ、実際に割り当てられた高さから逆算する。
-              <div className="lg:grid lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(260px,0.85fr)_minmax(680px,2.15fr)] lg:items-stretch lg:gap-5">
-                <GmailInbox
-                  ref={inboxRef}
-                  account={selectedAccount}
-                  selectedEmailId={activeEmail?.id ?? null}
-                  onSelectEmail={setSelectedEmail}
-                />
-
-                {/* デスクトップ: 右側に読む/返信ペインをインライン表示。
-                    スマホ: 下からのSheetとして同じDraftReviewを表示(全面遷移にしない)。 */}
-                <div className="mt-5 hidden h-full min-h-0 lg:mt-0 lg:block">
-                  {activeEmail ? (
-                    <DraftReview key={activeEmail.id} email={activeEmail} account={selectedAccount} variant="pane" />
-                  ) : (
-                    <div className="glass-card flex h-full min-h-[420px] flex-col items-center justify-center gap-2 rounded-2xl p-8 text-center">
-                      <Mail size={28} className="text-slate-300" />
-                      <p className="text-sm text-slate-400">左のリストからメールを選択してください</p>
-                    </div>
-                  )}
-                </div>
+              // メールは行クリックで /gmail/mail/:id を新規タブで開く(GmailInbox.tsx)ため、
+              // ここには一覧ペイン1つだけを幅いっぱいに表示する。
+              <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+                <GmailInbox ref={inboxRef} account={selectedAccount} />
               </div>
             )}
           </>
         )}
       </div>
-
-      {/* Sheet is mobile-only: on desktop the same DraftReview already renders
-          inline as the right pane above, so opening it here too would stack a
-          redundant overlay on top of it. */}
-      {selectedAccount && !isDesktop && (
-        <Sheet open={activeEmail !== null} onClose={() => setSelectedEmail(null)} title="メール詳細" reserveBottomBar compact>
-          {activeEmail && (
-            <DraftReview
-              key={activeEmail.id}
-              email={activeEmail}
-              account={selectedAccount}
-              onSent={() => setSelectedEmail(null)}
-              variant="sheet"
-            />
-          )}
-        </Sheet>
-      )}
     </div>
   );
 }
