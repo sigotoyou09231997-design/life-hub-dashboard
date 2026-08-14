@@ -158,10 +158,13 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
   }
 
   return (
-    // 1本の独立したガラスパネル(左ペイン)。lg以上は高さを親グリッドに合わせて固定し、
+    // 他の一覧画面(メモ・収支等)と同じく、外側を1枚のglass-cardで包まない —
+    // ページ自身のpx-5に直接乗せることで、各行(.glass-row)だけがカードに見える構成に
+    // 揃える(以前はここにglass-card+p-4を重ねていたため、横方向のpaddingが他の
+    // 一覧画面より大きく見えていた)。lg以上は高さを親グリッドに合わせて固定し、
     // リスト部分だけが内部スクロールする(検索・タブ・ブロック中リンクは常に見える)。
     // lg未満(モバイル)はflex-colのまま自然に積み重なり、ページ全体でスクロールする。
-    <div className="glass-card flex flex-col gap-3 rounded-2xl p-4 lg:h-full lg:min-h-0">
+    <div className="flex flex-col gap-3 lg:h-full lg:min-h-0">
       {!showSkeleton && emails && emails.length > 0 && (
         <div className="relative shrink-0">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
