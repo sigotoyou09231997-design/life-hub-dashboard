@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import type { Session } from "@supabase/supabase-js";
 import { db, ensureDefaultSettings } from "./db/schema";
@@ -14,21 +14,38 @@ import { QuickActionBar } from "./components/layout/QuickActionBar";
 
 import AuthGatePage from "./pages/AuthGatePage";
 import TopPage from "./pages/TopPage";
-import SchedulePage from "./pages/SchedulePage";
-import TripsPage from "./pages/TripsPage";
-import TripDetailPage from "./pages/TripDetailPage";
-import RecordsPage from "./pages/RecordsPage";
-import SettingsPage from "./pages/SettingsPage";
-import AccountPage from "./pages/AccountPage";
-import ExpensePage from "./pages/records/ExpensePage";
-import NotePage from "./pages/records/NotePage";
-import DiaryPage from "./pages/records/DiaryPage";
-import GoalPage from "./pages/records/GoalPage";
-import HabitPage from "./pages/records/HabitPage";
-import GmailPage from "./pages/GmailPage";
-import GmailMailPage from "./pages/GmailMailPage";
-import GmailCallbackPage from "./pages/GmailCallbackPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
+
+const SchedulePage = lazy(() => import("./pages/SchedulePage"));
+const TripsPage = lazy(() => import("./pages/TripsPage"));
+const TripDetailPage = lazy(() => import("./pages/TripDetailPage"));
+const RecordsPage = lazy(() => import("./pages/RecordsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const AccountPage = lazy(() => import("./pages/AccountPage"));
+const ExpensePage = lazy(() => import("./pages/records/ExpensePage"));
+const NotePage = lazy(() => import("./pages/records/NotePage"));
+const DiaryPage = lazy(() => import("./pages/records/DiaryPage"));
+const GoalPage = lazy(() => import("./pages/records/GoalPage"));
+const HabitPage = lazy(() => import("./pages/records/HabitPage"));
+const GmailPage = lazy(() => import("./pages/GmailPage"));
+const GmailMailPage = lazy(() => import("./pages/GmailMailPage"));
+const GmailCallbackPage = lazy(() => import("./pages/GmailCallbackPage"));
+
+function LazyRoute({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-32 items-center justify-center px-5" role="status" aria-live="polite">
+          <div className="glass-row rounded-full px-4 py-2 text-xs font-medium text-slate-500/80">
+            読み込み中…
+          </div>
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
 
 export default function App() {
   const location = useLocation();
@@ -112,23 +129,23 @@ export default function App() {
               <div key={location.pathname} className="page-transition">
                 <Routes location={location}>
               <Route path="/" element={<TopPage />} />
-              <Route path="/schedule" element={<SchedulePage />} />
-              <Route path="/trips" element={<TripsPage />} />
-              <Route path="/trips/:id" element={<TripDetailPage />} />
+              <Route path="/schedule" element={<LazyRoute><SchedulePage /></LazyRoute>} />
+              <Route path="/trips" element={<LazyRoute><TripsPage /></LazyRoute>} />
+              <Route path="/trips/:id" element={<LazyRoute><TripDetailPage /></LazyRoute>} />
               {/* 予定・タスクは /schedule に統合済み。旧ブックマーク/リンク対策として残す。 */}
               <Route path="/calendar" element={<Navigate to="/schedule" replace />} />
               <Route path="/records/tasks" element={<Navigate to="/schedule" replace />} />
-              <Route path="/records" element={<RecordsPage />} />
-              <Route path="/records/expense" element={<ExpensePage />} />
-              <Route path="/records/notes" element={<NotePage />} />
-              <Route path="/records/diary" element={<DiaryPage />} />
-              <Route path="/records/goals" element={<GoalPage />} />
-              <Route path="/records/habits" element={<HabitPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/account" element={<AccountPage />} />
-              <Route path="/gmail" element={<GmailPage />} />
-              <Route path="/gmail/mail/:emailId" element={<GmailMailPage />} />
-              <Route path="/gmail/callback" element={<GmailCallbackPage />} />
+              <Route path="/records" element={<LazyRoute><RecordsPage /></LazyRoute>} />
+              <Route path="/records/expense" element={<LazyRoute><ExpensePage /></LazyRoute>} />
+              <Route path="/records/notes" element={<LazyRoute><NotePage /></LazyRoute>} />
+              <Route path="/records/diary" element={<LazyRoute><DiaryPage /></LazyRoute>} />
+              <Route path="/records/goals" element={<LazyRoute><GoalPage /></LazyRoute>} />
+              <Route path="/records/habits" element={<LazyRoute><HabitPage /></LazyRoute>} />
+              <Route path="/settings" element={<LazyRoute><SettingsPage /></LazyRoute>} />
+              <Route path="/account" element={<LazyRoute><AccountPage /></LazyRoute>} />
+              <Route path="/gmail" element={<LazyRoute><GmailPage /></LazyRoute>} />
+              <Route path="/gmail/mail/:emailId" element={<LazyRoute><GmailMailPage /></LazyRoute>} />
+              <Route path="/gmail/callback" element={<LazyRoute><GmailCallbackPage /></LazyRoute>} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
                 </Routes>
               </div>
