@@ -1,7 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
+import type { Session } from "@supabase/supabase-js";
 import { db, ensureDefaultSettings } from "./db/schema";
+import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { clearShownPushNotifications } from "./lib/pushNotifications";
 import { registerSyncedTable } from "./lib/sync";
 import { resolveAccentPreset } from "./lib/accentColors";
@@ -10,6 +12,7 @@ import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AppHeader } from "./components/layout/AppHeader";
 import { QuickActionBar } from "./components/layout/QuickActionBar";
 
+import AuthGatePage from "./pages/AuthGatePage";
 import TopPage from "./pages/TopPage";
 import SchedulePage from "./pages/SchedulePage";
 import TripsPage from "./pages/TripsPage";
@@ -55,6 +58,20 @@ export default function App() {
   const isGmailListRoute = location.pathname === "/gmail";
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
 
+  // undefined = still checking, null = confirmed logged out, Session = logged in.
+  // Gates the entire app behind account registration/login — nothing (TOP, data,
+  // any route) renders without a session. /auth/callback is exempt: it's the
+  // landing page for the Google OAuth redirect itself, reached precisely while
+  // still logged out, so gating it too would make that login path unreachable.
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    return () => listener.subscription.unsubscribe();
+  }, []);
+  const isAuthCallbackRoute = location.pathname === "/auth/callback";
+
   useEffect(() => {
     ensureDefaultSettings();
     // アプリを開いた時点でGmailプッシュ通知はもう本人が確認できる状態なので、端末の通知
@@ -88,6 +105,20 @@ export default function App() {
     document.documentElement.style.setProperty("--color-accent", preset.value);
     document.documentElement.style.setProperty("--color-accent-light", preset.light);
   }, [settings?.accentColor]);
+
+  if (isSupabaseConfigured && session === undefined && !isAuthCallbackRoute) {
+    // 一瞬でも未ログイン画面がちらつくのを避けるための空白 — セッション確認は
+    // 通常ミリ秒単位(localStorageから即読める)なので、ローディング表示は最小限でよい。
+    return <div className="min-h-screen" />;
+  }
+
+  if (isSupabaseConfigured && !session && !isAuthCallbackRoute) {
+    return (
+      <ToastProvider>
+        <AuthGatePage />
+      </ToastProvider>
+    );
+  }
 
   return (
     <ToastProvider>
