@@ -101,10 +101,6 @@ export default function AccountPage() {
                 <p className="text-sm text-slate-700">{gmailAccounts.length}件のGmailアカウントを連携中</p>
               </Card>
             )}
-
-            <Button variant="danger" className="w-full" onClick={handleLogout}>
-              ログアウト
-            </Button>
           </>
         ) : (
           <Card>
@@ -122,6 +118,12 @@ export default function AccountPage() {
             <ChevronRight size={18} className="text-slate-300" />
           </Card>
         </Link>
+
+        {isSupabaseConfigured && session && (
+          <Button variant="danger" className="w-full" onClick={handleLogout}>
+            ログアウト
+          </Button>
+        )}
       </div>
     </div>
   );
