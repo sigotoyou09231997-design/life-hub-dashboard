@@ -13,7 +13,7 @@ import {
   parseSender,
 } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
-import { unblockSenderRemote } from "../../lib/blockedSenders";
+import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
@@ -72,6 +72,17 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     [account.id],
   );
   const blockedSet = new Set((blockedSenders ?? []).map((b) => b.email));
+
+  // blockSenderRemote() is fire-and-forget (see src/lib/blockedSenders.ts) — if that
+  // one push fails (offline, Supabase session not ready yet, transient error), the
+  // sender stays blocked locally forever but never reaches checkGmailAndNotify.ts's
+  // server-side filter, so background push notifications keep arriving for a sender
+  // the app already shows as blocked. Re-upserting every locally-blocked sender each
+  // time this list loads is a cheap, idempotent self-heal for that gap.
+  useEffect(() => {
+    if (!blockedSenders || blockedSenders.length === 0) return;
+    for (const b of blockedSenders) void blockSenderRemote(account.email, b.email);
+  }, [blockedSenders, account.email]);
 
   // Separate from any notification/push setting — this only controls whether
   // handleSync() below also generates an AI draft for each newly-found email.

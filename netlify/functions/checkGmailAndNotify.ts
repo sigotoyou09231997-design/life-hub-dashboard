@@ -150,9 +150,6 @@ async function checkAccount(
     console.error(`[checkGmailAndNotify] failed to load blocked_senders for ${account.email}:`, blockedError.message);
   }
   const blockedEmails = new Set(((blocked ?? []) as { sender_email: string }[]).map((b) => b.sender_email.toLowerCase()));
-  console.log(
-    `[checkGmailAndNotify] ${account.email}: blocked_senders query returned ${blocked?.length ?? 0} row(s) for user_id=${account.user_id} account_email=${account.email}: [${[...blockedEmails].join(", ")}]`,
-  );
 
   const sinceEpochSec = Math.floor(new Date(account.last_checked_at).getTime() / 1000);
   const { count, latest } = await checkForNewMail(accessToken, sinceEpochSec, blockedEmails);
