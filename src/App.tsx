@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/supabase-js";
 import { db, ensureDefaultSettings } from "./db/schema";
 import { isSupabaseConfigured, supabase } from "./lib/supabase";
 import { clearShownPushNotifications } from "./lib/pushNotifications";
 import { registerSyncedTable } from "./lib/sync";
-import { resolveAccentPreset } from "./lib/accentColors";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AppHeader } from "./components/layout/AppHeader";
@@ -56,7 +54,6 @@ export default function App() {
   // overflow-hiddenのままだと、長い本文/AI返信文が内部スクロール領域に閉じ込められ、
   // スクロールしないと全文が見えなくなってしまうため(2026-08-15 修正)。
   const isGmailListRoute = location.pathname === "/gmail";
-  const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
 
   // undefined = still checking, null = confirmed logged out, Session = logged in.
   // Gates the entire app behind account registration/login — nothing (TOP, data,
@@ -97,14 +94,6 @@ export default function App() {
     registerSyncedTable(db.tripPackingItems, "trip_packing_items");
     registerSyncedTable(db.paypayTransactions, "paypay_transactions");
   }, []);
-
-  // Applies the user's chosen accent (Settings → 外観) to the whole app; per-area
-  // pages (money/schedule/notes/trips) still override it locally via AREA_ACCENT_STYLE.
-  useEffect(() => {
-    const preset = resolveAccentPreset(settings?.accentColor);
-    document.documentElement.style.setProperty("--color-accent", preset.value);
-    document.documentElement.style.setProperty("--color-accent-light", preset.light);
-  }, [settings?.accentColor]);
 
   if (isSupabaseConfigured && session === undefined && !isAuthCallbackRoute) {
     // 一瞬でも未ログイン画面がちらつくのを避けるための空白 — セッション確認は

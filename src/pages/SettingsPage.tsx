@@ -12,7 +12,6 @@ import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
 import { Button } from "../components/ui/Button";
 import { useToast } from "../components/ui/ToastProvider";
-import { AccentColorPicker } from "../components/settings/AccentColorPicker";
 
 export default function SettingsPage() {
   const showToast = useToast();
@@ -143,12 +142,6 @@ export default function SettingsPage() {
               className="hidden"
             />
           </div>
-        </Card>
-
-        <Card>
-          <p className="mb-2 text-sm font-medium text-slate-600">外観</p>
-          <p className="mb-3 text-xs text-slate-400">アプリのアクセントカラーを選択します</p>
-          <AccentColorPicker />
         </Card>
 
         <Card>
