@@ -3,7 +3,6 @@ import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/supabase-js";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { GmailAccount } from "../types";
-import { requestNotificationPermission, isNotificationSupported } from "../lib/notifications";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
 import { isSupabaseConfigured, supabase } from "../lib/supabase";
@@ -31,37 +30,8 @@ export default function SettingsPage() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
   const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
-  const initialized = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [permissionStatus, setPermissionStatus] = useState<NotificationPermission | null>(null);
-
-  useEffect(() => {
-    if (settings && !initialized.current) {
-      initialized.current = true;
-      setNotificationsEnabled(settings.notificationsEnabled);
-    }
-  }, [settings]);
-
-  useEffect(() => {
-    if (isNotificationSupported()) setPermissionStatus(Notification.permission);
-  }, []);
-
-  // The browser can block notifications outside the app (its own site settings) after the
-  // toggle was already on — reconcile the stored flag with live permission so the switch
-  // never shows "on" while notifications can't actually fire.
-  useEffect(() => {
-    if (permissionStatus === "denied" && notificationsEnabled && settings?.id) {
-      setNotificationsEnabled(false);
-      db.settings.update(settings.id, { notificationsEnabled: false });
-    }
-  }, [permissionStatus, notificationsEnabled, settings?.id]);
-
-  const notificationsBlocked = permissionStatus === "denied";
-  const notificationsOn = notificationsEnabled && !notificationsBlocked;
 
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -88,21 +58,6 @@ export default function SettingsPage() {
       showToast("通知の設定に失敗しました", "error");
     } finally {
       setPushBusy(false);
-    }
-  }
-
-  async function handleToggleNotifications(next: boolean) {
-    if (notificationsBlocked) return;
-    setNotificationsEnabled(next);
-    if (!settings?.id) return;
-    if (next) {
-      const permission = await requestNotificationPermission();
-      setPermissionStatus(permission);
-      const granted = permission === "granted";
-      await db.settings.update(settings.id, { notificationsEnabled: granted });
-      if (!granted) setNotificationsEnabled(false);
-    } else {
-      await db.settings.update(settings.id, { notificationsEnabled: false });
     }
   }
 
@@ -168,35 +123,6 @@ export default function SettingsPage() {
       <PageHeader title="設定" backTo="/" />
 
       <div className="space-y-4 px-5">
-        <Card>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium text-slate-600">通知</p>
-              <p className="mt-0.5 text-xs text-slate-400">アプリを開いている間のみ通知が届きます</p>
-            </div>
-            <button
-              onClick={() => handleToggleNotifications(!notificationsEnabled)}
-              aria-pressed={notificationsOn}
-              aria-label="通知を切り替え"
-              disabled={notificationsBlocked}
-              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-                notificationsOn ? "bg-accent" : "bg-slate-200"
-              }`}
-            >
-              <span
-                className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                  notificationsOn ? "translate-x-5" : "translate-x-0"
-                }`}
-              />
-            </button>
-          </div>
-          {notificationsBlocked && (
-            <p className="mt-2 text-xs text-danger">
-              ブラウザの通知がブロックされています。ブラウザの設定から許可してください。
-            </p>
-          )}
-        </Card>
-
         <Card>
           <p className="mb-1 text-sm font-medium text-slate-600">データ管理</p>
           <p className="mb-3 text-xs text-slate-400">

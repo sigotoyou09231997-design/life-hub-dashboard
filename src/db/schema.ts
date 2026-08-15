@@ -268,7 +268,6 @@ export async function ensureDefaultSettings(): Promise<Settings> {
   const defaults: Settings = {
     monthlyIncome: 0,
     savingsGoalMonthly: 0,
-    notificationsEnabled: false,
     accentColor: "#2563eb",
     paypayBalance: 0,
     paypayBalanceUpdatedAt: 0,

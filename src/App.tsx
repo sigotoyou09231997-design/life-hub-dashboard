@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, ensureDefaultSettings } from "./db/schema";
-import { startNotificationScheduler, stopNotificationScheduler } from "./lib/notifications";
 import { clearShownPushNotifications } from "./lib/pushNotifications";
 import { registerSyncedTable } from "./lib/sync";
 import { resolveAccentPreset } from "./lib/accentColors";
@@ -58,7 +57,6 @@ export default function App() {
 
   useEffect(() => {
     ensureDefaultSettings();
-    startNotificationScheduler();
     // アプリを開いた時点でGmailプッシュ通知はもう本人が確認できる状態なので、端末の通知
     // センターに残っている分(ブロック後に届いた古い通知を含む)をここでまとめて閉じる。
     void clearShownPushNotifications();
@@ -81,7 +79,6 @@ export default function App() {
     registerSyncedTable(db.tripExpenses, "trip_expenses");
     registerSyncedTable(db.tripPackingItems, "trip_packing_items");
     registerSyncedTable(db.paypayTransactions, "paypay_transactions");
-    return () => stopNotificationScheduler();
   }, []);
 
   // Applies the user's chosen accent (Settings → 外観) to the whole app; per-area

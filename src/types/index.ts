@@ -300,7 +300,6 @@ export interface Settings {
   id?: string;
   monthlyIncome: number;
   savingsGoalMonthly: number;
-  notificationsEnabled: boolean;
   accentColor: string;
   /** Manually-confirmed PayPay balance, anchored at paypayBalanceUpdatedAt. */
   paypayBalance: number;
