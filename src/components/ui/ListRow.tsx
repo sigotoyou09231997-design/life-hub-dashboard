@@ -12,9 +12,9 @@ export function ListRow({ className = "", interactive = false, children, ...prop
   return (
     <div
       className={twMerge(
-        "glass-row relative rounded-xl p-3.5",
+        "glass-row relative p-3.5",
         interactive &&
-          "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100",
+          "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         className,
       )}
       {...props}

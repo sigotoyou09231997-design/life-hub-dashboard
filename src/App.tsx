@@ -7,7 +7,9 @@ import { clearShownPushNotifications } from "./lib/pushNotifications";
 import { registerSyncedTable } from "./lib/sync";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
+import { AmbientBackground } from "./components/layout/AmbientBackground";
 import { AppHeader } from "./components/layout/AppHeader";
+import { DesktopSidebar } from "./components/layout/DesktopSidebar";
 import { QuickActionBar } from "./components/layout/QuickActionBar";
 
 import AuthGatePage from "./pages/AuthGatePage";
@@ -28,26 +30,8 @@ import GmailMailPage from "./pages/GmailMailPage";
 import GmailCallbackPage from "./pages/GmailCallbackPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
 
-/** The outer glass shell is capped at 1180px on every route so the frame
- * itself stays consistent, but forcing every page's own CONTENT to that same
- * 1180px reads as too much empty margin on narrower, simpler screens. This
- * only takes effect at lg+ (1024px) — below that the shell itself is still
- * narrow (max-w-3xl/max-w-md), so no extra cap is needed. TOP is deliberately
- * excluded (empty string): its dashboard grid is meant to use the full shell
- * width. */
-function innerContentWidthClass(pathname: string): string {
-  if (pathname === "/") return "";
-  if (pathname.startsWith("/gmail")) return "lg:max-w-[1100px] lg:mx-auto";
-  if (pathname === "/records/expense" || pathname === "/records/notes" || pathname === "/schedule" || pathname.startsWith("/trips/")) {
-    return "lg:max-w-[960px] lg:mx-auto";
-  }
-  // Settings/Account/trip-list/legacy record pages/forms-only screens: narrow and centered.
-  return "lg:max-w-[820px] lg:mx-auto";
-}
-
 export default function App() {
   const location = useLocation();
-  const isTop = location.pathname === "/";
   // 一覧(/gmail)だけ、内部スクロールのメールリストを1画面に収める固定高さのflex
   // レイアウト(下記)が必要。/gmail/mail/:id(新規タブで開く単独のメール詳細ページ)は
   // 他の通常ページと同じ、ページ全体が自然にスクロールする挙動にする — 固定高さ+
@@ -98,12 +82,18 @@ export default function App() {
   if (isSupabaseConfigured && session === undefined && !isAuthCallbackRoute) {
     // 一瞬でも未ログイン画面がちらつくのを避けるための空白 — セッション確認は
     // 通常ミリ秒単位(localStorageから即読める)なので、ローディング表示は最小限でよい。
-    return <div className="min-h-screen" />;
+    return (
+      <>
+        <AmbientBackground />
+        <div className="min-h-screen" />
+      </>
+    );
   }
 
   if (isSupabaseConfigured && !session && !isAuthCallbackRoute) {
     return (
       <ToastProvider>
+        <AmbientBackground />
         <AuthGatePage />
       </ToastProvider>
     );
@@ -111,36 +101,16 @@ export default function App() {
 
   return (
     <ToastProvider>
+      <AmbientBackground />
       <UpdateBanner />
-      {/* The page background must stay visible as a margin around the shell
-          at every width, not just md+ — a small ~8px gap on mobile, a
-          generous one on desktop. min-h uses a calc matching the vertical
-          margin so the shell doesn't add extra scrollable height beyond the
-          viewport. At lg+ (1024px) the shell stops being a narrow
-          mobile-width column stuck at the left and becomes a centered,
-          genuinely wide desktop panel (width 100%-4rem capped at 1180px) —
-          this is what lets TOP's own lg:grid-cols-2 today-card actually get
-          the room it needs. */}
-      {/* flow-root here exists purely to stop the shell's own my-2/lg:my-6
-          margin from collapsing through into #root — with the Gmail route's
-          fixed-height shell below, that collapse otherwise adds a phantom
-          ~24px of scrollable space past the shell's real bottom edge (nothing
-          renders there, but the page technically becomes scrollable). Unlike
-          overflow-hidden, flow-root blocks the collapse without clipping the
-          shell's own box-shadow, so this is a pure no-op everywhere else. */}
-      <div className="flow-root">
-        <div
-          className={`relative mx-2 my-2 min-h-[calc(100vh-1rem)] glass-shell rounded-2xl md:mx-8 md:my-6 md:min-h-[calc(100vh-3rem)] md:rounded-3xl md:shadow-xl lg:mx-auto lg:my-6 lg:w-[calc(100%-4rem)] lg:max-w-[1180px] ${
-            isGmailListRoute ? "lg:flex lg:h-[calc(100dvh-3rem)] lg:flex-col lg:overflow-hidden" : "lg:min-h-[calc(100vh-3rem)]"
-          } ${isTop ? "max-w-3xl" : "max-w-md"}`}
-        >
-          <AppHeader />
-          <div
-            className={`pb-28 ${innerContentWidthClass(location.pathname)} ${
-              isGmailListRoute ? "lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden" : ""
-            }`}
-          >
-            <Routes>
+      <div className="app-viewport">
+        <div className={`app-shell glass-shell ${isGmailListRoute ? "app-shell--fixed" : ""}`}>
+          <DesktopSidebar />
+          <div className="app-workspace">
+            <AppHeader />
+            <main className={`app-main ${isGmailListRoute ? "app-main--fixed" : ""}`}>
+              <div key={location.pathname} className="page-transition">
+                <Routes location={location}>
               <Route path="/" element={<TopPage />} />
               <Route path="/schedule" element={<SchedulePage />} />
               <Route path="/trips" element={<TripsPage />} />
@@ -160,7 +130,9 @@ export default function App() {
               <Route path="/gmail/mail/:emailId" element={<GmailMailPage />} />
               <Route path="/gmail/callback" element={<GmailCallbackPage />} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
-            </Routes>
+                </Routes>
+              </div>
+            </main>
           </div>
           <QuickActionBar />
         </div>

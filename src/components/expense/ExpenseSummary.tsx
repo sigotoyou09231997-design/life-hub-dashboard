@@ -14,6 +14,32 @@ function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
 }
 
+function BalanceTrend({ expenses }: { expenses: Transaction[] }) {
+  const sorted = [...expenses].sort((a, b) => a.date.localeCompare(b.date));
+  const values = [0];
+  for (const transaction of sorted) values.push(values[values.length - 1] + transaction.amount);
+  while (values.length < 5) values.push(values[values.length - 1] ?? 0);
+  const max = Math.max(...values, 1);
+  const points = values.map((value, index) => {
+    const x = values.length === 1 ? 0 : (index / (values.length - 1)) * 100;
+    const y = 38 - (value / max) * 30;
+    return `${x},${y}`;
+  }).join(" ");
+
+  return (
+    <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="h-24 w-full overflow-visible" aria-label="今期の支出推移">
+      <defs>
+        <linearGradient id="balance-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#6178ff" stopOpacity=".28" />
+          <stop offset="100%" stopColor="#6178ff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={`0,42 ${points} 100,42`} fill="url(#balance-fill)" />
+      <polyline className="chart-line" pathLength="1" points={points} fill="none" stroke="#6178ff" strokeWidth="1.25" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 interface Props {
   onAddSalary: () => void;
 }
@@ -47,91 +73,102 @@ export function ExpenseSummary({ onAddSalary }: Props) {
 
   if (!data) {
     return (
-      <Card className="flex flex-col items-center gap-3 py-8 text-center">
-        <p className="text-sm text-slate-500">
-          まだ給与が登録されていません。給料日と給与額を登録すると、今の残額や1日あたり使える金額が分かります。
-        </p>
-        <Button onClick={onAddSalary}>給与を登録する</Button>
-      </Card>
+      <div className="max-w-4xl">
+        <Card className="flex flex-col p-6 lg:p-8">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Available balance</p>
+            <p className="mt-4 text-4xl font-medium tabular-nums tracking-[-0.05em] text-navy lg:text-6xl">¥ ---</p>
+            <p className="mt-3 max-w-lg text-sm leading-relaxed text-slate-600">給与を登録すると、今月使える金額を自動計算します。</p>
+          </div>
+          <Button className="mt-6 w-fit" onClick={onAddSalary}>給与を登録する</Button>
+        </Card>
+      </div>
     );
   }
 
   const { period, totalFixedCosts, actualSpending, remaining, perDayUsable } = data;
 
+  const recentTransactions = [...(periodTransactions ?? [])].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-slate-400">現在の残額</p>
+    <div className="grid gap-4 lg:grid-cols-12">
+      <Card className="flex min-h-[280px] flex-col p-5 lg:col-span-7 lg:p-7">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Available balance</p>
+            <p className={`mt-3 text-4xl font-medium tabular-nums tracking-[-0.05em] lg:text-6xl ${remaining < 0 ? "text-danger" : "text-navy"}`}>{yen(remaining)}</p>
+          </div>
           {!period.hasSalaryForPeriod && <Badge tone="warning">今期の給与が未入力です</Badge>}
         </div>
-        <p className={`mt-1 text-3xl font-bold ${remaining < 0 ? "text-danger" : "text-slate-900"}`}>
-          {yen(remaining)}
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-slate-400">1日あたり使える金額</p>
-            <p className="mt-0.5 font-semibold text-slate-900">{yen(perDayUsable)}</p>
-          </div>
-          <div>
-            <p className="text-slate-400">給料日まで残り</p>
-            <p className="mt-0.5 font-semibold text-slate-900">{period.daysUntilNextPayday}日</p>
-          </div>
-          <div>
-            <p className="text-slate-400">次の給料日</p>
-            <p className="mt-0.5 font-semibold text-slate-900">{formatDisplayDate(toDateStr(period.nextPayday))}</p>
-          </div>
-          <div>
-            <p className="text-slate-400">使用済み金額</p>
-            <p className="mt-0.5 font-semibold text-slate-900">{yen(actualSpending)}</p>
-          </div>
+        <div className="mt-auto pt-6"><BalanceTrend expenses={expenses} /></div>
+        <div className="mt-2 flex items-center justify-between border-t border-white/35 pt-3 text-xs text-slate-500">
+          <span>{formatDisplayDate(toDateStr(period.periodStart))}から</span>
+          <span>使用済み {yen(actualSpending)}</span>
         </div>
       </Card>
 
-      <Card>
-        <div className="flex justify-between text-sm">
-          <div>
-            <p className="text-slate-400">今回の給与</p>
-            <p className="mt-0.5 font-semibold text-success">
-              {period.hasSalaryForPeriod ? yen(period.salaryAmount) : "未入力"}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-slate-400">固定費合計</p>
-            <p className="mt-0.5 font-semibold text-slate-900">{yen(totalFixedCosts)}</p>
-          </div>
+      <Card className="p-5 lg:col-span-5 lg:p-7">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Period summary</p>
+        <div className="mt-5 divide-y divide-white/35">
+          {[
+            ["今回の給与", period.hasSalaryForPeriod ? yen(period.salaryAmount) : "未入力"],
+            ["固定費合計", yen(totalFixedCosts)],
+            ["記録した収入", yen(totalIncome)],
+            ["記録した支出", yen(totalExpense)],
+          ].map(([label, value]) => (
+            <div key={label} className="flex items-center justify-between py-3 text-sm"><span className="text-slate-500">{label}</span><span className="font-semibold tabular-nums text-slate-800">{value}</span></div>
+          ))}
         </div>
       </Card>
 
-      <Card>
-        <div className="flex justify-between text-sm">
-          <div>
-            <p className="text-slate-400">今期の収入(記録分)</p>
-            <p className="mt-0.5 font-semibold text-success">{yen(totalIncome)}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-slate-400">今期の支出(記録分)</p>
-            <p className="mt-0.5 font-semibold text-slate-900">{yen(totalExpense)}</p>
-          </div>
-        </div>
+      {[
+        ["1日あたり使える金額", yen(perDayUsable)],
+        ["給料日まで", `${period.daysUntilNextPayday}日`],
+        ["次の給料日", formatDisplayDate(toDateStr(period.nextPayday))],
+      ].map(([label, value]) => (
+        <Card key={label} className="p-5 lg:col-span-3">
+          <p className="text-xs text-slate-500">{label}</p>
+          <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{value}</p>
+        </Card>
+      ))}
+
+      <Card className="p-5 lg:col-span-3">
+        <p className="text-xs text-slate-500">利用ペース</p>
+        <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{period.daysUntilNextPayday > 0 ? yen(actualSpending / Math.max(1, expenses.length)) : yen(0)}</p>
+        <p className="mt-1 text-[11px] text-slate-400">1支出あたりの平均</p>
       </Card>
 
-      {categoryBreakdown.length > 0 && (
-        <Card>
-          <p className="mb-3 text-sm font-medium text-slate-600">カテゴリ別支出</p>
+      <Card className="p-5 lg:col-span-6 lg:p-6">
+        <p className="mb-4 text-sm font-semibold text-slate-700">カテゴリ別支出</p>
+        {categoryBreakdown.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-500">今期の支出記録はありません</p>
+        ) : (
           <div className="space-y-3">
-            {categoryBreakdown.map(([category, amount]) => (
+            {categoryBreakdown.slice(0, 6).map(([category, amount]) => (
               <div key={category}>
-                <div className="mb-1 flex justify-between text-sm">
-                  <span className="text-slate-600">{category}</span>
-                  <span className="font-medium text-slate-900">{yen(amount)}</span>
-                </div>
+                <div className="mb-1.5 flex justify-between text-xs"><span className="text-slate-600">{category}</span><span className="font-semibold tabular-nums text-slate-800">{yen(amount)}</span></div>
                 <ProgressBar value={totalExpense > 0 ? (amount / totalExpense) * 100 : 0} />
               </div>
             ))}
           </div>
-        </Card>
-      )}
+        )}
+      </Card>
+
+      <Card className="p-5 lg:col-span-6 lg:p-6">
+        <p className="mb-4 text-sm font-semibold text-slate-700">最近の履歴</p>
+        {recentTransactions.length === 0 ? (
+          <p className="py-8 text-center text-sm text-slate-500">履歴はありません</p>
+        ) : (
+          <div className="divide-y divide-white/35">
+            {recentTransactions.map((transaction) => (
+              <div key={transaction.id} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+                <div className="min-w-0"><p className="truncate font-medium text-slate-700">{transaction.category}</p><p className="text-[11px] text-slate-500">{formatDisplayDate(transaction.date)}</p></div>
+                <span className={`shrink-0 font-semibold tabular-nums ${transaction.type === "income" ? "text-success" : "text-slate-800"}`}>{transaction.type === "income" ? "+" : "−"}{yen(transaction.amount)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

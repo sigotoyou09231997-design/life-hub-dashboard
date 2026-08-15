@@ -81,9 +81,9 @@ export default function TripDetailPage() {
 
   if (tripResult === undefined) {
     return showSkeleton ? (
-      <div className="pb-10" style={AREA_ACCENT_STYLE.trips}>
+      <div className="mx-auto max-w-[1280px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
         <PageHeader title="旅行" backTo="/trips" />
-        <div className="px-5">
+        <div className="px-5 lg:px-8">
           <ListSkeleton />
         </div>
       </div>
@@ -92,9 +92,9 @@ export default function TripDetailPage() {
 
   if (!tripResult.trip) {
     return (
-      <div className="pb-10" style={AREA_ACCENT_STYLE.trips}>
+      <div className="mx-auto max-w-[1280px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
         <PageHeader title="旅行" backTo="/trips" />
-        <div className="px-5">
+        <div className="px-5 lg:px-8">
           <Card className="py-10 text-center text-sm text-slate-400">この旅行は見つかりませんでした。</Card>
         </div>
       </div>
@@ -111,7 +111,7 @@ export default function TripDetailPage() {
   }
 
   return (
-    <div className="pb-10" style={AREA_ACCENT_STYLE.trips}>
+    <div className="mx-auto max-w-[1280px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
       <PageHeader
         title={trip.name}
         subtitle={trip.destination}
@@ -136,7 +136,7 @@ export default function TripDetailPage() {
         }
       />
 
-      <div className="mx-5 mb-4">
+      <div className="mx-5 mb-4 lg:mx-8 lg:mb-6">
         <Tabs
           options={[
             { value: "overview", label: "概要" },
@@ -151,7 +151,7 @@ export default function TripDetailPage() {
         />
       </div>
 
-      <div className="px-5">
+      <div className="px-5 lg:px-8">
         {tab === "overview" && (
           <Card className="space-y-3">
             <div className="flex items-center justify-between">

@@ -86,11 +86,11 @@ export default function AuthGatePage() {
           {mode === "register" ? "アカウントを登録してはじめましょう" : "ログインして続ける"}
         </p>
 
-        <div className="mb-5 flex rounded-xl bg-slate-100 p-1">
+        <div className="mb-5 flex border border-white/45 bg-white/20 p-1">
           <button
             type="button"
             onClick={() => switchMode("register")}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${
               mode === "register" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
             }`}
           >
@@ -99,7 +99,7 @@ export default function AuthGatePage() {
           <button
             type="button"
             onClick={() => switchMode("login")}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${
               mode === "login" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
             }`}
           >

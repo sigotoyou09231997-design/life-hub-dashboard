@@ -15,10 +15,10 @@ export default function DiaryPage() {
   const entries = useLiveQuery(() => db.diaryEntries.toArray(), []);
 
   return (
-    <div className="pb-10">
+    <div className="mx-auto max-w-[1100px] pb-10 lg:pb-8">
       <PageHeader title="日記" backTo="/records" />
 
-      <div className="px-5">
+      <div className="px-5 lg:px-8">
         <DiaryList
           entries={entries ?? []}
           onEdit={(entry) => setEditing(entry)}

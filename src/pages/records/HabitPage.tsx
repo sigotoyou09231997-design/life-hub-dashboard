@@ -15,10 +15,10 @@ export default function HabitPage() {
   const habits = useLiveQuery(() => db.habits.toArray(), []);
 
   return (
-    <div className="pb-10">
+    <div className="mx-auto max-w-[1100px] pb-10 lg:pb-8">
       <PageHeader title="習慣" subtitle="毎日のチェックで続ける" backTo="/records" />
 
-      <div className="px-5">
+      <div className="px-5 lg:px-8">
         <HabitList
           habits={habits ?? []}
           onEdit={(h) => setEditing(h)}

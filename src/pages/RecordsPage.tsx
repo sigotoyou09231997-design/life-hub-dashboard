@@ -11,14 +11,14 @@ const ITEMS = [
 
 export default function RecordsPage() {
   return (
-    <div className="pb-10">
+    <div className="mx-auto max-w-[1000px] pb-10 lg:pb-8">
       <PageHeader title="以前の記録" subtitle="日記・目標・習慣のデータはそのまま残っています" backTo="/settings" />
-      <div className="space-y-2 px-5">
+      <div className="grid gap-3 px-5 md:grid-cols-2 lg:px-8">
         {ITEMS.map(({ to, label, icon: Icon }) => (
           <Link
             key={to}
             to={to}
-            className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Card interactive className="flex items-center justify-between py-4">
               <div className="flex items-center gap-3">

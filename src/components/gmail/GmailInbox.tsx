@@ -183,7 +183,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="メールを検索"
-            className="w-full rounded-xl border border-white/50 bg-white/40 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+            className="w-full min-h-11 rounded-[2px] border border-white/55 bg-white/30 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent/60 focus:bg-white/55 focus:ring-2 focus:ring-accent/15"
           />
         </div>
       )}

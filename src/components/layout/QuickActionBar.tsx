@@ -15,7 +15,6 @@ interface QuickAction {
   tintIcon: boolean;
   to: string;
   color: string;
-  activeBg: string;
   underline: string;
 }
 
@@ -24,13 +23,13 @@ interface QuickAction {
 // see as literal text in source — a `.replace("text-", "bg-")` string would
 // silently produce no CSS in the production build.
 const QUICK_ACTIONS: QuickAction[] = [
-  { key: "schedule-calendar", label: "予定", icon: CalendarDays, tintIcon: true, to: "/schedule?view=calendar", color: "text-blue-500", activeBg: "bg-blue-50", underline: "bg-blue-500" },
-  { key: "schedule-tasks", label: "タスク", icon: CheckSquare, tintIcon: true, to: "/schedule?view=list", color: "text-emerald-500", activeBg: "bg-emerald-50", underline: "bg-emerald-500" },
-  { key: "money", label: "収支", icon: Wallet, tintIcon: true, to: "/records/expense", color: "text-orange-500", activeBg: "bg-orange-50", underline: "bg-orange-500" },
-  { key: "notes", label: "メモ", icon: StickyNote, tintIcon: true, to: "/records/notes", color: "text-violet-500", activeBg: "bg-violet-50", underline: "bg-violet-500" },
+  { key: "schedule-calendar", label: "予定", icon: CalendarDays, tintIcon: true, to: "/schedule?view=calendar", color: "text-blue-500", underline: "bg-blue-500" },
+  { key: "schedule-tasks", label: "タスク", icon: CheckSquare, tintIcon: true, to: "/schedule?view=list", color: "text-emerald-500", underline: "bg-emerald-500" },
+  { key: "money", label: "収支", icon: Wallet, tintIcon: true, to: "/records/expense", color: "text-orange-500", underline: "bg-orange-500" },
+  { key: "notes", label: "メモ", icon: StickyNote, tintIcon: true, to: "/records/notes", color: "text-violet-500", underline: "bg-violet-500" },
   // Gmailの実際のロゴ(マルチカラー)を使う。他4つと違い常時ブランド色そのままで、
   // アクティブ時もアイコン自体は着色しない(ラベル文字と下線だけ赤くする)。
-  { key: "gmail", label: "Gmail", icon: GmailLogo, tintIcon: false, to: "/gmail", color: "text-red-500", activeBg: "bg-red-50", underline: "bg-red-500" },
+  { key: "gmail", label: "Gmail", icon: GmailLogo, tintIcon: false, to: "/gmail", color: "text-red-500", underline: "bg-red-500" },
 ];
 
 /** pathname alone can't tell 予定 and タスク apart — both live on /schedule —
@@ -47,11 +46,7 @@ function useActiveQuickActionKey(): string | null {
   return null;
 }
 
-/** Global shortcut bar to the 5 major features, shown on every page at every
- * width (matches the approved reference — PC keeps it too, not just mobile).
- * Not a page-transition tab bar — quick add/manage/confirm access, per the
- * design brief. Stays fixed at 5 icons; anything beyond that lives in
- * AllFeaturesSheet via the grip handle. */
+/** Mobile navigation. Desktop uses DesktopSidebar instead. */
 export function QuickActionBar() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const activeKey = useActiveQuickActionKey();
@@ -64,9 +59,9 @@ export function QuickActionBar() {
           offset. md:bottom-6 (desktop) is untouched, still mirroring the app
           shell's own md:my-6 bottom margin (App.tsx) so it nests just above the
           shell's rounded bottom corner there. */}
-      <div className="fixed inset-x-0 bottom-0 z-30 md:bottom-6">
-        <div className="mx-auto max-w-md px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2">
-          <div className="glass-shell rounded-3xl">
+      <div className="fixed inset-x-0 bottom-0 z-30 lg:hidden">
+        <div className="mx-auto max-w-md px-2 pb-[env(safe-area-inset-bottom)] pt-2">
+          <div className="glass-nav">
             <button
               type="button"
               onClick={() => setSheetOpen(true)}
@@ -76,15 +71,13 @@ export function QuickActionBar() {
               <span className="h-1 w-9 rounded-full bg-slate-300/70" aria-hidden="true" />
             </button>
             <div className="grid grid-cols-5 gap-1 px-2 pb-2">
-              {QUICK_ACTIONS.map(({ key, label, icon: Icon, tintIcon, to, color, activeBg, underline }) => {
+              {QUICK_ACTIONS.map(({ key, label, icon: Icon, tintIcon, to, color, underline }) => {
                 const isActive = activeKey === key;
                 return (
                   <Link
                     key={key}
                     to={to}
-                    className={`relative flex flex-col items-center gap-1 rounded-2xl py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-                      isActive ? activeBg : ""
-                    }`}
+                    className="relative flex min-h-12 flex-col items-center justify-center gap-1 py-1.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
                   >
                     {/* アイコンは選択有無に関わらず常にブランドカラー(未選択でも薄いグレーにしない)。
                         Gmailのロゴだけは元から多色なので着色しない。 */}

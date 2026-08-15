@@ -5,7 +5,7 @@ import { ChevronLeft, CheckCircle2, Mail, RefreshCw, Settings as SettingsIcon } 
 import { db } from "../db/schema";
 import { GmailLogo } from "../components/gmail/GmailLogo";
 import { Tabs } from "../components/ui/Tabs";
-import { EmptyState } from "../components/ui/EmptyState";
+import { Card } from "../components/ui/Card";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { GmailInbox, type GmailInboxHandle } from "../components/gmail/GmailInbox";
 import { useToast } from "../components/ui/ToastProvider";
@@ -72,14 +72,14 @@ export default function GmailPage() {
   );
 
   return (
-    <div className="pb-10 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:pb-0">
-      <div className="flex items-center justify-between gap-2 px-5 pb-4 pt-6 lg:shrink-0">
+    <div className="mx-auto pb-10 lg:flex lg:h-full lg:min-h-0 lg:max-w-[1240px] lg:flex-col lg:pb-0">
+      <div className="flex items-center justify-between gap-2 px-5 pb-4 pt-6 lg:shrink-0 lg:px-8 lg:pb-5 lg:pt-7">
         <div className="flex min-w-0 items-center gap-2">
-          <button type="button" onClick={() => navigate("/")} aria-label="戻る" className={BACK_BUTTON_CLASS}>
+          <button type="button" onClick={() => navigate("/")} aria-label="戻る" className={`${BACK_BUTTON_CLASS} lg:hidden`}>
             <ChevronLeft size={22} />
           </button>
           <GmailLogo size={22} />
-          <h1 className="truncate text-xl font-bold text-slate-900">Gmail自動返信</h1>
+          <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">Gmail自動返信</h1>
           {selectedAccount && (
             <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600">
               <CheckCircle2 size={14} />
@@ -136,16 +136,24 @@ export default function GmailPage() {
         )}
       </div>
 
-      <div className="px-5 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+      <div className="px-5 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:px-8 lg:pb-7">
         {showSkeleton ? (
           <ListSkeleton />
         ) : !accounts || accounts.length === 0 ? (
-          <EmptyState
-            icon={Mail}
-            title="Gmail未接続"
-            description="設定画面からGmailアカウントを連携してください"
-            action={{ label: "設定を開く", onClick: () => navigate("/settings") }}
-          />
+          <Card className="relative mx-auto mt-5 w-full max-w-3xl overflow-visible px-5 py-5 lg:mt-8 lg:px-7">
+            <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-light text-accent shadow-[inset_0_1px_rgba(255,255,255,.5)]">
+                <Mail size={21} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-slate-900">Gmail未接続</p>
+                <p className="mt-1 text-sm leading-relaxed text-slate-500">Gmailを接続すると、受信メールとAI返信案を確認できます。</p>
+              </div>
+              <button type="button" onClick={() => navigate("/settings")} className="shrink-0 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+                Gmailを接続 →
+              </button>
+            </div>
+          </Card>
         ) : (
           <>
             {accounts.length > 1 && (

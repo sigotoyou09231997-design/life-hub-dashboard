@@ -5,10 +5,10 @@ type Variant = "primary" | "secondary" | "ghost" | "danger";
 type Size = "md" | "lg" | "icon";
 
 const variantClasses: Record<Variant, string> = {
-  primary: "bg-accent text-white active:bg-accent/90 focus-visible:ring-accent",
-  secondary: "bg-accent-light text-accent active:bg-accent-light/70 focus-visible:ring-accent",
-  ghost: "bg-transparent text-slate-600 active:bg-slate-100 focus-visible:ring-accent",
-  danger: "bg-red-50 text-danger active:bg-red-100 focus-visible:ring-danger",
+  primary: "border border-white/25 bg-accent text-white shadow-[0_6px_18px_rgba(79,111,255,0.15)] hover:bg-[#5875ff] active:bg-accent/90 focus-visible:ring-accent",
+  secondary: "border border-white/60 bg-white/35 text-accent shadow-[inset_0_1px_0_rgba(255,255,255,.6)] hover:bg-white/50 active:bg-white/45 focus-visible:ring-accent",
+  ghost: "border border-transparent bg-transparent text-slate-600 hover:bg-white/25 active:bg-white/35 focus-visible:ring-accent",
+  danger: "border border-red-100/60 bg-red-50/55 text-danger active:bg-red-100 focus-visible:ring-danger",
 };
 
 const sizeClasses: Record<Size, string> = {
@@ -32,7 +32,7 @@ export function Button({
   return (
     <button
       className={twMerge(
-        "inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:active:scale-100",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-none font-medium transition-all duration-200 active:translate-y-px disabled:opacity-40 disabled:active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:active:translate-y-0",
         variantClasses[variant],
         sizeClasses[size],
         className,

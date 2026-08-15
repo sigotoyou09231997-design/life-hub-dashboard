@@ -76,7 +76,7 @@ export function MonthView({
         </button>
       </div>
 
-      <div className="grid grid-cols-7 text-center text-xs text-slate-400">
+      <div className="grid grid-cols-7 border-b border-white/35 text-center text-xs text-slate-500">
         {WEEKDAY_LABELS.map((w) => (
           <div key={w} className="py-1.5">
             {w}
@@ -84,7 +84,7 @@ export function MonthView({
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-y-1">
+      <div className="grid grid-cols-7">
         {days.map((day) => {
           const dateStr = toDateStr(day);
           const inMonth = isSameMonth(day, currentMonth);
@@ -101,14 +101,14 @@ export function MonthView({
               onClick={() => !disabled && onSelectDate(dateStr)}
               disabled={disabled}
               title={disabled ? `${minDate}以降のみ選択できます` : holidayName}
-              className="flex flex-col items-center gap-0.5 py-1 disabled:cursor-not-allowed"
+              className={`relative flex min-h-[66px] flex-col items-center gap-0.5 border-b border-r border-white/20 py-1.5 transition-colors hover:bg-white/15 disabled:cursor-not-allowed lg:min-h-[82px] ${selected ? "bg-white/20" : ""}`}
             >
               <span
-                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-colors ${
+                className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all ${
                   disabled
                     ? "text-slate-200"
                     : selected
-                      ? "bg-accent text-white font-semibold"
+                      ? "bg-accent text-white font-semibold shadow-[0_0_0_5px_rgba(79,111,255,.12),0_0_20px_rgba(79,111,255,.3)]"
                       : isToday(day)
                         ? "text-accent font-semibold"
                         : holidayName && inMonth

@@ -6,6 +6,7 @@ import { EventList } from "../calendar/EventList";
 import { TaskItem } from "../tasks/TaskItem";
 import { toggleTaskCompletion, deleteTaskCascade } from "../tasks/TaskList";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
+import { Card } from "../ui/Card";
 
 interface Props {
   events: CalendarEvent[];
@@ -44,18 +45,20 @@ export function CalendarView({
   const selectedHoliday = getHolidayMapForYear(Number(selectedDate.slice(0, 4))).get(selectedDate);
 
   return (
-    <div>
-      <MonthView
-        currentMonth={currentMonth}
-        onMonthChange={onMonthChange}
-        selectedDate={selectedDate}
-        onSelectDate={onSelectDate}
-        eventDates={eventDates}
-        taskDates={taskDates}
-        tripDates={tripDates}
-      />
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.55fr)]">
+      <Card className="p-4 lg:p-6">
+        <MonthView
+          currentMonth={currentMonth}
+          onMonthChange={onMonthChange}
+          selectedDate={selectedDate}
+          onSelectDate={onSelectDate}
+          eventDates={eventDates}
+          taskDates={taskDates}
+          tripDates={tripDates}
+        />
+      </Card>
 
-      <div className="mt-6 space-y-5">
+      <Card className="space-y-5 p-5 lg:p-6">
         <div>
           <div className="mb-2 flex items-center gap-2">
             <p className="text-sm font-medium text-slate-600">{formatDisplayDate(selectedDate)}の予定</p>
@@ -95,7 +98,7 @@ export function CalendarView({
             </div>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

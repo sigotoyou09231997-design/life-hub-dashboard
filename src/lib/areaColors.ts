@@ -10,8 +10,8 @@ import type { CSSProperties } from "react";
  * these areas so the four sections stay visually consistent with their TOP card.
  */
 export const AREA_ACCENT_STYLE: Record<"money" | "schedule" | "notes" | "trips", CSSProperties> = {
-  money: { "--color-accent": "#2563eb", "--color-accent-light": "#eff6ff" } as CSSProperties,
-  schedule: { "--color-accent": "#7c3aed", "--color-accent-light": "#f5f3ff" } as CSSProperties,
-  notes: { "--color-accent": "#0d9488", "--color-accent-light": "#f0fdfa" } as CSSProperties,
-  trips: { "--color-accent": "#ea580c", "--color-accent-light": "#fff7ed" } as CSSProperties,
+  money: { "--color-accent": "#d97736", "--color-accent-light": "rgba(255, 244, 230, .76)" } as CSSProperties,
+  schedule: { "--color-accent": "#4f6fff", "--color-accent-light": "rgba(232, 241, 255, .78)" } as CSSProperties,
+  notes: { "--color-accent": "#7564d8", "--color-accent-light": "rgba(241, 237, 255, .78)" } as CSSProperties,
+  trips: { "--color-accent": "#2c8b91", "--color-accent-light": "rgba(229, 247, 247, .78)" } as CSSProperties,
 };

@@ -13,9 +13,9 @@ export function TripCard({ trip, onDelete }: Props) {
   return (
     <Link
       to={`/trips/${trip.id}`}
-      className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+      className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
-      <Card interactive className="flex items-center justify-between py-4">
+      <Card interactive className="flex min-h-[118px] items-center justify-between py-4">
         <div className="min-w-0">
           <p className="line-clamp-2 font-semibold text-navy" title={trip.name}>
             {trip.name}

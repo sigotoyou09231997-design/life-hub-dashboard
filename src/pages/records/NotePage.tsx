@@ -48,7 +48,7 @@ export default function NotePage() {
   }
 
   return (
-    <div className="pb-10" style={AREA_ACCENT_STYLE.notes}>
+    <div className="pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.notes}>
       <PageHeader
         title="メモ・リスト"
         backTo="/"
@@ -63,12 +63,13 @@ export default function NotePage() {
         }
       />
 
-      <div className="px-5">
+      <div className="px-5 lg:px-8">
         {showSkeleton ? (
           <ListSkeleton />
         ) : (
           <NoteList
             notes={notes ?? []}
+            onAdd={() => setAddTypeOpen(true)}
             onEdit={(note) => setEditing({ mode: "edit", note })}
             onDelete={handleDelete}
           />

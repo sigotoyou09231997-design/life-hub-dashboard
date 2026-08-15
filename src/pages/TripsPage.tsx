@@ -43,7 +43,7 @@ export default function TripsPage() {
   }
 
   return (
-    <div className="pb-10" style={AREA_ACCENT_STYLE.trips}>
+    <div className="mx-auto max-w-[1280px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
       <PageHeader
         title="旅行計画"
         backTo="/"
@@ -58,7 +58,7 @@ export default function TripsPage() {
         }
       />
 
-      <div className="px-5">
+      <div className="px-5 lg:px-8">
         {showSkeleton ? (
           <ListSkeleton />
         ) : trips.length === 0 ? (
@@ -70,14 +70,14 @@ export default function TripsPage() {
             action={{ label: "旅行を追加する", onClick: () => setCreating(true) }}
           />
         ) : (
-          <div className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
             {STATUS_GROUPS.map(({ status, label }) => {
               const group = trips.filter((t) => t.status === status);
               if (group.length === 0) return null;
               return (
                 <div key={status}>
                   <p className="mb-2 text-sm font-medium text-slate-600">{label}</p>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {group.map((trip) => (
                       <TripCard key={trip.id} trip={trip} onDelete={handleDelete} />
                     ))}

@@ -94,10 +94,10 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
       aria-modal="true"
       aria-label={title}
     >
-      <div className="absolute inset-0 bg-black/30 animate-fade-in motion-reduce:animate-none" onClick={onClose} aria-hidden />
+      <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[2px] animate-fade-in motion-reduce:animate-none" onClick={onClose} aria-hidden />
       <div
         ref={panelRef}
-        className={`glass-modal relative z-10 flex w-full max-w-md flex-col rounded-t-3xl animate-slide-up motion-reduce:animate-none ${
+        className={`glass-modal relative z-10 flex w-full max-w-md flex-col animate-slide-up motion-reduce:animate-none lg:max-w-xl ${
           compact ? "h-[55vh] max-h-[55vh]" : "max-h-[88vh]"
         }`}
       >

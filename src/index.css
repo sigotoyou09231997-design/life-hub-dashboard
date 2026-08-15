@@ -3,208 +3,460 @@
 @tailwind utilities;
 
 :root {
-  --color-accent: #2563eb;
-  --color-accent-light: #eff6ff;
-  --color-navy: #101b36;
+  color-scheme: light;
+  --color-accent: #4f6fff;
+  --color-accent-light: rgba(232, 241, 255, 0.82);
+  --color-navy: #13213d;
+  --glass-navigation: rgba(226, 239, 249, 0.52);
+  --glass-content: rgba(244, 250, 255, 0.245);
+  --glass-content-strong: rgba(244, 250, 255, 0.31);
+  --glass-floating: rgba(244, 250, 255, 0.68);
+  --glass-row: rgba(249, 252, 255, 0.32);
+  --glass-line: rgba(255, 255, 255, 0.38);
+  --shadow-panel: 0 16px 40px rgba(35, 58, 88, 0.075);
 }
 
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
-/* Soft neutral gray backdrop lives on `html`, not `body`: html's box reliably
-   covers the whole scrollable canvas regardless of content height, so a long
-   page can never scroll past the end of the background into a seam or color
-   change. body/#root are explicitly transparent (not just "unset") so
-   nothing accidentally paints its own background between html and the glass
-   shell. Originally a matte charcoal gradient — replaced app-wide (2026-08-14)
-   after live use showed the dark backdrop read as "ugly"/heavy; #d7dade was
-   approved after a side-by-side white/gray/deep-gray comparison specifically
-   because it keeps the pearl glass shell visibly separated from the page
-   background (a near-white backdrop made the shell's edge nearly disappear). */
 html {
-  background: #d7dade;
+  background: #dbe9f4;
 }
 
 body {
   @apply text-slate-900 antialiased;
+  min-width: 320px;
+  margin: 0;
   background: transparent;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
   -webkit-tap-highlight-color: transparent;
 }
 
 #root {
+  position: relative;
+  isolation: isolate;
   background: transparent;
 }
 
-* {
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   -webkit-font-smoothing: antialiased;
 }
 
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ambient-background {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  overflow: hidden;
+  background: linear-gradient(145deg, #dcecf7, #f4e9e0);
+  pointer-events: none;
+}
+
+.ambient-background__image,
+.ambient-background__wash,
+.ambient-background__light,
+.ambient-background__grain {
+  position: absolute;
+  inset: -2.5%;
+}
+
+.ambient-background__image {
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: saturate(0.9) brightness(1.02) contrast(0.98);
+  animation: background-crossfade 1.8s ease both, background-drift 48s ease-in-out infinite alternate;
+  will-change: opacity, transform;
+}
+
+.ambient-background__image--outgoing {
+  animation: none;
+  transform: scale(1.045);
+}
+
+.ambient-background__wash {
+  inset: 0;
+  background:
+    linear-gradient(112deg, rgba(226, 239, 251, 0.1), rgba(255, 250, 245, 0.05)),
+    linear-gradient(to bottom, rgba(236, 246, 255, 0.025), rgba(211, 229, 243, 0.08));
+  transition: background 500ms ease;
+}
+
+.ambient-background--schedule .ambient-background__wash,
+.ambient-background--notes .ambient-background__wash {
+  background: rgba(229, 240, 250, 0.18);
+}
+
+.ambient-background--finance .ambient-background__wash {
+  background: rgba(235, 244, 251, 0.3);
+}
+
+.ambient-background--gmail .ambient-background__wash {
+  background:
+    radial-gradient(circle at 70% 35%, rgba(255, 255, 255, 0.24), transparent 26%),
+    rgba(229, 240, 250, 0.2);
+}
+
+.ambient-background--night .ambient-background__wash {
+  background: rgba(226, 235, 250, 0.22);
+}
+
+.ambient-background__light {
+  inset: 0;
+  background:
+    radial-gradient(circle at 78% 8%, rgba(255, 255, 255, 0.34), transparent 27%),
+    radial-gradient(circle at 20% 100%, rgba(195, 226, 249, 0.22), transparent 34%);
+  mix-blend-mode: screen;
+}
+
+.ambient-background__grain {
+  inset: 0;
+  opacity: 0.16;
+  background-image: linear-gradient(115deg, rgba(255,255,255,.08) 0%, transparent 25%, rgba(255,255,255,.06) 48%, transparent 70%);
+}
+
+.app-viewport {
+  position: relative;
+  z-index: 0;
+  padding: 0;
+}
+
+.app-shell {
+  position: relative;
+  isolation: isolate;
+  min-height: 100dvh;
+  overflow: visible;
+  border: 0;
+  box-shadow: none;
+}
+
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(219, 235, 248, 0.06), transparent 32%);
+}
+
+.app-workspace {
+  min-width: 0;
+  min-height: inherit;
+}
+
+.app-main {
+  padding-bottom: 7.25rem;
+}
+
+.desktop-sidebar {
+  display: none;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3.9rem;
+  padding: calc(env(safe-area-inset-top) + 0.65rem) 1rem 0.65rem;
+}
+
+.app-header__mobile-left,
+.app-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.app-header__mobile-left { justify-content: flex-start; }
+.app-header__actions { justify-content: flex-end; }
+.app-header__title { min-width: 0; }
+.app-header__mobile-brand {
+  display: block;
+  color: var(--color-navy);
+  font-size: 0.94rem;
+  font-weight: 720;
+  letter-spacing: 0.055em;
+  white-space: nowrap;
+}
+
+.desktop-sidebar {
+  position: relative;
+  flex: 0 0 13rem;
+  flex-direction: column;
+  padding: 1.5rem 0.9rem 1rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(180deg, rgba(224, 239, 250, 0.52), rgba(213, 230, 244, 0.38));
+  box-shadow: 14px 0 42px rgba(42, 66, 96, 0.055), inset -1px 0 rgba(255,255,255,.18);
+  backdrop-filter: blur(28px) saturate(130%);
+  -webkit-backdrop-filter: blur(28px) saturate(130%);
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0 0.65rem 1.25rem;
+  color: #1a2d4b;
+}
+
+.sidebar-brand__mark {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.72);
+  background: rgba(247, 252, 255, 0.32);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.68);
+  font-size: 0.75rem;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+}
+
+.sidebar-brand__name,
+.sidebar-brand__tagline { display: block; }
+.sidebar-brand__name { font-size: 0.86rem; font-weight: 720; letter-spacing: .045em; }
+.sidebar-brand__tagline { margin-top: .12rem; font-size: .52rem; font-weight: 620; letter-spacing: .13em; color: rgba(38, 59, 87, .52); }
+.sidebar-nav { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+.sidebar-nav__group { display: grid; gap: .2rem; }
+.sidebar-nav__divider { height: 1px; margin: .85rem .75rem; background: rgba(255,255,255,.43); }
+
+.sidebar-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .72rem;
+  min-height: 2.8rem;
+  padding: .65rem .72rem .65rem .88rem;
+  color: rgba(39, 60, 86, .68);
+  font-size: .78rem;
+  font-weight: 560;
+  letter-spacing: .01em;
+  transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+}
+
+.sidebar-link:hover { color: #233b5e; background: rgba(255,255,255,.085); transform: translateX(1.5px); }
+.sidebar-link--active {
+  color: #274b91;
+  background: linear-gradient(90deg, rgba(247,252,255,.16), rgba(231,241,255,.025));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+}
+.sidebar-link__indicator {
+  position: absolute;
+  left: 0;
+  top: .5rem;
+  bottom: .5rem;
+  width: 2px;
+  background: transparent;
+  box-shadow: none;
+  transition: background 180ms ease, box-shadow 180ms ease;
+}
+.sidebar-link--active .sidebar-link__indicator { background: #6a80ff; box-shadow: 0 0 12px rgba(83, 104, 255, .6); }
+
+.sidebar-account {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin-top: 1rem;
+  padding: .8rem .72rem;
+  border-top: 1px solid rgba(255,255,255,.44);
+}
+.sidebar-account__avatar {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.68);
+  border-radius: 50%;
+  background: rgba(244,249,255,.32);
+  color: #405b7d;
+}
+
+.page-transition { animation: page-enter 260ms cubic-bezier(.2,.72,.2,1) both; }
+
 @layer utilities {
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes slide-up {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes slide-down {
-    from { opacity: 0; transform: translateY(-12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .animate-fade-in {
-    animation: fade-in 200ms ease-out;
-  }
-  .animate-slide-up {
-    animation: slide-up 200ms ease-out;
-  }
-  .animate-slide-down {
-    animation: slide-down 200ms ease-out;
+  .glass-border { border: 1px solid var(--glass-line); }
+  .glass-highlight { box-shadow: inset 0 1px 0 rgba(255,255,255,.78); }
+  .glass-shadow { box-shadow: var(--shadow-panel); }
+  .glass-shell { border-radius: 0 !important; }
+
+  .glass-header {
+    background: linear-gradient(115deg, rgba(241, 249, 255, 0.28), rgba(224, 238, 249, 0.16));
+    border-bottom: 1px solid rgba(255,255,255,.2);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.3);
+    backdrop-filter: blur(18px) saturate(125%);
+    -webkit-backdrop-filter: blur(18px) saturate(125%);
   }
 
-  /* Light glassmorphism tokens — not dark mode. The whole app is a white/light
-     pearl glass UI floating on the #d7dade page background above, in a
-     deliberate 4-tier hierarchy from most to least transparent:
-       shell (app frame) < card (main surface) < row (list items) < modal (Sheet)
-     Composite classes already bundle background+border+shadow; glass-border/
-     glass-highlight/glass-shadow are exposed separately for one-off cases that
-     only need a single piece. glass-row intentionally carries NO
-     backdrop-filter — only the shell/card/modal tiers blur, so a long list
-     doesn't stack a blur per row on mobile. */
-  .glass-border {
-    border: 1px solid rgba(255, 255, 255, 0.55);
-  }
-  .glass-highlight {
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  }
-  .glass-shadow {
-    box-shadow:
-      0 24px 64px -24px rgba(10, 12, 16, 0.55),
-      0 2px 10px rgba(10, 12, 16, 0.18);
-  }
-  /* Shell: a diagonal tint (cool near-white top-left → warmer grey bottom-right),
-     not a flat single rgba — that flatness was read as an inert grey overlay
-     rather than glass. Inset top/bottom highlights fake the edge-lit look of
-     real frosted glass; the outer shadow is what actually separates it from
-     the page background. Brightness is kept in the normal 1.0-1.15 range (not
-     pushed higher) so backdrop-filter renders consistently across browsers/
-     iOS Safari — the lift instead comes from the background gradient's own
-     alpha/color, with a separate top-left radial layer standing in for a
-     reflection highlight.
-
-     background/backdrop-filter deliberately live on ::before, NOT on the
-     element itself: a `backdrop-filter` value makes ITS OWN element the
-     CSS containing block for any `position: fixed` descendant (spec-defined,
-     same family as transform/filter/perspective) — so QuickActionBar and any
-     Sheet nested under the app shell were positioning themselves against the
-     shell's own (content-height-dependent) box instead of the viewport,
-     scrolling away or clipping on any page taller than one screen. Moving
-     backdrop-filter onto a decorative ::before (border-radius: inherit,
-     inset: 0, negative z-index so it paints behind real content) keeps the
-     identical visual result while leaving the real .glass-shell element with
-     no filter/transform of its own, so its `position: fixed` descendants
-     resolve their containing block up to the viewport as normal. Found via a
-     since-fixed real bug: QuickActionBar not staying pinned on long pages
-     (TOP/収支/予定) — see PR notes for the reproduction. */
-  .glass-shell {
+  .glass-card {
     position: relative;
-    /* isolation: isolate makes .glass-shell itself establish a stacking
-       context, so ::before's z-index: -1 is guaranteed to paint just behind
-       this element's own real children and nothing further back (e.g. a
-       sibling's content outside the shell) — without it, a negative z-index
-       child's paint order relative to unrelated ancestors/siblings is only
-       reliable by accident of there being nothing else there today. */
-    isolation: isolate;
-    border: 1px solid rgba(255, 255, 255, 0.62);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.86),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.22),
-      0 24px 70px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    border: 1px solid var(--glass-line);
+    border-radius: 10px !important;
+    background: linear-gradient(135deg, rgba(255,255,255,.14), transparent 42%), var(--glass-content);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.48), var(--shadow-panel);
+    backdrop-filter: blur(16px) saturate(122%);
+    -webkit-backdrop-filter: blur(16px) saturate(122%);
   }
-  .glass-shell::before {
+
+  .glass-card--strong {
+    background: linear-gradient(135deg, rgba(255,255,255,.16), transparent 44%), var(--glass-content-strong);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.52), 0 18px 44px rgba(35,58,88,.085);
+  }
+
+  .glass-card--reflect::after {
     content: "";
     position: absolute;
     inset: 0;
-    z-index: -1;
-    border-radius: inherit;
+    z-index: 0;
     pointer-events: none;
-    background:
-      radial-gradient(85% 60% at 12% 0%, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0) 58%),
-      linear-gradient(145deg, rgba(246, 249, 253, 0.9) 0%, rgba(230, 235, 241, 0.87) 52%, rgba(214, 220, 228, 0.84) 100%);
-    backdrop-filter: blur(30px) saturate(112%) brightness(1.1);
-    -webkit-backdrop-filter: blur(30px) saturate(112%) brightness(1.1);
+    background: linear-gradient(112deg, transparent 12%, rgba(255,255,255,.18) 34%, transparent 56%);
+    opacity: .35;
+    transform: translateX(-42%);
+    transition: transform 500ms ease, opacity 300ms ease;
   }
-  /* Header: same gradient family/hue as the shell (so it reads as continuous
-     with it, not a separate opaque plate) but brighter/more opaque, since it
-     sits above scrolling content and needs to stay legible while sticky. */
-  .glass-header {
-    background: linear-gradient(145deg, rgba(242, 245, 249, 0.82), rgba(206, 212, 221, 0.66));
-    backdrop-filter: blur(22px) saturate(120%);
-    -webkit-backdrop-filter: blur(22px) saturate(120%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
-  }
-  /* Card: a touch more transparent than the shell average so it reads as
-     material continuous with .glass-shell rather than a separate opaque
-     plate (also used for Gmail's 3-pane surfaces). Thin top highlight, no
-     flat #fff/#f0f0f0. */
-  .glass-card {
-    background: linear-gradient(145deg, rgba(255, 255, 255, 0.66), rgba(244, 247, 251, 0.54));
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    border: 1px solid rgba(255, 255, 255, 0.58);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.82),
-      0 12px 30px rgba(15, 20, 28, 0.1);
-  }
-  /* Row: one notch brighter/more separated than .glass-card (which is meant
-     to sit flush inside the shell with no shadow of its own) — also used for
-     Gmail's mail list and original/reply body surfaces. */
+
+  .glass-card--reflect:hover::after { opacity: .52; transform: translateX(26%); }
+  .glass-card--reflect > * { position: relative; z-index: 1; }
+
   .glass-row {
-    background: rgba(255, 255, 255, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.75),
-      0 3px 10px rgba(15, 20, 28, 0.08);
+    border: 1px solid rgba(255,255,255,.3);
+    border-radius: 8px !important;
+    background: var(--glass-row);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.42), 0 7px 18px rgba(41,64,91,.04);
   }
+
   .glass-modal {
-    background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(40px) saturate(150%);
-    -webkit-backdrop-filter: blur(40px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.65);
-    box-shadow:
-      0 -12px 50px -12px rgba(10, 12, 16, 0.45),
-      0 2px 0 rgba(255, 255, 255, 0.5) inset;
+    border: 1px solid rgba(255,255,255,.72);
+    border-radius: 14px !important;
+    background: var(--glass-floating);
+    box-shadow: 0 28px 80px rgba(28,48,74,.24), inset 0 1px 0 rgba(255,255,255,.8);
+    backdrop-filter: blur(36px) saturate(140%);
+    -webkit-backdrop-filter: blur(36px) saturate(140%);
   }
+
+  .glass-nav {
+    border: 1px solid rgba(255,255,255,.27);
+    background: rgba(226, 239, 249, .43);
+    box-shadow: 0 -12px 38px rgba(34,57,84,.1), inset 0 1px 0 rgba(255,255,255,.4);
+    backdrop-filter: blur(32px) saturate(132%);
+    -webkit-backdrop-filter: blur(32px) saturate(132%);
+  }
+
   .glass-smoked {
-    background: linear-gradient(to top, rgba(12, 16, 24, 0.82), rgba(12, 16, 24, 0.2) 65%, transparent);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: linear-gradient(to top, rgba(27, 45, 69, .72), rgba(35, 58, 85, .12) 72%, transparent);
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
   }
+
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slide-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes slide-down { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes check-pop { 0% { opacity: 0; transform: scale(.45); } 70% { transform: scale(1.12); } 100% { opacity: 1; transform: scale(1); } }
+  .animate-fade-in { animation: fade-in 200ms ease-out; }
+  .animate-slide-up { animation: slide-up 220ms ease-out; }
+  .animate-slide-down { animation: slide-down 220ms ease-out; }
+  .animate-check-pop { animation: check-pop 220ms cubic-bezier(.2,.85,.3,1) both; }
 }
 
-/* backdrop-filter fallback: solid-ish light surfaces instead of translucent glass. */
+@keyframes page-enter {
+  from { opacity: 0; transform: translate3d(9px, 0, 0); filter: blur(3px); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
+}
+@keyframes background-crossfade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes background-drift { from { transform: scale(1.025) translate3d(-.25%, -.15%, 0); } to { transform: scale(1.065) translate3d(.35%, .2%, 0); } }
+@keyframes draw-line { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+
+.chart-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-line 680ms cubic-bezier(.2,.75,.2,1) 120ms forwards;
+}
+
+@media (min-width: 1024px) {
+  .app-viewport { height: 100dvh; padding: 0; }
+  .app-shell {
+    display: flex;
+    width: 100%;
+    height: 100dvh;
+    min-height: 0;
+  }
+  .desktop-sidebar { display: flex; }
+  .app-workspace { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+  .app-header {
+    position: relative;
+    grid-template-columns: 1fr auto;
+    min-height: 4.1rem;
+    padding: .65rem 2rem;
+  }
+  .app-header__mobile-left,
+  .app-header__mobile-brand { display: none; }
+  .app-header__actions { grid-column: 2; }
+  .app-main { min-height: 0; flex: 1; overflow-y: auto; padding-bottom: 0; }
+  .app-main--fixed { overflow: hidden; }
+  .app-main--fixed > .page-transition { height: 100%; }
+  .page-transition { min-height: 100%; }
+
+  /* Final micro-polish: raise type contrast without changing any glass layer. */
+  .micro-contrast .text-slate-400 { color: rgb(100 116 139 / .82); }
+  .micro-contrast .text-slate-500 { color: rgb(71 85 105 / .86); }
+  .micro-contrast .text-slate-600 { color: rgb(51 65 85 / .9); }
+  .micro-contrast .text-slate-700 { color: rgb(30 41 59 / .92); }
+
+  .settings-account-grid { column-gap: 1.25rem; row-gap: 1.1rem; }
+  .settings-account-grid .glass-card > p:first-child { letter-spacing: -.005em; }
+  .settings-account-grid .glass-card p + p { line-height: 1.55; }
+
+  .home-communication-card h2 { color: rgb(51 65 85); font-size: .76rem; }
+  .home-utility-card h2 { font-size: .69rem; font-weight: 580; letter-spacing: .1em; }
+  .home-utility-card { color: rgb(71 85 105 / .9); }
+}
+
+@media (min-width: 1280px) {
+  .desktop-sidebar { flex-basis: 14.5rem; padding-inline: 1rem; }
+}
+
+@media (max-width: 639px) {
+  .glass-card { border-color: rgba(255,255,255,.25); box-shadow: inset 0 1px 0 rgba(255,255,255,.34), 0 14px 34px rgba(35,58,88,.065); }
+}
+
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass-shell::before {
-    background: rgba(203, 208, 216, 0.97);
-  }
-  .glass-header {
-    background: rgba(232, 235, 240, 0.97);
-  }
-  .glass-card {
-    background: rgba(249, 250, 251, 0.97);
-  }
-  .glass-row {
-    background: rgba(255, 255, 255, 0.96);
-  }
-  .glass-modal {
-    background: rgba(255, 255, 255, 0.98);
-  }
+  .app-shell::before { background: rgba(226, 238, 248, .92); }
+  .glass-header { background: rgba(236, 245, 252, .96); }
+  .glass-card { background: rgba(245, 250, 254, .95); }
+  .glass-row { background: rgba(248, 252, 255, .95); }
+  .glass-modal { background: rgba(245, 250, 254, .98); }
+  .glass-nav { background: rgba(239, 248, 254, .96); }
 }
 
-::-webkit-scrollbar {
-  display: none;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+  .ambient-background__image { transform: none !important; }
 }
+
+::-webkit-scrollbar { width: 0; height: 0; }

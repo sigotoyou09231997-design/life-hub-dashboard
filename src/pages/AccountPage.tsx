@@ -57,10 +57,10 @@ export default function AccountPage() {
     (session?.user.user_metadata?.full_name as string | undefined) ?? session?.user.email ?? "";
 
   return (
-    <div className="pb-10">
+    <div className="micro-contrast mx-auto max-w-[960px] pb-10 lg:pb-8">
       <PageHeader title="アカウント" backTo="/" />
 
-      <div className="space-y-4 px-5">
+      <div className="settings-account-grid grid gap-4 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
         {!isSupabaseConfigured ? (
           <Card>
             <p className="text-sm text-slate-500">アカウント機能は現在この環境では利用できません。</p>
@@ -85,7 +85,7 @@ export default function AccountPage() {
             </Card>
 
             <Card>
-              <p className="mb-1 text-sm font-medium text-slate-600">同期</p>
+              <p className="mb-1 text-sm font-semibold text-slate-700">同期</p>
               <p className="mb-3 text-xs text-slate-400">
                 ログインした端末同士で、お金管理・予定・タスクなどのデータがリアルタイムに同期されます。
               </p>
@@ -97,14 +97,14 @@ export default function AccountPage() {
 
             {gmailAccounts && gmailAccounts.length > 0 && (
               <Card>
-                <p className="mb-1 text-sm font-medium text-slate-600">Gmail連携</p>
+                <p className="mb-1 text-sm font-semibold text-slate-700">Gmail連携</p>
                 <p className="text-sm text-slate-700">{gmailAccounts.length}件のGmailアカウントを連携中</p>
               </Card>
             )}
           </>
         ) : (
           <Card>
-            <p className="mb-1 text-sm font-medium text-slate-600">ログイン</p>
+            <p className="mb-1 text-sm font-semibold text-slate-700">ログイン</p>
             <p className="mb-3 text-xs text-slate-400">ログインすると、他の端末とデータが同期されます。</p>
             <Button className="w-full" onClick={handleGoogleLogin}>
               Googleでログイン
@@ -112,7 +112,7 @@ export default function AccountPage() {
           </Card>
         )}
 
-        <Link to="/settings" className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+        <Link to="/settings" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
           <Card interactive className="flex items-center justify-between py-4">
             <span className="font-medium text-slate-900">設定を開く</span>
             <ChevronRight size={18} className="text-slate-300" />

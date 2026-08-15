@@ -82,26 +82,29 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
         </div>
       )}
 
-      {(typeFilter === "all" || typeFilter === "event") && (
-        <div>
-          <p className="mb-2 text-sm font-medium text-slate-600">今後の予定</p>
-          <EventList events={upcomingEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} emptyMessage="今後の予定はありません" />
-        </div>
-      )}
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+        {(typeFilter === "all" || typeFilter === "event") && (
+          <div className="space-y-5">
+            <div>
+              <p className="mb-2 text-sm font-medium text-slate-600">今後の予定</p>
+              <EventList events={upcomingEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} emptyMessage="今後の予定はありません" />
+            </div>
+            {upcomingTripAgenda.length > 0 && (
+              <div>
+                <p className="mb-2 text-sm font-medium text-slate-600">今後の旅行の予定</p>
+                <TripAgendaList items={upcomingTripAgenda} />
+              </div>
+            )}
+          </div>
+        )}
 
-      {(typeFilter === "all" || typeFilter === "event") && upcomingTripAgenda.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-medium text-slate-600">今後の旅行の予定</p>
-          <TripAgendaList items={upcomingTripAgenda} />
-        </div>
-      )}
-
-      {(typeFilter === "all" || typeFilter === "task") && (
-        <div>
-          <p className="mb-2 text-sm font-medium text-slate-600">タスク</p>
-          <TaskList tasks={filteredTasks} onEdit={onEditTask} onAddSubtask={onAddSubtask} emptyMessage={taskEmptyMessage} />
-        </div>
-      )}
+        {(typeFilter === "all" || typeFilter === "task") && (
+          <div className={typeFilter === "task" ? "lg:col-span-2" : ""}>
+            <p className="mb-2 text-sm font-medium text-slate-600">タスク</p>
+            <TaskList tasks={filteredTasks} onEdit={onEditTask} onAddSubtask={onAddSubtask} emptyMessage={taskEmptyMessage} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

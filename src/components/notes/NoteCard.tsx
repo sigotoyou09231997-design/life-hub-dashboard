@@ -68,14 +68,14 @@ export function NoteCard({ note, onEdit, onDelete }: Props) {
   const TypeIcon = typeDef.icon;
 
   return (
-    <ListRow interactive className="p-0">
+    <ListRow interactive className="h-full min-h-[190px] p-0">
       <button
         type="button"
         onClick={() => onEdit(note)}
         aria-label={`${note.title}を編集`}
         className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
       />
-      <div className="pointer-events-none relative z-10 p-3.5">
+      <div className="pointer-events-none relative z-10 flex h-full flex-col p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
@@ -98,7 +98,7 @@ export function NoteCard({ note, onEdit, onDelete }: Props) {
           </div>
         </div>
 
-        <div className="pointer-events-auto mt-3 flex items-center gap-2 border-t border-slate-50 pt-2.5">
+        <div className="pointer-events-auto mt-auto flex items-center gap-2 border-t border-white/35 pt-3">
           {type === "memo" && (
             <>
               <button

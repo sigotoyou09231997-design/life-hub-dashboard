@@ -15,7 +15,9 @@ export default defineConfig({
       // per page load, which is why devices kept serving a stale build until a full
       // reload/reinstall).
       injectRegister: false,
-      includeAssets: ["favicon.svg", "apple-touch-icon.png"],
+      // Time-of-day scenes are local fallbacks as well as the default visual
+      // source, so keep all four available when the installed PWA is offline.
+      includeAssets: ["favicon.svg", "apple-touch-icon.png", "backgrounds/*.jpg"],
       workbox: {
         // Loads push-sw.js's push/notificationclick listeners into the existing
         // generateSW-mode service worker via a plain importScripts() call — the

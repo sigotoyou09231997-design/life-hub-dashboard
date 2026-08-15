@@ -118,12 +118,12 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="pb-10">
+    <div className="micro-contrast mx-auto max-w-[1040px] pb-10 lg:pb-8">
       <PageHeader title="設定" backTo="/" />
 
-      <div className="space-y-4 px-5">
+      <div className="settings-account-grid grid gap-4 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
         <Card>
-          <p className="mb-1 text-sm font-medium text-slate-600">データ管理</p>
+          <p className="mb-1 text-sm font-semibold text-slate-700">データ管理</p>
           <p className="mb-3 text-xs text-slate-400">
             すべてのデータは端末内にのみ保存されています。バックアップを取っておくと安心です。
           </p>
@@ -145,7 +145,7 @@ export default function SettingsPage() {
         </Card>
 
         <Card>
-          <p className="mb-1 text-sm font-medium text-slate-600">Gmail連携</p>
+          <p className="mb-1 text-sm font-semibold text-slate-700">Gmail連携</p>
           <p className="mb-3 text-xs text-slate-400">
             受信メールにAIが返信案を作成します。
             {!pushEnabled && "連携情報はこの端末にのみ保存されます。"}

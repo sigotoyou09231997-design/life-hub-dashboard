@@ -7,13 +7,14 @@ import { Search, StickyNote } from "lucide-react";
 
 interface Props {
   notes: Note[];
+  onAdd: () => void;
   onEdit: (note: Note) => void;
   onDelete: (id: string) => void;
 }
 
 type TypeFilter = "all" | NoteType;
 
-export function NoteList({ notes, onEdit, onDelete }: Props) {
+export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 
@@ -37,17 +38,18 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
 
   return (
     <div>
-      <div className="relative mb-3">
+      <div className="mb-5 grid gap-3 border-b border-white/35 pb-4 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-center">
+      <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="メモ・リストを検索"
-          className="w-full rounded-xl border border-white/50 bg-white/40 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+          className="w-full min-h-11 rounded-[2px] border border-white/55 bg-white/30 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent/60 focus:bg-white/55 focus:ring-2 focus:ring-accent/15"
         />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-1.5" role="group" aria-label="種類フィルター">
+      <div className="flex flex-wrap gap-1.5 lg:justify-end" role="group" aria-label="種類フィルター">
         <button
           type="button"
           onClick={() => setTypeFilter("all")}
@@ -76,19 +78,21 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
           </button>
         ))}
       </div>
+      </div>
 
       {sorted.length === 0 ? (
         notes.length === 0 ? (
           <EmptyState
             icon={StickyNote}
             title="メモ・リストがまだありません"
-            description="右上の「+」からメモやリストを追加できます。"
+            description="最初のメモを書いてみましょう。"
+            action={{ label: "新しいメモ", onClick: onAdd }}
           />
         ) : (
           <EmptyState title="該当する結果が見つかりませんでした" description="検索条件や絞り込みを変えてみてください。" />
         )
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {sorted.map((n) => (
             <NoteCard key={n.id} note={n} onEdit={onEdit} onDelete={onDelete} />
           ))}

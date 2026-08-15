@@ -6,4 +6,7 @@ dist-ssr
 .env
 .env.local
 .claude/settings.local.json
+.claude/
+artifacts/
+img/
 .netlify

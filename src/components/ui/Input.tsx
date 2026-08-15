@@ -15,7 +15,7 @@ function FieldWrapper({ label, children }: FieldWrapperProps) {
 }
 
 const fieldClasses =
-  "w-full rounded-xl border border-white/50 bg-white/40 px-3.5 py-2.5 text-base text-slate-900 outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20";
+  "w-full min-h-11 rounded-[2px] border border-white/55 bg-white/32 px-3.5 py-2.5 text-base text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,.55)] outline-none placeholder:text-slate-400 focus:border-accent/60 focus:bg-white/55 focus:ring-2 focus:ring-accent/15";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;

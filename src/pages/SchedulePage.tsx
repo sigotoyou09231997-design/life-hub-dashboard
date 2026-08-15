@@ -83,7 +83,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="pb-10" style={AREA_ACCENT_STYLE.schedule}>
+    <div className="micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.schedule}>
       <PageHeader
         title="予定・タスク管理"
         backTo="/"
@@ -98,7 +98,7 @@ export default function SchedulePage() {
         }
       />
 
-      <div className="mx-5 mb-4">
+      <div className="mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[620px]">
         <Tabs
           options={[
             { value: "today", label: "今日" },
@@ -110,11 +110,11 @@ export default function SchedulePage() {
         />
       </div>
 
-      <div className="px-5">
+      <div className="px-5 lg:px-8">
         {showSkeleton ? (
           <ListSkeleton />
         ) : (
-          <>
+          <div key={tab} className="animate-fade-in motion-reduce:animate-none">
         {tab === "today" && (
           <TodayView
             events={events}
@@ -154,7 +154,7 @@ export default function SchedulePage() {
             onAddSubtask={handleAddSubtask}
           />
         )}
-          </>
+          </div>
         )}
       </div>
 

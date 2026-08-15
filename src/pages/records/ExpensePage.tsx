@@ -43,10 +43,10 @@ export default function ExpensePage() {
   const showFixedSkeleton = useDelayedFlag(fixedCosts === undefined);
 
   return (
-    <div className="pb-10" style={AREA_ACCENT_STYLE.money}>
+    <div className="pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.money}>
       <PageHeader title="家計簿" subtitle="収支と固定費を管理" backTo="/" />
 
-      <div className="mx-5 mb-4">
+      <div className="mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[840px]">
         <Tabs
           options={[
             { value: "summary", label: "サマリー" },
@@ -61,7 +61,7 @@ export default function ExpensePage() {
         />
       </div>
 
-      <div className="px-5">
+      <div className="px-5 lg:px-8">
         {tab === "summary" && <ExpenseSummary onAddSalary={() => setEditingSalary("new")} />}
 
         {tab === "salary" && (

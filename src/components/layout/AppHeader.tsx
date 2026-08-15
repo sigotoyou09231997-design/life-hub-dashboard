@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Bell, Home, Settings as SettingsIcon } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabase } from "../../lib/supabase";
@@ -14,6 +14,7 @@ import { EmptyState } from "../ui/EmptyState";
  * per-page navigation. Deliberately never shows name/email/sync state here;
  * that lives on the Account screen behind the avatar. */
 export function AppHeader() {
+  const { pathname } = useLocation();
   const [session, setSession] = useState<Session | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
   const signals = useNotificationSignals();
@@ -29,36 +30,43 @@ export function AppHeader() {
   const displayName =
     (session?.user.user_metadata?.full_name as string | undefined) ?? session?.user.email ?? "アカウント";
 
+  const pageTitle = pathname === "/"
+    ? "ホーム"
+    : pathname.startsWith("/schedule")
+      ? "予定・タスク"
+      : pathname.startsWith("/records/expense")
+        ? "家計簿"
+        : pathname.startsWith("/records/notes")
+          ? "メモ・リスト"
+          : pathname.startsWith("/gmail")
+            ? "Gmail"
+            : pathname.startsWith("/trips")
+              ? "旅行計画"
+              : pathname.startsWith("/settings")
+                ? "設定"
+                : pathname.startsWith("/account")
+                  ? "アカウント"
+                  : "LIFE HUB";
+
+  const avatar = avatarUrl ? (
+    <img src={avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
+  ) : (
+    <div className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(displayName)}`}>
+      {avatarInitial(displayName)}
+    </div>
+  );
+
   return (
     <>
-      {/* 1fr/auto/1fr keeps "LIFE HUB" visually centered even though the left
-          (1 avatar icon) and right (2 icons) groups aren't the same width.
-          Sticky + its own glass-card layer so scrolled content never shows
-          through or collides with it. */}
-      {/* Matches the shell's own corner radius (rounded-2xl / md:rounded-3xl)
-          so the header's top edge aligns with it exactly — the shell has no
-          overflow:hidden (that would risk clipping every page's fixed-position
-          Sheet), so this alignment is what keeps square corners from poking
-          out past the shell's rounded top instead of relying on clipping. */}
-      <header className="glass-header sticky top-0 z-40 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-t-2xl px-5 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:rounded-t-3xl">
-        <div className="flex items-center justify-start gap-1">
+      <header className="glass-header app-header">
+        <div className="app-header__mobile-left">
           <Link
             to="/account"
             aria-label="アカウント"
             className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
-            ) : (
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(displayName)}`}
-              >
-                {avatarInitial(displayName)}
-              </div>
-            )}
+            {avatar}
           </Link>
-          {/* どのページからでもTOPへ1タップで戻れるように — Gmailのメール詳細のような
-              単独ページ(新規タブで開き、「戻る」がタブを閉じるだけ)からも同様に使える。 */}
           <Link
             to="/"
             aria-label="ホーム"
@@ -68,9 +76,15 @@ export function AppHeader() {
           </Link>
         </div>
 
-        <span className="truncate text-base font-bold tracking-tight text-navy">LIFE HUB</span>
+        <div className="app-header__title">
+          <span className="app-header__mobile-brand">LIFE HUB</span>
+          <div className="hidden lg:block">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Personal workspace</p>
+            <p className="mt-0.5 text-[15px] font-semibold tracking-tight text-slate-800">{pageTitle}</p>
+          </div>
+        </div>
 
-        <div className="flex items-center justify-end gap-1">
+        <div className="app-header__actions">
           <button
             type="button"
             onClick={() => setNotifOpen(true)}
@@ -85,9 +99,16 @@ export function AppHeader() {
           <Link
             to="/settings"
             aria-label="設定"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors active:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors active:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:hidden"
           >
             <SettingsIcon size={19} />
+          </Link>
+          <Link
+            to="/account"
+            aria-label="アカウント"
+            className="hidden shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:block"
+          >
+            {avatar}
           </Link>
         </div>
       </header>

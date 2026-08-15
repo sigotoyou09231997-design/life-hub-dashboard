@@ -24,9 +24,9 @@ export default function GmailMailPage() {
   }, [emailId]);
 
   return (
-    <div className="pb-10">
+    <div className="mx-auto max-w-[1240px] pb-10 lg:pb-8">
       <PageHeader title="メール" onBack={() => window.close()} />
-      <div className="px-5">
+      <div className="px-5 lg:px-8">
         {data === undefined ? (
           <ListSkeleton />
         ) : data === null ? (
