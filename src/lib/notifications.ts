@@ -64,15 +64,9 @@ async function checkAndNotify() {
 
   if (now.getHours() >= 20 && eveningReminderDoneFor !== today) {
     eveningReminderDoneFor = today;
-    const [todayTransactions, todayDiary] = await Promise.all([
-      db.transactions.where("date").equals(today).toArray(),
-      db.diaryEntries.where("date").equals(today).toArray(),
-    ]);
+    const todayTransactions = await db.transactions.where("date").equals(today).toArray();
     if (todayTransactions.length === 0) {
       fireNotification("記録を忘れていませんか?", "今日の支出をまだ記録していません");
-    }
-    if (todayDiary.length === 0) {
-      fireNotification("今日の日記を書きませんか?", "1日を振り返ってみましょう");
     }
   }
 }
