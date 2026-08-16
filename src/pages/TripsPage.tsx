@@ -6,7 +6,7 @@ import { db } from "../db/schema";
 import type { TripStatus } from "../types";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
-import { EmptyState } from "../components/ui/EmptyState";
+import { Card } from "../components/ui/Card";
 import { TripForm } from "../components/trips/TripForm";
 import { TripCard } from "../components/trips/TripCard";
 import { useToast } from "../components/ui/ToastProvider";
@@ -43,7 +43,7 @@ export default function TripsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1280px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
+    <div className="spatial-page trips-page micro-contrast mx-auto max-w-[1480px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
       <PageHeader
         title="旅行計画"
         backTo="/"
@@ -58,31 +58,37 @@ export default function TripsPage() {
         }
       />
 
-      <div className="px-5 lg:px-8">
+      <div className="destination-workspace px-5 lg:px-8">
         {showSkeleton ? (
           <ListSkeleton />
         ) : trips.length === 0 ? (
-          <EmptyState
-            card
-            icon={Plane}
-            title="旅行がまだ登録されていません"
-            description="最初の旅行を追加してみましょう。"
-            action={{ label: "旅行を追加する", onClick: () => setCreating(true) }}
-          />
+          <Card className="destination-empty-control p-0">
+            <div className="destination-empty-control__visual" aria-hidden="true"><span><Plane size={22} /></span><i /><i /><i /></div>
+            <div className="destination-empty-control__copy">
+              <span>Destination status</span>
+              <div><strong>Trips</strong><b>0</b></div>
+              <h2>次の旅を計画しましょう</h2>
+              <p>行き先と日程を登録すると、旅程・費用・持ち物をひとつの場所で整理できます。</p>
+            </div>
+            <div className="destination-empty-control__action">
+              <span>Next action</span>
+              <button type="button" onClick={() => setCreating(true)}><Plus size={15} />旅行を追加</button>
+            </div>
+          </Card>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="destination-grid grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
             {STATUS_GROUPS.map(({ status, label }) => {
               const group = trips.filter((t) => t.status === status);
               if (group.length === 0) return null;
               return (
-                <div key={status}>
-                  <p className="mb-2 text-sm font-medium text-slate-600">{label}</p>
+                <section key={status} className={`destination-column destination-column--${status}`}>
+                  <p className="destination-column__title mb-2 text-sm font-medium text-slate-600">{label}<span>{group.length}</span></p>
                   <div className="space-y-3">
                     {group.map((trip) => (
                       <TripCard key={trip.id} trip={trip} onDelete={handleDelete} />
                     ))}
                   </div>
-                </div>
+                </section>
               );
             })}
           </div>

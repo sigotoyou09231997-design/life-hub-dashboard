@@ -11,7 +11,7 @@ const ITEMS = [
 
 export default function RecordsPage() {
   return (
-    <div className="mx-auto max-w-[1000px] pb-10 lg:pb-8">
+    <div className="spatial-page records-page micro-contrast mx-auto max-w-[1000px] pb-10 lg:pb-8">
       <PageHeader title="以前の記録" subtitle="日記・目標・習慣のデータはそのまま残っています" backTo="/settings" />
       <div className="grid gap-3 px-5 md:grid-cols-2 lg:px-8">
         {ITEMS.map(({ to, label, icon: Icon }) => (

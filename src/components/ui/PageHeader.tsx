@@ -20,7 +20,7 @@ export function PageHeader({ title, subtitle, right, backTo, onBack }: Props) {
   return (
     // Safe-area top spacing is handled once by the global AppHeader above this;
     // this only needs a normal-flow gap beneath it.
-    <div className="flex items-start justify-between gap-3 px-5 pb-4 pt-6 lg:px-8 lg:pb-5 lg:pt-7">
+    <div className="spatial-page-header flex items-start justify-between gap-3 px-5 pb-4 pt-6 lg:px-8 lg:pb-5 lg:pt-7">
       <div className="flex items-start gap-2 min-w-0">
         {onBack ? (
           <button type="button" onClick={onBack} aria-label="戻る" className={BACK_BUTTON_CLASS}>
@@ -34,8 +34,8 @@ export function PageHeader({ title, subtitle, right, backTo, onBack }: Props) {
           )
         )}
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">{title}</h1>
-          {subtitle && <p className="mt-0.5 text-sm text-slate-400">{subtitle}</p>}
+          <h1 className="spatial-page-header__title text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">{title}</h1>
+          {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
         </div>
       </div>
       {right && <div className="shrink-0">{right}</div>}

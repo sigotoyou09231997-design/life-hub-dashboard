@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, CheckCircle2, Mail, RefreshCw, Settings as SettingsIcon } from "lucide-react";
+import { ChevronLeft, CheckCircle2, Mail, RefreshCw, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { db } from "../db/schema";
 import { GmailLogo } from "../components/gmail/GmailLogo";
 import { Tabs } from "../components/ui/Tabs";
@@ -72,8 +72,8 @@ export default function GmailPage() {
   );
 
   return (
-    <div className="mx-auto pb-10 lg:flex lg:h-full lg:min-h-0 lg:max-w-[1240px] lg:flex-col lg:pb-0">
-      <div className="flex items-center justify-between gap-2 px-5 pb-4 pt-6 lg:shrink-0 lg:px-8 lg:pb-5 lg:pt-7">
+    <div className="spatial-page mail-page micro-contrast mx-auto pb-10 lg:flex lg:h-full lg:min-h-0 lg:max-w-[1480px] lg:flex-col lg:pb-0">
+      <div className="mail-page-header flex items-center justify-between gap-2 px-5 pb-4 pt-6 lg:shrink-0 lg:px-8 lg:pb-5 lg:pt-7">
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={() => navigate("/")} aria-label="戻る" className={`${BACK_BUTTON_CLASS} lg:hidden`}>
             <ChevronLeft size={22} />
@@ -136,22 +136,29 @@ export default function GmailPage() {
         )}
       </div>
 
-      <div className="px-5 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:px-8 lg:pb-7">
+      <div className="mail-workspace px-5 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:px-8 lg:pb-7">
         {showSkeleton ? (
           <ListSkeleton />
         ) : !accounts || accounts.length === 0 ? (
-          <Card className="relative mx-auto mt-5 w-full max-w-3xl overflow-visible px-5 py-5 lg:mt-8 lg:px-7">
-            <div className="empty-state flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-light text-accent shadow-[inset_0_1px_rgba(255,255,255,.5)]">
-                <Mail size={21} />
+          <Card className="mail-connection-module relative mx-auto mt-4 w-full max-w-5xl overflow-visible p-0 lg:mt-7">
+            <div className="mail-connect-control">
+              <div className="mail-connect-visual" aria-hidden="true">
+                <div className="mail-connect-visual__icon"><Mail size={20} /></div>
+                <div className="mail-connect-visual__preview"><i /><i /><i /></div>
+                <span>Preview offline</span>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-slate-900">Gmail未接続</p>
-                <p className="mt-1 text-sm leading-relaxed text-slate-500">Gmailを接続すると、受信メールとAI返信案を確認できます。</p>
+              <div className="mail-connect-copy min-w-0">
+                <p className="mail-connect-kicker"><i />Connection status</p>
+                <h2>Gmail未接続</h2>
+                <p>接続すると、受信メールとAI返信案をこのWorkspaceで確認できます。</p>
+                <div className="mail-connect-capability"><Sparkles size={13} /><span>AI reply</span><strong>利用不可</strong></div>
               </div>
-              <button type="button" onClick={() => navigate("/settings")} className="app-button shrink-0 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0">
-                Gmailを接続 →
-              </button>
+              <div className="mail-connect-action">
+                <span><i />OFFLINE</span>
+                <button type="button" onClick={() => navigate("/settings")} className="app-button rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0">
+                  Gmailを接続 →
+                </button>
+              </div>
             </div>
           </Card>
         ) : (
@@ -170,7 +177,7 @@ export default function GmailPage() {
             {selectedAccount && (
               // メールは行クリックで /gmail/mail/:id を新規タブで開く(GmailInbox.tsx)ため、
               // ここには一覧ペイン1つだけを幅いっぱいに表示する。
-              <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
+              <div className="mail-inbox-workspace lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
                 <GmailInbox ref={inboxRef} account={selectedAccount} />
               </div>
             )}

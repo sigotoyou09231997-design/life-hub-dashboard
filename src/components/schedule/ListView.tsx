@@ -50,7 +50,7 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
     tasks.length > 0 && filteredTasks.length === 0 ? "該当する優先度のタスクはありません" : undefined;
 
   return (
-    <div className="space-y-5">
+    <div className="planning-list-workspace space-y-5">
       <Tabs
         options={[
           { value: "all", label: "すべて" },
@@ -82,9 +82,9 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
         </div>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+      <div className="planning-list-columns grid gap-3 lg:grid-cols-2 lg:items-start">
         {(typeFilter === "all" || typeFilter === "event") && (
-          <div className="space-y-5">
+          <div className="planning-list-module space-y-5">
             <div>
               <p className="mb-2 text-sm font-medium text-slate-600">今後の予定</p>
               <EventList events={upcomingEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} emptyMessage="今後の予定はありません" />
@@ -99,7 +99,7 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
         )}
 
         {(typeFilter === "all" || typeFilter === "task") && (
-          <div className={typeFilter === "task" ? "lg:col-span-2" : ""}>
+          <div className={`planning-list-module ${typeFilter === "task" ? "lg:col-span-2" : ""}`}>
             <p className="mb-2 text-sm font-medium text-slate-600">タスク</p>
             <TaskList tasks={filteredTasks} onEdit={onEditTask} onAddSubtask={onAddSubtask} emptyMessage={taskEmptyMessage} />
           </div>

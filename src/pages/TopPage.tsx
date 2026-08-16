@@ -1,9 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { format } from "date-fns";
+import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarDays, Check, CheckSquare, ChevronRight, Mail, MapPin, NotebookPen, Plane, Wallet } from "lucide-react";
+import {
+  ArrowUpRight,
+  CalendarDays,
+  Check,
+  CheckSquare,
+  ChevronRight,
+  Circle,
+  Mail,
+  MapPin,
+  NotebookPen,
+  Plane,
+  Wallet,
+} from "lucide-react";
 import { db } from "../db/schema";
 import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
 import { avatarColor, avatarInitial, parseSender } from "../lib/gmail";
@@ -11,26 +23,45 @@ import { NOTE_TYPE_DEFS, getNoteType } from "../lib/noteTypes";
 import { getScheduleCategory } from "../lib/scheduleCategories";
 import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { toggleTaskCompletion } from "../components/tasks/TaskList";
-import { Badge } from "../components/ui/Badge";
-import { Card } from "../components/ui/Card";
-import { EmptyState } from "../components/ui/EmptyState";
-import { ProgressBar } from "../components/ui/ProgressBar";
 
-const EVENT_PREVIEW_LIMIT = 3;
-const TASK_PREVIEW_LIMIT = 4;
+const EVENT_PREVIEW_LIMIT = 2;
+const TASK_PREVIEW_LIMIT = 3;
 const GMAIL_PREVIEW_LIMIT = 3;
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
-function SectionTitle({ icon: Icon, children, count }: { icon: typeof CalendarDays; children: React.ReactNode; count?: string }) {
+function ModuleHeading({ icon: Icon, eyebrow, action }: { icon: typeof CalendarDays; eyebrow: string; action?: ReactNode }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2 text-slate-600">
-        <Icon size={15} strokeWidth={1.7} />
-        <h2 className="text-xs font-semibold uppercase tracking-[0.12em]">{children}</h2>
-      </div>
-      {count && <span className="text-[11px] font-medium text-slate-500">{count}</span>}
+    <div className="home-module__heading">
+      <div className="home-module__eyebrow"><Icon size={15} strokeWidth={1.75} /><span>{eyebrow}</span></div>
+      {action}
     </div>
   );
+}
+
+function getGreeting(hour: number): string {
+  if (hour < 5) return "まだ静かな時間です";
+  if (hour < 11) return "おはようございます";
+  if (hour < 17) return "今日もおつかれさまです";
+  return "こんばんは";
+}
+
+function minutesUntil(time: string | undefined, now: Date): string | null {
+  if (!time) return null;
+  const [hour, minute] = time.split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  const target = new Date(now);
+  target.setHours(hour, minute, 0, 0);
+  const minutes = Math.ceil((target.getTime() - now.getTime()) / 60_000);
+  if (minutes < 0) return null;
+  if (minutes < 60) return minutes === 0 ? "まもなく" : `あと${minutes}分`;
+  return `あと${Math.floor(minutes / 60)}時間${minutes % 60 ? `${minutes % 60}分` : ""}`;
+}
+
+function timelinePosition(time: string | undefined): number | null {
+  if (!time) return null;
+  const [hour, minute] = time.split(":").map(Number);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return Math.max(0, Math.min(100, (((hour + minute / 60) - 6) / 18) * 100));
 }
 
 export default function TopPage() {
@@ -42,15 +73,29 @@ export default function TopPage() {
 
   const today = todayStr();
   const eventsResult = useLiveQuery(() => db.calendarEvents.where("date").equals(today).toArray(), [today]);
-  const todayEvents = [...(eventsResult ?? [])]
-    .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""))
-    .slice(0, EVENT_PREVIEW_LIMIT);
+  const allTodayEvents = [...(eventsResult ?? [])].sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+  const todayEvents = allTodayEvents.slice(0, EVENT_PREVIEW_LIMIT);
+  const nextTimedEvent = allTodayEvents.find((event) => !event.startTime || minutesUntil(event.startTime, now));
+  const nextEventLabel = nextTimedEvent?.allDay ? "終日" : minutesUntil(nextTimedEvent?.startTime, now);
 
   const tasksResult = useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]);
   const todayTasks = (tasksResult ?? []).filter((task) => !task.parentTaskId);
   const doneCount = todayTasks.filter((task) => task.completed).length;
-  const previewTasks = [...todayTasks].sort((a, b) => a.createdAt - b.createdAt).slice(0, TASK_PREVIEW_LIMIT);
+  const progress = todayTasks.length ? Math.round((doneCount / todayTasks.length) * 100) : 0;
+  const previewTasks = [...todayTasks].sort((a, b) => Number(a.completed) - Number(b.completed) || a.createdAt - b.createdAt).slice(0, TASK_PREVIEW_LIMIT);
   const { data: budget } = usePayPeriodBudget();
+  const financeBars = budget
+    ? [
+        { label: "収入", value: budget.period.salaryAmount },
+        { label: "固定費後", value: budget.period.salaryAmount - budget.totalFixedCosts },
+        { label: "現在", value: budget.remaining },
+      ]
+    : [
+        { label: "収入", value: 72 },
+        { label: "固定費後", value: 54 },
+        { label: "現在", value: 38 },
+      ];
+  const financeBarMax = Math.max(1, ...financeBars.map((item) => Math.max(0, item.value)));
 
   const gmailPreview = useLiveQuery(async () => {
     const accounts = await db.gmailAccounts.toArray();
@@ -77,132 +122,109 @@ export default function TopPage() {
   const featuredTrip =
     tripsResult?.find((trip) => trip.status === "ongoing") ??
     [...(tripsResult ?? [])].filter((trip) => trip.status === "planning").sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+  const tripDays = featuredTrip ? differenceInCalendarDays(parseISO(featuredTrip.startDate), now) : null;
 
   return (
-    <div className="micro-contrast px-5 pb-6 pt-5 lg:px-8 lg:pb-8 lg:pt-7">
-      <section className="mb-7 pb-5 lg:mb-9 lg:flex lg:items-end lg:justify-between lg:pb-5">
+    <div className="home-os micro-contrast">
+      <section className="home-status" aria-label="今日のステータス">
         <div>
-          <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.17em] text-slate-500">Today at a glance</p>
-          <p className="text-[3.1rem] font-light leading-[.88] tabular-nums tracking-[-0.065em] text-navy [text-shadow:0_1px_18px_rgba(255,255,255,.18)] lg:text-[4.75rem]">
-            {format(now, "H:mm")}
-          </p>
-          <p className="mt-3 text-sm font-medium tracking-[.025em] text-slate-600">
-            {format(now, "yyyy年M月d日 EEEE", { locale: ja })}
-          </p>
+          <p className="home-status__label">Personal control center</p>
+          <div className="home-status__clock-row">
+            <p className="home-status__clock">{format(now, "H:mm")}</p>
+            <span className="home-status__live"><i />LIVE</span>
+          </div>
+          <p className="home-status__date">{format(now, "yyyy年M月d日 EEEE", { locale: ja })}</p>
         </div>
-        <div className="mt-5 max-w-md text-left lg:mt-0 lg:text-right">
-          <p className="text-xs font-semibold tracking-wide text-slate-700">おはようございます</p>
-          <p className="mt-1 text-xs leading-relaxed text-slate-500">今日の予定、タスク、暮らしの記録をひとつの場所で。</p>
+        <div className="home-status__message">
+          <p>{getGreeting(now.getHours())}</p>
+          <span>予定も、暮らしも、ここから。</span>
         </div>
       </section>
 
-      <div className="home-card-grid grid grid-cols-1 gap-4 lg:grid-cols-2 lg:auto-rows-min xl:grid-cols-12">
-        <Card className="glass-card--strong glass-card--reflect p-5 lg:p-6 xl:col-span-5">
-          <SectionTitle icon={CalendarDays} count={`${todayEvents.length}件`}>今日の予定</SectionTitle>
-          {todayEvents.length === 0 ? (
-            <EmptyState title="今日の予定はありません" />
-          ) : (
-            <div className="divide-y divide-white/35">
+      <div className="home-bento">
+        <article className={`home-module home-module--schedule home-module--reflect ${todayEvents.length === 0 ? "is-empty" : "has-data"}`}>
+          <ModuleHeading icon={CalendarDays} eyebrow="今日の予定" action={<span className="home-module__count">{allTodayEvents.length} events</span>} />
+          <div className="home-schedule__summary">
+            <div className="home-date-tile"><strong>{format(now, "d")}</strong><span>{format(now, "EEE", { locale: ja })}</span></div>
+            <div className="min-w-0">
+              <p className="home-module__title">{nextTimedEvent?.title ?? "静かな一日です"}</p>
+              <p className="home-module__meta">{nextTimedEvent ? `${nextTimedEvent.startTime ?? "終日"}${nextEventLabel ? ` · ${nextEventLabel}` : ""}` : "新しい予定はカレンダーから追加できます"}</p>
+            </div>
+          </div>
+          {todayEvents.length > 0 && (
+            <div className="home-schedule__list">
               {todayEvents.map((event) => {
                 const category = getScheduleCategory(event.category);
-                return (
-                  <Link key={event.id} to="/schedule?view=calendar" className="flex min-h-12 items-center gap-3 py-2 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50">
-                    <span className="w-12 shrink-0 text-xs tabular-nums text-slate-500">{event.startTime ?? "終日"}</span>
-                    <span className="h-6 w-px bg-blue-400/55" aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">{event.title}</span>
-                    <Badge tone={category.tone}>{category.label}</Badge>
-                  </Link>
-                );
+                return <Link key={event.id} to="/schedule?view=calendar" className="home-schedule__row"><span>{event.startTime ?? "終日"}</span><i className={`home-category-dot home-category-dot--${category.tone}`} /><strong>{event.title}</strong><small>{category.label}</small></Link>;
               })}
             </div>
           )}
-          <Link to="/schedule?view=calendar" className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-accent">すべて見る <ChevronRight size={13} /></Link>
-        </Card>
-
-        <Card className="glass-card--strong glass-card--reflect p-5 lg:p-6 xl:col-span-4">
-          <SectionTitle icon={CheckSquare} count={todayTasks.length ? `${doneCount} / ${todayTasks.length}` : undefined}>今日のタスク</SectionTitle>
-          {todayTasks.length > 0 && <ProgressBar value={(doneCount / todayTasks.length) * 100} />}
-          {previewTasks.length === 0 ? (
-            <EmptyState title="今日期限のタスクはありません" />
-          ) : (
-            <div className="mt-3 space-y-1.5">
-              {previewTasks.map((task) => (
-                <div key={task.id} className={`task-completion flex min-h-9 items-center gap-3 transition-opacity ${task.completed ? "task-completion--done opacity-55" : ""}`}>
-                  <button type="button" onClick={() => toggleTaskCompletion(task)} aria-label="完了切り替え" className={`flex h-5 w-5 shrink-0 items-center justify-center border transition-all ${task.completed ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-400/70 bg-white/20"}`}>
-                    {task.completed && <Check size={12} strokeWidth={2.5} className="animate-check-pop motion-reduce:animate-none" />}
-                  </button>
-                  <Link to="/schedule?view=list" className={`min-w-0 flex-1 truncate text-sm font-medium text-slate-800 ${task.completed ? "line-through" : ""}`}>{task.title}</Link>
-                </div>
-              ))}
+          <div className="home-timeline" aria-label="今日の時間軸">
+            <div className="home-timeline__labels"><span>6</span><span>12</span><span>18</span><span>24</span></div>
+            <div className="home-timeline__track">
+              <i className="home-timeline__now" style={{ left: `${timelinePosition(format(now, "HH:mm")) ?? 0}%` }} />
+              {todayEvents.map((event) => {
+                const left = timelinePosition(event.startTime);
+                return left === null ? null : <i key={event.id} className="home-timeline__event" style={{ left: `${left}%` }} />;
+              })}
             </div>
-          )}
-          <Link to="/schedule?view=list" className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-accent">タスクを見る <ChevronRight size={13} /></Link>
-        </Card>
+            <Link to="/schedule?view=calendar">カレンダー <ArrowUpRight size={12} /></Link>
+          </div>
+        </article>
 
-        <Link to="/records/expense" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 xl:col-span-3">
-          <Card interactive className="flex h-full min-h-[170px] flex-col justify-between p-5 lg:p-6">
-            <SectionTitle icon={Wallet}>今月の残高</SectionTitle>
-            <div>
-              {budget ? (
-                <p className={`text-[2.1rem] font-medium tabular-nums tracking-[-0.045em] ${budget.remaining < 0 ? "text-danger" : "text-navy"}`}>¥{budget.remaining.toLocaleString()}</p>
-              ) : (
-                <div><p className="text-[2rem] font-light tracking-[-0.04em] text-navy">¥ ---</p><p className="mt-1 text-xs text-slate-500">給与を登録すると自動計算します</p></div>
-              )}
-              <div className="mt-5 h-px w-full bg-gradient-to-r from-blue-500/55 via-violet-400/35 to-transparent" />
-              <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-accent">家計簿を開く <ChevronRight size={13} /></span>
+        <article className={`home-module home-module--tasks home-module--reflect ${todayTasks.length === 0 ? "is-empty" : "has-data"}`}>
+          <ModuleHeading icon={CheckSquare} eyebrow="今日のタスク" action={<span className="home-module__count">{doneCount} / {todayTasks.length}</span>} />
+          <div className="home-task__progress">
+            <div className="home-progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}<small>%</small></span></div>
+            <div><p className="home-module__title">{todayTasks.length ? (progress === 100 ? "今日の分は完了" : `あと${todayTasks.length - doneCount}件`) : "タスクはありません"}</p><p className="home-module__meta">小さな一歩から、整えていきましょう。</p></div>
+          </div>
+          {previewTasks.length > 0 ? (
+            <div className="home-task__list">
+              {previewTasks.map((task) => <div key={task.id} className={`home-task__row ${task.completed ? "is-done" : ""}`}><button type="button" onClick={() => toggleTaskCompletion(task)} aria-label={`${task.title}の完了を切り替え`}>{task.completed ? <Check size={11} strokeWidth={2.7} /> : <Circle size={14} strokeWidth={1.5} />}</button><Link to="/schedule?view=list">{task.title}</Link>{task.dueTime && <time>{task.dueTime}</time>}</div>)}
             </div>
-          </Card>
+          ) : <div className="home-task__empty"><span>0 tasks</span><Link to="/schedule?view=list">タスクを開く <ArrowUpRight size={12} /></Link></div>}
+        </article>
+
+        <Link to="/records/expense" className="home-module home-module--finance home-module--interactive">
+          <ModuleHeading icon={Wallet} eyebrow="使えるお金" action={<ChevronRight size={15} />} />
+          <div className={`home-finance__value ${budget && budget.remaining < 0 ? "is-negative" : ""}`}><span>¥</span>{budget ? budget.remaining.toLocaleString() : "---"}</div>
+          <p className="home-module__meta">{budget ? `1日あたり ¥${Math.max(0, budget.perDayUsable).toLocaleString()}` : "給与を登録すると自動計算します"}</p>
+          <div className={`home-finance__bars ${budget ? "has-data" : "is-placeholder"}`} role="img" aria-label={budget ? "収入、固定費差引後、現在残高の比較" : "家計データ未登録のプレースホルダー"}>
+            {financeBars.map((item) => <span key={item.label}><i style={{ height: `${Math.max(10, (Math.max(0, item.value) / financeBarMax) * 100)}%` }} /><small>{item.label}</small></span>)}
+          </div>
+          {budget && <div className="home-finance__facts"><span>支出 ¥{budget.actualSpending.toLocaleString()}</span><span>固定費 ¥{budget.totalFixedCosts.toLocaleString()}</span></div>}
         </Link>
 
-        <Card className="home-communication-card overflow-hidden p-0 xl:col-span-6">
-          <div className="flex items-center justify-between px-5 pb-3 pt-5 lg:px-6 lg:pt-6">
-            <SectionTitle icon={Mail}>Gmail</SectionTitle>
-            {gmailPreview?.connected && <Badge tone="success">同期済み</Badge>}
-          </div>
-          {!gmailPreview || gmailPreview.emails.length === 0 ? (
-            <div className="px-5 pb-4"><EmptyState title={gmailPreview?.connected ? "メールがありません" : "Gmail未連携"} description={gmailPreview?.connected ? undefined : "連携すると受信メールとAI返信案を確認できます"} /></div>
-          ) : (
-            <div className="divide-y divide-white/35 border-t border-white/35">
+        <article className={`home-module home-module--gmail ${gmailPreview?.emails.length ? "has-data" : "is-empty"}`}>
+          <ModuleHeading icon={Mail} eyebrow="Gmail" action={<span className={`home-connection ${gmailPreview?.connected ? "is-online" : ""}`}><i />{gmailPreview?.connected ? "Synced" : "Offline"}</span>} />
+          {gmailPreview?.emails.length ? (
+            <div className="home-mail__list">
               {gmailPreview.emails.map((email) => {
                 const sender = parseSender(email.from);
-                return (
-                  <a key={email.id} href={`/gmail/mail/${email.id}`} target="_blank" rel="noopener noreferrer" className="flex min-h-14 items-center gap-3 px-5 py-2.5 transition-colors hover:bg-white/15 lg:px-6">
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</div>
-                    <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-slate-800">{sender.name}</p><p className="truncate text-xs text-slate-500">{email.subject}</p></div>
-                    <span className="shrink-0 text-[11px] text-slate-500">{formatGmailTimestamp(email.receivedAt)}</span>
-                  </a>
-                );
+                const unread = email.status === "unprocessed";
+                return <a key={email.id} href={`/gmail/mail/${email.id}`} target="_blank" rel="noopener noreferrer" className={`home-mail__row ${unread ? "is-unread" : ""}`}><span className={`home-mail__avatar ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</span><span className="home-mail__copy"><strong>{sender.name}</strong><small>{email.subject}</small></span><time>{formatGmailTimestamp(email.receivedAt)}</time>{unread && <i />}</a>;
               })}
             </div>
-          )}
-          <Link to="/gmail" className="block border-t border-white/35 px-5 py-3 text-xs font-semibold text-accent lg:px-6">メールを確認 →</Link>
-        </Card>
+          ) : <div className="home-compact-state"><span className="home-compact-state__icon"><Mail size={20} /></span><div><strong>{gmailPreview?.connected ? "受信トレイは空です" : "Gmailを接続"}</strong><p>{gmailPreview?.connected ? "新しいメールはありません" : "最新メールと返信案をここで確認"}</p><Link to="/gmail">{gmailPreview?.connected ? "受信トレイを開く" : "接続画面を開く"} <ArrowUpRight size={12} /></Link></div><div className="home-mail__signal" aria-hidden="true"><i /><i /><i /></div></div>}
+          {Boolean(gmailPreview?.emails.length) && <Link to="/gmail" className="home-module__footer">受信トレイを開く <ArrowUpRight size={14} /></Link>}
+        </article>
 
-        <Link to="/records/notes" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 xl:col-span-3">
-          <Card interactive className="home-utility-card h-full p-5 lg:p-5">
-            <SectionTitle icon={NotebookPen}>メモ・リスト</SectionTitle>
-            <div className="space-y-3">
-              {noteSummaries.map(({ definition, count, latestTitle }) => {
-                const Icon = definition.icon;
-                return <div key={definition.value} className="flex items-center gap-2.5"><Icon size={15} className="text-slate-500" /><span className="min-w-0 flex-1 truncate text-sm text-slate-700">{latestTitle ?? definition.label}</span><span className="text-xs tabular-nums text-slate-500">{count}</span></div>;
-              })}
-            </div>
-          </Card>
+        <Link to="/records/notes" className="home-module home-module--notes home-module--interactive">
+          <ModuleHeading icon={NotebookPen} eyebrow="メモとリスト" action={<ChevronRight size={15} />} />
+          <div className="home-notes__stack">
+            {noteSummaries.map(({ definition, count, latestTitle }) => { const Icon = definition.icon; const compactLabel = definition.value === "checklist" ? "チェック" : definition.value === "shopping" ? "買い物" : definition.label; return <div key={definition.value} className="home-notes__row" title={latestTitle ?? `${definition.label}はまだありません`}><span><Icon size={15} /></span><b>{count}</b><div><strong>{compactLabel}</strong><small>{latestTitle ?? "空のリスト"}</small></div></div>; })}
+          </div>
         </Link>
 
-        <Link to="/trips" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 xl:col-span-3">
-          <Card interactive className="home-utility-card flex h-full min-h-[170px] flex-col justify-between p-5 lg:p-5">
-            <SectionTitle icon={Plane}>旅行計画</SectionTitle>
-            {featuredTrip ? (
-              <div>
-                <div className="mb-2 flex items-center gap-2"><p className="truncate text-lg font-semibold text-slate-800">{featuredTrip.name}</p><Badge tone="accent">{TRIP_STATUS_LABEL[featuredTrip.status]}</Badge></div>
-                <p className="flex items-center gap-1 text-xs text-slate-500"><MapPin size={12} />{formatDisplayDate(featuredTrip.startDate)} 〜 {formatDisplayDate(featuredTrip.endDate)}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500">次の旅を計画しましょう。</p>
-            )}
-            <span className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-accent">旅行を見る <ChevronRight size={13} /></span>
-          </Card>
+        <Link to="/trips" className="home-module home-module--travel home-module--interactive">
+          <div className="home-travel__image" aria-hidden="true" /><div className="home-travel__veil" aria-hidden="true" />
+          <div className="home-travel__content">
+            <ModuleHeading icon={Plane} eyebrow="次の旅" action={<span className="home-travel__status">{featuredTrip ? TRIP_STATUS_LABEL[featuredTrip.status] : "Plan a trip"}</span>} />
+            <div className="home-travel__destination">
+              {featuredTrip ? <><p>{featuredTrip.destination || featuredTrip.name}</p><span><MapPin size={13} />{formatDisplayDate(featuredTrip.startDate)} 〜 {formatDisplayDate(featuredTrip.endDate)}</span>{tripDays !== null && tripDays >= 0 && <strong>{tripDays === 0 ? "TODAY" : `あと ${tripDays} 日`}</strong>}</> : <><p>Where to next?</p><span>次の景色を計画しましょう</span></>}
+              <span className="home-travel__cta">{featuredTrip ? "旅程を見る" : "旅を計画"} <ArrowUpRight size={12} /></span>
+            </div>
+          </div>
         </Link>
       </div>
     </div>

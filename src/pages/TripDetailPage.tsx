@@ -111,7 +111,7 @@ export default function TripDetailPage() {
   }
 
   return (
-    <div className="mx-auto max-w-[1280px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
+    <div className="spatial-page trip-detail-page micro-contrast mx-auto max-w-[1480px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
       <PageHeader
         title={trip.name}
         subtitle={trip.destination}
@@ -136,7 +136,12 @@ export default function TripDetailPage() {
         }
       />
 
-      <div className="mx-5 mb-4 lg:mx-8 lg:mb-6">
+      <section className="trip-detail-hero mx-5 mb-3 lg:mx-8">
+        <div className="trip-detail-hero__photo" aria-hidden="true" /><div className="trip-detail-hero__veil" aria-hidden="true" />
+        <div className="trip-detail-hero__content"><span>Destination workspace</span><h2>{trip.destination}</h2><p>{formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} · {tripDurationLabel(trip.startDate, trip.endDate)}</p></div>
+      </section>
+
+      <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-5">
         <Tabs
           options={[
             { value: "overview", label: "概要" },
@@ -151,9 +156,9 @@ export default function TripDetailPage() {
         />
       </div>
 
-      <div className="px-5 lg:px-8">
+      <div className={`trip-detail-workspace trip-detail-workspace--${tab} px-5 lg:px-8`}>
         {tab === "overview" && (
-          <Card className="space-y-3">
+          <Card className="trip-overview-module space-y-3">
             <div className="flex items-center justify-between">
               <Badge tone={STATUS_TONE[trip.status]}>{STATUS_LABEL[trip.status]}</Badge>
               <span className="text-sm text-slate-400">{tripDurationLabel(trip.startDate, trip.endDate)}</span>

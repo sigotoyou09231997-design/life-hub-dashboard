@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
-import { RefreshCw, ChevronRight } from "lucide-react";
+import { RefreshCw, ChevronRight, Cloud, Mail, UserRound } from "lucide-react";
 import { db } from "../db/schema";
 import { auth, isSupabaseConfigured, getRedirectUri } from "../lib/supabase";
 import { syncNow } from "../lib/syncRuntime";
@@ -57,17 +57,18 @@ export default function AccountPage() {
     (session?.user.user_metadata?.full_name as string | undefined) ?? session?.user.email ?? "";
 
   return (
-    <div className="micro-contrast mx-auto max-w-[960px] pb-10 lg:pb-8">
+    <div className="spatial-page account-page micro-contrast mx-auto max-w-[900px] pb-10 lg:pb-8">
       <PageHeader title="アカウント" backTo="/" />
 
-      <div className="settings-account-grid grid gap-4 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
-        {!isSupabaseConfigured ? (
-          <Card>
-            <p className="text-sm text-slate-500">アカウント機能は現在この環境では利用できません。</p>
-          </Card>
-        ) : session ? (
-          <>
-            <Card className="flex items-center gap-4">
+      <div className="profile-control-panel settings-account-grid grid gap-3 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
+        <Card className="profile-identity-module lg:col-span-2">
+          <div className="profile-module__header">
+            <div><span>Identity</span><h2>プロフィール</h2></div>
+            <div className={`system-status ${session ? "is-online" : ""}`}><i />{!isSupabaseConfigured ? "UNAVAILABLE" : session ? "SIGNED IN" : "SIGNED OUT"}</div>
+          </div>
+          <div className="profile-identity-content">
+            {session ? (
+              <>
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="h-14 w-14 shrink-0 rounded-full object-cover" />
               ) : (
@@ -82,37 +83,49 @@ export default function AccountPage() {
                 <p className="truncate text-sm text-slate-500">{session.user.email}</p>
                 <p className="mt-1 text-xs text-success">この端末でログイン中</p>
               </div>
-            </Card>
+              </>
+            ) : (
+              <>
+                <div className="profile-placeholder-avatar"><UserRound size={22} /></div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-slate-800">{isSupabaseConfigured ? "ログインしていません" : "アカウント利用不可"}</p>
+                  <p className="mt-1 text-sm text-slate-500">{isSupabaseConfigured ? "Googleアカウントでログインすると端末間同期を利用できます。" : "この環境にはアカウント接続情報が設定されていません。"}</p>
+                </div>
+                {isSupabaseConfigured && <Button className="profile-identity-login" onClick={handleGoogleLogin}>Googleでログイン</Button>}
+              </>
+            )}
+          </div>
+        </Card>
 
-            <Card>
-              <p className="mb-1 text-sm font-semibold text-slate-700">同期</p>
-              <p className="mb-3 text-xs text-slate-400">
-                ログインした端末同士で、お金管理・予定・タスクなどのデータがリアルタイムに同期されます。
-              </p>
+        <Card className="profile-sync-module">
+          <div className="profile-module__header">
+            <div><span>Sync</span><h2>端末間同期</h2></div>
+            <Cloud size={17} />
+          </div>
+          <p className="profile-module__description text-xs text-slate-500">
+            {session ? "お金管理・予定・タスクなどを、ログインした端末同士で同期します。" : "ログイン後に、端末間のリアルタイム同期を利用できます。"}
+          </p>
+          <div className="profile-state-row"><span>Current status</span><strong>{session ? "同期可能" : isSupabaseConfigured ? "ログインが必要" : "未設定"}</strong></div>
+          {session && (
+            <div className="profile-module__actions">
               <Button variant="secondary" className="w-full" onClick={handleSync} disabled={syncing}>
                 <RefreshCw size={16} className={syncing ? "animate-spin motion-reduce:animate-none" : ""} />
                 {syncing ? "同期中..." : "今すぐ同期"}
               </Button>
-            </Card>
+            </div>
+          )}
+        </Card>
 
-            {gmailAccounts && gmailAccounts.length > 0 && (
-              <Card>
-                <p className="mb-1 text-sm font-semibold text-slate-700">Gmail連携</p>
-                <p className="text-sm text-slate-700">{gmailAccounts.length}件のGmailアカウントを連携中</p>
-              </Card>
-            )}
-          </>
-        ) : (
-          <Card>
-            <p className="mb-1 text-sm font-semibold text-slate-700">ログイン</p>
-            <p className="mb-3 text-xs text-slate-400">ログインすると、他の端末とデータが同期されます。</p>
-            <Button className="w-full" onClick={handleGoogleLogin}>
-              Googleでログイン
-            </Button>
-          </Card>
-        )}
+        <Card className="profile-gmail-module">
+          <div className="profile-module__header">
+            <div><span>Connectivity</span><h2>Gmail</h2></div>
+            <Mail size={17} />
+          </div>
+          <p className="profile-module__description text-xs text-slate-500">受信メールとAI返信案の接続状態です。管理は設定画面から行えます。</p>
+          <div className="profile-state-row"><span>Connected accounts</span><strong>{gmailAccounts === undefined ? "確認中" : `${gmailAccounts.length}件`}</strong></div>
+        </Card>
 
-        <Link to="/settings" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+        <Link to="/settings" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:col-span-2">
           <Card interactive className="flex items-center justify-between py-4">
             <span className="font-medium text-slate-900">設定を開く</span>
             <ChevronRight size={18} className="text-slate-300" />
@@ -120,7 +133,7 @@ export default function AccountPage() {
         </Link>
 
         {isSupabaseConfigured && session && (
-          <Button variant="danger" className="w-full" onClick={handleLogout}>
+          <Button variant="danger" className="w-full lg:col-span-2" onClick={handleLogout}>
             ログアウト
           </Button>
         )}

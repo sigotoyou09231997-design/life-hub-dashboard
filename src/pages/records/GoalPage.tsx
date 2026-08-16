@@ -15,7 +15,7 @@ export default function GoalPage() {
   const goals = useLiveQuery(() => db.goals.toArray(), []);
 
   return (
-    <div className="mx-auto max-w-[1100px] pb-10 lg:pb-8">
+    <div className="spatial-page records-detail-page micro-contrast mx-auto max-w-[1100px] pb-10 lg:pb-8">
       <PageHeader title="目標" backTo="/records" />
 
       <div className="px-5 lg:px-8">

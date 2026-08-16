@@ -43,10 +43,10 @@ export default function ExpensePage() {
   const showFixedSkeleton = useDelayedFlag(fixedCosts === undefined);
 
   return (
-    <div className="pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.money}>
+    <div className="spatial-page finance-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.money}>
       <PageHeader title="家計簿" subtitle="収支と固定費を管理" backTo="/" />
 
-      <div className="mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[840px]">
+      <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[840px]">
         <Tabs
           options={[
             { value: "summary", label: "サマリー" },
@@ -61,11 +61,11 @@ export default function ExpensePage() {
         />
       </div>
 
-      <div className="px-5 lg:px-8">
+      <div className={`spatial-page-content finance-workspace finance-workspace--${tab} px-5 lg:px-8`}>
         {tab === "summary" && <ExpenseSummary onAddSalary={() => setEditingSalary("new")} />}
 
         {tab === "salary" && (
-          <>
+          <div className="finance-ledger-workspace">
             {showSalarySkeleton ? (
               <ListSkeleton />
             ) : (
@@ -81,11 +81,11 @@ export default function ExpensePage() {
             <Button className="mt-4 w-full" onClick={() => setEditingSalary("new")}>
               給与を追加
             </Button>
-          </>
+          </div>
         )}
 
         {tab === "history" && (
-          <>
+          <div className="finance-ledger-workspace">
             {showHistorySkeleton ? (
               <ListSkeleton />
             ) : (
@@ -106,11 +106,11 @@ export default function ExpensePage() {
                 CSVから取込
               </Button>
             </div>
-          </>
+          </div>
         )}
 
         {tab === "fixed" && (
-          <>
+          <div className="finance-ledger-workspace">
             {showFixedSkeleton ? (
               <ListSkeleton />
             ) : (
@@ -126,7 +126,7 @@ export default function ExpensePage() {
             <Button className="mt-4 w-full" onClick={() => setEditingFixedCost("new")}>
               固定費を追加
             </Button>
-          </>
+          </div>
         )}
 
         {tab === "paypay" && <PayPayImport />}

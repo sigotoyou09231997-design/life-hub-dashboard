@@ -4,27 +4,41 @@ export interface BackgroundCandidate {
   id: string;
   period: BackgroundPeriod;
   src: string;
-  /** Curated UI-suitability scores. They keep selection deterministic and make
-   * it possible to add more AI-generated candidates without touching layout. */
+  /** 100-point visual review inputs. Assets are admitted only after the
+   * people/text/logo/noise checks have passed. */
   negativeSpace: number;
-  lowContrast: number;
+  visualNoise: number;
+  textSafeArea: number;
+  mobileTextSafeArea: number;
+  glassCompatibility: number;
+  timeMatch: number;
   desktopCrop: number;
   mobileCrop: number;
+  colorHarmony: number;
+  brightness: number;
+  imageBeauty: number;
   objectPosition: string;
   mobileObjectPosition: string;
 }
 
-const BACKGROUND_CACHE_VERSION = "life-hub-background-v3";
+const BACKGROUND_CACHE_VERSION = "life-hub-background-v4";
 
 export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
   {
     id: "morning-coast",
     period: "morning",
     src: "/backgrounds/lifehub-morning.jpg",
-    negativeSpace: 0.96,
-    lowContrast: 0.94,
-    desktopCrop: 0.96,
-    mobileCrop: 0.86,
+    negativeSpace: 96,
+    visualNoise: 94,
+    textSafeArea: 96,
+    mobileTextSafeArea: 88,
+    glassCompatibility: 95,
+    timeMatch: 94,
+    desktopCrop: 96,
+    mobileCrop: 86,
+    colorHarmony: 94,
+    brightness: 93,
+    imageBeauty: 92,
     objectPosition: "48% center",
     mobileObjectPosition: "58% center",
   },
@@ -32,10 +46,17 @@ export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
     id: "day-coast",
     period: "day",
     src: "/backgrounds/lifehub-day.jpg",
-    negativeSpace: 0.93,
-    lowContrast: 0.9,
-    desktopCrop: 0.98,
-    mobileCrop: 0.88,
+    negativeSpace: 93,
+    visualNoise: 90,
+    textSafeArea: 95,
+    mobileTextSafeArea: 89,
+    glassCompatibility: 94,
+    timeMatch: 93,
+    desktopCrop: 98,
+    mobileCrop: 88,
+    colorHarmony: 95,
+    brightness: 94,
+    imageBeauty: 92,
     objectPosition: "45% center",
     mobileObjectPosition: "56% center",
   },
@@ -43,10 +64,17 @@ export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
     id: "evening-coast",
     period: "evening",
     src: "/backgrounds/lifehub-evening.jpg",
-    negativeSpace: 0.95,
-    lowContrast: 0.9,
-    desktopCrop: 0.98,
-    mobileCrop: 0.9,
+    negativeSpace: 95,
+    visualNoise: 90,
+    textSafeArea: 96,
+    mobileTextSafeArea: 91,
+    glassCompatibility: 94,
+    timeMatch: 96,
+    desktopCrop: 98,
+    mobileCrop: 90,
+    colorHarmony: 93,
+    brightness: 90,
+    imageBeauty: 95,
     objectPosition: "47% center",
     mobileObjectPosition: "56% center",
   },
@@ -54,10 +82,17 @@ export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
     id: "night-coast",
     period: "night",
     src: "/backgrounds/lifehub-night.jpg",
-    negativeSpace: 0.94,
-    lowContrast: 0.91,
-    desktopCrop: 0.97,
-    mobileCrop: 0.88,
+    negativeSpace: 94,
+    visualNoise: 91,
+    textSafeArea: 95,
+    mobileTextSafeArea: 89,
+    glassCompatibility: 94,
+    timeMatch: 95,
+    desktopCrop: 97,
+    mobileCrop: 88,
+    colorHarmony: 94,
+    brightness: 89,
+    imageBeauty: 94,
     objectPosition: "48% center",
     mobileObjectPosition: "58% center",
   },
@@ -71,11 +106,20 @@ export function getBackgroundPeriod(date = new Date()): BackgroundPeriod {
   return "night";
 }
 
-function suitabilityScore(candidate: BackgroundCandidate, portrait: boolean): number {
+export function backgroundSuitabilityScore(candidate: BackgroundCandidate, portrait: boolean): number {
   const cropScore = portrait ? candidate.mobileCrop : candidate.desktopCrop;
-  // Negative space and safe cropping dominate selection. Candidates are
-  // manually admitted only when text/people are absent and visual noise is low.
-  return candidate.negativeSpace * 0.55 + candidate.lowContrast * 0.2 + cropScore * 0.25;
+  const textSafeArea = portrait ? candidate.mobileTextSafeArea : candidate.textSafeArea;
+  return (
+    candidate.negativeSpace * .22 +
+    candidate.visualNoise * .17 +
+    textSafeArea * .16 +
+    cropScore * .12 +
+    candidate.colorHarmony * .1 +
+    candidate.timeMatch * .09 +
+    candidate.brightness * .07 +
+    candidate.imageBeauty * .05 +
+    candidate.glassCompatibility * .02
+  );
 }
 
 /**
@@ -97,10 +141,11 @@ export function selectBackground(period: BackgroundPeriod, portrait: boolean): B
     // Storage can be unavailable in private/restricted browser contexts.
   }
 
-  const selected = [...candidates].sort((a, b) => suitabilityScore(b, portrait) - suitabilityScore(a, portrait))[0];
+  const eligible = candidates.filter((candidate) => backgroundSuitabilityScore(candidate, portrait) >= 75);
+  const selected = [...eligible].sort((a, b) => backgroundSuitabilityScore(b, portrait) - backgroundSuitabilityScore(a, portrait))[0];
   // The manifest always contains one candidate per time band. This fallback
   // makes the contract safe if an incomplete manifest is shipped later.
-  const fallback = selected ?? BACKGROUND_CANDIDATES[0];
+  const fallback = selected ?? candidates[0] ?? BACKGROUND_CANDIDATES[0];
   try {
     window.localStorage.setItem(cacheKey, fallback.id);
   } catch {

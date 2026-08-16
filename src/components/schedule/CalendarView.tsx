@@ -45,8 +45,8 @@ export function CalendarView({
   const selectedHoliday = getHolidayMapForYear(Number(selectedDate.slice(0, 4))).get(selectedDate);
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(330px,.55fr)]">
-      <Card className="p-4 lg:p-6">
+    <div className="calendar-workspace grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,.5fr)]">
+      <Card className="calendar-workspace__month p-4 lg:p-6">
         <MonthView
           currentMonth={currentMonth}
           onMonthChange={onMonthChange}
@@ -58,10 +58,10 @@ export function CalendarView({
         />
       </Card>
 
-      <Card className="space-y-5 p-5 lg:p-6">
+      <Card className="calendar-workspace__detail space-y-5 p-5 lg:p-6">
         <div>
           <div className="mb-2 flex items-center gap-2">
-            <p className="text-sm font-medium text-slate-600">{formatDisplayDate(selectedDate)}の予定</p>
+            <p className="calendar-detail-date text-sm font-medium text-slate-600">{formatDisplayDate(selectedDate)}の予定</p>
             {selectedHoliday && (
               <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-red-500">
                 {selectedHoliday}
@@ -81,7 +81,7 @@ export function CalendarView({
         <div>
           <p className="mb-2 text-sm font-medium text-slate-600">{formatDisplayDate(selectedDate)}のタスク</p>
           {dayTasks.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-400">タスクはありません</p>
+            <p className="calendar-compact-empty py-4 text-sm text-slate-500">タスクはありません</p>
           ) : (
             <div className="space-y-2">
               {dayTasks.map((t) => (

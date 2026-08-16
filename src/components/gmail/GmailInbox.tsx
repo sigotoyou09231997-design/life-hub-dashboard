@@ -175,7 +175,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     // 一覧画面より大きく見えていた)。lg以上は高さを親グリッドに合わせて固定し、
     // リスト部分だけが内部スクロールする(検索・タブ・ブロック中リンクは常に見える)。
     // lg未満(モバイル)はflex-colのまま自然に積み重なり、ページ全体でスクロールする。
-    <div className="flex flex-col gap-3 lg:h-full lg:min-h-0">
+    <div className="mail-inbox flex flex-col gap-3 lg:h-full lg:min-h-0">
       {!showSkeleton && emails && emails.length > 0 && (
         <div className="relative shrink-0">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
@@ -183,7 +183,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="メールを検索"
-            className="w-full min-h-11 rounded-[2px] border border-white/55 bg-white/30 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent/60 focus:bg-white/55 focus:ring-2 focus:ring-accent/15"
+          className="spatial-field w-full min-h-11 rounded-[2px] border border-white/55 bg-white/30 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent/60 focus:bg-white/55 focus:ring-2 focus:ring-accent/15"
           />
         </div>
       )}
@@ -238,7 +238,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
                 href={`/gmail/mail/${email.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="glass-row flex w-full items-start gap-3 rounded-xl border-l-[3px] border-l-transparent px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 active:bg-white/60"
+                className={`mail-row glass-row flex w-full items-start gap-3 rounded-xl border-l-[3px] px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 active:bg-white/60 ${unread ? "is-unread border-l-accent" : "border-l-transparent"}`}
               >
                 <div
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(sender.email)}`}

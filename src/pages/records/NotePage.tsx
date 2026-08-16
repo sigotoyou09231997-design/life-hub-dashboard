@@ -48,7 +48,7 @@ export default function NotePage() {
   }
 
   return (
-    <div className="pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.notes}>
+    <div className="spatial-page notes-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.notes}>
       <PageHeader
         title="メモ・リスト"
         backTo="/"
@@ -63,7 +63,7 @@ export default function NotePage() {
         }
       />
 
-      <div className="px-5 lg:px-8">
+      <div className="spatial-page-content notes-workspace px-5 lg:px-8">
         {showSkeleton ? (
           <ListSkeleton />
         ) : (

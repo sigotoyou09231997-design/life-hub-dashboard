@@ -58,7 +58,7 @@ export function AppHeader() {
 
   return (
     <>
-      <header className="glass-header app-header">
+      <header className={`glass-header app-header ${pathname === "/" ? "app-header--home" : ""}`}>
         <div className="app-header__mobile-left">
           <Link
             to="/account"
@@ -79,7 +79,7 @@ export function AppHeader() {
         <div className="app-header__title">
           <span className="app-header__mobile-brand">LIFE HUB</span>
           <div className="hidden lg:block">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Personal workspace</p>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Life hub</p>
             <p className="mt-0.5 text-[15px] font-semibold tracking-tight text-slate-800">{pageTitle}</p>
           </div>
         </div>

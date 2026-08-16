@@ -12,7 +12,7 @@ export function ListRow({ className = "", interactive = false, children, ...prop
   return (
     <div
       className={twMerge(
-        "glass-row relative p-3.5",
+        "glass-row spatial-control relative p-3.5",
         interactive &&
           "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         className,

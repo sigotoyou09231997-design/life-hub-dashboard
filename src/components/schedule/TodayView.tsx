@@ -1,13 +1,13 @@
+import type { CSSProperties } from "react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CheckSquare } from "lucide-react";
+import { CalendarDays, CheckSquare, Plus } from "lucide-react";
 import type { CalendarEvent, Task } from "../../types";
 import { todayStr, isOverdue } from "../../lib/date";
 import { EventList } from "../calendar/EventList";
 import { TaskItem } from "../tasks/TaskItem";
 import { toggleTaskCompletion, deleteTaskCascade } from "../tasks/TaskList";
 import { Card } from "../ui/Card";
-import { EmptyState } from "../ui/EmptyState";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
 
 interface Props {
@@ -18,52 +18,65 @@ interface Props {
   onDeleteEvent: (id: string) => void;
   onEditTask: (t: Task) => void;
   onAddSubtask: (parentId: string) => void;
+  onAddEvent: () => void;
+  onAddTask: () => void;
 }
 
-export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent, onEditTask, onAddSubtask }: Props) {
+export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent, onEditTask, onAddSubtask, onAddEvent, onAddTask }: Props) {
   const today = todayStr();
   const todayEvents = events.filter((e) => e.date === today);
   const todayTripAgenda = tripAgenda.filter((t) => t.date === today);
-
   const incompleteTopLevel = tasks.filter((t) => !t.completed && !t.parentTaskId);
-  // A due-today task whose time has already passed counts as overdue, not
-  // "today" — the two groups are mutually exclusive.
   const overdueTasks = incompleteTopLevel.filter((t) => isOverdue(t.dueDate, t.dueTime));
-  const dueTodayTasks = incompleteTopLevel.filter(
-    (t) => t.dueDate === today && !isOverdue(t.dueDate, t.dueTime),
-  );
+  const dueTodayTasks = incompleteTopLevel.filter((t) => t.dueDate === today && !isOverdue(t.dueDate, t.dueTime));
+  const allDueTodayTasks = tasks.filter((t) => t.dueDate === today && !t.parentTaskId);
+  const completedTodayCount = allDueTodayTasks.filter((t) => t.completed).length;
+  const taskProgress = allDueTodayTasks.length ? Math.round((completedTodayCount / allDueTodayTasks.length) * 100) : 0;
+  const now = new Date();
+  const currentTimePosition = Math.max(0, Math.min(100, (((now.getHours() + now.getMinutes() / 60) - 6) / 18) * 100));
 
   return (
-    <div className="space-y-6">
-      {/* Paired as a 2-up grid at lg+ (1 column below) so an empty day never
-          shows as a bare EmptyState sitting directly on the page background —
-          both sections are always inside their own glass card with a
-          min-height, matching the density of a populated day. */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="flex min-h-[220px] flex-col">
-          <p className="mb-2 text-sm font-medium text-slate-600">{format(new Date(), "M月d日(E)", { locale: ja })}の予定</p>
-          <div className="flex flex-1 flex-col justify-center">
-            <EventList events={todayEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} emptyMessage="今日の予定はありません" />
+    <div className="planning-today space-y-5">
+      <div className="planning-today__grid grid gap-3 lg:grid-cols-12">
+        <Card className="planning-timeline-module flex min-h-[250px] flex-col lg:col-span-7">
+          <div className="planning-module-heading">
+            <div><span>Today timeline</span><p>{format(now, "M月d日(E)", { locale: ja })}</p></div>
+            <b>{todayEvents.length} EVENTS</b>
+          </div>
+          <div className="planning-timeline-detail">
+            <div className="planning-time-rail" aria-hidden="true">
+              <span>6</span><span>12</span><span>18</span><span>24</span>
+              <i style={{ top: `${currentTimePosition}%` }} />
+            </div>
+            <div className="planning-timeline-content">
+              {todayEvents.length > 0 ? (
+                <EventList events={todayEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} />
+              ) : (
+                <div className="planning-empty-control planning-empty-control--timeline">
+                  <div className="planning-compact-empty"><span className="planning-date-glyph">{format(now, "d")}</span><div><strong>静かな一日です</strong><p>次の予定はまだありません</p></div></div>
+                  <div className="planning-empty-footer"><span><i />NOW · Timeline ready</span><button type="button" onClick={onAddEvent}><Plus size={13} />予定を追加</button></div>
+                </div>
+              )}
+            </div>
           </div>
         </Card>
 
-        <Card className="flex min-h-[220px] flex-col">
-          <p className="mb-2 text-sm font-medium text-slate-600">今日のタスク</p>
-          <div className="flex flex-1 flex-col justify-center">
+        <Card className="planning-task-module flex min-h-[250px] flex-col lg:col-span-5">
+          <div className="planning-module-heading"><div><span>Task control</span><p>今日のタスク</p></div><b>{completedTodayCount} / {allDueTodayTasks.length}</b></div>
+          <div className="planning-task-overview">
+            <div className="planning-progress-ring" style={{ "--planning-progress": `${taskProgress * 3.6}deg` } as CSSProperties}><span>{taskProgress}<small>%</small></span></div>
+            <div><strong>{allDueTodayTasks.length ? `あと${Math.max(0, allDueTodayTasks.length - completedTodayCount)}件` : "0 tasks"}</strong><p>完了 {completedTodayCount} / 全体 {allDueTodayTasks.length}</p></div>
+          </div>
+          <div className="planning-task-list">
             {dueTodayTasks.length === 0 ? (
-              <EmptyState icon={CheckSquare} title="今日期限のタスクはありません" />
+              <div className="planning-empty-control planning-empty-control--tasks">
+                <div className="planning-compact-empty"><CheckSquare size={18} /><div><strong>今日のタスクはありません</strong><p>今日のControlは整っています</p></div></div>
+                <div className="planning-empty-footer"><span>0 open · Ready</span><button type="button" onClick={onAddTask}><Plus size={13} />タスクを追加</button></div>
+              </div>
             ) : (
               <div className="space-y-2">
-                {dueTodayTasks.map((t) => (
-                  <TaskItem
-                    key={t.id}
-                    task={t}
-                    allTasks={tasks}
-                    onToggle={toggleTaskCompletion}
-                    onEdit={onEditTask}
-                    onDelete={deleteTaskCascade}
-                    onAddSubtask={onAddSubtask}
-                  />
+                {dueTodayTasks.map((task) => (
+                  <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskCascade} onAddSubtask={onAddSubtask} />
                 ))}
               </div>
             )}
@@ -72,29 +85,14 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
       </div>
 
       {todayTripAgenda.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-medium text-slate-600">今日の旅行の予定</p>
-          <TripAgendaList items={todayTripAgenda} />
-        </div>
+        <section className="planning-secondary-module"><p><CalendarDays size={14} />今日の旅行予定</p><TripAgendaList items={todayTripAgenda} /></section>
       )}
 
       {overdueTasks.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-medium text-danger">期限切れのタスク</p>
-          <div className="space-y-2">
-            {overdueTasks.map((t) => (
-              <TaskItem
-                key={t.id}
-                task={t}
-                allTasks={tasks}
-                onToggle={toggleTaskCompletion}
-                onEdit={onEditTask}
-                onDelete={deleteTaskCascade}
-                onAddSubtask={onAddSubtask}
-              />
-            ))}
-          </div>
-        </div>
+        <section className="planning-secondary-module planning-secondary-module--danger">
+          <p>期限切れのタスク</p>
+          <div className="space-y-2">{overdueTasks.map((task) => <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskCascade} onAddSubtask={onAddSubtask} />)}</div>
+        </section>
       )}
     </div>
   );

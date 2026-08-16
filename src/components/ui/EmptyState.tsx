@@ -14,7 +14,7 @@ interface Props {
 
 export function EmptyState({ icon: Icon, title, description, action, card = false }: Props) {
   const content = (
-    <div className="empty-state flex flex-col items-center gap-2.5 py-5 text-center sm:py-6">
+    <div className="empty-state spatial-empty flex flex-col items-center gap-2.5 py-5 text-center sm:py-6">
       {Icon && (
         <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-light text-accent shadow-[inset_0_1px_rgba(255,255,255,.5)]">
           <Icon size={21} />
@@ -22,7 +22,7 @@ export function EmptyState({ icon: Icon, title, description, action, card = fals
       )}
       <div>
         <p className="font-semibold text-slate-900">{title}</p>
-        {description && <p className="mt-1 text-sm text-slate-400">{description}</p>}
+        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
       </div>
       {action && <Button onClick={action.onClick}>{action.label}</Button>}
     </div>

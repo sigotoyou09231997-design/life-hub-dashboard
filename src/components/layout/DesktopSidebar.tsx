@@ -36,6 +36,8 @@ function SidebarLink({ to, label, icon: Icon }: (typeof PRIMARY_NAV)[number]) {
     <NavLink
       to={to}
       aria-current={active ? "page" : undefined}
+      aria-label={label}
+      data-label={label}
       className={`sidebar-link ${active ? "sidebar-link--active" : ""}`}
     >
       <span className="sidebar-link__indicator" aria-hidden="true" />
@@ -57,7 +59,7 @@ export function DesktopSidebar() {
       </NavLink>
 
       <nav className="sidebar-nav">
-        <div className="sidebar-nav__group">
+        <div className="sidebar-nav__group sidebar-nav__group--secondary">
           {PRIMARY_NAV.map((item) => <SidebarLink key={item.to} {...item} />)}
         </div>
         <div className="sidebar-nav__divider" />
@@ -66,7 +68,7 @@ export function DesktopSidebar() {
         </div>
       </nav>
 
-      <NavLink to="/account" className="sidebar-account">
+      <NavLink to="/account" className="sidebar-account" aria-label="アカウント" data-label="アカウント">
         <span className="sidebar-account__avatar"><UserRound size={17} strokeWidth={1.6} /></span>
         <span>
           <span className="block text-xs font-semibold text-slate-700">アカウント</span>

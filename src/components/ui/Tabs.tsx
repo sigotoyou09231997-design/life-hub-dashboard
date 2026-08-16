@@ -23,10 +23,10 @@ export function Tabs<T extends string>({ options, value, onChange, dense = false
   return (
     <div
       role="tablist"
-      className={`relative grid gap-0 border border-white/45 bg-white/18 p-1 ${COLS_CLASS[options.length] ?? "grid-cols-3"} ${className}`}
+      className={`spatial-tabs relative grid gap-0 border border-white/45 bg-white/18 p-1 ${COLS_CLASS[options.length] ?? "grid-cols-3"} ${className}`}
     >
       <span
-        className="pointer-events-none absolute bottom-1 top-1 border border-white/45 bg-white/42 shadow-[0_7px_18px_rgba(53,78,108,.07),inset_0_1px_0_rgba(255,255,255,.58)] transition-transform duration-200 ease-out motion-reduce:transition-none"
+        className="spatial-tabs__indicator pointer-events-none absolute bottom-1 top-1 border border-white/45 bg-white/42 shadow-[0_7px_18px_rgba(53,78,108,.07),inset_0_1px_0_rgba(255,255,255,.58)] transition-transform duration-200 ease-out motion-reduce:transition-none"
         style={{ width: `calc((100% - 0.5rem) / ${options.length})`, left: "0.25rem", transform: `translateX(${activeIndex * 100}%)` }}
         aria-hidden="true"
       />

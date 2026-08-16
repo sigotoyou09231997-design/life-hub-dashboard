@@ -57,7 +57,7 @@ export function MonthView({
   );
 
   return (
-    <div>
+    <div className="spatial-calendar">
       <div className="mb-3 flex items-center justify-between">
         <button
           onClick={() => onMonthChange(subMonths(currentMonth, 1))}
@@ -76,7 +76,7 @@ export function MonthView({
         </button>
       </div>
 
-      <div className="grid grid-cols-7 border-b border-white/35 text-center text-xs text-slate-500">
+      <div className="spatial-calendar__weekdays grid grid-cols-7 border-b border-white/35 text-center text-xs text-slate-500">
         {WEEKDAY_LABELS.map((w) => (
           <div key={w} className="py-1.5">
             {w}
@@ -84,7 +84,7 @@ export function MonthView({
         ))}
       </div>
 
-      <div className="grid grid-cols-7">
+      <div className="spatial-calendar__days grid grid-cols-7">
         {days.map((day) => {
           const dateStr = toDateStr(day);
           const inMonth = isSameMonth(day, currentMonth);
@@ -101,7 +101,7 @@ export function MonthView({
               onClick={() => !disabled && onSelectDate(dateStr)}
               disabled={disabled}
               title={disabled ? `${minDate}以降のみ選択できます` : holidayName}
-              className={`relative flex min-h-[66px] flex-col items-center gap-0.5 border-b border-r border-white/20 py-1.5 transition-colors hover:bg-white/15 disabled:cursor-not-allowed lg:min-h-[82px] ${selected ? "bg-white/20" : ""}`}
+              className={`spatial-calendar__cell relative flex min-h-[66px] flex-col items-center gap-0.5 border-b border-r border-white/20 py-1.5 transition-colors hover:bg-white/15 disabled:cursor-not-allowed lg:min-h-[82px] ${selected ? "is-selected bg-white/20" : ""} ${isToday(day) ? "is-today" : ""}`}
             >
               <span
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all ${

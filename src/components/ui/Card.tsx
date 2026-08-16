@@ -10,7 +10,7 @@ export function Card({ className = "", interactive = false, children, ...props }
   return (
     <div
       className={twMerge(
-        "glass-card p-5",
+        "glass-card spatial-module p-5",
         interactive && "card-interactive",
         className,
       )}

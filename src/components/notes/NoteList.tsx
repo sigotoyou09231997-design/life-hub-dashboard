@@ -3,7 +3,7 @@ import type { Note, NoteType } from "../../types";
 import { NOTE_TYPE_DEFS, getNoteType } from "../../lib/noteTypes";
 import { NoteCard } from "./NoteCard";
 import { EmptyState } from "../ui/EmptyState";
-import { Search, StickyNote } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 interface Props {
   notes: Note[];
@@ -37,8 +37,8 @@ export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
   });
 
   return (
-    <div>
-      <div className="mb-5 grid gap-3 border-b border-white/35 pb-4 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-center">
+    <div className="notes-control-center">
+      <div className="notes-toolbar mb-5 grid gap-3 border-b border-white/35 pb-4 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-center">
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
         <input
@@ -82,17 +82,27 @@ export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
 
       {sorted.length === 0 ? (
         notes.length === 0 ? (
-          <EmptyState
-            icon={StickyNote}
-            title="メモ・リストがまだありません"
-            description="最初のメモを書いてみましょう。"
-            action={{ label: "新しいメモ", onClick: onAdd }}
-          />
+          <section className="notes-empty-control" aria-labelledby="notes-empty-title">
+            <div className="notes-empty-control__heading">
+              <div><span>Notes control</span><h2 id="notes-empty-title">メモ・リスト</h2></div>
+              <strong>0 ITEMS</strong>
+            </div>
+            <div className="notes-empty-control__types">
+              {NOTE_TYPE_DEFS.map((def) => {
+                const Icon = def.icon;
+                return <div key={def.value}><Icon size={16} /><span>{def.label}</span><strong>0</strong></div>;
+              })}
+            </div>
+            <div className="notes-empty-control__action">
+              <p><strong>最初のメモを作成</strong><span>アイデアやリストを、ここから整理できます。</span></p>
+              <button type="button" onClick={onAdd}><Plus size={15} />新しいメモ</button>
+            </div>
+          </section>
         ) : (
           <EmptyState title="該当する結果が見つかりませんでした" description="検索条件や絞り込みを変えてみてください。" />
         )
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="notes-widget-grid grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {sorted.map((n) => (
             <NoteCard key={n.id} note={n} onEdit={onEdit} onDelete={onDelete} />
           ))}

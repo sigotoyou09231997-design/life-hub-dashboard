@@ -42,9 +42,7 @@ function NoteSummary({ note }: { note: Note }) {
     const items = note.checklistItems ?? [];
     const checkedCount = items.filter((i) => i.checked).length;
     return (
-      <p className="mt-1 text-xs text-slate-500">
-        {items.length === 0 ? "項目がありません" : `${checkedCount}/${items.length} 完了`}
-      </p>
+      <div className="note-widget__progress"><span><i style={{ width: `${items.length ? (checkedCount / items.length) * 100 : 0}%` }} /></span><small>{items.length === 0 ? "項目がありません" : `${checkedCount}/${items.length} 完了`}</small></div>
     );
   }
 
@@ -53,9 +51,7 @@ function NoteSummary({ note }: { note: Note }) {
     const planned = items.reduce((sum, i) => sum + (i.price ?? 0), 0);
     const purchased = items.filter((i) => i.purchased).reduce((sum, i) => sum + (i.price ?? 0), 0);
     return (
-      <p className="mt-1 text-xs text-slate-500">
-        {items.length === 0 ? "商品がありません" : `${yen(purchased)} / ${yen(planned)}`}
-      </p>
+      <div className="note-widget__shopping"><strong>{items.length}</strong><span>items</span><small>{items.length === 0 ? "商品がありません" : `${yen(purchased)} / ${yen(planned)}`}</small></div>
     );
   }
 
@@ -68,7 +64,7 @@ export function NoteCard({ note, onEdit, onDelete }: Props) {
   const TypeIcon = typeDef.icon;
 
   return (
-    <ListRow interactive className="h-full min-h-[190px] p-0">
+    <ListRow interactive className={`note-widget note-widget--${type} h-full min-h-[190px] p-0`}>
       <button
         type="button"
         onClick={() => onEdit(note)}
@@ -98,7 +94,7 @@ export function NoteCard({ note, onEdit, onDelete }: Props) {
           </div>
         </div>
 
-        <div className="pointer-events-auto mt-auto flex items-center gap-2 border-t border-white/35 pt-3">
+        <div className="note-widget__actions pointer-events-auto mt-auto flex items-center gap-2 border-t border-white/35 pt-3">
           {type === "memo" && (
             <>
               <button

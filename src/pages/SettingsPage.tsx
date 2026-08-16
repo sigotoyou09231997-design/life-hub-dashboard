@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
+import { Database, Mail } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { GmailAccount } from "../types";
 import { exportBackup, importBackup } from "../lib/backup";
@@ -120,16 +121,23 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="micro-contrast mx-auto max-w-[1040px] pb-10 lg:pb-8">
+    <div className="spatial-page settings-page micro-contrast mx-auto max-w-[1040px] pb-10 lg:pb-8">
       <PageHeader title="設定" backTo="/" />
 
-      <div className="settings-account-grid grid gap-4 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
-        <Card>
-          <p className="mb-1 text-sm font-semibold text-slate-700">データ管理</p>
-          <p className="mb-3 text-xs text-slate-400">
+      <div className="system-control-panel settings-account-grid grid gap-3 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
+        <Card className="system-section system-section--data">
+          <div className="system-section__header">
+            <div className="system-section__identity"><span><Database size={17} /></span><div><p>System</p><h2>データ管理</h2></div></div>
+            <div className="system-status is-online"><i />{session ? "LOCAL + SYNC" : "LOCAL"}</div>
+          </div>
+          <p className="system-section__description text-xs text-slate-500">
             すべてのデータは端末内にのみ保存されています。バックアップを取っておくと安心です。
           </p>
-          <div className="flex gap-3">
+          <div className="system-state-control">
+            <div><span>Storage</span><strong>{session ? "この端末 + 同期" : "この端末"}</strong></div>
+            <small>{session ? "同期可能" : "Local only"}</small>
+          </div>
+          <div className="system-section__actions flex gap-3">
             <Button variant="secondary" className="flex-1" onClick={handleExport}>
               書き出す
             </Button>
@@ -146,14 +154,21 @@ export default function SettingsPage() {
           </div>
         </Card>
 
-        <Card>
-          <p className="mb-1 text-sm font-semibold text-slate-700">Gmail連携</p>
-          <p className="mb-3 text-xs text-slate-400">
+        <Card className="system-section system-section--gmail">
+          <div className="system-section__header">
+            <div className="system-section__identity"><span><Mail size={17} /></span><div><p>Connectivity</p><h2>Gmail</h2></div></div>
+            <div className={`system-status ${gmailAccounts && gmailAccounts.length > 0 ? "is-online" : ""}`}><i />{gmailAccounts === undefined ? "CHECKING" : gmailAccounts.length > 0 ? "CONNECTED" : "NOT CONNECTED"}</div>
+          </div>
+          <p className="system-section__description text-xs text-slate-500">
             受信メールにAIが返信案を作成します。
             {!pushEnabled && "連携情報はこの端末にのみ保存されます。"}
           </p>
+          <div className="system-state-control">
+            <div><span>Connection</span><strong>{gmailAccounts && gmailAccounts.length > 0 ? `${gmailAccounts.length} アカウント` : "未接続"}</strong></div>
+            <small>{gmailAccounts && gmailAccounts.length > 0 ? "AI reply ready" : "AI reply unavailable"}</small>
+          </div>
           {gmailAccounts && gmailAccounts.length > 0 && (
-            <div className="mb-3 space-y-2">
+            <div className="system-account-list space-y-2">
               {gmailAccounts.map((account) => (
                 <ListRow key={account.id} className="flex items-center justify-between py-2.5">
                   <span className="truncate text-sm text-slate-700">{account.email}</span>
@@ -167,15 +182,17 @@ export default function SettingsPage() {
               ))}
             </div>
           )}
-          <Button variant="secondary" className="w-full" onClick={startGmailOAuth}>
-            {gmailAccounts && gmailAccounts.length > 0 ? "+ アカウントを追加" : "連携する"}
-          </Button>
+          <div className="system-section__actions">
+            <Button variant="secondary" className="w-full" onClick={startGmailOAuth}>
+              {gmailAccounts && gmailAccounts.length > 0 ? "+ アカウントを追加" : "連携する"}
+            </Button>
+          </div>
 
           {isSupabaseConfigured && isPushConfigured && session && gmailAccounts && gmailAccounts.length > 0 && (
             <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/40 pt-3">
               <div>
                 <p className="text-sm text-slate-700">バックグラウンド通知</p>
-                <p className="mt-0.5 text-xs text-slate-400">
+                <p className="mt-0.5 text-xs text-slate-500">
                   アプリを閉じていても新着メールを通知します(refresh tokenをサーバーにも保存します)
                 </p>
               </div>

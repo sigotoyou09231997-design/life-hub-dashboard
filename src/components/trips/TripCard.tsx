@@ -15,21 +15,23 @@ export function TripCard({ trip, onDelete }: Props) {
       to={`/trips/${trip.id}`}
       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
-      <Card interactive className="flex min-h-[118px] items-center justify-between py-4">
-        <div className="min-w-0">
+      <Card interactive className={`trip-module trip-module--${trip.status} flex min-h-[190px] items-end justify-between overflow-hidden py-4`}>
+        <div className="trip-module__photo" aria-hidden="true" />
+        <div className="trip-module__veil" aria-hidden="true" />
+        <div className="trip-module__content min-w-0">
           <p className="line-clamp-2 font-semibold text-navy" title={trip.name}>
             {trip.name}
           </p>
-          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-400">
+          <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-200">
             <MapPin size={12} />
             {trip.destination}
           </p>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-slate-200">
             {formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} ・{" "}
             {tripDurationLabel(trip.startDate, trip.endDate)}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="trip-module__actions flex shrink-0 items-center gap-1">
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -41,11 +43,11 @@ export function TripCard({ trip, onDelete }: Props) {
               }
             }}
             aria-label="削除"
-            className="rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+            className="rounded-full p-1.5 text-white/70 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
           >
             <Trash2 size={16} />
           </button>
-          <ChevronRight size={18} className="text-slate-300" />
+          <ChevronRight size={18} className="text-white/70" />
         </div>
       </Card>
     </Link>

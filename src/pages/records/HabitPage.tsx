@@ -15,7 +15,7 @@ export default function HabitPage() {
   const habits = useLiveQuery(() => db.habits.toArray(), []);
 
   return (
-    <div className="mx-auto max-w-[1100px] pb-10 lg:pb-8">
+    <div className="spatial-page records-detail-page micro-contrast mx-auto max-w-[1100px] pb-10 lg:pb-8">
       <PageHeader title="習慣" subtitle="毎日のチェックで続ける" backTo="/records" />
 
       <div className="px-5 lg:px-8">
