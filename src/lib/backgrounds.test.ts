@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BACKGROUND_ACCEPTANCE_SCORE,
+  BACKGROUND_CARD_CONTRAST_MIN,
   BACKGROUND_CACHE_VERSION,
   BACKGROUND_CANDIDATES,
   BACKGROUND_NEAR_TIE_SCORE_WINDOW,
@@ -122,6 +123,17 @@ describe("background candidate refresh", () => {
   });
 
   it("builds category-aware near-top pools without admitting a large score gap", () => {
+    expect(getBackgroundRotationPool("morning", false).map((candidate) => candidate.id)).toEqual([
+      "morning-mist-lake-v5",
+      "morning-coastal-pavilion-v5",
+      "morning-window-living-v5",
+    ]);
+    expect(getBackgroundRotationPool("morning", true).map((candidate) => candidate.id)).toEqual([
+      "morning-mist-lake-v5",
+      "morning-coastal-pavilion-v5",
+    ]);
+    expect(BACKGROUND_CANDIDATES.find(({ id }) => id === "morning-white-atrium-v5")?.cardContrast)
+      .toBeLessThan(BACKGROUND_CARD_CONTRAST_MIN);
     expect(getBackgroundRotationPool("day", false).map((candidate) => candidate.id)).toEqual([
       "day-white-courtyard-v5",
       "day-ocean-living-v5",
@@ -135,6 +147,10 @@ describe("background candidate refresh", () => {
   });
 
   it("is stable across page transitions within a day and rotates across dates", () => {
+    const currentMorning = new Date(2026, 7, 17, 6);
+    expect(selectBackground("morning", false, currentMorning).id).toBe("morning-mist-lake-v5");
+    expect(selectBackground("morning", true, currentMorning).id).toBe("morning-mist-lake-v5");
+
     for (const period of PERIODS) {
       const date = new Date(2026, 7, 17, 12);
       expect(selectBackground(period, false, date).id).toBe(selectBackground(period, false, date).id);

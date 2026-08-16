@@ -21,6 +21,10 @@ export interface BackgroundCandidate {
   colorHarmony: number;
   brightness: number;
   imageBeauty: number;
+  /** Separation between translucent white cards and the scene beneath them.
+   * Very pale, near-uniform scenes can score well for text safety while still
+   * making Glass card edges disappear, so this is an independent visual gate. */
+  cardContrast?: number;
   objectPosition: string;
   mobileObjectPosition: string;
 }
@@ -37,6 +41,7 @@ function defineBackground({ fallback = false, ...candidate }: BackgroundDefiniti
 
 export const BACKGROUND_CACHE_VERSION = "life-hub-background-v5";
 export const BACKGROUND_ACCEPTANCE_SCORE = 75;
+export const BACKGROUND_CARD_CONTRAST_MIN = 72;
 
 const ROTATION_POOL_SIZE = 3;
 export const BACKGROUND_NEAR_TIE_SCORE_WINDOW = 1.25;
@@ -47,6 +52,7 @@ export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
     negativeSpace: 96, visualNoise: 93, textSafeArea: 96, mobileTextSafeArea: 91,
     glassCompatibility: 97, timeMatch: 97, desktopCrop: 97, mobileCrop: 91,
     colorHarmony: 96, brightness: 94, imageBeauty: 96,
+    cardContrast: 82,
     objectPosition: "48% center", mobileObjectPosition: "52% center",
   }),
   defineBackground({
@@ -54,6 +60,7 @@ export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
     negativeSpace: 97, visualNoise: 95, textSafeArea: 97, mobileTextSafeArea: 93,
     glassCompatibility: 96, timeMatch: 95, desktopCrop: 98, mobileCrop: 94,
     colorHarmony: 94, brightness: 96, imageBeauty: 94,
+    cardContrast: 54,
     objectPosition: "52% center", mobileObjectPosition: "50% center",
   }),
   defineBackground({
@@ -61,6 +68,7 @@ export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
     negativeSpace: 93, visualNoise: 91, textSafeArea: 94, mobileTextSafeArea: 90,
     glassCompatibility: 96, timeMatch: 94, desktopCrop: 95, mobileCrop: 90,
     colorHarmony: 95, brightness: 93, imageBeauty: 95,
+    cardContrast: 84,
     objectPosition: "48% center", mobileObjectPosition: "54% center",
   }),
   defineBackground({
@@ -68,6 +76,7 @@ export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
     negativeSpace: 98, visualNoise: 96, textSafeArea: 98, mobileTextSafeArea: 95,
     glassCompatibility: 92, timeMatch: 96, desktopCrop: 99, mobileCrop: 96,
     colorHarmony: 95, brightness: 94, imageBeauty: 93,
+    cardContrast: 98,
     objectPosition: "50% center", mobileObjectPosition: "50% center",
   }),
   defineBackground({
@@ -75,6 +84,7 @@ export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
     negativeSpace: 95, visualNoise: 94, textSafeArea: 96, mobileTextSafeArea: 92,
     glassCompatibility: 96, timeMatch: 95, desktopCrop: 97, mobileCrop: 93,
     colorHarmony: 95, brightness: 95, imageBeauty: 94,
+    cardContrast: 76,
     objectPosition: "55% center", mobileObjectPosition: "57% center",
   }),
   defineBackground({
@@ -82,6 +92,7 @@ export const BACKGROUND_CANDIDATES: BackgroundCandidate[] = [
     negativeSpace: 97, visualNoise: 95, textSafeArea: 97, mobileTextSafeArea: 94,
     glassCompatibility: 95, timeMatch: 94, desktopCrop: 98, mobileCrop: 94,
     colorHarmony: 95, brightness: 94, imageBeauty: 94,
+    cardContrast: 88,
     objectPosition: "50% center", mobileObjectPosition: "52% center",
   }),
   defineBackground({
@@ -264,6 +275,10 @@ function categoryPreference(candidate: BackgroundCandidate, period: BackgroundPe
     : generalCategoryPreference(candidate);
 }
 
+function cardContrast(candidate: BackgroundCandidate): number {
+  return candidate.cardContrast ?? 100;
+}
+
 /**
  * Keeps the established visual score authoritative. Category only reorders
  * candidates whose scores are close enough to be visually equivalent.
@@ -276,12 +291,14 @@ export function rankBackgroundCandidates(
   const eligible = candidates
     .filter((candidate) => candidate.period === period)
     .filter((candidate) => backgroundSuitabilityScore(candidate, portrait) >= BACKGROUND_ACCEPTANCE_SCORE)
+    .filter((candidate) => cardContrast(candidate) >= BACKGROUND_CARD_CONTRAST_MIN)
     .sort((a, b) => backgroundSuitabilityScore(b, portrait) - backgroundSuitabilityScore(a, portrait));
 
   const bestScore = eligible[0] ? backgroundSuitabilityScore(eligible[0], portrait) : 0;
   const nearTop = eligible
     .filter((candidate) => backgroundSuitabilityScore(candidate, portrait) >= bestScore - BACKGROUND_NEAR_TIE_SCORE_WINDOW)
     .sort((a, b) => (
+      cardContrast(b) - cardContrast(a) ||
       categoryPreference(a, period, portrait) - categoryPreference(b, period, portrait) ||
       backgroundSuitabilityScore(b, portrait) - backgroundSuitabilityScore(a, portrait)
     ));
@@ -293,6 +310,7 @@ export function getBackgroundRotationPool(period: BackgroundPeriod, portrait: bo
   const eligibleByScore = BACKGROUND_CANDIDATES
     .filter((candidate) => candidate.period === period)
     .filter((candidate) => backgroundSuitabilityScore(candidate, portrait) >= BACKGROUND_ACCEPTANCE_SCORE)
+    .filter((candidate) => cardContrast(candidate) >= BACKGROUND_CARD_CONTRAST_MIN)
     .sort((a, b) => backgroundSuitabilityScore(b, portrait) - backgroundSuitabilityScore(a, portrait));
   const bestScore = eligibleByScore[0] ? backgroundSuitabilityScore(eligibleByScore[0], portrait) : 0;
   const nearTopIds = new Set(
