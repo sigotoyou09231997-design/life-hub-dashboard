@@ -568,6 +568,39 @@ a {
   --home-shadow: 0 20px 54px rgba(31, 49, 73, .13);
 }
 
+/* HOME-only foreground tokens for information placed directly on photography.
+   Glass and card ink deliberately keep their existing, darker hierarchy. */
+.app-shell:has(.home-os) {
+  --top-on-bg-primary: rgba(255, 255, 255, .98);
+  --top-on-bg-secondary: rgba(255, 255, 255, .87);
+  --top-on-bg-muted: rgba(255, 255, 255, .74);
+  --top-on-bg-shadow: 0 1px 10px rgba(15, 23, 42, .18);
+}
+
+.app-header--home .app-header__mobile-brand,
+.app-header--home [aria-label="ホーム"],
+.app-header--home [aria-label="通知"],
+.app-header--home [aria-label="設定"] {
+  color: var(--top-on-bg-secondary);
+  filter: drop-shadow(0 1px 6px rgba(15, 23, 42, .18));
+}
+
+.app-shell:has(.home-os) .sidebar-link:not(.sidebar-link--active) {
+  color: rgba(30, 53, 81, .82);
+}
+
+.app-shell:has(.home-os) .sidebar-nav__divider {
+  background: rgba(255, 255, 255, .58);
+}
+
+.app-shell:has(.home-os) .sidebar-account__avatar {
+  color: rgba(35, 59, 88, .86);
+}
+
+.app-shell:has(.home-os) .glass-nav a > span:not(.absolute) {
+  color: rgba(42, 59, 82, .78);
+}
+
 .home-os {
   width: 100%;
   max-width: 1740px;
@@ -582,11 +615,12 @@ a {
   align-items: flex-end;
   justify-content: space-between;
   padding: .4rem .15rem 1.65rem;
+  text-shadow: var(--top-on-bg-shadow);
 }
 
 .home-status__label {
   margin: 0 0 .6rem;
-  color: rgba(28, 47, 72, .58);
+  color: var(--top-on-bg-secondary);
   font-size: .6rem;
   font-weight: 700;
   letter-spacing: .24em;
@@ -596,29 +630,29 @@ a {
 .home-status__clock-row { display: flex; align-items: flex-end; gap: .85rem; }
 .home-status__clock {
   margin: 0;
-  color: #12213a;
+  color: var(--top-on-bg-primary);
   font-size: clamp(3.25rem, 6.6vw, 5.25rem);
   font-weight: 300;
   font-variant-numeric: tabular-nums;
   letter-spacing: -.075em;
   line-height: .82;
-  text-shadow: 0 2px 24px rgba(255,255,255,.42);
+  text-shadow: var(--top-on-bg-shadow);
 }
 .home-status__live {
   display: flex;
   align-items: center;
   gap: .32rem;
   margin-bottom: .18rem;
-  color: rgba(38, 57, 80, .62);
+  color: var(--top-on-bg-secondary);
   font-size: .55rem;
   font-weight: 750;
   letter-spacing: .14em;
 }
 .home-status__live i { width: .35rem; height: .35rem; border-radius: 50%; background: #5f7ee8; box-shadow: 0 0 9px rgba(79,111,255,.62); }
-.home-status__date { margin: .72rem 0 0; color: rgba(35, 54, 79, .72); font-size: .78rem; font-weight: 600; letter-spacing: .025em; }
+.home-status__date { margin: .72rem 0 0; color: var(--top-on-bg-secondary); font-size: .78rem; font-weight: 600; letter-spacing: .025em; }
 .home-status__message { padding: 0 .3rem .15rem 1rem; text-align: right; }
-.home-status__message p { margin: 0; font-size: .86rem; font-weight: 700; letter-spacing: .015em; }
-.home-status__message span { display: block; margin-top: .3rem; color: var(--home-muted); font-size: .7rem; }
+.home-status__message p { margin: 0; color: var(--top-on-bg-primary); font-size: .86rem; font-weight: 700; letter-spacing: .015em; }
+.home-status__message span { display: block; margin-top: .3rem; color: var(--top-on-bg-muted); font-size: .7rem; }
 
 .home-bento { display: grid; grid-template-columns: 1fr; gap: .55rem; }
 .home-bento > * { opacity: 0; animation: home-card-enter 320ms cubic-bezier(.18,.78,.24,1) both; }
