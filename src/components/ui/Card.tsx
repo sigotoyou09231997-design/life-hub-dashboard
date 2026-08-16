@@ -11,8 +11,7 @@ export function Card({ className = "", interactive = false, children, ...props }
     <div
       className={twMerge(
         "glass-card p-5",
-        interactive &&
-          "transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        interactive && "card-interactive",
         className,
       )}
       {...props}

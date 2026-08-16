@@ -32,7 +32,7 @@ export function Button({
   return (
     <button
       className={twMerge(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-none font-medium transition-all duration-200 active:translate-y-px disabled:opacity-40 disabled:active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:active:translate-y-0",
+        "app-button inline-flex min-h-11 items-center justify-center gap-2 rounded-none font-medium transition-all duration-200 ease-out active:translate-y-px disabled:opacity-40 disabled:active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:active:translate-y-0",
         variantClasses[variant],
         sizeClasses[size],
         className,

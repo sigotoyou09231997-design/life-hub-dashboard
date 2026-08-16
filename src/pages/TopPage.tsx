@@ -96,7 +96,7 @@ export default function TopPage() {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:auto-rows-min xl:grid-cols-12">
+      <div className="home-card-grid grid grid-cols-1 gap-4 lg:grid-cols-2 lg:auto-rows-min xl:grid-cols-12">
         <Card className="glass-card--strong glass-card--reflect p-5 lg:p-6 xl:col-span-5">
           <SectionTitle icon={CalendarDays} count={`${todayEvents.length}件`}>今日の予定</SectionTitle>
           {todayEvents.length === 0 ? (
@@ -127,9 +127,9 @@ export default function TopPage() {
           ) : (
             <div className="mt-3 space-y-1.5">
               {previewTasks.map((task) => (
-                <div key={task.id} className={`flex min-h-9 items-center gap-3 transition-opacity ${task.completed ? "opacity-55" : ""}`}>
+                <div key={task.id} className={`task-completion flex min-h-9 items-center gap-3 transition-opacity ${task.completed ? "task-completion--done opacity-55" : ""}`}>
                   <button type="button" onClick={() => toggleTaskCompletion(task)} aria-label="完了切り替え" className={`flex h-5 w-5 shrink-0 items-center justify-center border transition-all ${task.completed ? "border-emerald-500 bg-emerald-500 text-white" : "border-slate-400/70 bg-white/20"}`}>
-                    {task.completed && <Check size={12} strokeWidth={2.5} />}
+                    {task.completed && <Check size={12} strokeWidth={2.5} className="animate-check-pop motion-reduce:animate-none" />}
                   </button>
                   <Link to="/schedule?view=list" className={`min-w-0 flex-1 truncate text-sm font-medium text-slate-800 ${task.completed ? "line-through" : ""}`}>{task.title}</Link>
                 </div>

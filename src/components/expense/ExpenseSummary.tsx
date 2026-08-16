@@ -96,7 +96,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Available balance</p>
-            <p className={`mt-3 text-4xl font-medium tabular-nums tracking-[-0.05em] lg:text-6xl ${remaining < 0 ? "text-danger" : "text-navy"}`}>{yen(remaining)}</p>
+            <p key={remaining} className={`value-change mt-3 text-4xl font-medium tabular-nums tracking-[-0.05em] lg:text-6xl ${remaining < 0 ? "text-danger" : "text-navy"}`}>{yen(remaining)}</p>
           </div>
           {!period.hasSalaryForPeriod && <Badge tone="warning">今期の給与が未入力です</Badge>}
         </div>
@@ -116,7 +116,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
             ["記録した収入", yen(totalIncome)],
             ["記録した支出", yen(totalExpense)],
           ].map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between py-3 text-sm"><span className="text-slate-500">{label}</span><span className="font-semibold tabular-nums text-slate-800">{value}</span></div>
+            <div key={label} className="flex items-center justify-between py-3 text-sm"><span className="text-slate-500">{label}</span><span key={value} className="value-change font-semibold tabular-nums text-slate-800">{value}</span></div>
           ))}
         </div>
       </Card>
@@ -128,7 +128,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
       ].map(([label, value]) => (
         <Card key={label} className="p-5 lg:col-span-3">
           <p className="text-xs text-slate-500">{label}</p>
-          <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{value}</p>
+          <p key={value} className="value-change mt-2 text-xl font-semibold tabular-nums text-slate-800">{value}</p>
         </Card>
       ))}
 

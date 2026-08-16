@@ -36,7 +36,7 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
 
   return (
     <div className={indent ? "ml-8" : ""}>
-      <ListRow className={`flex items-start gap-3 transition-opacity duration-300 ${task.completed ? "opacity-60" : "opacity-100"}`}>
+      <ListRow className={`task-completion flex items-start gap-3 transition-opacity duration-200 ${task.completed ? "task-completion--done opacity-60" : "opacity-100"}`}>
         <button
           onClick={() => onToggle(task)}
           aria-label="完了切り替え"

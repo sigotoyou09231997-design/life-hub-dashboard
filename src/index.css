@@ -164,6 +164,13 @@ a {
   padding-bottom: 7.25rem;
 }
 
+/* A restrained contrast lift for content over photography. Keep the existing
+   primary/secondary/muted hierarchy and leave every glass/background layer as-is. */
+.app-shell .text-slate-400 { color: rgb(140 154 175); }
+.app-shell .text-slate-500 { color: rgb(94 109 131); }
+.app-shell .text-slate-600 { color: rgb(67 81 101); }
+.app-shell .text-slate-700 { color: rgb(48 61 81); }
+
 .desktop-sidebar {
   display: none;
 }
@@ -248,14 +255,20 @@ a {
   gap: .72rem;
   min-height: 2.8rem;
   padding: .65rem .72rem .65rem .88rem;
-  color: rgba(39, 60, 86, .68);
+  color: rgba(39, 60, 86, .73);
   font-size: .78rem;
   font-weight: 560;
   letter-spacing: .01em;
-  transition: color 180ms ease, background 180ms ease, transform 180ms ease;
+  transition: color 200ms ease-out, background 200ms ease-out;
 }
 
-.sidebar-link:hover { color: #233b5e; background: rgba(255,255,255,.085); transform: translateX(1.5px); }
+.sidebar-link svg,
+.sidebar-link > span:last-child {
+  transition: color 200ms ease-out, transform 200ms ease-out;
+}
+.sidebar-link:hover { color: #203958; background: rgba(255,255,255,.1); }
+.sidebar-link:hover svg { color: #31558b; transform: translateX(1.5px); }
+.sidebar-link:hover > span:last-child { transform: translateX(.5px); }
 .sidebar-link--active {
   color: #274b91;
   background: linear-gradient(90deg, rgba(247,252,255,.16), rgba(231,241,255,.025));
@@ -269,9 +282,13 @@ a {
   width: 2px;
   background: transparent;
   box-shadow: none;
-  transition: background 180ms ease, box-shadow 180ms ease;
+  opacity: 0;
+  transform: scaleY(.58);
+  transform-origin: center;
+  transition: background 220ms ease-out, box-shadow 220ms ease-out, opacity 220ms ease-out, transform 220ms ease-out;
 }
-.sidebar-link--active .sidebar-link__indicator { background: #6a80ff; box-shadow: 0 0 12px rgba(83, 104, 255, .6); }
+.sidebar-link:hover .sidebar-link__indicator { background: rgba(106,128,255,.72); opacity: .58; transform: scaleY(.82); }
+.sidebar-link--active .sidebar-link__indicator { background: #6a80ff; box-shadow: 0 0 12px rgba(83, 104, 255, .6); opacity: 1; transform: scaleY(1); }
 
 .sidebar-account {
   display: flex;
@@ -292,7 +309,42 @@ a {
   color: #405b7d;
 }
 
-.page-transition { animation: page-enter 260ms cubic-bezier(.2,.72,.2,1) both; }
+.page-transition { animation: page-enter 340ms cubic-bezier(.16,.78,.24,1) both; }
+
+.card-interactive {
+  transition: transform 260ms ease-out, box-shadow 260ms ease-out, border-color 220ms ease-out;
+}
+
+.home-card-grid > * {
+  opacity: 0;
+  animation: home-card-enter 300ms cubic-bezier(.18,.78,.24,1) both;
+}
+.home-card-grid > :nth-child(2) { animation-delay: 40ms; }
+.home-card-grid > :nth-child(3) { animation-delay: 80ms; }
+.home-card-grid > :nth-child(4) { animation-delay: 120ms; }
+.home-card-grid > :nth-child(5) { animation-delay: 160ms; }
+.home-card-grid > :nth-child(6) { animation-delay: 200ms; }
+
+.empty-state > :first-child,
+.empty-state > :nth-child(2),
+.empty-state > .app-button {
+  opacity: 0;
+  animation: detail-fade-in 220ms ease-out both;
+}
+.empty-state > :nth-child(2) { animation-delay: 45ms; }
+.empty-state > .app-button { animation-delay: 90ms; }
+
+.value-change { animation: value-change 240ms ease-out both; }
+.glass-nav a > span.absolute { animation: nav-indicator-in 220ms ease-out both; }
+
+.task-completion > button:first-child,
+.task-completion p,
+.task-completion > a {
+  transition: color 180ms ease-out, background-color 180ms ease-out, border-color 180ms ease-out, opacity 180ms ease-out, transform 180ms ease-out;
+}
+.task-completion--done p,
+.task-completion--done > a { animation: task-text-settle 180ms ease-out 70ms both; }
+.home-card-grid .task-progress > div { transition-delay: 140ms; }
 
 @layer utilities {
   .glass-border { border: 1px solid var(--glass-line); }
@@ -336,7 +388,6 @@ a {
     transition: transform 500ms ease, opacity 300ms ease;
   }
 
-  .glass-card--reflect:hover::after { opacity: .52; transform: translateX(26%); }
   .glass-card--reflect > * { position: relative; z-index: 1; }
 
   .glass-row {
@@ -380,8 +431,28 @@ a {
 }
 
 @keyframes page-enter {
-  from { opacity: 0; transform: translate3d(9px, 0, 0); filter: blur(3px); }
+  from { opacity: 0; transform: translate3d(0, 10px, 0); filter: blur(3px); }
   to { opacity: 1; transform: translate3d(0, 0, 0); filter: blur(0); }
+}
+@keyframes home-card-enter {
+  from { opacity: 0; transform: translate3d(0, 7px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes detail-fade-in {
+  from { opacity: 0; transform: translate3d(0, 3px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes value-change {
+  from { opacity: .55; transform: translate3d(0, 4px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes nav-indicator-in {
+  from { opacity: 0; transform: scaleX(.45); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+@keyframes task-text-settle {
+  from { opacity: .78; transform: translate3d(0, -1px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
 }
 @keyframes background-crossfade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes background-drift { from { transform: scale(1.025) translate3d(-.25%, -.15%, 0); } to { transform: scale(1.065) translate3d(.35%, .2%, 0); } }
@@ -418,10 +489,10 @@ a {
   .page-transition { min-height: 100%; }
 
   /* Final micro-polish: raise type contrast without changing any glass layer. */
-  .micro-contrast .text-slate-400 { color: rgb(100 116 139 / .82); }
-  .micro-contrast .text-slate-500 { color: rgb(71 85 105 / .86); }
-  .micro-contrast .text-slate-600 { color: rgb(51 65 85 / .9); }
-  .micro-contrast .text-slate-700 { color: rgb(30 41 59 / .92); }
+  .micro-contrast .text-slate-400 { color: rgb(100 116 139 / .86); }
+  .micro-contrast .text-slate-500 { color: rgb(71 85 105 / .9); }
+  .micro-contrast .text-slate-600 { color: rgb(51 65 85 / .94); }
+  .micro-contrast .text-slate-700 { color: rgb(30 41 59 / .95); }
 
   .settings-account-grid { column-gap: 1.25rem; row-gap: 1.1rem; }
   .settings-account-grid .glass-card > p:first-child { letter-spacing: -.005em; }
@@ -430,6 +501,17 @@ a {
   .home-communication-card h2 { color: rgb(51 65 85); font-size: .76rem; }
   .home-utility-card h2 { font-size: .69rem; font-weight: 580; letter-spacing: .1em; }
   .home-utility-card { color: rgb(71 85 105 / .9); }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-button:hover { filter: brightness(1.025) drop-shadow(0 4px 7px rgba(35,58,88,.07)); }
+  .card-interactive:hover {
+    transform: translateY(-3px);
+    border-color: rgba(255,255,255,.5);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.56), 0 20px 46px rgba(35,58,88,.1);
+  }
+  .card-interactive:active { transform: translateY(0); }
+  .glass-card--reflect:hover::after { opacity: .48; transform: translateX(20%); }
 }
 
 @media (min-width: 1280px) {
@@ -457,6 +539,18 @@ a {
     transition-duration: .01ms !important;
   }
   .ambient-background__image { transform: none !important; }
+  .home-card-grid > *,
+  .empty-state > :first-child,
+  .empty-state > :nth-child(2),
+  .empty-state > .app-button {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .sidebar-link:hover,
+  .sidebar-link:hover svg,
+  .sidebar-link:hover > span:last-child,
+  .card-interactive:hover,
+  .card-interactive:active { transform: none !important; }
 }
 
 ::-webkit-scrollbar { width: 0; height: 0; }

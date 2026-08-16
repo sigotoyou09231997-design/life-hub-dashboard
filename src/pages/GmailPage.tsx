@@ -141,7 +141,7 @@ export default function GmailPage() {
           <ListSkeleton />
         ) : !accounts || accounts.length === 0 ? (
           <Card className="relative mx-auto mt-5 w-full max-w-3xl overflow-visible px-5 py-5 lg:mt-8 lg:px-7">
-            <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+            <div className="empty-state flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent-light text-accent shadow-[inset_0_1px_rgba(255,255,255,.5)]">
                 <Mail size={21} />
               </div>
@@ -149,7 +149,7 @@ export default function GmailPage() {
                 <p className="font-semibold text-slate-900">Gmail未接続</p>
                 <p className="mt-1 text-sm leading-relaxed text-slate-500">Gmailを接続すると、受信メールとAI返信案を確認できます。</p>
               </div>
-              <button type="button" onClick={() => navigate("/settings")} className="shrink-0 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+              <button type="button" onClick={() => navigate("/settings")} className="app-button shrink-0 rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0">
                 Gmailを接続 →
               </button>
             </div>
