@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { getSupabaseDataClient } from "./supabaseData";
 import { getDeviceId } from "./deviceId";
 import type { GmailAccount } from "../types";
 
@@ -52,6 +52,7 @@ export async function subscribeToPush(accounts: GmailAccount[], userId: string):
     throw new Error("プッシュ購読情報の取得に失敗しました");
   }
 
+  const supabase = await getSupabaseDataClient();
   const { error: subError } = await supabase.from("push_subscriptions").upsert(
     {
       id: crypto.randomUUID(),
@@ -100,6 +101,7 @@ export async function clearShownPushNotifications(): Promise<void> {
 export async function unsubscribeFromPush(): Promise<void> {
   const subscription = await getPushSubscription();
   if (!subscription) return;
+  const supabase = await getSupabaseDataClient();
   await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
   await subscription.unsubscribe();
 }

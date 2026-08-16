@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { auth } from "../lib/supabase";
 import { useToast } from "../components/ui/ToastProvider";
 
 /** Landing page for Supabase's OAuth redirect (/auth/callback). Supabase's client
@@ -21,11 +21,11 @@ export default function AuthCallbackPage() {
       navigate("/settings", { replace: true });
     }
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = auth.onAuthStateChange((_event, session) => {
       if (session) handleSession(session.user.email);
     });
 
-    supabase.auth.getSession().then(({ data }) => {
+    auth.getSession().then(({ data }) => {
       if (data.session) handleSession(data.session.user.email);
     });
 

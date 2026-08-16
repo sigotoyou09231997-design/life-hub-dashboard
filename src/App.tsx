@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import type { Session } from "@supabase/supabase-js";
-import { db, ensureDefaultSettings } from "./db/schema";
-import { isSupabaseConfigured, supabase } from "./lib/supabase";
+import type { Session } from "@supabase/auth-js";
+import { ensureDefaultSettings } from "./db/schema";
+import { auth, isSupabaseConfigured } from "./lib/supabase";
 import { clearShownPushNotifications } from "./lib/pushNotifications";
-import { registerSyncedTable } from "./lib/sync";
+import { startSync, stopSync } from "./lib/syncRuntime";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AmbientBackground } from "./components/layout/AmbientBackground";
@@ -62,11 +62,35 @@ export default function App() {
   // landing page for the Google OAuth redirect itself, reached precisely while
   // still logged out, so gating it too would make that login path unreachable.
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [syncReady, setSyncReady] = useState(false);
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
-    return () => listener.subscription.unsubscribe();
+    let active = true;
+    let transition = 0;
+    const applySession = async (next: Session | null) => {
+      const currentTransition = ++transition;
+      if (!active) return;
+      setSession(next);
+      if (!next) {
+        stopSync();
+        setSyncReady(true);
+        return;
+      }
+      setSyncReady(false);
+      try {
+        await startSync(next.user.id, next.access_token);
+      } catch (error) {
+        console.error("[sync] failed to initialize:", error);
+      }
+      if (active && transition === currentTransition) setSyncReady(true);
+    };
+    auth.getSession().then(({ data }) => void applySession(data.session));
+    const { data: listener } = auth.onAuthStateChange((_event, next) => void applySession(next));
+    return () => {
+      active = false;
+      stopSync();
+      listener.subscription.unsubscribe();
+    };
   }, []);
   const isAuthCallbackRoute = location.pathname === "/auth/callback";
 
@@ -75,28 +99,9 @@ export default function App() {
     // アプリを開いた時点でGmailプッシュ通知はもう本人が確認できる状態なので、端末の通知
     // センターに残っている分(ブロック後に届いた古い通知を含む)をここでまとめて閉じる。
     void clearShownPushNotifications();
-    // PC/スマホ同期対象。Supabaseにログインしていない間は何もしない安全なno-op —
-    // ログインした瞬間に自動で同期を開始する(src/lib/sync.tsのensureAuthListener参照)。
-    // 対象外: settings(端末ごとに別IDで作られるsingletonのため)、
-    // diaryEntries(photosがBlobでJSON化できないため)、
-    // gmailAccounts/syncedEmails/draftReplies(トークン・メール本文を含むためローカル限定)。
-    registerSyncedTable(db.transactions, "transactions");
-    registerSyncedTable(db.fixedCosts, "fixed_costs");
-    registerSyncedTable(db.calendarEvents, "calendar_events");
-    registerSyncedTable(db.tasks, "tasks");
-    registerSyncedTable(db.notes, "notes");
-    registerSyncedTable(db.goals, "goals");
-    registerSyncedTable(db.habits, "habits");
-    registerSyncedTable(db.habitLogs, "habit_logs");
-    registerSyncedTable(db.salaries, "salaries");
-    registerSyncedTable(db.trips, "trips");
-    registerSyncedTable(db.tripSchedule, "trip_schedule");
-    registerSyncedTable(db.tripExpenses, "trip_expenses");
-    registerSyncedTable(db.tripPackingItems, "trip_packing_items");
-    registerSyncedTable(db.paypayTransactions, "paypay_transactions");
   }, []);
 
-  if (isSupabaseConfigured && session === undefined && !isAuthCallbackRoute) {
+  if (isSupabaseConfigured && (session === undefined || (session && !syncReady)) && !isAuthCallbackRoute) {
     // 一瞬でも未ログイン画面がちらつくのを避けるための空白 — セッション確認は
     // 通常ミリ秒単位(localStorageから即読める)なので、ローディング表示は最小限でよい。
     return (

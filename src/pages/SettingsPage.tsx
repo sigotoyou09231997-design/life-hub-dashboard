@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import type { Session } from "@supabase/supabase-js";
+import type { Session } from "@supabase/auth-js";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { GmailAccount } from "../types";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
-import { isSupabaseConfigured, supabase } from "../lib/supabase";
+import { auth, isSupabaseConfigured } from "../lib/supabase";
+import { getSupabaseDataClient } from "../lib/supabaseData";
 import { isPushConfigured, getPushSubscription, subscribeToPush, unsubscribeFromPush } from "../lib/pushNotifications";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
@@ -24,8 +25,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = auth.onAuthStateChange((_event, next) => setSession(next));
     return () => listener.subscription.unsubscribe();
   }, []);
 
@@ -102,6 +103,7 @@ export default function SettingsPage() {
       // just means checkGmailAndNotify.ts keeps polling with an access token that will
       // start failing anyway once Google's revoke above takes effect.
       try {
+        const supabase = await getSupabaseDataClient();
         await supabase.from("gmail_server_accounts").delete().eq("user_id", session.user.id).eq("email", account.email);
       } catch {
         // ignore

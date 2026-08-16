@@ -1,4 +1,5 @@
-import { isSupabaseConfigured, supabase } from "./supabase";
+import { auth, isSupabaseConfigured } from "./supabase";
+import { getSupabaseDataClient } from "./supabaseData";
 
 /** Mirrors a block/unblock into Supabase's blocked_senders table (keyed on the
  * Supabase-Auth user + the connected Gmail account's own address, not the local
@@ -12,13 +13,14 @@ import { isSupabaseConfigured, supabase } from "./supabase";
  * having a Supabase session yet. */
 async function currentUserId(): Promise<string | null> {
   if (!isSupabaseConfigured) return null;
-  const { data } = await supabase.auth.getSession();
+  const { data } = await auth.getSession();
   return data.session?.user.id ?? null;
 }
 
 export async function blockSenderRemote(accountEmail: string, senderEmail: string): Promise<void> {
   const userId = await currentUserId();
   if (!userId) return;
+  const supabase = await getSupabaseDataClient();
   const { error } = await supabase.from("blocked_senders").upsert(
     { id: crypto.randomUUID(), user_id: userId, account_email: accountEmail, sender_email: senderEmail },
     { onConflict: "user_id,account_email,sender_email" },
@@ -29,6 +31,7 @@ export async function blockSenderRemote(accountEmail: string, senderEmail: strin
 export async function unblockSenderRemote(accountEmail: string, senderEmail: string): Promise<void> {
   const userId = await currentUserId();
   if (!userId) return;
+  const supabase = await getSupabaseDataClient();
   const { error } = await supabase
     .from("blocked_senders")
     .delete()

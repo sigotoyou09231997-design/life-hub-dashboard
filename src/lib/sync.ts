@@ -1,6 +1,6 @@
 import type { EntityTable } from "dexie";
-import type { RealtimeChannel } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseDataClient } from "./supabaseData";
 import { db } from "../db/schema";
 import { getDeviceId } from "./deviceId";
 
@@ -26,7 +26,9 @@ const registeredNames = new Set<string>();
 const realtimeChannels: RealtimeChannel[] = [];
 let currentUserId: string | null = null;
 let applyingRemoteChange = false;
-let authListenerAttached = false;
+let dataClient: SupabaseClient | null = null;
+let lifecycleListenersAttached = false;
+let sessionStart: Promise<void> = Promise.resolve();
 
 function camelToSnake(key: string): string {
   return key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
@@ -85,6 +87,7 @@ async function enqueue(tableName: string, rowId: string, op: "upsert" | "delete"
 let draining = false;
 async function drainQueue(): Promise<void> {
   if (draining || !currentUserId || !navigator.onLine) return;
+  const supabase = dataClient ?? await getSupabaseDataClient();
   draining = true;
   try {
     const entries = await db.syncQueue.toArray();
@@ -183,6 +186,7 @@ async function reconcile(reg: RegisteredTable, forceFull = false): Promise<Recon
   // client-supplied updated_at used for LWW — a client clock can't be trusted as
   // a pull cursor, and data pushed late (e.g. a catch-up sync) can carry an
   // updated_at far in the past relative to when it actually reached the server.
+  const supabase = dataClient ?? await getSupabaseDataClient();
   const { data, error } = await supabase.from(reg.tableName).select("*").gte("server_updated_at", since);
   if (error) return { tableName: reg.tableName, rows: 0, outcomes: {}, error: error.message };
   const outcomes: Partial<Record<ApplyOutcome, number>> = {};
@@ -197,11 +201,11 @@ async function reconcile(reg: RegisteredTable, forceFull = false): Promise<Recon
 const subscribedChannels = new Set<string>();
 
 function subscribeRealtime(reg: RegisteredTable): void {
-  if (!currentUserId) return;
+  if (!currentUserId || !dataClient) return;
   const topic = `${reg.tableName}-${currentUserId}`;
   if (subscribedChannels.has(topic)) return; // defense in depth against double-start races
   subscribedChannels.add(topic);
-  const channel = supabase
+  const channel = dataClient
     .channel(topic)
     .on(
       "postgres_changes",
@@ -215,8 +219,11 @@ function subscribeRealtime(reg: RegisteredTable): void {
   realtimeChannels.push(channel);
 }
 
-async function startSession(userId: string): Promise<void> {
-  if (currentUserId === userId) return; // already started for this user
+async function startSessionOnce(userId: string, accessToken: string): Promise<void> {
+  dataClient = await getSupabaseDataClient();
+  await dataClient.realtime.setAuth(accessToken);
+  if (currentUserId === userId) return; // already started; token was refreshed above
+  stopSession();
   currentUserId = userId;
   for (const reg of registered) {
     await reconcile(reg);
@@ -225,27 +232,21 @@ async function startSession(userId: string): Promise<void> {
   await drainQueue();
 }
 
-function stopSession(): void {
+export function startSession(userId: string, accessToken: string): Promise<void> {
+  sessionStart = sessionStart.catch(() => undefined).then(() => startSessionOnce(userId, accessToken));
+  return sessionStart;
+}
+
+export function stopSession(): void {
   currentUserId = null;
-  for (const channel of realtimeChannels) supabase.removeChannel(channel);
+  for (const channel of realtimeChannels) dataClient?.removeChannel(channel);
   realtimeChannels.length = 0;
   subscribedChannels.clear();
 }
 
-function ensureAuthListener(): void {
-  if (authListenerAttached) return;
-  authListenerAttached = true;
-
-  // onAuthStateChange fires once immediately with the current session on subscribe
-  // (event "INITIAL_SESSION"), then again on every future change — a separate
-  // getSession() call here would race it and start the session twice.
-  supabase.auth.onAuthStateChange((_event, session) => {
-    const userId = session?.user.id ?? null;
-    if (userId === currentUserId) return;
-    stopSession();
-    if (userId) void startSession(userId);
-  });
-
+function ensureLifecycleListeners(): void {
+  if (lifecycleListenersAttached) return;
+  lifecycleListenersAttached = true;
   window.addEventListener("online", () => {
     void drainQueue();
     for (const reg of registered) void reconcile(reg);
@@ -262,8 +263,7 @@ function ensureAuthListener(): void {
 /** Enrolls a Dexie table in the PC/スマホ同期 pipeline: local writes get queued
  * and pushed to the matching Supabase table, and remote changes (via Realtime,
  * plus a reconciliation pull on reconnect) get applied back with last-write-wins.
- * A no-op until a Supabase session exists — call this unconditionally at startup;
- * it starts itself the moment the user signs in and tears down on sign-out. */
+ * Loaded and called by syncRuntime only after Auth has restored a session. */
 export function registerSyncedTable<T extends SyncableRow>(table: EntityTable<T, "id">, tableName: string): void {
   if (registeredNames.has(tableName)) return;
   registeredNames.add(tableName);
@@ -294,7 +294,7 @@ export function registerSyncedTable<T extends SyncableRow>(table: EntityTable<T,
     this.onsuccess = () => enqueueAfterCommit(tableName, primKey, "delete");
   });
 
-  ensureAuthListener();
+  ensureLifecycleListeners();
   if (currentUserId) {
     void reconcile(reg);
     subscribeRealtime(reg);

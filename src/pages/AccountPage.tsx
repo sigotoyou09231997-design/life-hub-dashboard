@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import type { Session } from "@supabase/supabase-js";
+import type { Session } from "@supabase/auth-js";
 import { RefreshCw, ChevronRight } from "lucide-react";
 import { db } from "../db/schema";
-import { isSupabaseConfigured, supabase, getRedirectUri } from "../lib/supabase";
-import { syncNow } from "../lib/sync";
+import { auth, isSupabaseConfigured, getRedirectUri } from "../lib/supabase";
+import { syncNow } from "../lib/syncRuntime";
 import { getDeviceId } from "../lib/deviceId";
 import { avatarColor, avatarInitial } from "../lib/gmail";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -25,17 +25,17 @@ export default function AccountPage() {
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = auth.onAuthStateChange((_event, next) => setSession(next));
     return () => listener.subscription.unsubscribe();
   }, []);
 
   async function handleGoogleLogin() {
-    await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: getRedirectUri() } });
+    await auth.signInWithOAuth({ provider: "google", options: { redirectTo: getRedirectUri() } });
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await auth.signOut();
     showToast("ログアウトしました");
   }
 

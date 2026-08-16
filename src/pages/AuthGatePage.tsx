@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { supabase, getRedirectUri } from "../lib/supabase";
+import { auth, getRedirectUri } from "../lib/supabase";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -10,7 +10,7 @@ type Mode = "register" | "login";
 /** Full-screen, no-header/no-nav gate rendered by App.tsx in place of the whole
  * app when there's no Supabase session — nothing (TOP, data, any route) is
  * reachable until the user registers or logs in. Session persistence itself
- * needs no extra work here: supabase-js already persists to localStorage and
+ * needs no extra work here: Supabase Auth persists to localStorage and
  * auto-refreshes (see src/lib/supabase.ts), so once past this screen the user
  * stays logged in on this device until they explicitly log out. */
 export default function AuthGatePage() {
@@ -40,7 +40,7 @@ export default function AuthGatePage() {
     setBusy(true);
     try {
       if (mode === "register") {
-        const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+        const { data, error: signUpError } = await auth.signUp({ email, password });
         if (signUpError) {
           setError(signUpError.message);
           return;
@@ -52,7 +52,7 @@ export default function AuthGatePage() {
           setConfirmationSent(true);
         }
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        const { error: signInError } = await auth.signInWithPassword({ email, password });
         if (signInError) {
           setError(signInError.message);
           return;
@@ -64,7 +64,7 @@ export default function AuthGatePage() {
   }
 
   async function handleGoogleLogin() {
-    await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: getRedirectUri() } });
+    await auth.signInWithOAuth({ provider: "google", options: { redirectTo: getRedirectUri() } });
   }
 
   if (confirmationSent) {

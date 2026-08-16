@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bell, Home, Settings as SettingsIcon } from "lucide-react";
-import type { Session } from "@supabase/supabase-js";
-import { isSupabaseConfigured, supabase } from "../../lib/supabase";
+import type { Session } from "@supabase/auth-js";
+import { auth, isSupabaseConfigured } from "../../lib/supabase";
 import { avatarColor, avatarInitial, parseSender } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
 import { useNotificationSignals } from "../../lib/notificationSignals";
@@ -21,8 +21,8 @@ export function AppHeader() {
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
+    auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: listener } = auth.onAuthStateChange((_event, next) => setSession(next));
     return () => listener.subscription.unsubscribe();
   }, []);
 
