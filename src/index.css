@@ -762,7 +762,7 @@ a {
 .home-notes__row b { align-self: flex-end; margin-top: -1.45rem; color: #3e597b; font-size: 1.05rem; font-weight: 520; font-variant-numeric: tabular-nums; }
 
 .home-module--travel { min-height: 12rem; padding: 0; border-color: rgba(255,255,255,.38); border-radius: .9rem 1.18rem 1.18rem .85rem; color: white; background: #556a80; }
-.home-travel__image { position: absolute; inset: 0; background: url('/backgrounds/lifehub-evening.jpg') center 55% / cover no-repeat; filter: saturate(.8) contrast(.9); transition: transform 1s cubic-bezier(.2,.7,.2,1); }
+.home-travel__image { position: absolute; inset: 0; background: url('/backgrounds/evening-glass-pavilion-v5.jpg') center 55% / cover no-repeat; filter: saturate(.8) contrast(.9); transition: transform 1s cubic-bezier(.2,.7,.2,1); }
 .home-travel__veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(24,40,59,.26), rgba(20,34,51,.2) 42%, rgba(16,29,46,.76)); }
 .home-travel__content { position: relative; z-index: 1; display: flex; height: 100%; flex: 1; flex-direction: column; padding: 1.15rem; }
 .home-module--travel .home-module__eyebrow, .home-module--travel .home-module__eyebrow svg { color: rgba(255,255,255,.86); }
@@ -1043,14 +1043,14 @@ a {
 .destination-column__title { display: flex; align-items: center; justify-content: space-between; padding-inline: .2rem; color: #304761; }
 .destination-column__title span { color: rgba(47,66,89,.48); font-size: .58rem; }
 .trip-module { position: relative; border-color: rgba(255,255,255,.38); color: white; }
-.trip-module__photo { position: absolute; inset: 0; background: url('/backgrounds/lifehub-evening.jpg') center 55% / cover no-repeat; filter: saturate(.78) contrast(.92); transition: transform 800ms cubic-bezier(.2,.7,.2,1); }
-.trip-module--ongoing .trip-module__photo { background-image: url('/backgrounds/lifehub-day.jpg'); }
+.trip-module__photo { position: absolute; inset: 0; background: url('/backgrounds/evening-glass-pavilion-v5.jpg') center 55% / cover no-repeat; filter: saturate(.78) contrast(.92); transition: transform 800ms cubic-bezier(.2,.7,.2,1); }
+.trip-module--ongoing .trip-module__photo { background-image: url('/backgrounds/day-resort-terrace-v5.jpg'); }
 .trip-module--completed .trip-module__photo { filter: saturate(.55) contrast(.88); }
 .trip-module__veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(19,33,50,.12), rgba(17,30,47,.24) 42%, rgba(14,26,42,.8)); }
 .trip-module__content, .trip-module__actions { position: relative; z-index: 1; }
 .trip-module__content .text-navy { color: white; font-size: 1.05rem; text-shadow: 0 2px 12px rgba(0,0,0,.18); }
 .trip-detail-hero { position: relative; min-height: 13rem; overflow: hidden; border: 1px solid rgba(255,255,255,.38); border-radius: 1.05rem; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), var(--spatial-shadow); }
-.trip-detail-hero__photo { position: absolute; inset: 0; background: url('/backgrounds/lifehub-evening.jpg') center 52% / cover no-repeat; filter: saturate(.8) contrast(.92); }
+.trip-detail-hero__photo { position: absolute; inset: 0; background: url('/backgrounds/evening-glass-pavilion-v5.jpg') center 52% / cover no-repeat; filter: saturate(.8) contrast(.92); }
 .trip-detail-hero__veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(18,32,49,.72), rgba(18,32,49,.22) 58%, rgba(18,32,49,.08)); }
 .trip-detail-hero__content { position: relative; z-index: 1; display: flex; min-height: 13rem; max-width: 34rem; flex-direction: column; justify-content: flex-end; padding: 1.4rem; color: white; }
 .trip-detail-hero__content span { color: rgba(255,255,255,.68); font-size: .56rem; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }

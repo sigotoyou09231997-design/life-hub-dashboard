@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { getBackgroundPeriod, selectBackground, type BackgroundCandidate } from "../../lib/backgrounds";
+import {
+  getBackgroundPeriod,
+  getBackgroundRotationDateKey,
+  selectBackground,
+  type BackgroundCandidate,
+} from "../../lib/backgrounds";
 
 function routeTone(pathname: string): string {
   if (pathname.startsWith("/records/expense")) return "finance";
@@ -27,7 +32,13 @@ export function AmbientBackground() {
   }, []);
 
   const period = getBackgroundPeriod(clock);
-  const selectedBackground = useMemo(() => selectBackground(period, portrait), [period, portrait]);
+  const rotationDateKey = getBackgroundRotationDateKey(clock);
+  const selectedBackground = useMemo(
+    () => selectBackground(period, portrait, clock),
+    // The date key refreshes the daily rotation without reselecting each minute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [period, portrait, rotationDateKey],
+  );
   const [visibleBackground, setVisibleBackground] = useState<BackgroundCandidate>(selectedBackground);
   const [outgoingBackground, setOutgoingBackground] = useState<BackgroundCandidate | null>(null);
 
@@ -56,8 +67,9 @@ export function AmbientBackground() {
   }, [selectedBackground.id]);
 
   useEffect(() => {
-    const nextPeriod = getBackgroundPeriod(new Date(clock.getTime() + 60 * 60 * 1000));
-    const next = selectBackground(nextPeriod, portrait);
+    const nextClock = new Date(clock.getTime() + 60 * 60 * 1000);
+    const nextPeriod = getBackgroundPeriod(nextClock);
+    const next = selectBackground(nextPeriod, portrait, nextClock);
     if (next.src === visibleBackground.src) return;
     const image = new Image();
     image.src = next.src;
