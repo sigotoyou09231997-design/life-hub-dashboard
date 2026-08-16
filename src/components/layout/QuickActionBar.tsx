@@ -1,41 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { CalendarDays, CheckSquare, Wallet, StickyNote, type LucideIcon } from "lucide-react";
 import { AllFeaturesSheet } from "./AllFeaturesSheet";
-import { GmailLogo } from "../gmail/GmailLogo";
-
-type IconComponent = LucideIcon | typeof GmailLogo;
-
-interface QuickAction {
-  key: string;
-  label: string;
-  icon: IconComponent;
-  /** Gmail's icon is already multicolor — it must never be tinted like the
-   * plain-outline lucide icons the other 4 actions use. */
-  tintIcon: boolean;
-  to: string;
-  color: string;
-  underline: string;
-}
-
-// `underline` is spelled out as a literal bg-*-500 string (not derived from
-// `color` at runtime) because Tailwind's build only generates classes it can
-// see as literal text in source — a `.replace("text-", "bg-")` string would
-// silently produce no CSS in the production build.
-const QUICK_ACTIONS: QuickAction[] = [
-  { key: "schedule-calendar", label: "予定", icon: CalendarDays, tintIcon: true, to: "/schedule?view=calendar", color: "text-blue-500", underline: "bg-blue-500" },
-  { key: "schedule-tasks", label: "タスク", icon: CheckSquare, tintIcon: true, to: "/schedule?view=list", color: "text-emerald-500", underline: "bg-emerald-500" },
-  { key: "money", label: "収支", icon: Wallet, tintIcon: true, to: "/records/expense", color: "text-orange-500", underline: "bg-orange-500" },
-  { key: "notes", label: "メモ", icon: StickyNote, tintIcon: true, to: "/records/notes", color: "text-violet-500", underline: "bg-violet-500" },
-  // Gmailの実際のロゴ(マルチカラー)を使う。他4つと違い常時ブランド色そのままで、
-  // アクティブ時もアイコン自体は着色しない(ラベル文字と下線だけ赤くする)。
-  { key: "gmail", label: "Gmail", icon: GmailLogo, tintIcon: false, to: "/gmail", color: "text-red-500", underline: "bg-red-500" },
-];
+import { getQuickAction, loadQuickActionKeys, saveQuickActionKeys, type QuickActionKey } from "./quickActions";
+import { useToast } from "../ui/ToastProvider";
 
 /** pathname alone can't tell 予定 and タスク apart — both live on /schedule —
  * so the `view` query param (see SchedulePage.tsx) breaks the tie. Pages with
- * no 1:1 mapping (TOP, 旅行, アカウント, 設定) intentionally highlight nothing. */
-function useActiveQuickActionKey(): string | null {
+ * so the `view` query param (see SchedulePage.tsx) breaks the tie. */
+function useActiveQuickActionKey(): QuickActionKey | null {
   const { pathname, search } = useLocation();
   if (pathname === "/schedule") {
     return new URLSearchParams(search).get("view") === "list" ? "schedule-tasks" : "schedule-calendar";
@@ -43,13 +15,22 @@ function useActiveQuickActionKey(): string | null {
   if (pathname.startsWith("/records/expense")) return "money";
   if (pathname.startsWith("/records/notes")) return "notes";
   if (pathname.startsWith("/gmail")) return "gmail";
+  if (pathname.startsWith("/trips")) return "trips";
   return null;
 }
 
 /** Mobile navigation. Desktop uses DesktopSidebar instead. */
 export function QuickActionBar() {
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedKeys, setSelectedKeys] = useState(loadQuickActionKeys);
   const activeKey = useActiveQuickActionKey();
+  const showToast = useToast();
+  const actions = selectedKeys.map(getQuickAction);
+
+  function handleSave(next: QuickActionKey[]) {
+    setSelectedKeys(saveQuickActionKeys(next));
+    showToast("追従ボタンを更新しました");
+  }
 
   return (
     <>
@@ -70,8 +51,12 @@ export function QuickActionBar() {
             >
               <span className="h-1 w-9 rounded-full bg-slate-300/70" aria-hidden="true" />
             </button>
-            <div className="grid grid-cols-5 gap-1 px-2 pb-2">
-              {QUICK_ACTIONS.map(({ key, label, icon: Icon, tintIcon, to, color, underline }) => {
+            <nav
+              aria-label="追従ナビゲーション"
+              className="grid gap-1 px-2 pb-2"
+              style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))` }}
+            >
+              {actions.map(({ key, label, icon: Icon, tintIcon, to, color, underline }) => {
                 const isActive = activeKey === key;
                 return (
                   <Link
@@ -87,11 +72,11 @@ export function QuickActionBar() {
                   </Link>
                 );
               })}
-            </div>
+            </nav>
           </div>
         </div>
       </div>
-      <AllFeaturesSheet open={sheetOpen} onClose={() => setSheetOpen(false)} />
+      <AllFeaturesSheet open={sheetOpen} onClose={() => setSheetOpen(false)} selectedKeys={selectedKeys} onSave={handleSave} />
     </>
   );
 }
