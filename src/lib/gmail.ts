@@ -147,7 +147,8 @@ export async function generateDraft(input: GenerateDraftInput): Promise<Generate
 
 const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];
 
-/** Mirrors netlify/functions/generateDraft.ts's formatCandidateLabel exactly — used
+/** Mirrors api/generateDraft.ts's formatCandidateLabel exactly (also duplicated,
+ * unused now, in netlify/functions/generateDraft.ts) — used
  * when the user edits a candidate date, so the newly-computed label matches the
  * format the AI was instructed to use in the draft body (needed for the
  * find-and-replace in DraftReview.tsx to locate the right text). */
