@@ -1,11 +1,6 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "node20.x"
-    }
-  },
   "env": [
     "VITE_GOOGLE_CLIENT_ID",
     "VITE_SUPABASE_URL",
