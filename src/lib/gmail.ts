@@ -59,7 +59,7 @@ export function encodeHeaderWord(text: string): string {
 }
 
 async function callFunction<T>(name: string, body: unknown): Promise<T> {
-  const res = await fetch(`/.netlify/functions/${name}`, {
+  const res = await fetch(`/api/${name}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
