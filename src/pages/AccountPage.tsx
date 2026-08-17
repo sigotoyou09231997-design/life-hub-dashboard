@@ -6,7 +6,6 @@ import { RefreshCw, ChevronRight, Cloud, Mail, UserRound } from "lucide-react";
 import { db } from "../db/schema";
 import { auth, isSupabaseConfigured, getRedirectUri } from "../lib/supabase";
 import { syncNow } from "../lib/syncRuntime";
-import { getDeviceId } from "../lib/deviceId";
 import { avatarColor, avatarInitial } from "../lib/gmail";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
@@ -43,10 +42,9 @@ export default function AccountPage() {
     setSyncing(true);
     try {
       const summary = await syncNow();
-      // TODO: temporary diagnostic alert, switch back to a plain toast once sync is confirmed working everywhere.
-      alert(`この端末のID: ${getDeviceId()}\n${summary}`);
+      showToast(summary);
     } catch (err) {
-      alert(`同期に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
+      showToast(`同期に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSyncing(false);
     }
