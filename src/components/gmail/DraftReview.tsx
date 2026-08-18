@@ -32,6 +32,19 @@ const EMPTY_DATE_SET = new Set<string>();
  * part of "undo send" that's actually implementable. */
 const UNDO_SEND_SECONDS = 6;
 
+/** Distinguishes the common failure causes behind a generate/regenerate call so the
+ * toast says something actionable instead of always the same generic message —
+ * gmail.ts's callFunction() embeds the HTTP status in its Error message as
+ * "name failed (NNN): ...", which this parses back out. */
+function describeGenerateError(err: unknown): string {
+  const message = err instanceof Error ? err.message : "";
+  const status = Number(message.match(/failed \((\d+)\)/)?.[1] ?? NaN);
+  if (status === 429) return "AIの利用が集中しています。少し時間を置いてから再度お試しください";
+  if (status === 502 || status === 503 || status === 504) return "生成に時間がかかりすぎて失敗しました。もう一度お試しください";
+  if (status === 401 || status === 403) return "AI機能の認証エラーです。解決しない場合は管理者に連絡してください";
+  return "AI下書きの作成に失敗しました";
+}
+
 interface Props {
   email: SyncedEmail;
   account: GmailAccount;
@@ -178,8 +191,8 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       setCandidateDates(result.candidateDates);
       setEarliestDate(result.earliestDate);
       initializedRef.current = false; // let the freshly generated body overwrite the textarea
-    } catch {
-      showToast("AI下書きの作成に失敗しました", "error");
+    } catch (err) {
+      showToast(describeGenerateError(err), "error");
     } finally {
       setGenerating(false);
     }
