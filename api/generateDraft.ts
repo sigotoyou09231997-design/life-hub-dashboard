@@ -202,7 +202,11 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 1024,
+      // 1024だと[ポイント]/[候補日]/[件名]等の前置セクションだけで使い切り、[本文]に
+      // 辿り着く前に打ち切られることがあった(userNotesで要望が増えるほど起きやすい)。
+      // 打ち切られると本文が空のまま200を返してしまい、ユーザーには「入力した内容が
+      // 反映されないどころか文章ごと消えた」ように見える無言の失敗になっていた。
+      max_tokens: 2048,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     }),
@@ -213,10 +217,20 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     return jsonResponse(res, anthropicRes.status, { error: `Anthropic API error: ${text}` });
   }
 
-  const data = (await anthropicRes.json()) as { content: { type: string; text?: string }[] };
+  const data = (await anthropicRes.json()) as { content: { type: string; text?: string }[]; stop_reason?: string };
   const generated = data.content.find((block) => block.type === "text")?.text ?? "";
   const { keyPoints, candidateDates, earliestDate, subject, body: generatedBody } = parseModelOutput(generated);
   const cleanedBody = stripKnownGreetingAndClosing(generatedBody);
+  if (!cleanedBody) {
+    // 2048に上げても万一起きた場合、空の下書きを黙って保存させるより、はっきり
+    // 失敗として返してユーザーに再試行してもらう方がまだよい。
+    return jsonResponse(res, 502, {
+      error:
+        data.stop_reason === "max_tokens"
+          ? "生成が長くなりすぎて本文が完成しませんでした。もう一度お試しください"
+          : "AIから本文を取得できませんでした。もう一度お試しください",
+    });
+  }
   const draft = `お世話になっております。\n船田です。\n\n${cleanedBody}\n\n以上、よろしくお願いします。`;
   const candidateDatesWithLabel = candidateDates.map((c) => ({ ...c, label: formatCandidateLabel(c) }));
   // モデルが件名を返さなかった場合は元の件名を踏襲する(候補日と違い、件名は常に必要なフィールドのため)。

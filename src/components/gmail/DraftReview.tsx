@@ -4,6 +4,7 @@ import { Ban, Copy, ExternalLink, Pencil } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
+  ApiFunctionError,
   avatarColor,
   avatarInitial,
   ensureFreshAccessToken,
@@ -33,15 +34,18 @@ const EMPTY_DATE_SET = new Set<string>();
 const UNDO_SEND_SECONDS = 6;
 
 /** Distinguishes the common failure causes behind a generate/regenerate call so the
- * toast says something actionable instead of always the same generic message —
- * gmail.ts's callFunction() embeds the HTTP status in its Error message as
- * "name failed (NNN): ...", which this parses back out. */
+ * toast says something actionable instead of always the same generic message.
+ * Prefers the server's own `{ error: "..." }` message (api/generateDraft.ts already
+ * writes specific, user-facing Japanese text for known failure modes) and only falls
+ * back to a canned message by HTTP status for opaque platform-level failures (e.g. a
+ * raw timeout/error page with no JSON body). */
 function describeGenerateError(err: unknown): string {
-  const message = err instanceof Error ? err.message : "";
-  const status = Number(message.match(/failed \((\d+)\)/)?.[1] ?? NaN);
-  if (status === 429) return "AIの利用が集中しています。少し時間を置いてから再度お試しください";
-  if (status === 502 || status === 503 || status === 504) return "生成に時間がかかりすぎて失敗しました。もう一度お試しください";
-  if (status === 401 || status === 403) return "AI機能の認証エラーです。解決しない場合は管理者に連絡してください";
+  if (err instanceof ApiFunctionError) {
+    if (err.serverMessage) return err.serverMessage;
+    if (err.status === 429) return "AIの利用が集中しています。少し時間を置いてから再度お試しください";
+    if (err.status === 502 || err.status === 503 || err.status === 504) return "生成に時間がかかりすぎて失敗しました。もう一度お試しください";
+    if (err.status === 401 || err.status === 403) return "AI機能の認証エラーです。解決しない場合は管理者に連絡してください";
+  }
   return "AI下書きの作成に失敗しました";
 }
 

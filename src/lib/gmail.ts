@@ -58,6 +58,27 @@ export function encodeHeaderWord(text: string): string {
   return `=?UTF-8?B?${btoa(binary)}?=`;
 }
 
+/** Thrown by callFunction() on a non-2xx response. Carries the HTTP status and,
+ * when the server responded with our own `{ error: "..." }` JSON shape (as every
+ * api/*.ts function does), that exact message — so callers can show the server's
+ * actual, specific reason instead of one generic string for every failure mode. */
+export class ApiFunctionError extends Error {
+  status: number;
+  serverMessage?: string;
+  constructor(name: string, status: number, rawText: string) {
+    let serverMessage: string | undefined;
+    try {
+      const parsed = JSON.parse(rawText) as { error?: string };
+      serverMessage = parsed.error;
+    } catch {
+      // Not our JSON error shape (e.g. a platform-level timeout/error page) — leave undefined.
+    }
+    super(serverMessage ?? `${name} failed (${status})`);
+    this.status = status;
+    this.serverMessage = serverMessage;
+  }
+}
+
 async function callFunction<T>(name: string, body: unknown): Promise<T> {
   const res = await fetch(`/api/${name}`, {
     method: "POST",
@@ -66,7 +87,7 @@ async function callFunction<T>(name: string, body: unknown): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`${name} failed (${res.status}): ${text}`);
+    throw new ApiFunctionError(name, res.status, text);
   }
   return res.json() as Promise<T>;
 }
