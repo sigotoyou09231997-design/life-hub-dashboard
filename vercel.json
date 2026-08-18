@@ -3,14 +3,5 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
-  ],
-  "env": [
-    "VITE_GOOGLE_CLIENT_ID",
-    "VITE_SUPABASE_URL",
-    "VITE_SUPABASE_ANON_KEY",
-    "VITE_VAPID_PUBLIC_KEY",
-    "GOOGLE_CLIENT_ID",
-    "GOOGLE_CLIENT_SECRET",
-    "ANTHROPIC_API_KEY"
   ]
 }
