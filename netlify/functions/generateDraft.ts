@@ -23,6 +23,10 @@ interface GenerateDraftBody {
    * would in an ordinary Claude/ChatGPT chat) has nothing for "この" to resolve
    * against. Omitted on first-time generation, when there's no draft yet. */
   currentDraft?: string;
+  /** Bodies of the user's own past sent replies (most recent first), used as
+   * few-shot examples so the AI's tone/wording matches how the user actually
+   * writes without requiring the user to describe their own style. */
+  styleExamples?: string[];
 }
 
 function jsonResponse(statusCode: number, body: unknown) {
@@ -128,13 +132,19 @@ export function parseModelOutput(text: string): {
  * section, only when non-blank, so the model treats it as a distinct override rather
  * than conflating it with the original email's own content. */
 export function buildUserMessage(payload: GenerateDraftBody): string {
+  const styleExamplesSection =
+    payload.styleExamples && payload.styleExamples.length > 0
+      ? `\n\n過去にユーザーが実際に送信した返信の例(口調・言葉遣い・文の長さなど書き方の傾向をつかむための参考。内容やこの例文の文言そのものを今回の返信に流用しないこと):\n${payload.styleExamples
+          .map((ex, i) => `【例${i + 1}】\n${ex.trim()}`)
+          .join("\n\n")}`
+      : "";
   const currentDraftSection = payload.currentDraft?.trim()
     ? `\n\n現在の下書き本文(直前にAIが生成し、ユーザーが今画面で見ているもの。ユーザーからの追加指示内の「これ」「上記」「この日付」等の指示語は、この下書き本文中の該当箇所を指している可能性が高い):\n${payload.currentDraft.trim()}`
     : "";
   const userNotesSection = payload.userNotes?.trim()
     ? `\n\nユーザーからの追加指示(必ず反映すること):\n${payload.userNotes.trim()}`
     : "";
-  return `差出人: ${payload.from}\n件名: ${payload.subject}\n本文:\n${payload.body}\n\n予定が入っている日時(候補日を提案する場合はこれらを避ける):\n${formatBusySlots(payload.busySlots)}${currentDraftSection}${userNotesSection}`;
+  return `差出人: ${payload.from}\n件名: ${payload.subject}\n本文:\n${payload.body}\n\n予定が入っている日時(候補日を提案する場合はこれらを避ける):\n${formatBusySlots(payload.busySlots)}${styleExamplesSection}${currentDraftSection}${userNotesSection}`;
 }
 
 /** Defensive cleanup for when the model includes the greeting/closing our fixed
@@ -174,6 +184,7 @@ ${BODY_MARKER}
 ${CANDIDATES_MARKER}に書いた内容と表記を完全に一致させること(この表記が一致しないと、ユーザーが日付を後から変更できなくなる)。
 
 共通ルール:
+- 「過去にユーザーが実際に送信した返信の例」が渡されている場合、そこから文体・口調(敬語の丁寧さの度合い、一人称、語尾、文の長さ、段落の区切り方、絵文字や記号の使い方の有無など)の傾向を読み取り、今回の返信もできるだけ同じ書き方になるようにすること。ただし例文に書かれている具体的な内容・話題・固有名詞は今回のメールと無関係なので、そのまま流用したり混ぜたりしてはならない(参考にするのは書き方だけ)
 - 「現在の下書き本文」が渡されている場合、それは前回このAIが生成し、ユーザーが今画面で見ている内容である。「ユーザーからの追加指示」中の「これ」「それ」「上記」「この日付」のような指示語は、受信メールではなく現在の下書き本文中の該当箇所を指しているものとして解釈すること
 - 簡潔かつ丁寧な文面にする
 - ${POINTS_MARKER}に挙げた点は、要約として別表示するためのものであり、必ず全て${BODY_MARKER}の文面自体にも反映すること。${POINTS_MARKER}にだけ書いて${BODY_MARKER}に書かない、ということがあってはならない

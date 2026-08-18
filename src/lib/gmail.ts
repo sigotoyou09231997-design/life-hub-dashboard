@@ -8,6 +8,7 @@ const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 const TOKEN_REFRESH_MARGIN_MS = 2 * 60 * 1000;
 /** How far ahead the AI draft looks at the calendar to propose real open dates. */
 const SCHEDULE_LOOKAHEAD_DAYS = 21;
+const STYLE_EXAMPLE_COUNT = 5;
 /** sessionStorage key shared between the OAuth-initiating page and the callback page for CSRF-state verification. */
 export const GMAIL_OAUTH_STATE_KEY = "gmailOAuthState";
 
@@ -144,6 +145,7 @@ export interface GenerateDraftInput {
   busySlots?: BusySlot[];
   userNotes?: string;
   currentDraft?: string;
+  styleExamples?: string[];
 }
 
 export interface CandidateDate {
@@ -192,6 +194,22 @@ async function getUpcomingBusySlots(): Promise<BusySlot[]> {
   return events.map((e) => ({ date: e.date, startTime: e.startTime, endTime: e.endTime, allDay: e.allDay }));
 }
 
+/** Bodies of the user's most recently sent replies for this account, most-recent-first —
+ * fed to the AI as few-shot style examples (see api/generateDraft.ts's styleExamples) so
+ * generated drafts pick up the user's own tone/wording automatically, with no manual
+ * style configuration required. Empty until the user has actually sent a few replies. */
+async function getRecentSentReplyBodies(accountId: string): Promise<string[]> {
+  const sent = await db.draftReplies
+    .where("accountId")
+    .equals(accountId)
+    .filter((d) => !!d.sentAt)
+    .toArray();
+  return sent
+    .sort((a, b) => (b.sentAt ?? 0) - (a.sentAt ?? 0))
+    .slice(0, STYLE_EXAMPLE_COUNT)
+    .map((d) => d.body);
+}
+
 /** Fetches the email body, asks the AI to draft a reply, and upserts it into
  * draftReplies (one row per email, updated in place on regenerate). Shared by
  * the inbox's per-row/bulk "AI下書きを作成" and the review sheet's "再生成".
@@ -218,6 +236,7 @@ export async function generateDraftForEmail(
     const fresh = await ensureFreshAccessToken(account);
     const body = await getMessageBody(fresh.accessToken, email.gmailMessageId);
     const busySlots = await getUpcomingBusySlots();
+    const styleExamples = await getRecentSentReplyBodies(account.id);
     const result = await generateDraft({
       from: email.from,
       subject: email.subject,
@@ -225,6 +244,7 @@ export async function generateDraftForEmail(
       busySlots,
       userNotes,
       currentDraft: currentDraftBody,
+      styleExamples,
     });
     const now = Date.now();
     const existing = await db.draftReplies.where("emailId").equals(emailId).first();
