@@ -101,6 +101,33 @@ export default function App() {
     void clearShownPushNotifications();
   }, []);
 
+  // ページ切り替え時の「読み込み中…」表示を体感上ほぼ無くすため、ログイン後の暇な
+  // タイミング(requestIdleCallback)で全lazyページのJSチャンクを先読みしておく。
+  // 初回起動直後の重要な描画とは competing しないよう、あえて即時ではなくidle時に行う。
+  useEffect(() => {
+    if (isSupabaseConfigured && !(session && syncReady)) return;
+    const prefetch = () => {
+      void import("./pages/SchedulePage");
+      void import("./pages/TripsPage");
+      void import("./pages/TripDetailPage");
+      void import("./pages/RecordsPage");
+      void import("./pages/SettingsPage");
+      void import("./pages/AccountPage");
+      void import("./pages/records/ExpensePage");
+      void import("./pages/records/NotePage");
+      void import("./pages/records/DiaryPage");
+      void import("./pages/records/GoalPage");
+      void import("./pages/records/HabitPage");
+      void import("./pages/GmailPage");
+      void import("./pages/GmailMailPage");
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(prefetch);
+    } else {
+      window.setTimeout(prefetch, 1000);
+    }
+  }, [isSupabaseConfigured, session, syncReady]);
+
   if (isSupabaseConfigured && (session === undefined || (session && !syncReady)) && !isAuthCallbackRoute) {
     // 一瞬でも未ログイン画面がちらつくのを避けるための空白 — セッション確認は
     // 通常ミリ秒単位(localStorageから即読める)なので、ローディング表示は最小限でよい。
