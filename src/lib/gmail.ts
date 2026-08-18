@@ -194,22 +194,6 @@ async function getUpcomingBusySlots(): Promise<BusySlot[]> {
   return events.map((e) => ({ date: e.date, startTime: e.startTime, endTime: e.endTime, allDay: e.allDay }));
 }
 
-/** Bodies of the user's most recently sent replies for this account, most-recent-first —
- * fed to the AI as few-shot style examples (see api/generateDraft.ts's styleExamples) so
- * generated drafts pick up the user's own tone/wording automatically, with no manual
- * style configuration required. Empty until the user has actually sent a few replies. */
-async function getRecentSentReplyBodies(accountId: string): Promise<string[]> {
-  const sent = await db.draftReplies
-    .where("accountId")
-    .equals(accountId)
-    .filter((d) => !!d.sentAt)
-    .toArray();
-  return sent
-    .sort((a, b) => (b.sentAt ?? 0) - (a.sentAt ?? 0))
-    .slice(0, STYLE_EXAMPLE_COUNT)
-    .map((d) => d.body);
-}
-
 /** Fetches the email body, asks the AI to draft a reply, and upserts it into
  * draftReplies (one row per email, updated in place on regenerate). Shared by
  * the inbox's per-row/bulk "AI下書きを作成" and the review sheet's "再生成".
@@ -236,7 +220,7 @@ export async function generateDraftForEmail(
     const fresh = await ensureFreshAccessToken(account);
     const body = await getMessageBody(fresh.accessToken, email.gmailMessageId);
     const busySlots = await getUpcomingBusySlots();
-    const styleExamples = await getRecentSentReplyBodies(account.id);
+    const styleExamples = await getRecentSentBodies(fresh.accessToken, STYLE_EXAMPLE_COUNT);
     const result = await generateDraft({
       from: email.from,
       subject: email.subject,
@@ -287,6 +271,39 @@ export async function listRecentMessageIds(accessToken: string, sinceEpochSec: n
   const params = new URLSearchParams({ q: `in:inbox after:${sinceEpochSec}`, maxResults: "100" });
   const data = await gmailFetch(accessToken, `/messages?${params.toString()}`);
   return ((data.messages ?? []) as { id: string }[]).map((m) => m.id);
+}
+
+async function listRecentSentMessageIds(accessToken: string, limit: number): Promise<string[]> {
+  const params = new URLSearchParams({ q: "in:sent", maxResults: String(limit) });
+  const data = await gmailFetch(accessToken, `/messages?${params.toString()}`);
+  return ((data.messages ?? []) as { id: string }[]).map((m) => m.id);
+}
+
+/** Cuts off Gmail's own quoted-reply header and everything after it, so a sent message's
+ * own newly-typed text isn't diluted by the quoted thread underneath (Gmail appends this in
+ * both English "On ... wrote:" and Japanese "...のメッセージ:" forms, depending on locale).
+ * Falls back to stripping "> "-quoted lines when no header match is found, since forwarded
+ * or manually-quoted messages sometimes quote without one. */
+function stripQuotedReply(body: string): string {
+  const headerMatch = body.match(/^\s*(On .{0,120} wrote:|.{0,80}のメッセージ:)\s*$/m);
+  const cut = headerMatch ? body.slice(0, headerMatch.index) : body;
+  return cut
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith(">"))
+    .join("\n")
+    .trim();
+}
+
+/** Bodies of the user's most recently sent Gmail messages (most-recent-first, quoted
+ * thread text stripped), fed to the AI as few-shot style examples (see
+ * api/generateDraft.ts's styleExamples) so generated drafts pick up the user's own
+ * tone/wording automatically — no manual style configuration, and not limited to
+ * replies sent through this app, since anything sent elsewhere (webmail, other
+ * clients) lands in the same Gmail Sent folder. */
+async function getRecentSentBodies(accessToken: string, limit: number): Promise<string[]> {
+  const ids = await listRecentSentMessageIds(accessToken, limit);
+  const bodies = await Promise.all(ids.map((id) => getMessageBody(accessToken, id).catch(() => "")));
+  return bodies.map(stripQuotedReply).filter((b) => b.length > 0);
 }
 
 export interface ParsedSender {
