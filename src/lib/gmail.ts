@@ -143,6 +143,7 @@ export interface GenerateDraftInput {
   body: string;
   busySlots?: BusySlot[];
   userNotes?: string;
+  currentDraft?: string;
 }
 
 export interface CandidateDate {
@@ -193,11 +194,19 @@ async function getUpcomingBusySlots(): Promise<BusySlot[]> {
 
 /** Fetches the email body, asks the AI to draft a reply, and upserts it into
  * draftReplies (one row per email, updated in place on regenerate). Shared by
- * the inbox's per-row/bulk "AI下書きを作成" and the review sheet's "再生成". */
+ * the inbox's per-row/bulk "AI下書きを作成" and the review sheet's "再生成".
+ *
+ * currentDraftBody: the reply text currently shown on screen (pass DraftReview.tsx's
+ * live bodyText state, unsaved edits included — not the possibly-stale saved draft).
+ * Each call here is otherwise stateless: the model never sees its own prior output,
+ * so a userNotes instruction like "この日付消して" that assumes shared context (the
+ * way it would in an ordinary Claude/ChatGPT chat) has nothing for "この" to resolve
+ * against without this. Omit on first-time generation, when there's no draft yet. */
 export async function generateDraftForEmail(
   account: GmailAccount,
   email: SyncedEmail,
   userNotes?: string,
+  currentDraftBody?: string,
 ): Promise<GenerateDraftResult> {
   if (!email.id || !account.id) throw new Error("email/account is missing an id");
   const emailId = email.id;
@@ -209,7 +218,14 @@ export async function generateDraftForEmail(
     const fresh = await ensureFreshAccessToken(account);
     const body = await getMessageBody(fresh.accessToken, email.gmailMessageId);
     const busySlots = await getUpcomingBusySlots();
-    const result = await generateDraft({ from: email.from, subject: email.subject, body: body || email.snippet, busySlots, userNotes });
+    const result = await generateDraft({
+      from: email.from,
+      subject: email.subject,
+      body: body || email.snippet,
+      busySlots,
+      userNotes,
+      currentDraft: currentDraftBody,
+    });
     const now = Date.now();
     const existing = await db.draftReplies.where("emailId").equals(emailId).first();
     if (existing?.id) {

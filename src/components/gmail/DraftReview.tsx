@@ -190,7 +190,10 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   async function handleGenerate() {
     setGenerating(true);
     try {
-      const result = await generateDraftForEmail(account, email, userNotes.trim() || undefined);
+      // Only pass the on-screen body when regenerating an existing draft (not on
+      // first-time generation, when bodyText is still empty) — see generateDraftForEmail's
+      // doc comment for why this needs to be the live state, not the possibly-stale saved draft.
+      const result = await generateDraftForEmail(account, email, userNotes.trim() || undefined, draft ? bodyText : undefined);
       setKeyPoints(result.keyPoints);
       setCandidateDates(result.candidateDates);
       setEarliestDate(result.earliestDate);

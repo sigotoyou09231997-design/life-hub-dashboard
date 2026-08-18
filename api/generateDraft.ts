@@ -16,6 +16,13 @@ interface GenerateDraftBody {
   body: string;
   busySlots?: BusySlot[];
   userNotes?: string;
+  /** The reply draft currently shown on screen (unsaved edits included), when
+   * regenerating an existing draft. Without this, each generation call is
+   * stateless — the model never sees its own prior output — so a userNotes
+   * instruction like "この日付消して" that assumes shared context (the way it
+   * would in an ordinary Claude/ChatGPT chat) has nothing for "この" to resolve
+   * against. Omitted on first-time generation, when there's no draft yet. */
+  currentDraft?: string;
 }
 
 function jsonResponse(res: VercelResponse, statusCode: number, body: unknown) {
@@ -115,12 +122,18 @@ export function parseModelOutput(text: string): {
 /** Builds the Messages API user turn from the request payload. userNotes (free-text
  * instructions from the DraftReview.tsx textarea) is appended as its own labeled
  * section, only when non-blank, so the model treats it as a distinct override rather
- * than conflating it with the original email's own content. */
+ * than conflating it with the original email's own content. currentDraft (when
+ * regenerating) is placed directly before userNotes so a referential instruction like
+ * "この日付消して" reads naturally against the content right above it — this call is
+ * otherwise stateless and the model has no other way to see its own prior output. */
 export function buildUserMessage(payload: GenerateDraftBody): string {
+  const currentDraftSection = payload.currentDraft?.trim()
+    ? `\n\n現在の下書き本文(直前にAIが生成し、ユーザーが今画面で見ているもの。ユーザーからの追加指示内の「これ」「上記」「この日付」等の指示語は、この下書き本文中の該当箇所を指している可能性が高い):\n${payload.currentDraft.trim()}`
+    : "";
   const userNotesSection = payload.userNotes?.trim()
     ? `\n\nユーザーからの追加指示(必ず反映すること):\n${payload.userNotes.trim()}`
     : "";
-  return `差出人: ${payload.from}\n件名: ${payload.subject}\n本文:\n${payload.body}\n\n予定が入っている日時(候補日を提案する場合はこれらを避ける):\n${formatBusySlots(payload.busySlots)}${userNotesSection}`;
+  return `差出人: ${payload.from}\n件名: ${payload.subject}\n本文:\n${payload.body}\n\n予定が入っている日時(候補日を提案する場合はこれらを避ける):\n${formatBusySlots(payload.busySlots)}${currentDraftSection}${userNotesSection}`;
 }
 
 /** Defensive cleanup for when the model includes the greeting/closing our fixed
@@ -160,6 +173,7 @@ ${BODY_MARKER}
 ${CANDIDATES_MARKER}に書いた内容と表記を完全に一致させること(この表記が一致しないと、ユーザーが日付を後から変更できなくなる)。
 
 共通ルール:
+- 「現在の下書き本文」が渡されている場合、それは前回このAIが生成し、ユーザーが今画面で見ている内容である。「ユーザーからの追加指示」中の「これ」「それ」「上記」「この日付」のような指示語は、受信メールではなく現在の下書き本文中の該当箇所を指しているものとして解釈すること
 - 簡潔かつ丁寧な文面にする
 - ${POINTS_MARKER}に挙げた点は、要約として別表示するためのものであり、必ず全て${BODY_MARKER}の文面自体にも反映すること。${POINTS_MARKER}にだけ書いて${BODY_MARKER}に書かない、ということがあってはならない
 - 受信メール、および渡された「予定が入っている日時」に書かれていない事実を作り上げない
