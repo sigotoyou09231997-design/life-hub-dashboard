@@ -225,10 +225,12 @@ async function startSessionOnce(userId: string, accessToken: string): Promise<vo
   if (currentUserId === userId) return; // already started; token was refreshed above
   stopSession();
   currentUserId = userId;
-  for (const reg of registered) {
-    await reconcile(reg);
-    subscribeRealtime(reg);
-  }
+  // syncNow()と同じ並列パターン(Promise.all)に揃える — 以前は登録テーブルを1つずつ
+  // 直列でreconcileしていたため、テーブル数ぶんのネットワーク往復が積み重なり、
+  // App.tsxの起動ゲート(syncReadyになるまで画面が真っ白)を毎回大きく引き延ばしていた
+  // (新しいタブを開くたびに再発生するため、特にGmailメール詳細ページで顕著だった)。
+  await Promise.all(registered.map((reg) => reconcile(reg)));
+  for (const reg of registered) subscribeRealtime(reg);
   await drainQueue();
 }
 
