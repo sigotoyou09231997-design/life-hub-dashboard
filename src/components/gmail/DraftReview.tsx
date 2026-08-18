@@ -425,15 +425,23 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
           onClick={handleGenerate}
           disabled={generating || sending || undoActive}
         >
-          {generating ? "生成中..." : "下書きを再生成"}
+          {generating ? "生成中..." : "再生成"}
         </Button>
         <Button type="button" variant="secondary" className="flex-1" onClick={handleSave} disabled={saving || generating || undoActive}>
           {saving ? "保存中..." : "保存"}
         </Button>
         {!alreadySent && (
-          <Button type="button" variant="secondary" className="flex-1" onClick={handleCopy} disabled={generating}>
-            <Copy size={15} />
-            コピー
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="shrink-0"
+            onClick={handleCopy}
+            disabled={generating}
+            aria-label="コピー"
+            title="コピー"
+          >
+            <Copy size={18} />
           </Button>
         )}
       </div>
