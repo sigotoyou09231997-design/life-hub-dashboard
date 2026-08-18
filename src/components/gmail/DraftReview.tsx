@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban, Copy, ExternalLink, Pencil } from "lucide-react";
+import { Ban, Copy } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
@@ -102,10 +102,6 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   const [editEndTime, setEditEndTime] = useState("");
   const [pickerMonth, setPickerMonth] = useState(new Date());
 
-  // 編集モードに入るまでは、参考画像どおり「AI返信案」を読み取り専用のプレビューとして
-  // 表示する(誤って本文を書き換えたまま送信するのを防ぐ意図もある)。編集は明示的に
-  // 「編集」を押した場合のみ。email.idが変わったら都度リセットする。
-  const [editMode, setEditMode] = useState(false);
   // variant="sheet"のみで使う折りたたみ状態(初期表示をコンパクトに保つため)。
   const [originalExpanded, setOriginalExpanded] = useState(false);
   const [replyExpanded, setReplyExpanded] = useState(false);
@@ -116,7 +112,6 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   const busyDateSet = new Set((calendarEvents ?? []).map((e) => e.date));
 
   useEffect(() => {
-    setEditMode(false);
     setOriginalExpanded(false);
     setReplyExpanded(false);
   }, [email.id]);
@@ -330,7 +325,6 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   const alreadySent = email.status === "sent";
   const hasDraft = !!draft;
   const undoActive = undoSecondsLeft !== null;
-  const showEditForm = editMode || (!hasDraft && !alreadySent);
 
   const senderRow = (
     <div className="flex items-start gap-3">
@@ -436,6 +430,12 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         <Button type="button" variant="secondary" className="flex-1" onClick={handleSave} disabled={saving || generating || undoActive}>
           {saving ? "保存中..." : "保存"}
         </Button>
+        {!alreadySent && (
+          <Button type="button" variant="secondary" className="flex-1" onClick={handleCopy} disabled={generating}>
+            <Copy size={15} />
+            コピー
+          </Button>
+        )}
       </div>
       {undoActive ? (
         <Button type="button" variant="secondary" className="w-full" onClick={handleCancelSend}>
@@ -454,37 +454,14 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     </>
   );
 
+  // alreadySentの時だけ使う読み取り専用表示(送信済みは再編集・再生成させない)。
   const replyPreviewBlock = (
     <>
       <div className="glass-row whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
         {bodyText}
       </div>
       <p className="mt-1.5 text-right text-xs text-slate-400">{bodyText.length}文字</p>
-      {!alreadySent && (
-        <div className="mt-2 flex gap-3">
-          <Button type="button" variant="secondary" className="flex-1" onClick={() => setEditMode(true)}>
-            <Pencil size={15} />
-            編集
-          </Button>
-          <Button type="button" variant="secondary" className="flex-1" onClick={handleCopy}>
-            <Copy size={15} />
-            コピー
-          </Button>
-        </div>
-      )}
     </>
-  );
-
-  const gmailLink = (
-    <a
-      href={`https://mail.google.com/mail/u/0/#all/${email.threadId}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition-all active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 motion-reduce:transition-none motion-reduce:active:scale-100"
-    >
-      Gmailで確認
-      <ExternalLink size={15} />
-    </a>
   );
 
   const candidateSheet = (
@@ -561,7 +538,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
                 AI下書きを作成
               </Button>
             </div>
-          ) : !replyExpanded && !editMode ? (
+          ) : !replyExpanded ? (
             <button
               type="button"
               onClick={() => setReplyExpanded(true)}
@@ -571,7 +548,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
             </button>
           ) : (
             <div className="mt-3 space-y-3">
-              {!alreadySent && !editMode && (
+              {!alreadySent && (
                 <Textarea
                   label="AIに伝えたいこと（任意）"
                   value={userNotes}
@@ -581,12 +558,11 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
                   disabled={generating}
                 />
               )}
-              {showEditForm ? replyFormFields : replyPreviewBlock}
+              {alreadySent ? replyPreviewBlock : replyFormFields}
             </div>
           )}
         </div>
 
-        {gmailLink}
         {candidateSheet}
       </div>
     );
@@ -624,25 +600,21 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
               AI下書きを作成
             </Button>
           </div>
-        ) : showEditForm ? (
+        ) : alreadySent ? (
+          <div className="mt-3 flex flex-col">{replyPreviewBlock}</div>
+        ) : (
           <div className="mt-3 flex flex-col gap-3">
-            {!alreadySent && (
-              <Textarea
-                label="AIに伝えたいこと（任意）"
-                value={userNotes}
-                onChange={(e) => setUserNotes(e.target.value)}
-                rows={3}
-                placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
-                disabled={generating}
-              />
-            )}
+            <Textarea
+              label="AIに伝えたいこと（任意）"
+              value={userNotes}
+              onChange={(e) => setUserNotes(e.target.value)}
+              rows={3}
+              placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
+              disabled={generating}
+            />
             {replyFormFields}
           </div>
-        ) : (
-          <div className="mt-3 flex flex-col">{replyPreviewBlock}</div>
         )}
-
-        <div className="mt-3 shrink-0">{gmailLink}</div>
       </div>
 
       {/* 読む: 件名→送信者→区切り線→元メール本文 */}
