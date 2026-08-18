@@ -11,6 +11,7 @@ import {
   getMessageMeta,
   listRecentMessageIds,
   parseSender,
+  threadHasSentReplyAfter,
 } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
@@ -146,8 +147,49 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
           }
         }
       }
+      // Gmail側とのズレ防止: このアプリの外(他デバイス・Gmail本体)から直接返信された
+      // 場合、この app には知る手段がないため、まだ未送信扱いのトラッキング中メールは
+      // 毎回スレッドの実際の状態と突き合わせて「送信済み」を確定させる。新規追加分より
+      // 古いメールが対象なので、際限なく増え続けないようsinceEpochSecの範囲に限定する。
+      const unresolvedExisting = existing.filter((e) => e.status !== "sent" && e.receivedAt >= sinceEpochSec * 1000);
+      let reconciled = 0;
+      await Promise.all(
+        unresolvedExisting.map(async (e) => {
+          if (!e.id) return;
+          try {
+            const actuallySent = await threadHasSentReplyAfter(fresh.accessToken, e.threadId, e.receivedAt);
+            if (!actuallySent) return;
+            const now = Date.now();
+            const existingDraft = await db.draftReplies.where("emailId").equals(e.id).first();
+            if (existingDraft?.id) {
+              if (!existingDraft.sentAt) await db.draftReplies.update(existingDraft.id, { sentAt: now });
+            } else {
+              // 下書きレコード自体がない(=このアプリ経由で下書きを作らずGmail側で直接
+              // 返信した)場合も作っておく — これがないとDraftReview側で「下書きなし」
+              // 扱いとなり、送信済みなのに再度下書き作成・送信ができてしまう。
+              await db.draftReplies.add({
+                emailId: e.id,
+                accountId: account.id!,
+                body: "(Gmail側で直接返信済み。このアプリの外で送信されたため、本文はここには保存されていません)",
+                subject: e.subject,
+                createdAt: now,
+                updatedAt: now,
+                sentAt: now,
+              });
+            }
+            await db.syncedEmails.update(e.id, { status: "sent" });
+            reconciled++;
+          } catch {
+            // 個別スレッドの確認失敗で同期全体を止めない。
+          }
+        }),
+      );
+
       await db.gmailAccounts.update(account.id, { lastSyncedAt: Date.now() });
-      showToast(added > 0 ? `${added}件の新着メールを取得しました` : "新着メールはありませんでした");
+      const parts: string[] = [];
+      if (added > 0) parts.push(`${added}件の新着メール`);
+      if (reconciled > 0) parts.push(`${reconciled}件を送信済みに更新`);
+      showToast(parts.length > 0 ? `${parts.join("・")}しました` : "新着メールはありませんでした");
     } catch {
       showToast("メールの取得に失敗しました", "error");
     } finally {

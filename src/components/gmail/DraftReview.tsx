@@ -13,6 +13,7 @@ import {
   getMessageBody,
   parseSender,
   sendReply,
+  threadHasSentReplyAfter,
   type CandidateDate,
 } from "../../lib/gmail";
 import { formatGmailTimestamp, parseDate } from "../../lib/date";
@@ -32,6 +33,13 @@ const EMPTY_DATE_SET = new Set<string>();
  * API to recall an email already delivered, so this delay-then-send is the only
  * part of "undo send" that's actually implementable. */
 const UNDO_SEND_SECONDS = 6;
+
+/** Buffer subtracted from the send attempt's start time when verifying against Gmail's
+ * thread state after sendReply() throws, to absorb clock skew between this client and
+ * Gmail's internalDate. Kept tight (not e.g. the email's receivedAt) so a thread that
+ * already has an earlier legitimate sent reply from a previous exchange doesn't produce
+ * a false positive for *this* send attempt. */
+const SEND_VERIFY_CLOCK_SKEW_MS = 2 * 60 * 1000;
 
 /** Distinguishes the common failure causes behind a generate/regenerate call so the
  * toast says something actionable instead of always the same generic message.
@@ -260,7 +268,16 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
 
   async function performSend() {
     if (!email.id) return;
+    const emailId = email.id;
     setSending(true);
+    const attemptStartedAt = Date.now();
+    const markSent = async () => {
+      const now = Date.now();
+      if (draft?.id) {
+        await db.draftReplies.update(draft.id, { body: bodyText, subject: subjectText, to: toText, updatedAt: now, sentAt: now });
+      }
+      await db.syncedEmails.update(emailId, { status: "sent" });
+    };
     try {
       const fresh = await ensureFreshAccessToken(account);
       await sendReply(fresh.accessToken, {
@@ -269,14 +286,26 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         body: bodyText,
         threadId: email.threadId,
       });
-      const now = Date.now();
-      if (draft?.id) {
-        await db.draftReplies.update(draft.id, { body: bodyText, subject: subjectText, to: toText, updatedAt: now, sentAt: now });
-      }
-      await db.syncedEmails.update(email.id, { status: "sent" });
+      await markSent();
       showToast("返信を送信しました");
       onSent?.();
     } catch {
+      // sendReply() throwing doesn't guarantee Gmail never received it — the request can
+      // succeed server-side while the response is lost to a network drop. Check Gmail's
+      // own thread state before telling the user it failed, so a reply that actually went
+      // out never gets stuck showing as unsent in 送信済み (see threadHasSentReplyAfter).
+      try {
+        const verifyFresh = await ensureFreshAccessToken(account);
+        const actuallySent = await threadHasSentReplyAfter(verifyFresh.accessToken, email.threadId, attemptStartedAt - SEND_VERIFY_CLOCK_SKEW_MS);
+        if (actuallySent) {
+          await markSent();
+          showToast("返信を送信しました");
+          onSent?.();
+          return;
+        }
+      } catch {
+        // Verification itself failed (e.g. offline) — fall through to the failure toast.
+      }
       showToast("送信に失敗しました", "error");
     } finally {
       setSending(false);

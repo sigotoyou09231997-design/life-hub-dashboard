@@ -419,3 +419,18 @@ export async function sendReply(accessToken: string, input: SendReplyInput): Pro
     body: JSON.stringify({ raw: base64UrlEncode(raw), threadId: input.threadId }),
   });
 }
+
+/** Authoritative check against Gmail itself for whether a reply actually went out on this
+ * thread, rather than trusting only this app's own optimistic local status. Used two ways:
+ * (1) when sendReply() throws (e.g. the request reached Gmail and sent but the response
+ * was lost to a network drop), so a genuinely-sent reply never gets stuck showing as
+ * "failed" locally; (2) during inbox sync, to catch replies sent from another device or
+ * Gmail client directly, which this app would otherwise have no way to learn about.
+ * Gmail applies the SENT label to a message regardless of which "send as" alias was used,
+ * so that's checked instead of comparing From-header addresses. format=minimal is enough:
+ * labelIds/internalDate are core message fields returned at every format level. */
+export async function threadHasSentReplyAfter(accessToken: string, threadId: string, afterEpochMs: number): Promise<boolean> {
+  const data = await gmailFetch(accessToken, `/threads/${threadId}?format=minimal`);
+  const messages = (data.messages ?? []) as { internalDate?: string; labelIds?: string[] }[];
+  return messages.some((m) => (m.labelIds ?? []).includes("SENT") && Number(m.internalDate ?? 0) >= afterEpochMs);
+}
