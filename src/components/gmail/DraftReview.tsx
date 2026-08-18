@@ -81,7 +81,12 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   const [subjectText, setSubjectText] = useState("");
   const [toText, setToText] = useState("");
   const [userNotes, setUserNotes] = useState("");
-  const initializedRef = useRef(false);
+  // Tracks the updatedAt of the draft version currently reflected in bodyText/subjectText,
+  // rather than a plain boolean: a boolean set from handleGenerate() after its await can miss
+  // a live-query re-render that lands mid-await (still holding the pre-reset value), and since
+  // refs don't trigger re-renders, the effect below would then never run again for that
+  // generation — leaving the freshly-regenerated draft in the DB but not on screen.
+  const appliedDraftVersionRef = useRef<number | undefined>(undefined);
   const toInitializedRef = useRef(false);
   const userNotesInitializedRef = useRef(false);
   const [generating, setGenerating] = useState(false);
@@ -117,16 +122,16 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   }, [email.id]);
 
   useEffect(() => {
-    if (draft && !initializedRef.current) {
-      initializedRef.current = true;
+    if (draft && draft.updatedAt !== appliedDraftVersionRef.current) {
+      appliedDraftVersionRef.current = draft.updatedAt;
       setBodyText(draft.body);
       setSubjectText(draft.subject || `Re: ${email.subject}`);
     }
   }, [draft, email.subject]);
 
   // Separate from the body/subject init above: "to" isn't AI-generated and must
-  // NOT reset when handleGenerate() re-runs the effect above (initializedRef.current
-  // = false) to pull a freshly-regenerated body/subject into the textarea/input.
+  // NOT reset when handleGenerate() causes the effect above to pull a freshly-regenerated
+  // body/subject into the textarea/input.
   useEffect(() => {
     if (draftResult && !toInitializedRef.current) {
       toInitializedRef.current = true;
@@ -189,7 +194,6 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       setKeyPoints(result.keyPoints);
       setCandidateDates(result.candidateDates);
       setEarliestDate(result.earliestDate);
-      initializedRef.current = false; // let the freshly generated body overwrite the textarea
     } catch (err) {
       showToast(describeGenerateError(err), "error");
     } finally {
