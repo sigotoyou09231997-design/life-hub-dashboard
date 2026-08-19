@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useParams } from "react-router-dom";
 import { Mail } from "lucide-react";
@@ -22,6 +23,14 @@ export default function GmailMailPage() {
     if (!account) return null;
     return { email, account };
   }, [emailId]);
+
+  // 一覧の「既読」フィルタータブ向け。readAtはstatus(AI下書き・送信ワークフローの進行状況)とは
+  // 独立に、人間が実際にこの画面を開いたかどうかだけを表す。既に既読なら書き込まない。
+  useEffect(() => {
+    if (data?.email.id && !data.email.readAt) {
+      void db.syncedEmails.update(data.email.id, { readAt: Date.now() });
+    }
+  }, [data?.email.id, data?.email.readAt]);
 
   return (
     <div className="mx-auto max-w-[1240px] pb-10 lg:pb-8">

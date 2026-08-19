@@ -272,6 +272,10 @@ export interface SyncedEmail {
   receivedAt: number; // epoch ms
   status: EmailStatus;
   createdAt: number;
+  /** When this app's own mail-detail page (GmailMailPage) was first opened for this email —
+   * independent of `status`, which tracks AI-draft/send workflow progress rather than
+   * whether a human has actually looked at it. Undefined until read. */
+  readAt?: number;
 }
 
 export interface DraftReply {

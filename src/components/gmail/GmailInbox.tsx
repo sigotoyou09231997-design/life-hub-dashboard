@@ -59,7 +59,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
   const showToast = useToast();
   const [syncing, setSyncing] = useState(false);
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "drafted" | "sent">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "drafted" | "sent" | "read">("all");
   const [manageBlockedOpen, setManageBlockedOpen] = useState(false);
 
   const emails = useLiveQuery(
@@ -95,6 +95,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
   const statusFilteredEmails = visibleEmails?.filter((email) => {
     if (statusFilter === "drafted") return email.status === "drafted" || email.status === "edited";
     if (statusFilter === "sent") return email.status === "sent";
+    if (statusFilter === "read") return !!email.readAt;
     return true;
   });
 
@@ -237,6 +238,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
               ["all", "すべて"],
               ["drafted", "AI下書き"],
               ["sent", "送信済み"],
+              ["read", "既読"],
             ] as const
           ).map(([value, label]) => (
             <button
@@ -273,7 +275,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
         <div className="flex flex-col gap-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-0.5">
           {filteredEmails.map((email) => {
             const sender = parseSender(email.from);
-            const unread = email.status === "unprocessed";
+            const unread = email.status === "unprocessed" && !email.readAt;
             return (
               <a
                 key={email.id}
