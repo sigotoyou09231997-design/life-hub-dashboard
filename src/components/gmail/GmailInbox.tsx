@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban, Mail, Search } from "lucide-react";
+import { Ban, Check, Mail, Search } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
 import {
@@ -96,7 +96,8 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     if (statusFilter === "drafted") return email.status === "drafted" || email.status === "edited";
     if (statusFilter === "sent") return email.status === "sent";
     if (statusFilter === "read") return !!email.readAt;
-    return true;
+    // "すべて": 既読にしたメールはここから外れる(=「既読」タブへ移動したように見える)。
+    return !email.readAt;
   });
 
   const filteredEmails = statusFilteredEmails?.filter((email) => {
@@ -211,6 +212,14 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     showToast("ブロックを解除しました");
   }
 
+  // 開かずに一覧から直接既読にできる(GmailMailPage.tsxを開いた時の自動既読化とは別の
+  // 手動エントリポイント)。readAtは「すべて」タブの除外/「既読」タブの表示にも使われるため、
+  // 押すとその場でこの一覧(「すべて」時)から消える。
+  async function handleMarkRead(id: string) {
+    await db.syncedEmails.update(id, { readAt: Date.now() });
+    showToast("既読にしました");
+  }
+
   return (
     // 他の一覧画面(メモ・収支等)と同じく、外側を1枚のglass-cardで包まない —
     // ページ自身のpx-5に直接乗せることで、各行(.glass-row)だけがカードに見える構成に
@@ -277,36 +286,53 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed" && !email.readAt;
             return (
-              <a
+              // 「既読にする」ボタンをaの外(兄弟要素)に置くため、行全体を囲むdivとaに分けている
+              // (button要素をa要素の中にネストするのはHTML的に不正で、挙動が環境依存になる)。
+              <div
                 key={email.id}
-                href={`/gmail/mail/${email.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`mail-row glass-row flex w-full items-start gap-3 rounded-xl border-l-[3px] px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 active:bg-white/60 ${unread ? "is-unread border-l-accent" : "border-l-transparent"}`}
+                className={`mail-row glass-row flex w-full items-stretch rounded-xl border-l-[3px] transition-colors ${unread ? "is-unread border-l-accent" : "border-l-transparent"}`}
               >
-                <div
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(sender.email)}`}
+                <a
+                  href={`/gmail/mail/${email.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex min-w-0 flex-1 items-start gap-3 px-3.5 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 active:bg-white/60"
                 >
-                  {avatarInitial(sender.name)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className={`truncate text-sm ${unread ? "font-semibold text-slate-900" : "font-medium text-slate-600"}`}>
-                      {sender.name}
-                    </p>
-                    <span className="shrink-0 text-xs text-slate-500">{formatGmailTimestamp(email.receivedAt)}</span>
+                  <div
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white ${avatarColor(sender.email)}`}
+                  >
+                    {avatarInitial(sender.name)}
                   </div>
-                  <p className={`mt-0.5 truncate text-sm ${unread ? "font-medium text-slate-800" : "text-slate-600"}`}>
-                    {email.subject}
-                  </p>
-                  <p className="mt-0.5 truncate text-xs text-slate-500">{email.snippet}</p>
-                  {email.status !== "unprocessed" && (
-                    <div className="mt-1.5">
-                      <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className={`truncate text-sm ${unread ? "font-semibold text-slate-900" : "font-medium text-slate-600"}`}>
+                        {sender.name}
+                      </p>
+                      <span className="shrink-0 text-xs text-slate-500">{formatGmailTimestamp(email.receivedAt)}</span>
                     </div>
-                  )}
-                </div>
-              </a>
+                    <p className={`mt-0.5 truncate text-sm ${unread ? "font-medium text-slate-800" : "text-slate-600"}`}>
+                      {email.subject}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-slate-500">{email.snippet}</p>
+                    {email.status !== "unprocessed" && (
+                      <div className="mt-1.5">
+                        <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
+                      </div>
+                    )}
+                  </div>
+                </a>
+                {!email.readAt && (
+                  <button
+                    type="button"
+                    onClick={() => email.id && handleMarkRead(email.id)}
+                    aria-label="既読にする"
+                    title="既読にする"
+                    className="flex w-11 shrink-0 items-center justify-center text-slate-300 transition-colors active:bg-slate-100 active:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
+                  >
+                    <Check size={18} />
+                  </button>
+                )}
+              </div>
             );
           })}
         </div>
