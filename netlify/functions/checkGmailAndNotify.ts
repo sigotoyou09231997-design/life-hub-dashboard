@@ -157,6 +157,21 @@ async function checkAccount(
     `[checkGmailAndNotify] ${account.email}: since=${new Date(sinceEpochSec * 1000).toISOString()} newMessages=${count}${latest ? ` latestFrom=${latest.from}` : ""}`,
   );
 
+  // 新着の有無・プッシュ送信の成否に関わらず、ここで先にチェックポイントを進めておく。
+  // 以前はプッシュ送信の"後"に更新していたため、送信ループが失敗・タイムアウトした場合に
+  // last_checked_atが古いまま残り、次回(2分後)のポーリングで同じメールを何度も「新着」
+  // として再検出・再通知してしまっていた(ユーザー体感では「新着が来てないのに通知が来る」)。
+  // この更新自体の失敗もエラーを握りつぶさず記録し、一度だけ再試行する。
+  const checkedAt = new Date().toISOString();
+  let { error: checkpointError } = await supabase.from("gmail_server_accounts").update({ last_checked_at: checkedAt }).eq("id", account.id);
+  if (checkpointError) {
+    console.error(`[checkGmailAndNotify] failed to advance last_checked_at for ${account.email}, retrying once:`, checkpointError.message);
+    ({ error: checkpointError } = await supabase.from("gmail_server_accounts").update({ last_checked_at: checkedAt }).eq("id", account.id));
+    if (checkpointError) {
+      console.error(`[checkGmailAndNotify] retry also failed for ${account.email}:`, checkpointError.message);
+    }
+  }
+
   if (count > 0) {
     const { data: subs } = await supabase.from("push_subscriptions").select("*").eq("user_id", account.user_id);
     console.log(`[checkGmailAndNotify] ${account.email}: found ${subs?.length ?? 0} push subscription(s) for user ${account.user_id}`);
@@ -176,8 +191,6 @@ async function checkAccount(
       }
     }
   }
-
-  await supabase.from("gmail_server_accounts").update({ last_checked_at: new Date().toISOString() }).eq("id", account.id);
 }
 
 const handlerImpl: Handler = async () => {
