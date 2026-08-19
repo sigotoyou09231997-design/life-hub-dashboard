@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, CheckCircle2, Mail, RefreshCw, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { ChevronLeft, CheckCircle2, Mail, Plus, RefreshCw, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { db } from "../db/schema";
 import { GmailLogo } from "../components/gmail/GmailLogo";
 import { Tabs } from "../components/ui/Tabs";
 import { Card } from "../components/ui/Card";
+import { Sheet } from "../components/ui/Sheet";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { GmailInbox, type GmailInboxHandle } from "../components/gmail/GmailInbox";
+import { ComposeMail } from "../components/gmail/ComposeMail";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 
@@ -22,6 +24,7 @@ export default function GmailPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const inboxRef = useRef<GmailInboxHandle>(null);
   const [syncing, setSyncing] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
 
   useEffect(() => {
     if (accounts && accounts.length > 0 && selectedAccountId == null) {
@@ -184,6 +187,23 @@ export default function GmailPage() {
           </>
         )}
       </div>
+
+      {selectedAccount && (
+        <button
+          type="button"
+          onClick={() => setComposeOpen(true)}
+          aria-label="新規メールを作成"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_28px_rgba(79,111,255,0.35)] transition-all active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:bottom-8 lg:right-8"
+        >
+          <Plus size={24} />
+        </button>
+      )}
+
+      {selectedAccount && (
+        <Sheet open={composeOpen} onClose={() => setComposeOpen(false)} title="新規メールを作成">
+          <ComposeMail account={selectedAccount} onSent={() => setComposeOpen(false)} />
+        </Sheet>
+      )}
     </div>
   );
 }

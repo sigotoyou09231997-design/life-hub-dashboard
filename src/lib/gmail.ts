@@ -397,26 +397,108 @@ export async function getMessageBody(accessToken: string, id: string): Promise<s
   return extractPlainText(data.payload).trim();
 }
 
+export interface MailAttachment {
+  filename: string;
+  mimeType: string;
+  /** Standard (not base64url) base64 of the raw file bytes — this is the encoding a MIME
+   * part's own Content-Transfer-Encoding: base64 body uses, independent of the base64url
+   * encoding applied to the *entire* raw message afterward for Gmail's `raw` field. */
+  base64Data: string;
+}
+
+/** Gmail rejects a send once the raw (base64-inflated) message gets too large; kept well
+ * under Gmail's actual ~25MB cap (base64 inflates by ~37%, plus headers/boundaries) so this
+ * app can reject an oversized attachment set client-side with a clear message instead of
+ * making the user wait for a network round trip that Gmail was always going to refuse. */
+export const MAX_ATTACHMENTS_TOTAL_BYTES = 20 * 1024 * 1024;
+
+export function attachmentsTotalBytes(files: File[]): number {
+  return files.reduce((sum, f) => sum + f.size, 0);
+}
+
+/** Reads a File into a MailAttachment (base64-encoded), for buildRawMessage(). */
+export function fileToAttachment(file: File): Promise<MailAttachment> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string; // "data:<mime>;base64,<data>"
+      const base64Data = result.slice(result.indexOf(",") + 1);
+      resolve({ filename: file.name, mimeType: file.type || "application/octet-stream", base64Data });
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Wraps base64 text at 76 chars/line per RFC 2045 — some mail servers/clients are strict about this. */
+function wrapBase64(b64: string): string {
+  return (b64.match(/.{1,76}/g) ?? []).join("\r\n");
+}
+
+/** Builds the raw RFC 2822 message text (not yet base64url-encoded) for Gmail's messages.send
+ * `raw` field: a plain text/plain body when there are no attachments, or multipart/mixed (one
+ * text part + one part per attachment) otherwise. Shared by sendReply() and sendNewMail() so
+ * both get attachment support from the same place. */
+export function buildRawMessage(headers: { to: string; subject: string }, body: string, attachments: MailAttachment[]): string {
+  const headerLines = [`To: ${headers.to}`, `Subject: ${encodeHeaderWord(headers.subject)}`];
+  if (attachments.length === 0) {
+    return [...headerLines, "Content-Type: text/plain; charset=UTF-8", "Content-Transfer-Encoding: 8bit", "", body].join("\r\n");
+  }
+  const boundary = `----=_LifeHub_${crypto.randomUUID().replace(/-/g, "")}`;
+  const parts = [
+    `--${boundary}`,
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    body,
+    "",
+    ...attachments.flatMap((att) => [
+      `--${boundary}`,
+      `Content-Type: ${att.mimeType}; name="${encodeHeaderWord(att.filename)}"`,
+      "Content-Transfer-Encoding: base64",
+      `Content-Disposition: attachment; filename="${encodeHeaderWord(att.filename)}"`,
+      "",
+      wrapBase64(att.base64Data),
+      "",
+    ]),
+    `--${boundary}--`,
+  ];
+  return [...headerLines, `Content-Type: multipart/mixed; boundary="${boundary}"`, "", ...parts].join("\r\n");
+}
+
 export interface SendReplyInput {
   to: string;
   subject: string;
   body: string;
   threadId: string;
+  attachments?: MailAttachment[];
 }
 
 export async function sendReply(accessToken: string, input: SendReplyInput): Promise<void> {
   const subject = input.subject.startsWith("Re:") ? input.subject : `Re: ${input.subject}`;
-  const lines = [
-    `To: ${input.to}`,
-    `Subject: ${encodeHeaderWord(subject)}`,
-    "Content-Type: text/plain; charset=UTF-8",
-    "Content-Transfer-Encoding: 8bit",
-  ];
-  const raw = `${lines.join("\r\n")}\r\n\r\n${input.body}`;
+  const raw = buildRawMessage({ to: input.to, subject }, input.body, input.attachments ?? []);
   await gmailFetch(accessToken, "/messages/send", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ raw: base64UrlEncode(raw), threadId: input.threadId }),
+  });
+}
+
+export interface SendNewMailInput {
+  to: string;
+  subject: string;
+  body: string;
+  attachments?: MailAttachment[];
+}
+
+/** Sends a brand-new message (no threadId — starts its own thread), as opposed to sendReply()
+ * which replies within an existing synced email's thread. Used by the Gmail compose FAB. */
+export async function sendNewMail(accessToken: string, input: SendNewMailInput): Promise<void> {
+  const raw = buildRawMessage({ to: input.to, subject: input.subject }, input.body, input.attachments ?? []);
+  await gmailFetch(accessToken, "/messages/send", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ raw: base64UrlEncode(raw) }),
   });
 }
 

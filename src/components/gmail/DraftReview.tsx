@@ -8,6 +8,7 @@ import {
   avatarColor,
   avatarInitial,
   ensureFreshAccessToken,
+  fileToAttachment,
   formatCandidateLabel,
   generateDraftForEmail,
   getMessageBody,
@@ -25,6 +26,7 @@ import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 import { MonthView } from "../calendar/MonthView";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
+import { AttachmentPicker } from "./AttachmentPicker";
 
 const EMPTY_DATE_SET = new Set<string>();
 
@@ -89,6 +91,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   const [subjectText, setSubjectText] = useState("");
   const [toText, setToText] = useState("");
   const [userNotes, setUserNotes] = useState("");
+  const [attachments, setAttachments] = useState<File[]>([]);
   // Tracks the updatedAt of the draft version currently reflected in bodyText/subjectText,
   // rather than a plain boolean: a boolean set from handleGenerate() after its await can miss
   // a live-query re-render that lands mid-await (still holding the pre-reset value), and since
@@ -280,11 +283,13 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     };
     try {
       const fresh = await ensureFreshAccessToken(account);
+      const encodedAttachments = await Promise.all(attachments.map(fileToAttachment));
       await sendReply(fresh.accessToken, {
         to: toText,
         subject: subjectText,
         body: bodyText,
         threadId: email.threadId,
+        attachments: encodedAttachments,
       });
       await markSent();
       showToast("返信を送信しました");
@@ -453,6 +458,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         disabled={generating || undoActive}
       />
       <p className="text-right text-xs text-slate-400">{bodyText.length}文字</p>
+      <AttachmentPicker files={attachments} onChange={setAttachments} disabled={generating || sending || undoActive} />
       <div className="flex gap-3">
         <Button
           type="button"
