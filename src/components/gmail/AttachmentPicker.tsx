@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { Paperclip, X } from "lucide-react";
 import { attachmentsTotalBytes, MAX_ATTACHMENTS_TOTAL_BYTES } from "../../lib/gmail";
 import { useToast } from "../ui/ToastProvider";
+import { Button } from "../ui/Button";
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -50,15 +51,10 @@ export function AttachmentPicker({ files, onChange, disabled }: Props) {
           e.target.value = ""; // 同じファイルを続けて選び直せるようにリセット
         }}
       />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={disabled}
-        className="flex items-center gap-1.5 text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 disabled:opacity-50"
-      >
-        <Paperclip size={14} />
+      <Button type="button" variant="secondary" className="w-full" onClick={() => inputRef.current?.click()} disabled={disabled}>
+        <Paperclip size={18} />
         ファイルを添付
-      </button>
+      </Button>
       {files.length > 0 && (
         <ul className="flex flex-wrap gap-2">
           {files.map((file, i) => (
