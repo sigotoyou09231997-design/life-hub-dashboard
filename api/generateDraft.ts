@@ -11,9 +11,14 @@ interface BusySlot {
 }
 
 interface GenerateDraftBody {
-  from: string;
-  subject: string;
-  body: string;
+  /** Reply mode: from/subject/body (of the *received* email being replied to) are all
+   * present together. Compose mode (a brand-new message, no thread to reply within) omits
+   * all three and supplies `to` instead — see the `isReply` branch in the handler below. */
+  from?: string;
+  subject?: string;
+  body?: string;
+  /** Compose-mode only: recipient of the new message. */
+  to?: string;
   busySlots?: BusySlot[];
   userNotes?: string;
   /** The reply draft currently shown on screen (unsaved edits included), when
@@ -148,6 +153,34 @@ export function buildUserMessage(payload: GenerateDraftBody): string {
   return `差出人: ${payload.from}\n件名: ${payload.subject}\n本文:\n${payload.body}\n\n予定が入っている日時(候補日を提案する場合はこれらを避ける):\n${formatBusySlots(payload.busySlots)}${styleExamplesSection}${currentDraftSection}${userNotesSection}`;
 }
 
+/** Compose-mode counterpart to buildUserMessage() — there's no received email to quote, so
+ * this is built from just the recipient, busy slots, style examples, current draft, and the
+ * user's own instructions (which carry the entire content of what to write, not just an
+ * override on top of an original email). */
+export function buildComposeUserMessage(payload: GenerateDraftBody): string {
+  const sections: string[] = [];
+  if (payload.to?.trim()) sections.push(`宛先: ${payload.to.trim()}`);
+  if (payload.busySlots && payload.busySlots.length > 0) {
+    sections.push(`予定が入っている日時(候補日を提案する場合はこれらを避ける):\n${formatBusySlots(payload.busySlots)}`);
+  }
+  if (payload.styleExamples && payload.styleExamples.length > 0) {
+    sections.push(
+      `過去にユーザーが実際に送信したメールの例(口調・言葉遣い・文の長さなど書き方の傾向をつかむための参考。内容やこの例文の文言そのものを今回のメールに流用しないこと):\n${payload.styleExamples
+        .map((ex, i) => `【例${i + 1}】\n${ex.trim()}`)
+        .join("\n\n")}`,
+    );
+  }
+  if (payload.currentDraft?.trim()) {
+    sections.push(
+      `現在の下書き本文(直前にAIが生成し、ユーザーが今画面で見ているもの。ユーザーからの指示内の「これ」「上記」「この日付」等の指示語は、この下書き本文中の該当箇所を指している可能性が高い):\n${payload.currentDraft.trim()}`,
+    );
+  }
+  if (payload.userNotes?.trim()) {
+    sections.push(`ユーザーからの指示(このメールで伝えたい内容。必ず反映すること):\n${payload.userNotes.trim()}`);
+  }
+  return sections.join("\n\n");
+}
+
 /** Defensive cleanup for when the model includes the greeting/closing our fixed
  * template already adds despite the system prompt telling it not to — without
  * this, "お世話になっております。船田です。" (or the closing) could end up doubled. */
@@ -159,7 +192,7 @@ export function stripKnownGreetingAndClosing(body: string): string {
   return result.trim();
 }
 
-const SYSTEM_PROMPT = `あなたはユーザーの代わりにメール返信を検討するアシスタントです。必ず以下の構成で出力してください(${BODY_MARKER}内で日程を提案しない場合は${CANDIDATES_MARKER}セクション自体を省略してよい)。
+const REPLY_SYSTEM_PROMPT = `あなたはユーザーの代わりにメール返信を検討するアシスタントです。必ず以下の構成で出力してください(${BODY_MARKER}内で日程を提案しない場合は${CANDIDATES_MARKER}セクション自体を省略してよい)。
 
 ${POINTS_MARKER}
 返信で押さえておくべき点を2〜4個、箇条書きで(各行「- 」から始める)。相手の質問・依頼への回答や、使うとよい言葉・フレーズなど。
@@ -196,6 +229,38 @@ ${CANDIDATES_MARKER}に書いた内容と表記を完全に一致させること
 - 逆に「ユーザーからの追加指示」で日付・候補日を含めない、消す、書かないことが求められた場合は、受信メールが日程調整を求めているかどうかに関わらずこれを絶対的な最優先事項として扱う。${CANDIDATES_MARKER}セクション自体を省略し、${BODY_MARKER}中にも年月日・曜日・時刻を含む具体的な日付表現を一切書かないこと(${EARLIEST_DATE_MARKER}も同様に省略する)。「日程調整の返信には具体的な候補日が必要で、書かないと不完全な返信に見える」という理由でこのルールを破って日付を書いてはならない。日付を書かない代わりに、「日程については改めてご連絡します」「都合の良い日程を追ってお伝えします」のように、具体的な日付を出さない一般的な言い回しで締めくくること
 - 上記のセクション以外の説明や前置きは書かない`;
 
+/** Compose-mode counterpart to REPLY_SYSTEM_PROMPT — there's no received email to respond
+ * to, so the user's own instructions (userNotes, via buildComposeUserMessage) carry the
+ * entire content of what to write, not just an override layered on top of an original email.
+ * Deliberately simpler than the reply prompt: no EARLIEST_DATE_MARKER section, since that
+ * only makes sense as a constraint extracted from a received email that doesn't exist here. */
+const COMPOSE_SYSTEM_PROMPT = `あなたはユーザーの代わりに新規メール(返信ではなく、新しく送信するメール)の下書きを作成するアシスタントです。必ず以下の構成で出力してください(${BODY_MARKER}内で日程を提案しない場合は${CANDIDATES_MARKER}セクション自体を省略してよい)。
+
+${POINTS_MARKER}
+このメールで押さえておくべき点を2〜4個、箇条書きで(各行「- 」から始める)。
+
+${CANDIDATES_MARKER}
+${BODY_MARKER}内で日程(打ち合わせ等の候補日)を提案する場合のみ、提案した日付を1行1件、
+"YYYY-MM-DD|開始HH:mm|終了HH:mm" の形式で出力する(時刻未定なら2〜3列目は空でよい。例: 2026-08-20|14:00|15:00 や 2026-08-21|| )。
+
+${SUBJECT_MARKER}
+このメールの件名を1行で。内容が一目で伝わる件名を考えること。
+
+${BODY_MARKER}
+メールの要件部分の本文のみ(ユーザーの指示と同じ言語)。件名は含めない。
+冒頭の挨拶(「お世話になっております」等)・名乗り(「船田です」等)・結びの言葉(「よろしくお願いします」等)は
+呼び出し側で別途付け足すので、${BODY_MARKER}にはそれらを一切含めず、要件そのものから書き始めること。
+日程を提案する場合、本文中でその日付は必ず「M/D(曜) HH:mm〜HH:mm」の形式で書き(例: 8/20(木) 14:00〜15:00、時刻未定なら「8/20(木)」のみ)、
+${CANDIDATES_MARKER}に書いた内容と表記を完全に一致させること(この表記が一致しないと、ユーザーが日付を後から変更できなくなる)。
+
+共通ルール:
+- 「過去にユーザーが実際に送信したメールの例」が渡されている場合、そこから文体・口調(敬語の丁寧さの度合い、一人称、語尾、文の長さ、段落の区切り方、絵文字や記号の使い方の有無など)の傾向を読み取り、今回のメールもできるだけ同じ書き方になるようにすること。ただし例文に書かれている具体的な内容・話題・固有名詞は今回のメールと無関係なので、そのまま流用したり混ぜたりしてはならない(参考にするのは書き方だけ)
+- 「現在の下書き本文」が渡されている場合、それは前回このAIが生成し、ユーザーが今画面で見ている内容である。「ユーザーからの指示」中の「これ」「それ」「上記」「この日付」のような指示語は、この下書き本文中の該当箇所を指しているものとして解釈すること
+- 簡潔かつ丁寧な文面にする
+- ${POINTS_MARKER}に挙げた点は、要約として別表示するためのものであり、必ず全て${BODY_MARKER}の文面自体にも反映すること。${POINTS_MARKER}にだけ書いて${BODY_MARKER}に書かない、ということがあってはならない
+- 「ユーザーからの指示」に書かれていない事実を作り上げない。指示に書かれた内容を過不足なく${BODY_MARKER}に反映すること
+- 上記のセクション以外の説明や前置きは書かない`;
+
 /** Proxies Anthropic's Messages API so the API key never reaches the browser. */
 export default async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== "POST") {
@@ -216,11 +281,19 @@ export default async (req: VercelRequest, res: VercelResponse) => {
   } catch {
     return jsonResponse(res, 400, { error: "Invalid JSON body" });
   }
-  if (!payload.from || !payload.subject || !payload.body) {
-    return jsonResponse(res, 400, { error: "from, subject, and body are required" });
+  // Reply mode needs the received email's from/subject/body together; compose mode (no
+  // thread to reply within) needs a recipient and something to say instead.
+  const isReply = !!(payload.from && payload.subject && payload.body);
+  if (!isReply) {
+    if (!payload.to?.trim()) {
+      return jsonResponse(res, 400, { error: "宛先を入力してください" });
+    }
+    if (!payload.userNotes?.trim()) {
+      return jsonResponse(res, 400, { error: "メールに書きたい内容を入力してください" });
+    }
   }
 
-  const userMessage = buildUserMessage(payload);
+  const userMessage = isReply ? buildUserMessage(payload) : buildComposeUserMessage(payload);
 
   const anthropicRes = await fetch(ANTHROPIC_ENDPOINT, {
     method: "POST",
@@ -236,7 +309,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       // 打ち切られると本文が空のまま200を返してしまい、ユーザーには「入力した内容が
       // 反映されないどころか文章ごと消えた」ように見える無言の失敗になっていた。
       max_tokens: 2048,
-      system: SYSTEM_PROMPT,
+      system: isReply ? REPLY_SYSTEM_PROMPT : COMPOSE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     }),
   });
@@ -262,10 +335,15 @@ export default async (req: VercelRequest, res: VercelResponse) => {
   }
   const draft = `お世話になっております。\n船田です。\n\n${cleanedBody}\n\n以上、よろしくお願いします。`;
   const candidateDatesWithLabel = candidateDates.map((c) => ({ ...c, label: formatCandidateLabel(c) }));
-  // モデルが件名を返さなかった場合は元の件名を踏襲する(候補日と違い、件名は常に必要なフィールドのため)。
-  // 元の件名が既に"Re:"始まりだったり、モデルが指示に反して自分で付けてしまった場合の二重付与を防ぐ。
-  const rawSubject = subject || payload.subject;
-  const finalSubject = rawSubject.startsWith("Re:") ? rawSubject : `Re: ${rawSubject}`;
+  // 返信モードでモデルが件名を返さなかった場合は元の件名を踏襲する(候補日と違い、件名は常に
+  // 必要なフィールドのため)。元の件名が既に"Re:"始まりだったり、モデルが指示に反して自分で
+  // 付けてしまった場合の二重付与を防ぐ。作成モードには踏襲元の件名がないため、モデルの
+  // 出力をそのまま使う(空ならユーザーが画面上で自分で入力する)。
+  let finalSubject = subject;
+  if (isReply) {
+    const rawSubject = subject || payload.subject!;
+    finalSubject = rawSubject.startsWith("Re:") ? rawSubject : `Re: ${rawSubject}`;
+  }
 
   return jsonResponse(res, 200, { draft, keyPoints, candidateDates: candidateDatesWithLabel, earliestDate, subject: finalSubject });
 };

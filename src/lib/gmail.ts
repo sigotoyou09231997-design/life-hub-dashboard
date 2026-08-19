@@ -139,9 +139,12 @@ export interface BusySlot {
 }
 
 export interface GenerateDraftInput {
-  from: string;
-  subject: string;
-  body: string;
+  /** Reply mode: from/subject/body (of the received email) present together. Compose mode
+   * (see generateComposeDraft) omits all three and supplies `to` instead. */
+  from?: string;
+  subject?: string;
+  body?: string;
+  to?: string;
   busySlots?: BusySlot[];
   userNotes?: string;
   currentDraft?: string;
@@ -251,6 +254,29 @@ export async function generateDraftForEmail(
     await db.syncedEmails.update(emailId, { status: fallbackStatus });
     throw err;
   }
+}
+
+/** Compose-mode counterpart to generateDraftForEmail() — there's no existing SyncedEmail/
+ * thread to attach a draft to (compose is for a brand-new message), so this just calls the
+ * AI and returns the result directly; ComposeMail.tsx keeps it in local component state
+ * instead of persisting to draftReplies. currentDraftBody works the same way as
+ * generateDraftForEmail's: pass the live on-screen body when regenerating (not on
+ * first-time generation), so a referential instruction like "この日付消して" has something
+ * to resolve against. */
+export async function generateComposeDraft(
+  account: GmailAccount,
+  input: { to: string; userNotes: string; currentDraftBody?: string },
+): Promise<GenerateDraftResult> {
+  const fresh = await ensureFreshAccessToken(account);
+  const busySlots = await getUpcomingBusySlots();
+  const styleExamples = await getRecentSentBodies(fresh.accessToken, STYLE_EXAMPLE_COUNT);
+  return generateDraft({
+    to: input.to,
+    userNotes: input.userNotes,
+    busySlots,
+    currentDraft: input.currentDraftBody,
+    styleExamples,
+  });
 }
 
 async function gmailFetch(accessToken: string, path: string, init?: RequestInit): Promise<any> {

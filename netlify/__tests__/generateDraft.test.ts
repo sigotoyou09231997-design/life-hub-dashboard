@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildUserMessage, formatBusySlots, formatCandidateLabel, parseModelOutput, stripKnownGreetingAndClosing } from "../functions/generateDraft";
+import {
+  buildComposeUserMessage,
+  buildUserMessage,
+  formatBusySlots,
+  formatCandidateLabel,
+  parseModelOutput,
+  stripKnownGreetingAndClosing,
+} from "../functions/generateDraft";
 
 describe("parseModelOutput", () => {
   it("splits the [ポイント]/[本文] sections and strips bullet markers", () => {
@@ -88,6 +95,33 @@ describe("buildUserMessage", () => {
   it("appends a labeled, trimmed user-notes section when present", () => {
     const text = buildUserMessage({ ...basePayload, userNotes: "  火曜以外で調整したい  " });
     expect(text).toContain("ユーザーからの追加指示(必ず反映すること):\n火曜以外で調整したい");
+  });
+});
+
+describe("buildComposeUserMessage", () => {
+  it("includes only the sections that are present, in order", () => {
+    const text = buildComposeUserMessage({ to: "taro@example.com", userNotes: "来週の打ち合わせのお願いをしたい" });
+    expect(text).toBe("宛先: taro@example.com\n\nユーザーからの指示(このメールで伝えたい内容。必ず反映すること):\n来週の打ち合わせのお願いをしたい");
+  });
+
+  it("omits sections entirely when their data is absent", () => {
+    const text = buildComposeUserMessage({ to: "taro@example.com", userNotes: "本文" });
+    expect(text).not.toContain("過去にユーザーが実際に送信したメールの例");
+    expect(text).not.toContain("現在の下書き本文");
+    expect(text).not.toContain("予定が入っている日時");
+  });
+
+  it("includes style examples and the current draft when provided", () => {
+    const text = buildComposeUserMessage({
+      to: "taro@example.com",
+      userNotes: "承諾の返事をしたい",
+      styleExamples: ["いつもお世話になっております。"],
+      currentDraft: "前回の下書き本文",
+    });
+    expect(text).toContain("過去にユーザーが実際に送信したメールの例");
+    expect(text).toContain("いつもお世話になっております。");
+    expect(text).toContain("現在の下書き本文(直前にAIが生成し");
+    expect(text).toContain("前回の下書き本文");
   });
 });
 
