@@ -309,7 +309,16 @@ a {
   color: #405b7d;
 }
 
-.page-transition { animation: page-enter 340ms cubic-bezier(.16,.78,.24,1) both; }
+/* fill-mode(both/forwards)を付けない — .page-transitionにopacity/transform/filterの他の
+   ベーススタイルはなく、アニメーション終了後は元々のtransform:none/filter:noneに自然に戻るので
+   forwardsは不要。むしろforwardsを付けると、キーフレームの終端値をnoneにしても(Chromiumは
+   fill-modeでアニメーションが"有効"な間、transform/filterの算出値をnoneではなく恒等
+   行列/blur(0)として扱うため)アニメーション終了後もposition:fixedの子要素(Sheetモーダル等)の
+   containing blockがこの要素になってしまう。結果、ページ全体を包むこの要素が「fixedの基準点」
+   になり、縦に長いページ(カレンダータブ等)でスクロールした状態で「+」からSheetを開くと、
+   背景の暗転は見えるがダイアログ本体は現在のビューポート外(ページ最下部)に描画され、
+   「画面がぼやけるだけで何も出ない」ように見えていた。 */
+.page-transition { animation: page-enter 340ms cubic-bezier(.16,.78,.24,1); }
 
 .card-interactive {
   transition: transform 260ms ease-out, box-shadow 260ms ease-out, border-color 220ms ease-out;
@@ -987,7 +996,12 @@ a {
 
 .spatial-page .app-button { border-radius: .58rem; }
 .spatial-page .glass-row { backdrop-filter: blur(15px) saturate(122%); -webkit-backdrop-filter: blur(15px) saturate(122%); }
-.spatial-page-content > *, .planning-today__grid > *, .finance-control-center > *, .notes-widget-grid > *, .destination-grid > * { animation: spatial-module-in 330ms cubic-bezier(.18,.78,.24,1) both; }
+/* fill-modeはbackwardsのみ(forwards/bothは付けない) — 理由は.page-transitionのコメントを
+   参照。backwardsはanimation-delay(下の:nth-child群)の待機中だけopacity:0を保持するためで、
+   アニメーション終了後の状態には影響しない(forwardsと違い、終了後はcontaining blockを
+   作らない)。これらのコンテナの直下にSheetモーダルがネストされているページがあった場合の
+   同種の不具合も併せて防ぐ。 */
+.spatial-page-content > *, .planning-today__grid > *, .finance-control-center > *, .notes-widget-grid > *, .destination-grid > * { animation: spatial-module-in 330ms cubic-bezier(.18,.78,.24,1) backwards; }
 .planning-today__grid > :nth-child(2), .finance-control-center > :nth-child(2), .notes-widget-grid > :nth-child(2), .destination-grid > :nth-child(2) { animation-delay: 45ms; }
 .finance-control-center > :nth-child(3), .notes-widget-grid > :nth-child(3), .destination-grid > :nth-child(3) { animation-delay: 90ms; }
 .finance-control-center > :nth-child(4), .notes-widget-grid > :nth-child(4) { animation-delay: 135ms; }
