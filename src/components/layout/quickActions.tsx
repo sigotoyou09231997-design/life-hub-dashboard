@@ -1,8 +1,13 @@
 import type { ElementType } from "react";
-import { CalendarDays, CheckSquare, Plane, StickyNote, Wallet } from "lucide-react";
+import { CalendarDays, Plane, StickyNote, Wallet } from "lucide-react";
 import { GmailLogo } from "../gmail/GmailLogo";
 
-export type QuickActionKey = "schedule-calendar" | "schedule-tasks" | "money" | "notes" | "gmail" | "trips";
+export type QuickActionKey = "schedule" | "money" | "notes" | "gmail" | "trips";
+/** Storage values from before 予定/タスク were merged into one "schedule" button
+ * (both always led to the same /schedule page — see quickActions.tsx's QUICK_ACTIONS
+ * for the current single entry). Mapped forward in normalizeQuickActionKeys so an
+ * existing saved selection doesn't just silently lose its schedule shortcut. */
+type LegacyQuickActionKey = "schedule-calendar" | "schedule-tasks";
 
 export interface QuickActionDefinition {
   key: QuickActionKey;
@@ -16,19 +21,17 @@ export interface QuickActionDefinition {
 
 export const QUICK_ACTION_LIMIT = 5;
 export const QUICK_ACTION_STORAGE_KEY = "lifeHubQuickActions:v1";
-export const DEFAULT_QUICK_ACTION_KEYS: QuickActionKey[] = [
-  "schedule-calendar",
-  "schedule-tasks",
-  "money",
-  "notes",
-  "gmail",
-];
+export const DEFAULT_QUICK_ACTION_KEYS: QuickActionKey[] = ["schedule", "money", "notes", "gmail"];
+
+const LEGACY_QUICK_ACTION_MIGRATIONS: Record<LegacyQuickActionKey, QuickActionKey> = {
+  "schedule-calendar": "schedule",
+  "schedule-tasks": "schedule",
+};
 
 // Color utilities stay literal so Tailwind includes every customizable state in
-// the production CSS, including 旅行 even when it is not part of the default five.
+// the production CSS, including 旅行 even when it is not part of the default four.
 export const QUICK_ACTIONS: QuickActionDefinition[] = [
-  { key: "schedule-calendar", label: "予定", icon: CalendarDays, tintIcon: true, to: "/schedule?view=calendar", color: "text-blue-500", underline: "bg-blue-500" },
-  { key: "schedule-tasks", label: "タスク", icon: CheckSquare, tintIcon: true, to: "/schedule?view=list", color: "text-emerald-500", underline: "bg-emerald-500" },
+  { key: "schedule", label: "予定", icon: CalendarDays, tintIcon: true, to: "/schedule", color: "text-blue-500", underline: "bg-blue-500" },
   { key: "money", label: "収支", icon: Wallet, tintIcon: true, to: "/records/expense", color: "text-orange-500", underline: "bg-orange-500" },
   { key: "notes", label: "メモ", icon: StickyNote, tintIcon: true, to: "/records/notes", color: "text-violet-500", underline: "bg-violet-500" },
   { key: "gmail", label: "Gmail", icon: GmailLogo, tintIcon: false, to: "/gmail", color: "text-red-500", underline: "bg-red-500" },
@@ -41,8 +44,9 @@ export function normalizeQuickActionKeys(value: unknown): QuickActionKey[] {
   if (!Array.isArray(value)) return [...DEFAULT_QUICK_ACTION_KEYS];
   const normalized: QuickActionKey[] = [];
   for (const entry of value) {
-    if (typeof entry !== "string" || !validKeys.has(entry as QuickActionKey)) continue;
-    const key = entry as QuickActionKey;
+    if (typeof entry !== "string") continue;
+    const key = (LEGACY_QUICK_ACTION_MIGRATIONS as Record<string, QuickActionKey | undefined>)[entry] ?? (entry as QuickActionKey);
+    if (!validKeys.has(key)) continue;
     if (!normalized.includes(key)) normalized.push(key);
     if (normalized.length === QUICK_ACTION_LIMIT) break;
   }

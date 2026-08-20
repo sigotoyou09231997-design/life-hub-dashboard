@@ -4,14 +4,9 @@ import { AllFeaturesSheet } from "./AllFeaturesSheet";
 import { getQuickAction, loadQuickActionKeys, saveQuickActionKeys, type QuickActionKey } from "./quickActions";
 import { useToast } from "../ui/ToastProvider";
 
-/** pathname alone can't tell 予定 and タスク apart — both live on /schedule —
- * so the `view` query param (see SchedulePage.tsx) breaks the tie. Pages with
- * so the `view` query param (see SchedulePage.tsx) breaks the tie. */
 function useActiveQuickActionKey(): QuickActionKey | null {
-  const { pathname, search } = useLocation();
-  if (pathname === "/schedule") {
-    return new URLSearchParams(search).get("view") === "list" ? "schedule-tasks" : "schedule-calendar";
-  }
+  const { pathname } = useLocation();
+  if (pathname === "/schedule") return "schedule";
   if (pathname.startsWith("/records/expense")) return "money";
   if (pathname.startsWith("/records/notes")) return "notes";
   if (pathname.startsWith("/gmail")) return "gmail";

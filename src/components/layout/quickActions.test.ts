@@ -14,7 +14,7 @@ class MemoryStorage {
 }
 
 describe("quick action customization", () => {
-  it("uses the current five actions by default", () => {
+  it("uses the current default actions by default", () => {
     expect(loadQuickActionKeys(new MemoryStorage())).toEqual(DEFAULT_QUICK_ACTION_KEYS);
   });
 
@@ -22,9 +22,13 @@ describe("quick action customization", () => {
     expect(normalizeQuickActionKeys(["trips", "money", "notes"])).toEqual(["trips", "money", "notes"]);
   });
 
-  it("filters unknown and duplicate entries and caps the dock at five", () => {
-    expect(normalizeQuickActionKeys(["trips", "trips", "unknown", "gmail", "notes", "money", "schedule-tasks", "schedule-calendar"]))
-      .toEqual(["trips", "gmail", "notes", "money", "schedule-tasks"]);
+  it("filters unknown and duplicate entries", () => {
+    expect(normalizeQuickActionKeys(["trips", "trips", "unknown", "gmail", "notes", "money"]))
+      .toEqual(["trips", "gmail", "notes", "money"]);
+  });
+
+  it("migrates the old separate schedule-calendar/schedule-tasks keys to the merged schedule key, deduping if a saved selection had both", () => {
+    expect(normalizeQuickActionKeys(["schedule-calendar", "schedule-tasks", "money"])).toEqual(["schedule", "money"]);
   });
 
   it("falls back safely for corrupt or empty storage", () => {
@@ -36,8 +40,8 @@ describe("quick action customization", () => {
 
   it("persists a normalized selection", () => {
     const storage = new MemoryStorage();
-    const saved = saveQuickActionKeys(["trips", "schedule-calendar"], storage);
-    expect(saved).toEqual(["trips", "schedule-calendar"]);
+    const saved = saveQuickActionKeys(["trips", "schedule"], storage);
+    expect(saved).toEqual(["trips", "schedule"]);
     expect(loadQuickActionKeys(storage)).toEqual(saved);
   });
 });

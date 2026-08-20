@@ -34,8 +34,7 @@ describe("QuickActionBar customization UI", () => {
     expect(screen.getByRole("link", { name: "旅行" }).getAttribute("href")).toBe("/trips");
     expect(screen.queryByRole("link", { name: "Gmail" })).toBeNull();
     expect(JSON.parse(localStorage.getItem(QUICK_ACTION_STORAGE_KEY) ?? "[]")).toEqual([
-      "schedule-calendar",
-      "schedule-tasks",
+      "schedule",
       "money",
       "notes",
       "trips",

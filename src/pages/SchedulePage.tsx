@@ -38,9 +38,10 @@ export default function SchedulePage() {
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => tabFromView(searchParams.get("view")));
 
-  // QuickActionBar's 予定/タスク icons link to /schedule?view=... while this page
-  // may already be mounted (same route, only the query changes) — re-sync the
-  // tab in that case rather than relying solely on the initial state above.
+  // TopPage's 予定/タスク tiles and AppHeader's overdue-task notices link to
+  // /schedule?view=... while this page may already be mounted (same route,
+  // only the query changes) — re-sync the tab in that case rather than
+  // relying solely on the initial state above.
   useEffect(() => {
     setTab(tabFromView(searchParams.get("view")));
   }, [searchParams]);
