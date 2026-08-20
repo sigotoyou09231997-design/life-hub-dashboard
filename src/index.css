@@ -1153,19 +1153,26 @@ body .text-base { font-size: 1.05rem; }
 /* Inner screens put dark ink directly on the photograph (page title, subtitle,
    back arrow), and the backdrop rotates through night scenes where that becomes
    unreadable. Until each screen is rebuilt, everything except HOME gets a light
-   wash so the photo stays as texture rather than as contrast. */
+   wash so the photo stays as texture rather than as contrast. Pulled noticeably
+   cooler/deeper than the near-white header surfaces (the app header and, on
+   phones below, the merged page-header block) so the content area reads as a
+   distinct "floor" beneath the header "chrome" — previously both landed
+   within a few rgb values of plain white and were indistinguishable from one
+   another (see the header elevation below too). */
 .ambient-background:not(.ambient-background--home) .ambient-background__wash {
   background: linear-gradient(
     180deg,
-    rgba(242, 247, 252, .9) 0%,
-    rgba(238, 245, 251, .78) 38%,
-    rgba(234, 242, 250, .7) 100%
+    rgba(210, 226, 242, .95) 0%,
+    rgba(203, 221, 239, .92) 38%,
+    rgba(197, 216, 236, .9) 100%
   );
 }
 
 /* The page title used to float on the photograph directly under an opaque app
    header — an orphaned band with a faint, misaligned back chevron. On phones it
-   now continues the header surface as one block instead. */
+   now continues the header surface as one block instead. A shadow (rather than
+   just the header's own hairline) gives that merged block real elevation over
+   the content wash above, instead of two flat panels in nearly the same white. */
 @media (max-width: 1023px) {
   .app-header:not(.app-header--home) {
     border-bottom-color: transparent !important;
@@ -1177,7 +1184,8 @@ body .text-base { font-size: 1.05rem; }
     padding-top: .35rem !important;
     padding-bottom: .7rem !important;
     border-bottom: 1px solid rgba(23, 46, 78, .08);
-    background: rgba(255, 255, 255, .82);
+    background: rgba(255, 255, 255, .94);
+    box-shadow: 0 14px 28px -18px rgba(16, 32, 58, .35);
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
   }
