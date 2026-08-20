@@ -1,13 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { db } from "../../db/schema";
-import type { TransactionType } from "../../types";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "../../lib/categories";
 import { parseCsvRows, decodeCsvFileAuto, decodeCsvFileAs, buildPreview, type CsvEncoding } from "../../lib/csv";
-import { mapCsvRowsToTransactions, type ColumnMapping } from "../../lib/genericCsvImport";
+import { mapCsvRowsToSalaries, type SalaryColumnMapping } from "../../lib/salaryCsv";
 import { Card } from "../ui/Card";
 import { Select } from "../ui/Select";
+import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
-import { Tabs } from "../ui/Tabs";
 import { useToast } from "../ui/ToastProvider";
 
 interface Props {
@@ -15,16 +13,28 @@ interface Props {
 }
 
 type Step = "upload" | "mapping" | "result";
-type AmountKind = "signed" | "split";
 
 const ENCODING_LABEL: Record<CsvEncoding, string> = { "utf-8": "UTF-8", shift_jis: "Shift-JIS" };
+
+const DATE_KEYWORDS = ["支給日", "支払日", "対象年月", "支給年月", "date"];
+const NET_KEYWORDS = ["差引支給額", "手取り", "振込額", "差引", "net"];
+const GROSS_KEYWORDS = ["総支給額", "支給合計", "総額", "gross"];
+const DEDUCTION_KEYWORDS = ["保険", "年金", "税", "控除", "組合", "積立", "共済"];
 
 /** Best-effort default column pick from header keywords — just seeds a
  * sensible starting Select value; the user can always override it. */
 function guessColumn(header: string[] | null, keywords: string[], fallback: number): number {
   if (!header) return fallback;
-  const idx = header.findIndex((h) => keywords.some((k) => h.toLowerCase().includes(k)));
+  const idx = header.findIndex((h) => keywords.some((k) => h.toLowerCase().includes(k.toLowerCase())));
   return idx >= 0 ? idx : fallback;
+}
+
+function guessDeductionColumns(header: string[] | null): number[] {
+  if (!header) return [];
+  return header.reduce<number[]>((acc, h, i) => {
+    if (DEDUCTION_KEYWORDS.some((k) => h.includes(k))) acc.push(i);
+    return acc;
+  }, []);
 }
 
 function columnLabel(i: number, header: string[] | null): string {
@@ -32,7 +42,11 @@ function columnLabel(i: number, header: string[] | null): string {
   return name ? `${name}(列${i + 1})` : `列${i + 1}`;
 }
 
-export function GenericCsvImport({ onClose }: Props) {
+function yen(n: number): string {
+  return `¥${Math.round(n).toLocaleString()}`;
+}
+
+export function SalaryCsvImport({ onClose }: Props) {
   const showToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -44,20 +58,10 @@ export function GenericCsvImport({ onClose }: Props) {
 
   const [hasHeaderRow, setHasHeaderRow] = useState(true);
   const [dateColumn, setDateColumn] = useState(0);
-  const [amountKind, setAmountKind] = useState<AmountKind>("signed");
-  const [signedColumn, setSignedColumn] = useState(1);
-  const [positiveType, setPositiveType] = useState<TransactionType>("expense");
-  const [outflowColumn, setOutflowColumn] = useState(1);
-  const [inflowColumn, setInflowColumn] = useState(2);
-  const [descriptionColumn, setDescriptionColumn] = useState<number | "">("");
-  const [storeColumn, setStoreColumn] = useState<number | "">("");
-  const [defaultExpenseCategory, setDefaultExpenseCategory] = useState(
-    EXPENSE_CATEGORIES[EXPENSE_CATEGORIES.length - 1],
-  );
-  const [defaultIncomeCategory, setDefaultIncomeCategory] = useState(
-    INCOME_CATEGORIES[INCOME_CATEGORIES.length - 1],
-  );
-  const [defaultMethod, setDefaultMethod] = useState("");
+  const [fallbackPayday, setFallbackPayday] = useState("25");
+  const [netAmountColumn, setNetAmountColumn] = useState(1);
+  const [grossAmountColumn, setGrossAmountColumn] = useState<number | "">("");
+  const [deductionColumns, setDeductionColumns] = useState<Set<number>>(new Set());
 
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<{
@@ -73,39 +77,22 @@ export function GenericCsvImport({ onClose }: Props) {
     [preview.columnCount],
   );
 
-  const mapping: ColumnMapping = useMemo(
+  const mapping: SalaryColumnMapping = useMemo(
     () => ({
       hasHeaderRow,
       dateColumn,
-      amount:
-        amountKind === "signed"
-          ? { kind: "signed", column: signedColumn, positiveType }
-          : { kind: "split", outflowColumn, inflowColumn },
-      descriptionColumn: descriptionColumn === "" ? undefined : descriptionColumn,
-      storeColumn: storeColumn === "" ? undefined : storeColumn,
-      defaultExpenseCategory,
-      defaultIncomeCategory,
-      defaultMethod: defaultMethod === "" ? undefined : defaultMethod,
+      fallbackPayday: Math.min(31, Math.max(1, Number(fallbackPayday) || 25)),
+      netAmountColumn,
+      grossAmountColumn: grossAmountColumn === "" ? undefined : grossAmountColumn,
+      deductionColumns: [...deductionColumns].sort((a, b) => a - b),
     }),
-    [
-      hasHeaderRow,
-      dateColumn,
-      amountKind,
-      signedColumn,
-      positiveType,
-      outflowColumn,
-      inflowColumn,
-      descriptionColumn,
-      storeColumn,
-      defaultExpenseCategory,
-      defaultIncomeCategory,
-      defaultMethod,
-    ],
+    [hasHeaderRow, dateColumn, fallbackPayday, netAmountColumn, grossAmountColumn, deductionColumns],
   );
 
-  const liveResult = useMemo(() => mapCsvRowsToTransactions(rawRows, mapping), [rawRows, mapping]);
-  const expenseCount = liveResult.rows.filter((r) => r.transaction.type === "expense").length;
-  const incomeCount = liveResult.rows.filter((r) => r.transaction.type === "income").length;
+  const liveResult = useMemo(
+    () => mapCsvRowsToSalaries(rawRows, preview.header, mapping),
+    [rawRows, preview.header, mapping],
+  );
 
   async function handleFileSelected(f: File) {
     setError(null);
@@ -120,17 +107,13 @@ export function GenericCsvImport({ onClose }: Props) {
       setEncoding(detected);
       setRawRows(rows);
 
-      // hasHeaderRow starts true (its own default), so rows[0] is the header
-      // to key guesses off of; falls back to plain positional defaults when
-      // a keyword isn't found (or there's effectively no header to read).
       const header = rows[0] ?? null;
       const lastCol = Math.max((header?.length ?? 1) - 1, 0);
-      setDateColumn(guessColumn(header, ["日付", "取引日", "date"], 0));
-      setSignedColumn(guessColumn(header, ["金額", "amount"], lastCol));
-      setOutflowColumn(guessColumn(header, ["出金", "支出", "withdrawal", "debit"], lastCol > 0 ? lastCol - 1 : lastCol));
-      setInflowColumn(guessColumn(header, ["入金", "収入", "deposit", "credit"], lastCol));
-      setDescriptionColumn("");
-      setStoreColumn("");
+      setDateColumn(guessColumn(header, DATE_KEYWORDS, 0));
+      setNetAmountColumn(guessColumn(header, NET_KEYWORDS, lastCol));
+      const guessedGross = guessColumn(header, GROSS_KEYWORDS, -1);
+      setGrossAmountColumn(guessedGross >= 0 ? guessedGross : "");
+      setDeductionColumns(new Set(guessDeductionColumns(header)));
       setResult(null);
       setStep("mapping");
     } catch {
@@ -158,21 +141,30 @@ export function GenericCsvImport({ onClose }: Props) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  function toggleDeductionColumn(i: number) {
+    setDeductionColumns((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
+
   async function handleImport() {
     setImporting(true);
     setError(null);
     try {
-      const existing = await db.transactions.toArray();
-      const seen = new Set(existing.filter((t) => t.externalId).map((t) => t.externalId!));
+      const existing = await db.salaries.toArray();
+      const seenMonths = new Set(existing.map((s) => s.month));
       let imported = 0;
       let duplicates = 0;
       for (const row of liveResult.rows) {
-        if (seen.has(row.externalId)) {
+        if (seenMonths.has(row.entry.month)) {
           duplicates++;
           continue;
         }
-        seen.add(row.externalId);
-        await db.transactions.add({ ...row.transaction, createdAt: Date.now() });
+        seenMonths.add(row.entry.month);
+        await db.salaries.add({ ...row.entry, createdAt: Date.now() });
         imported++;
       }
       setResult({
@@ -194,13 +186,9 @@ export function GenericCsvImport({ onClose }: Props) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
-          銀行明細・クレジットカード明細など、任意のCSVファイルを取り込めます。取り込む前に、どの列が日付・金額かを次の画面で指定します。
+          給与明細のCSVを取り込めます。1行が1ヶ月分の給与に対応し、どの列が支給日・手取り額・控除項目かを次の画面で指定します(勤務先やソフトによって列構成は異なるため、取り込み前に内容を確認してください)。
         </p>
-        <Button
-          variant="secondary"
-          className="w-full"
-          onClick={() => fileInputRef.current?.click()}
-        >
+        <Button variant="secondary" className="w-full" onClick={() => fileInputRef.current?.click()}>
           CSVファイルを選択
         </Button>
         <input
@@ -224,7 +212,7 @@ export function GenericCsvImport({ onClose }: Props) {
         <Card className="space-y-1 text-sm text-slate-600">
           <p>取込対象: {result.total}件</p>
           <p>取り込み完了: {result.imported}件</p>
-          <p>重複のためスキップ: {result.duplicates}件</p>
+          <p>すでに登録済みの月のためスキップ: {result.duplicates}件</p>
           <p>解析できずスキップ: {result.skippedUnparseable}件</p>
         </Card>
         <Button className="w-full" onClick={onClose}>
@@ -283,7 +271,42 @@ export function GenericCsvImport({ onClose }: Props) {
         1行目を見出しとして扱う(データとして取り込まない)
       </label>
 
-      <Select label="日付列" value={dateColumn} onChange={(e) => setDateColumn(Number(e.target.value))}>
+      <Select label="支給日・対象月の列" value={dateColumn} onChange={(e) => setDateColumn(Number(e.target.value))}>
+        {columnIndices.map((i) => (
+          <option key={i} value={i}>
+            {columnLabel(i, preview.header)}
+          </option>
+        ))}
+      </Select>
+
+      <Input
+        label="給料日(上の列が年月のみの場合に使用)"
+        type="number"
+        inputMode="numeric"
+        value={fallbackPayday}
+        onChange={(e) => setFallbackPayday(e.target.value)}
+        min={1}
+        max={31}
+      />
+
+      <Select
+        label="手取り額(差引支給額)の列"
+        value={netAmountColumn}
+        onChange={(e) => setNetAmountColumn(Number(e.target.value))}
+      >
+        {columnIndices.map((i) => (
+          <option key={i} value={i}>
+            {columnLabel(i, preview.header)}
+          </option>
+        ))}
+      </Select>
+
+      <Select
+        label="総支給額の列(任意)"
+        value={grossAmountColumn === "" ? "" : String(grossAmountColumn)}
+        onChange={(e) => setGrossAmountColumn(e.target.value === "" ? "" : Number(e.target.value))}
+      >
+        <option value="">なし</option>
         {columnIndices.map((i) => (
           <option key={i} value={i}>
             {columnLabel(i, preview.header)}
@@ -292,125 +315,35 @@ export function GenericCsvImport({ onClose }: Props) {
       </Select>
 
       <div>
-        <span className="mb-1.5 block text-sm font-medium text-slate-600">金額の形式</span>
-        <Tabs
-          options={[
-            { value: "signed", label: "1列(符号で判定)" },
-            { value: "split", label: "2列(出金/入金)" },
-          ]}
-          value={amountKind}
-          onChange={(v) => setAmountKind(v)}
-          dense
-        />
+        <span className="mb-1.5 block text-sm font-medium text-slate-600">
+          控除項目として扱う列(「よく引かれてるもの」の集計対象)
+        </span>
+        <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-white/40 bg-white/30 p-2">
+          {columnIndices.map((i) => (
+            <label key={i} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-700">
+              <span className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={deductionColumns.has(i)}
+                  onChange={() => toggleDeductionColumn(i)}
+                  className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+                />
+                {columnLabel(i, preview.header)}
+              </span>
+              <span className="text-xs text-slate-400">{preview.sampleRows[0]?.[i] ?? ""}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
-      {amountKind === "signed" ? (
-        <>
-          <Select label="金額列" value={signedColumn} onChange={(e) => setSignedColumn(Number(e.target.value))}>
-            {columnIndices.map((i) => (
-              <option key={i} value={i}>
-                {columnLabel(i, preview.header)}
-              </option>
-            ))}
-          </Select>
-          <div>
-            <span className="mb-1.5 block text-sm font-medium text-slate-600">符号の意味</span>
-            <Tabs
-              options={[
-                { value: "expense", label: "プラス=支出" },
-                { value: "income", label: "プラス=収入" },
-              ]}
-              value={positiveType}
-              onChange={(v) => setPositiveType(v)}
-              dense
-            />
-          </div>
-        </>
-      ) : (
-        <>
-          <Select label="出金列" value={outflowColumn} onChange={(e) => setOutflowColumn(Number(e.target.value))}>
-            {columnIndices.map((i) => (
-              <option key={i} value={i}>
-                {columnLabel(i, preview.header)}
-              </option>
-            ))}
-          </Select>
-          <Select label="入金列" value={inflowColumn} onChange={(e) => setInflowColumn(Number(e.target.value))}>
-            {columnIndices.map((i) => (
-              <option key={i} value={i}>
-                {columnLabel(i, preview.header)}
-              </option>
-            ))}
-          </Select>
-        </>
-      )}
-
-      <Select
-        label="内容・摘要列(任意・重複判定の精度が上がります)"
-        value={descriptionColumn === "" ? "" : String(descriptionColumn)}
-        onChange={(e) => setDescriptionColumn(e.target.value === "" ? "" : Number(e.target.value))}
-      >
-        <option value="">なし</option>
-        {columnIndices.map((i) => (
-          <option key={i} value={i}>
-            {columnLabel(i, preview.header)}
-          </option>
-        ))}
-      </Select>
-
-      <Select
-        label="店舗・取引先列(任意)"
-        value={storeColumn === "" ? "" : String(storeColumn)}
-        onChange={(e) => setStoreColumn(e.target.value === "" ? "" : Number(e.target.value))}
-      >
-        <option value="">なし</option>
-        {columnIndices.map((i) => (
-          <option key={i} value={i}>
-            {columnLabel(i, preview.header)}
-          </option>
-        ))}
-      </Select>
-
-      <Select
-        label="支出のデフォルトカテゴリ"
-        value={defaultExpenseCategory}
-        onChange={(e) => setDefaultExpenseCategory(e.target.value)}
-      >
-        {EXPENSE_CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </Select>
-
-      <Select
-        label="収入のデフォルトカテゴリ"
-        value={defaultIncomeCategory}
-        onChange={(e) => setDefaultIncomeCategory(e.target.value)}
-      >
-        {INCOME_CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </Select>
-
-      <Select
-        label="支払い方法(任意・支出のみに適用)"
-        value={defaultMethod}
-        onChange={(e) => setDefaultMethod(e.target.value)}
-      >
-        <option value="">未設定</option>
-        {PAYMENT_METHODS.map((m) => (
-          <option key={m} value={m}>
-            {m}
-          </option>
-        ))}
-      </Select>
-
       <div className="rounded-xl bg-white/40 p-3.5 text-sm text-slate-600">
-        {liveResult.rows.length}件を取込予定(支出{expenseCount}件・収入{incomeCount}件、解析できない行
-        {liveResult.skippedUnparseable}件)
+        {liveResult.rows.length}件を取込予定(解析できない行{liveResult.skippedUnparseable}件)
+        {liveResult.rows[0] && (
+          <p className="mt-1 text-xs text-slate-500">
+            例: {liveResult.rows[0].entry.month} 手取り{yen(liveResult.rows[0].entry.amount)}
+            {liveResult.rows[0].entry.deductions ? `・控除${liveResult.rows[0].entry.deductions.length}項目` : ""}
+          </p>
+        )}
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}

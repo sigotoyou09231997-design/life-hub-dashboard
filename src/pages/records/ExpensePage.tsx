@@ -15,6 +15,8 @@ import { FixedCostList } from "../../components/expense/FixedCostList";
 import { FixedCostForm } from "../../components/expense/FixedCostForm";
 import { SalaryList } from "../../components/expense/SalaryList";
 import { SalaryForm } from "../../components/expense/SalaryForm";
+import { SalaryDeductionBreakdown } from "../../components/expense/SalaryDeductionBreakdown";
+import { SalaryCsvImport } from "../../components/expense/SalaryCsvImport";
 import { PayPayImport } from "../../components/expense/PayPayImport";
 import { GenericCsvImport } from "../../components/expense/GenericCsvImport";
 import { useToast } from "../../components/ui/ToastProvider";
@@ -30,6 +32,7 @@ export default function ExpensePage() {
   const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | "new" | null>(null);
   const [editingSalary, setEditingSalary] = useState<SalaryEntry | "new" | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [salaryCsvImportOpen, setSalaryCsvImportOpen] = useState(false);
 
   const { start, end } = monthRange();
   const transactions = useLiveQuery(
@@ -69,18 +72,28 @@ export default function ExpensePage() {
             {showSalarySkeleton ? (
               <ListSkeleton />
             ) : (
-              <SalaryList
-                salaries={salaries ?? []}
-                onEdit={(s) => setEditingSalary(s)}
-                onDelete={(id) => {
-                  db.salaries.delete(id);
-                  showToast("削除しました");
-                }}
-              />
+              <>
+                <SalaryDeductionBreakdown salaries={salaries ?? []} />
+                <div className="mt-4">
+                  <SalaryList
+                    salaries={salaries ?? []}
+                    onEdit={(s) => setEditingSalary(s)}
+                    onDelete={(id) => {
+                      db.salaries.delete(id);
+                      showToast("削除しました");
+                    }}
+                  />
+                </div>
+              </>
             )}
-            <Button className="mt-4 w-full" onClick={() => setEditingSalary("new")}>
-              給与を追加
-            </Button>
+            <div className="mt-4 flex gap-2">
+              <Button className="flex-1" onClick={() => setEditingSalary("new")}>
+                給与を追加
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setSalaryCsvImportOpen(true)}>
+                CSVから取込
+              </Button>
+            </div>
           </div>
         )}
 
@@ -185,6 +198,10 @@ export default function ExpensePage() {
 
       <Sheet open={csvImportOpen} onClose={() => setCsvImportOpen(false)} title="CSVから取込">
         {csvImportOpen && <GenericCsvImport onClose={() => setCsvImportOpen(false)} />}
+      </Sheet>
+
+      <Sheet open={salaryCsvImportOpen} onClose={() => setSalaryCsvImportOpen(false)} title="給与明細CSVから取込">
+        {salaryCsvImportOpen && <SalaryCsvImport onClose={() => setSalaryCsvImportOpen(false)} />}
       </Sheet>
     </div>
   );

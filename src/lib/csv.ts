@@ -49,6 +49,27 @@ export function parseAmount(cell: string | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+export interface CsvPreview {
+  header: string[] | null;
+  sampleRows: string[][];
+  totalDataRows: number;
+  columnCount: number;
+}
+
+/** Splits raw tokenized CSV rows into header (if any) + data rows, and caps
+ * the sample shown in a mapping-preview table. */
+export function buildPreview(rows: string[][], hasHeaderRow: boolean, sampleSize = 5): CsvPreview {
+  const header = hasHeaderRow ? (rows[0] ?? null) : null;
+  const dataRows = hasHeaderRow ? rows.slice(1) : rows;
+  const columnCount = dataRows.reduce((max, r) => Math.max(max, r.length), header?.length ?? 0);
+  return {
+    header,
+    sampleRows: dataRows.slice(0, sampleSize),
+    totalDataRows: dataRows.length,
+    columnCount,
+  };
+}
+
 export type CsvEncoding = "utf-8" | "shift_jis";
 
 /** Decodes an arbitrary CSV file, auto-detecting encoding: a UTF-8 BOM is

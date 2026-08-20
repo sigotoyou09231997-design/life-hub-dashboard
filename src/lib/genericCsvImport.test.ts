@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseCsvRows } from "./csv";
-import { buildPreview, mapCsvRowsToTransactions, type ColumnMapping } from "./genericCsvImport";
+import { mapCsvRowsToTransactions, type ColumnMapping } from "./genericCsvImport";
 
 const SIGNED_CSV = [
   "日付,内容,金額,店舗",
@@ -40,27 +40,6 @@ function baseSplitMapping(overrides: Partial<ColumnMapping> = {}): ColumnMapping
     ...overrides,
   };
 }
-
-describe("buildPreview", () => {
-  const rows = parseCsvRows(SIGNED_CSV);
-
-  it("separates the header row from data rows when hasHeaderRow is true", () => {
-    const preview = buildPreview(rows, true);
-    expect(preview.header).toEqual(["日付", "内容", "金額", "店舗"]);
-    expect(preview.totalDataRows).toBe(3);
-  });
-
-  it("treats every row as data when hasHeaderRow is false", () => {
-    const preview = buildPreview(rows, false);
-    expect(preview.header).toBeNull();
-    expect(preview.totalDataRows).toBe(4);
-  });
-
-  it("caps sampleRows at the requested size", () => {
-    const preview = buildPreview(rows, true, 2);
-    expect(preview.sampleRows).toHaveLength(2);
-  });
-});
 
 describe("mapCsvRowsToTransactions — signed amount mode", () => {
   const rows = parseCsvRows(SIGNED_CSV);

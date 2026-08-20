@@ -36,11 +36,15 @@ export function SalaryForm({ initial, onSaved, onCancel }: Props) {
       month,
       payday: Math.min(31, Math.max(1, Number(payday) || 1)),
       amount: numericAmount,
+      // This form has no UI for itemized deductions — carry forward whatever
+      // a CSV import previously set rather than silently wiping it on edit.
+      grossAmount: initial?.grossAmount,
+      deductions: initial?.deductions,
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
     if (initial?.id) {
-      await db.salaries.update(initial.id, record);
+      await db.salaries.put({ ...record, id: initial.id });
     } else {
       await db.salaries.add(record);
     }

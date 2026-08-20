@@ -35,12 +35,23 @@ export interface PayPayLedgerEntry {
   userId?: string;
 }
 
+/** One itemized deduction line from a payslip, e.g. { label: "厚生年金保険料", amount: 25000 }. */
+export interface SalaryDeductionItem {
+  label: string;
+  amount: number;
+}
+
 export interface SalaryEntry {
   id?: string;
   /** Month this salary applies to, e.g. "2026-08". */
   month: string;
   payday: number; // 1-31, clamped to the last day of short months
+  /** Take-home pay (差引支給額) — the figure the budget calculation uses as income. */
   amount: number;
+  /** Gross pay before deductions (総支給額), when known from an imported payslip. */
+  grossAmount?: number;
+  /** Itemized deductions parsed from an imported payslip CSV; absent for manually-entered salaries. */
+  deductions?: SalaryDeductionItem[];
   createdAt: number;
   updatedAt?: number;
   deviceId?: string;
