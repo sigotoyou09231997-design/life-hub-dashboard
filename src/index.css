@@ -1136,11 +1136,14 @@ body .text-base { font-size: 1.05rem; }
 }
 
 /* The interim surfaces are opaque, so the old contrast-lift overrides that
-   assumed a translucent backdrop would now read as washed-out grey. */
-.app-shell .text-slate-400 { color: rgb(119 135 155); }
-.app-shell .text-slate-500 { color: rgb(69 89 111); }
-.app-shell .text-slate-600 { color: rgb(52 70 91); }
-.app-shell .text-slate-700 { color: rgb(31 46 66); }
+   assumed a translucent backdrop would now read as washed-out grey. Excluded
+   inside .app-header--home: its icons sit directly on photography and need
+   the white treatment from the .app-header--home rules above, which this
+   same-specificity, later-in-file rule would otherwise win by source order. */
+.app-shell .text-slate-400:not(.app-header--home *) { color: rgb(119 135 155); }
+.app-shell .text-slate-500:not(.app-header--home *) { color: rgb(69 89 111); }
+.app-shell .text-slate-600:not(.app-header--home *) { color: rgb(52 70 91); }
+.app-shell .text-slate-700:not(.app-header--home *) { color: rgb(31 46 66); }
 
 /* Page titles sat on photography with a translucent panel behind them; with the
    header now opaque they need the same ink as the rest of the page. */
