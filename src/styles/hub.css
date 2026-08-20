@@ -1,0 +1,968 @@
+/* ==========================================================================
+   LIFE HUB — Liquid Glass design language (2026-08 redesign)
+
+   Written from scratch to replace the previous "Spatial Personal OS" look.
+   The structural break from the old home screen is deliberate and is the point:
+     - no oversized clock hero; a greeting sets the tone instead
+     - one dark "focus" card carries the single next thing that matters
+     - a four-cell metric strip replaces scanning four cards for four numbers
+     - tiles are mixed-width, not six identical stacked blocks
+   Materially: glass is near-solid white so text clears WCAG AA over any of the
+   photographic backgrounds, corners are much softer, and motion is layered
+   (enter / respond / scroll).
+   ========================================================================== */
+
+:root {
+  /* Radii */
+  --hub-r-xl: 32px;
+  --hub-r-lg: 28px;
+  --hub-r-md: 20px;
+  --hub-r-sm: 14px;
+
+  /* Surfaces. Near-opaque on purpose — the old 0.24-alpha glass is exactly what
+     made the previous design hard to read over photography. */
+  --hub-surface: rgba(255, 255, 255, 0.88);
+  --hub-inset: rgba(18, 40, 72, 0.045);
+  --hub-inset-2: rgba(18, 40, 72, 0.075);
+  --hub-edge: rgba(255, 255, 255, 0.85);
+  --hub-hairline: rgba(23, 46, 78, 0.1);
+
+  /* Ink */
+  --hub-ink: #0d1b31;
+  --hub-ink-2: #45596f;
+  --hub-ink-3: #77879b;
+  --hub-on-photo: rgba(255, 255, 255, 0.98);
+  --hub-on-photo-2: rgba(255, 255, 255, 0.84);
+  --hub-photo-shadow: 0 2px 20px rgba(8, 18, 34, 0.42);
+
+  --hub-navy: #101e35;
+  --hub-blue: #2f5ae0;
+  --hub-green: #12876a;
+  --hub-red: #c53f55;
+  --hub-amber: #b0731a;
+
+  --hub-blur: blur(24px) saturate(150%);
+  --hub-shadow: 0 26px 60px rgba(10, 24, 46, 0.16), 0 2px 6px rgba(10, 24, 46, 0.06);
+  --hub-shadow-lift: 0 38px 84px rgba(10, 24, 46, 0.24), 0 3px 8px rgba(10, 24, 46, 0.08);
+  --hub-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+
+  --hub-ease: cubic-bezier(0.22, 0.8, 0.26, 1);
+  --hub-ease-out: cubic-bezier(0.16, 0.84, 0.28, 1);
+}
+
+/* --------------------------------------------------------------------------
+   Page frame
+   -------------------------------------------------------------------------- */
+
+.hub-home {
+  --hub-scroll: 0;
+  width: 100%;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 0.25rem 1rem 1.5rem;
+  color: var(--hub-ink);
+}
+
+/* --------------------------------------------------------------------------
+   Greeting — the only text sitting directly on photography
+   -------------------------------------------------------------------------- */
+
+.hub-greeting {
+  position: relative;
+  display: flex;
+  min-height: 8.5rem;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 2rem 0.35rem 1.5rem;
+  /* Parallax: drifts up at ~28% of scroll speed and dissolves, so the cards
+     read as sliding over a receding backdrop. */
+  transform: translate3d(0, calc(var(--hub-scroll) * -0.28px), 0);
+  opacity: clamp(0.1, calc(1 - var(--hub-scroll) / 230), 1);
+  will-change: transform, opacity;
+}
+
+.hub-greeting__date {
+  color: var(--hub-on-photo-2);
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-shadow: var(--hub-photo-shadow);
+}
+
+.hub-greeting__clock {
+  margin: 0.35rem 0 0;
+  color: var(--hub-on-photo);
+  font-size: 2.6rem;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  text-shadow: var(--hub-photo-shadow);
+}
+
+/* --------------------------------------------------------------------------
+   Layout — deliberately mixed widths
+   -------------------------------------------------------------------------- */
+
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.hub-span-full {
+  grid-column: 1 / -1;
+}
+
+/* --------------------------------------------------------------------------
+   Focus card — the one dark surface, and the visual anchor of the screen
+   -------------------------------------------------------------------------- */
+
+.hub-focus {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: var(--hub-r-xl);
+  background:
+    radial-gradient(120% 140% at 88% 4%, rgba(93, 132, 255, 0.34), transparent 52%),
+    linear-gradient(154deg, #1a2c4b 0%, #101e35 54%, #0c1728 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 30px 70px rgba(8, 20, 40, 0.42);
+  color: #fff;
+  text-decoration: none;
+}
+
+.hub-focus__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+}
+
+.hub-focus__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.83rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.hub-focus__countdown {
+  flex: 0 0 auto;
+  padding: 0.34rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-focus__body {
+  display: grid;
+  grid-template-columns: 4.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1.1rem;
+  margin-top: 1.5rem;
+}
+
+.hub-focus__date {
+  display: grid;
+  width: 4.4rem;
+  height: 4.4rem;
+  place-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--hub-r-md);
+  background: rgba(255, 255, 255, 0.1);
+  text-align: center;
+}
+
+.hub-focus__date strong {
+  font-size: 1.95rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.hub-focus__date span {
+  margin-top: 0.24rem;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.hub-focus__title {
+  overflow: hidden;
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-focus__when {
+  margin: 0.4rem 0 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-focus__go {
+  display: grid;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--hub-navy);
+  transition: transform 260ms var(--hub-ease);
+}
+
+/* --------------------------------------------------------------------------
+   Tile — the shared light surface
+   -------------------------------------------------------------------------- */
+
+.hub-tile {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+  flex-direction: column;
+  padding: 1.25rem;
+  border: 1px solid var(--hub-edge);
+  border-radius: var(--hub-r-lg);
+  background: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset), var(--hub-shadow);
+  color: var(--hub-ink);
+  text-decoration: none;
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
+}
+
+/* Scroll reveal */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0) scale(0.98);
+  filter: blur(7px);
+  transition:
+    opacity 640ms var(--hub-ease-out),
+    transform 640ms var(--hub-ease-out),
+    filter 640ms var(--hub-ease-out);
+}
+
+[data-reveal].is-revealed {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+}
+
+.hub-tap {
+  transition:
+    transform 260ms var(--hub-ease),
+    box-shadow 260ms var(--hub-ease),
+    border-color 220ms ease;
+}
+
+.hub-tap:active {
+  transform: scale(0.978);
+}
+
+.hub-tile:focus-visible,
+.hub-focus:focus-visible,
+.hub-trip:focus-visible {
+  outline: 3px solid var(--hub-blue);
+  outline-offset: 3px;
+}
+
+/* Specular highlight sliding across on hover. Decorative, never interactive. */
+.hub-sheen::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(104deg, transparent 24%, rgba(255, 255, 255, 0.72) 44%, transparent 64%);
+  opacity: 0;
+  transform: translate3d(-40%, 0, 0);
+  transition: transform 760ms var(--hub-ease), opacity 320ms ease;
+}
+
+.hub-sheen > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Tile header */
+.hub-tile__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.hub-tile__label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.hub-tile__icon {
+  display: grid;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+  color: var(--hub-blue);
+}
+
+.hub-tile__name {
+  overflow: hidden;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-tile__go {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  transition: transform 240ms var(--hub-ease), background 240ms ease;
+}
+
+.hub-tile__badge {
+  flex: 0 0 auto;
+  padding: 0.26rem 0.62rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Compact tile: a single number carries the tile */
+.hub-tile--compact {
+  min-height: 10.5rem;
+}
+
+.hub-metric {
+  margin: auto 0 0;
+  font-size: 2.3rem;
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.hub-metric small {
+  margin-right: 0.1rem;
+  color: var(--hub-ink-3);
+  font-size: 0.42em;
+  font-weight: 600;
+}
+
+.hub-metric.is-negative {
+  color: var(--hub-red);
+}
+
+.hub-metric__note {
+  margin: 0.5rem 0 0;
+  color: var(--hub-ink-2);
+  font-size: 0.92rem;
+}
+
+/* --------------------------------------------------------------------------
+   Schedule tile
+   -------------------------------------------------------------------------- */
+
+.hub-events {
+  display: grid;
+  margin-top: 1rem;
+}
+
+.hub-events__row {
+  display: grid;
+  grid-template-columns: 3.5rem 0.5rem minmax(0, 1fr) auto;
+  min-height: 3.1rem;
+  align-items: center;
+  gap: 0.65rem;
+  border-top: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-sm);
+  color: inherit;
+  font-size: 1.02rem;
+  text-decoration: none;
+  transition: background 200ms ease, padding-left 200ms var(--hub-ease);
+}
+
+.hub-events__row time {
+  color: var(--hub-ink-2);
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-events__row strong {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-events__row small {
+  color: var(--hub-ink-3);
+  font-size: 0.88rem;
+}
+
+.hub-events__row.is-past {
+  opacity: 0.46;
+}
+
+.hub-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--hub-blue);
+}
+
+.hub-dot--success { background: var(--hub-green); }
+.hub-dot--danger { background: var(--hub-red); }
+.hub-dot--warning { background: var(--hub-amber); }
+
+/* Day rail */
+.hub-rail {
+  position: relative;
+  height: 2.4rem;
+  margin-top: auto;
+  padding-top: 1.1rem;
+}
+
+.hub-rail__marks {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  justify-content: space-between;
+  color: var(--hub-ink-3);
+  font-size: 0.79rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-rail__track {
+  position: absolute;
+  top: 1.55rem;
+  right: 0;
+  left: 0;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--hub-inset-2);
+}
+
+.hub-rail__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(47, 90, 224, 0.3), var(--hub-blue));
+  transform-origin: left center;
+  animation: hub-grow-x 900ms var(--hub-ease-out) both;
+}
+
+.hub-rail__now,
+.hub-rail__event {
+  position: absolute;
+  border-radius: 50%;
+  transform: translateX(-50%);
+}
+
+.hub-rail__now {
+  top: 1.05rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 3px solid #fff;
+  background: var(--hub-blue);
+  box-shadow: 0 2px 8px rgba(20, 40, 74, 0.35);
+  animation: hub-pop 520ms var(--hub-ease-out) 240ms both;
+}
+
+.hub-rail__event {
+  top: 1.42rem;
+  width: 0.38rem;
+  height: 0.38rem;
+  background: var(--hub-green);
+}
+
+/* --------------------------------------------------------------------------
+   Task tile
+   -------------------------------------------------------------------------- */
+
+.hub-tasks {
+  display: grid;
+  grid-template-columns: 4.6rem minmax(0, 1fr);
+  align-items: center;
+  gap: 1.15rem;
+  margin-top: 1rem;
+}
+
+.hub-tasks__list {
+  display: grid;
+  min-width: 0;
+}
+
+.hub-tasks__row {
+  display: grid;
+  grid-template-columns: 1.65rem minmax(0, 1fr) auto;
+  min-height: 2.6rem;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1rem;
+}
+
+.hub-check {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  place-items: center;
+  border: 1.5px solid rgba(23, 46, 78, 0.28);
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  transition: background 200ms ease, border-color 200ms ease, transform 200ms var(--hub-ease);
+}
+
+.hub-check:active { transform: scale(0.84); }
+
+.hub-tasks__row.is-done .hub-check {
+  border-color: var(--hub-blue);
+  background: var(--hub-blue);
+}
+
+.hub-tasks__row a {
+  overflow: hidden;
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity 200ms ease;
+}
+
+.hub-tasks__row time {
+  color: var(--hub-ink-3);
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.hub-tasks__row.is-done a { opacity: 0.42; text-decoration: line-through; }
+
+.hub-tasks__summary {
+  margin: 0.35rem 0 0;
+  color: var(--hub-ink-2);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.hub-ring {
+  --hub-progress: 0deg;
+  position: relative;
+  display: grid;
+  width: 4.6rem;
+  height: 4.6rem;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--hub-blue) var(--hub-progress), var(--hub-inset-2) 0);
+  animation: hub-ring-in 1000ms var(--hub-ease-out) both;
+}
+
+.hub-ring::before {
+  content: "";
+  position: absolute;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.hub-ring span {
+  position: relative;
+  z-index: 1;
+  font-size: 1.22rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.hub-ring small {
+  color: var(--hub-ink-3);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+/* --------------------------------------------------------------------------
+   Mail tile
+   -------------------------------------------------------------------------- */
+
+.hub-mails {
+  display: grid;
+  margin-top: 1rem;
+}
+
+.hub-mails__row {
+  display: grid;
+  grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+  min-height: 3.7rem;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.3rem 0.1rem;
+  border-top: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-sm);
+  color: inherit;
+  text-decoration: none;
+  transition: background 200ms ease;
+}
+
+.hub-avatar {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.hub-mails__copy {
+  min-width: 0;
+}
+
+.hub-mails__copy strong,
+.hub-mails__copy small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hub-mails__copy strong { font-size: 1.02rem; font-weight: 600; }
+.hub-mails__copy small { margin-top: 0.12rem; color: var(--hub-ink-2); font-size: 0.92rem; }
+.hub-mails__row.is-unread .hub-mails__copy strong { font-weight: 800; }
+
+.hub-mails__meta {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--hub-ink-3);
+  font-size: 0.87rem;
+}
+
+.hub-mails__meta i {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: var(--hub-blue);
+}
+
+.hub-status {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--hub-ink-3);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.hub-status i {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #9aa8b9;
+}
+
+.hub-status.is-online i {
+  background: var(--hub-green);
+}
+
+/* Compact in-tile empty state */
+.hub-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin: auto 0;
+  padding-top: 1rem;
+}
+
+.hub-empty__icon {
+  display: grid;
+  width: 2.9rem;
+  height: 2.9rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+}
+
+.hub-empty strong { display: block; font-size: 1.02rem; font-weight: 700; }
+.hub-empty p { margin: 0.22rem 0 0; color: var(--hub-ink-2); font-size: 0.92rem; }
+
+.hub-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: auto;
+  padding-top: 1rem;
+  color: var(--hub-blue);
+  font-size: 0.96rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: gap 200ms var(--hub-ease);
+}
+
+/* --------------------------------------------------------------------------
+   Notes tile
+   -------------------------------------------------------------------------- */
+
+.hub-notes {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: auto;
+  padding-top: 0.9rem;
+}
+
+.hub-notes__row {
+  display: grid;
+  grid-template-columns: 1.4rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--hub-ink-2);
+  font-size: 0.95rem;
+}
+
+.hub-notes__row svg { color: var(--hub-ink-3); }
+.hub-notes__row b { color: var(--hub-ink); font-size: 1.08rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* --------------------------------------------------------------------------
+   Travel tile — photographic
+   -------------------------------------------------------------------------- */
+
+.hub-trip {
+  position: relative;
+  display: flex;
+  min-height: 10.5rem;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--hub-r-lg);
+  background: #44576b;
+  box-shadow: var(--hub-shadow);
+  color: #fff;
+  text-decoration: none;
+}
+
+.hub-trip__photo {
+  position: absolute;
+  inset: 0;
+  background: url("/backgrounds/evening-glass-pavilion-v5.jpg") center 55% / cover no-repeat;
+  transform: scale(1.03);
+  transition: transform 900ms var(--hub-ease);
+}
+
+.hub-trip__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13, 26, 42, 0.24), rgba(11, 22, 37, 0.3) 46%, rgba(9, 18, 31, 0.88));
+}
+
+.hub-trip > *:not(.hub-trip__photo):not(.hub-trip__veil) {
+  position: relative;
+  z-index: 1;
+}
+
+.hub-trip__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.hub-trip__place {
+  margin: 0.45rem 0 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+}
+
+.hub-trip__when {
+  margin: 0.35rem 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.92rem;
+}
+
+.hub-trip__count {
+  align-self: flex-start;
+  margin-top: 0.75rem;
+  padding: 0.3rem 0.68rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  font-size: 0.88rem;
+  font-weight: 700;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* --------------------------------------------------------------------------
+   Motion keyframes
+   -------------------------------------------------------------------------- */
+
+@keyframes hub-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.74); }
+}
+
+@keyframes hub-grow-x {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes hub-ring-in {
+  from { background: conic-gradient(var(--hub-blue) 0deg, var(--hub-inset-2) 0); }
+}
+
+@keyframes hub-pop {
+  from { opacity: 0; transform: translateX(-50%) scale(0.2); }
+  to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+/* --------------------------------------------------------------------------
+   Pointer affordances
+   -------------------------------------------------------------------------- */
+
+@media (hover: hover) and (pointer: fine) {
+  .hub-tap:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--hub-shadow-inset), var(--hub-shadow-lift);
+  }
+
+  .hub-tap:active { transform: translateY(0) scale(0.99); }
+  .hub-tap:hover .hub-tile__go { transform: translateX(3px); background: var(--hub-inset-2); }
+  .hub-focus:hover .hub-focus__go { transform: translateX(4px); }
+  .hub-sheen:hover::before { opacity: 1; transform: translate3d(40%, 0, 0); }
+  .hub-events__row:hover,
+  .hub-mails__row:hover { background: var(--hub-inset); }
+  .hub-events__row:hover { padding-left: 0.35rem; }
+  .hub-link:hover { gap: 0.6rem; }
+  .hub-trip:hover .hub-trip__photo { transform: scale(1.09); }
+}
+
+/* --------------------------------------------------------------------------
+   Desktop bento
+   -------------------------------------------------------------------------- */
+
+@media (min-width: 1024px) {
+  .hub-home { padding: 0.5rem 2rem 3rem; }
+  .hub-greeting { min-height: 10.5rem; padding: 2.25rem 0.5rem 1.75rem; }
+  .hub-greeting__clock { font-size: 3.1rem; }
+  .hub-greeting__date { font-size: 1.1rem; }
+  .hub-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 1rem; }
+  .hub-tile { padding: 1.5rem; }
+
+  .hub-area--focus { grid-column: span 5; }
+  .hub-area--schedule { grid-column: span 7; }
+  .hub-area--tasks { grid-column: span 5; }
+  .hub-area--money { grid-column: span 4; }
+  .hub-area--notes { grid-column: span 3; }
+  .hub-area--mail { grid-column: span 5; }
+  .hub-area--trip { grid-column: span 7; }
+}
+
+@media (min-width: 1440px) {
+  .hub-home { padding-inline: 2.75rem; }
+}
+
+/* --------------------------------------------------------------------------
+   Narrow phones
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 400px) {
+  .hub-home { padding-inline: 0.75rem; }
+  .hub-grid { gap: 0.6rem; }
+  .hub-tile { padding: 1rem; border-radius: var(--hub-r-md); }
+  .hub-focus { padding: 1.15rem; border-radius: var(--hub-r-lg); }
+  .hub-focus__body { grid-template-columns: 3.8rem minmax(0, 1fr) auto; gap: 0.8rem; margin-top: 1.15rem; }
+  .hub-focus__date { width: 3.8rem; height: 3.8rem; }
+  .hub-focus__date strong { font-size: 1.65rem; }
+  .hub-focus__title { font-size: 1.12rem; }
+  .hub-focus__go { width: 2.5rem; height: 2.5rem; }
+  .hub-greeting { min-height: 7.5rem; padding-top: 1.5rem; }
+  .hub-greeting__clock { font-size: 2.2rem; }
+  .hub-greeting__date { font-size: 0.95rem; }
+  .hub-events__row { grid-template-columns: 3.2rem 0.5rem minmax(0, 1fr); gap: 0.5rem; }
+  .hub-events__row small { display: none; }
+  .hub-tasks { grid-template-columns: 4rem minmax(0, 1fr); gap: 0.85rem; }
+  .hub-ring { width: 4rem; height: 4rem; }
+  .hub-ring::before { width: 3.1rem; height: 3.1rem; }
+  .hub-ring span { font-size: 0.98rem; }
+  .hub-metric { font-size: 1.85rem; }
+  .hub-tile--compact { min-height: 9.5rem; }
+  /* A half-width tile is ~111px of content at 320px — the icon chip costs 46px
+     of that and truncates the name, so it steps aside here. */
+  .hub-tile--compact .hub-tile__icon { display: none; }
+}
+
+/* --------------------------------------------------------------------------
+   Reduced motion
+   -------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-greeting { transform: none !important; opacity: 1 !important; }
+  [data-reveal] { opacity: 1 !important; transform: none !important; filter: none !important; }
+  .hub-greeting__meta i,
+  .hub-rail__fill,
+  .hub-rail__now,
+  .hub-ring { animation: none !important; }
+  .hub-tap:hover,
+  .hub-tap:active { transform: none !important; }
+  .hub-sheen::before { display: none; }
+  .hub-trip:hover .hub-trip__photo { transform: scale(1.03) !important; }
+}
+
+/* --------------------------------------------------------------------------
+   No-backdrop-filter fallback
+   -------------------------------------------------------------------------- */
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .hub-tile { background: rgba(252, 253, 255, 0.97); }
+}

@@ -5,6 +5,7 @@ import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import { markUpdateAvailable, setUpdateApplier } from "./lib/pwaUpdate";
 import "./index.css";
+import "./styles/hub.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()

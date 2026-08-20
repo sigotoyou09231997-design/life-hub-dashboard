@@ -4,17 +4,17 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
 import {
-  ArrowUpRight,
+  ArrowRight,
   CalendarDays,
-  Check,
   CheckSquare,
+  Check,
   ChevronRight,
-  Circle,
   Mail,
-  MapPin,
+  MoonStar,
   NotebookPen,
   Plane,
   Wallet,
+  type LucideIcon,
 } from "lucide-react";
 import { db } from "../db/schema";
 import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
@@ -22,46 +22,56 @@ import { avatarColor, avatarInitial, parseSender } from "../lib/gmail";
 import { NOTE_TYPE_DEFS, getNoteType } from "../lib/noteTypes";
 import { getScheduleCategory } from "../lib/scheduleCategories";
 import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
+import { useHubMotion } from "../hooks/useHubMotion";
 import { toggleTaskCompletion } from "../components/tasks/TaskList";
 
-const EVENT_PREVIEW_LIMIT = 2;
-const TASK_PREVIEW_LIMIT = 3;
+const EVENT_PREVIEW_LIMIT = 3;
+const TASK_PREVIEW_LIMIT = 2;
 const GMAIL_PREVIEW_LIMIT = 3;
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
-function ModuleHeading({ icon: Icon, eyebrow, action }: { icon: typeof CalendarDays; eyebrow: string; action?: ReactNode }) {
+/** The day rail spans 6:00–24:00; anything outside clamps to an edge. */
+const RAIL_START_HOUR = 6;
+const RAIL_END_HOUR = 24;
+
+function TileHead({ icon: Icon, name, trailing }: { icon: LucideIcon; name: string; trailing?: ReactNode }) {
   return (
-    <div className="home-module__heading">
-      <div className="home-module__eyebrow"><Icon size={15} strokeWidth={1.75} /><span>{eyebrow}</span></div>
-      {action}
+    <div className="hub-tile__head">
+      <div className="hub-tile__label">
+        <span className="hub-tile__icon">
+          <Icon size={18} strokeWidth={1.9} />
+        </span>
+        <h2 className="hub-tile__name">{name}</h2>
+      </div>
+      {trailing}
     </div>
   );
 }
 
-function getGreeting(hour: number): string {
-  if (hour < 5) return "まだ静かな時間です";
-  if (hour < 11) return "おはようございます";
-  if (hour < 17) return "今日もおつかれさまです";
-  return "こんばんは";
-}
-
-function minutesUntil(time: string | undefined, now: Date): string | null {
+function minutesUntil(time: string | undefined, now: Date): number | null {
   if (!time) return null;
   const [hour, minute] = time.split(":").map(Number);
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
   const target = new Date(now);
   target.setHours(hour, minute, 0, 0);
   const minutes = Math.ceil((target.getTime() - now.getTime()) / 60_000);
-  if (minutes < 0) return null;
-  if (minutes < 60) return minutes === 0 ? "まもなく" : `あと${minutes}分`;
-  return `あと${Math.floor(minutes / 60)}時間${minutes % 60 ? `${minutes % 60}分` : ""}`;
+  return minutes < 0 ? null : minutes;
 }
 
-function timelinePosition(time: string | undefined): number | null {
+function formatCountdown(minutes: number): string {
+  if (minutes === 0) return "まもなく";
+  if (minutes < 60) return `あと${minutes}分`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return `あと${hours}時間${rest ? `${rest}分` : ""}`;
+}
+
+function railPosition(time: string | undefined): number | null {
   if (!time) return null;
   const [hour, minute] = time.split(":").map(Number);
   if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
-  return Math.max(0, Math.min(100, (((hour + minute / 60) - 6) / 18) * 100));
+  const span = RAIL_END_HOUR - RAIL_START_HOUR;
+  return Math.max(0, Math.min(100, ((hour + minute / 60 - RAIL_START_HOUR) / span) * 100));
 }
 
 export default function TopPage() {
@@ -71,31 +81,30 @@ export default function TopPage() {
     return () => window.clearInterval(id);
   }, []);
 
+  const motionRef = useHubMotion<HTMLDivElement>();
+
   const today = todayStr();
   const eventsResult = useLiveQuery(() => db.calendarEvents.where("date").equals(today).toArray(), [today]);
   const allTodayEvents = [...(eventsResult ?? [])].sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
-  const todayEvents = allTodayEvents.slice(0, EVENT_PREVIEW_LIMIT);
-  const nextTimedEvent = allTodayEvents.find((event) => !event.startTime || minutesUntil(event.startTime, now));
-  const nextEventLabel = nextTimedEvent?.allDay ? "終日" : minutesUntil(nextTimedEvent?.startTime, now);
+  const previewEvents = allTodayEvents.slice(0, EVENT_PREVIEW_LIMIT);
+  const nextEvent = allTodayEvents.find((event) => !event.startTime || minutesUntil(event.startTime, now) !== null);
+  const nextEventMinutes = nextEvent && !nextEvent.allDay ? minutesUntil(nextEvent.startTime, now) : null;
 
   const tasksResult = useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]);
   const todayTasks = (tasksResult ?? []).filter((task) => !task.parentTaskId);
   const doneCount = todayTasks.filter((task) => task.completed).length;
+  const openCount = todayTasks.length - doneCount;
   const progress = todayTasks.length ? Math.round((doneCount / todayTasks.length) * 100) : 0;
-  const previewTasks = [...todayTasks].sort((a, b) => Number(a.completed) - Number(b.completed) || a.createdAt - b.createdAt).slice(0, TASK_PREVIEW_LIMIT);
+  const sortedTasks = [...todayTasks].sort(
+    (a, b) =>
+      Number(a.completed) - Number(b.completed) ||
+      (a.dueTime ?? "99:99").localeCompare(b.dueTime ?? "99:99") ||
+      a.createdAt - b.createdAt,
+  );
+  const nextTask = sortedTasks.find((task) => !task.completed);
+  const previewTasks = sortedTasks.slice(0, TASK_PREVIEW_LIMIT);
+
   const { data: budget } = usePayPeriodBudget();
-  const financeBars = budget
-    ? [
-        { label: "収入", value: budget.period.salaryAmount },
-        { label: "固定費後", value: budget.period.salaryAmount - budget.totalFixedCosts },
-        { label: "現在", value: budget.remaining },
-      ]
-    : [
-        { label: "収入", value: 72 },
-        { label: "固定費後", value: 54 },
-        { label: "現在", value: 38 },
-      ];
-  const financeBarMax = Math.max(1, ...financeBars.map((item) => Math.max(0, item.value)));
 
   const gmailPreview = useLiveQuery(async () => {
     const accounts = await db.gmailAccounts.toArray();
@@ -105,126 +114,307 @@ export default function TopPage() {
       db.syncedEmails.orderBy("receivedAt").reverse().toArray(),
     ]);
     const blockedSet = new Set(blocked.map((item) => `${item.accountId}:${item.email}`));
-    const emails = allEmails
-      .filter((email) => !blockedSet.has(`${email.accountId}:${parseSender(email.from).email.toLowerCase()}`))
-      .slice(0, GMAIL_PREVIEW_LIMIT);
-    return { connected: true, emails };
+    const visible = allEmails.filter(
+      (email) => !blockedSet.has(`${email.accountId}:${parseSender(email.from).email.toLowerCase()}`),
+    );
+    return { connected: true, emails: visible.slice(0, GMAIL_PREVIEW_LIMIT) };
   }, []);
 
   const notesResult = useLiveQuery(() => db.notes.toArray(), []);
-  const noteSummaries = NOTE_TYPE_DEFS.map((definition) => {
-    const items = (notesResult ?? []).filter((note) => getNoteType(note) === definition.value);
-    const latest = [...items].sort((a, b) => (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt))[0];
-    return { definition, count: items.length, latestTitle: latest?.title };
-  });
+  const noteSummaries = NOTE_TYPE_DEFS.map((definition) => ({
+    definition,
+    count: (notesResult ?? []).filter((note) => getNoteType(note) === definition.value).length,
+  }));
+  const noteTotal = noteSummaries.reduce((sum, item) => sum + item.count, 0);
 
   const tripsResult = useLiveQuery(() => db.trips.toArray(), []);
   const featuredTrip =
     tripsResult?.find((trip) => trip.status === "ongoing") ??
-    [...(tripsResult ?? [])].filter((trip) => trip.status === "planning").sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+    [...(tripsResult ?? [])]
+      .filter((trip) => trip.status === "planning")
+      .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
   const tripDays = featuredTrip ? differenceInCalendarDays(parseISO(featuredTrip.startDate), now) : null;
 
-  return (
-    <div className="home-os micro-contrast">
-      <section className="home-status" aria-label="今日のステータス">
-        <div>
-          <p className="home-status__label">Personal control center</p>
-          <div className="home-status__clock-row">
-            <p className="home-status__clock">{format(now, "H:mm")}</p>
-            <span className="home-status__live"><i />LIVE</span>
-          </div>
-          <p className="home-status__date">{format(now, "yyyy年M月d日 EEEE", { locale: ja })}</p>
-        </div>
-        <div className="home-status__message">
-          <p>{getGreeting(now.getHours())}</p>
-          <span>予定も、暮らしも、ここから。</span>
-        </div>
-      </section>
+  const dayProgress = Math.max(0, Math.min(100, railPosition(format(now, "HH:mm")) ?? 0));
 
-      <div className="home-bento">
-        <article className={`home-module home-module--schedule home-module--reflect ${todayEvents.length === 0 ? "is-empty" : "has-data"}`}>
-          <ModuleHeading icon={CalendarDays} eyebrow="今日の予定" action={<span className="home-module__count">{allTodayEvents.length} events</span>} />
-          <div className="home-schedule__summary">
-            <div className="home-date-tile"><strong>{format(now, "d")}</strong><span>{format(now, "EEE", { locale: ja })}</span></div>
-            <div className="min-w-0">
-              <p className="home-module__title">{nextTimedEvent?.title ?? "静かな一日です"}</p>
-              <p className="home-module__meta">{nextTimedEvent ? `${nextTimedEvent.startTime ?? "終日"}${nextEventLabel ? ` · ${nextEventLabel}` : ""}` : "新しい予定はカレンダーから追加できます"}</p>
-            </div>
+  /* The focus card answers one question — "what is next?" — falling back through
+     event → open task → a settled day, so it is never empty. */
+  const focus = nextEvent
+    ? {
+        kicker: "次の予定",
+        title: nextEvent.title,
+        when: nextEvent.allDay
+          ? "終日"
+          : `${nextEvent.startTime ?? "終日"}${nextEvent.endTime ? ` – ${nextEvent.endTime}` : ""}`,
+        countdown: nextEventMinutes === null ? null : formatCountdown(nextEventMinutes),
+        to: "/schedule?view=calendar",
+        icon: CalendarDays,
+      }
+    : nextTask
+      ? {
+          kicker: "次のタスク",
+          title: nextTask.title,
+          when: nextTask.dueTime ? `${nextTask.dueTime} まで` : "今日じゅう",
+          countdown: openCount > 1 ? `残り ${openCount} 件` : null,
+          to: "/schedule?view=list",
+          icon: CheckSquare,
+        }
+      : {
+          kicker: "今日の予定",
+          title: allTodayEvents.length > 0 ? "今日の予定は終わりました" : "静かな一日です",
+          when:
+            allTodayEvents.length > 0
+              ? `本日は ${allTodayEvents.length} 件の予定がありました`
+              : "予定もタスクも入っていません",
+          countdown: null,
+          to: "/schedule?view=calendar",
+          icon: MoonStar,
+        };
+  const FocusIcon = focus.icon;
+
+  return (
+    <div className="hub-home" ref={motionRef}>
+      <header className="hub-greeting">
+        <time className="hub-greeting__date" dateTime={format(now, "yyyy-MM-dd")}>
+          {format(now, "yyyy年M月d日 EEEE", { locale: ja })}
+        </time>
+        <p className="hub-greeting__clock">{format(now, "H:mm")}</p>
+      </header>
+
+      <div className="hub-grid">
+        <Link to={focus.to} className="hub-focus hub-tap hub-span-full hub-area--focus" data-reveal="0">
+          <div className="hub-focus__top">
+            <span className="hub-focus__kicker">
+              <FocusIcon size={15} strokeWidth={2.2} />
+              {focus.kicker}
+            </span>
+            {focus.countdown && <span className="hub-focus__countdown">{focus.countdown}</span>}
           </div>
-          {todayEvents.length > 0 && (
-            <div className="home-schedule__list">
-              {todayEvents.map((event) => {
+          <div className="hub-focus__body">
+            <div className="hub-focus__date">
+              <strong>{format(now, "d")}</strong>
+              <span>{format(now, "EEE", { locale: ja })}</span>
+            </div>
+            <div className="min-w-0">
+              <p className="hub-focus__title">{focus.title}</p>
+              <p className="hub-focus__when">{focus.when}</p>
+            </div>
+            <span className="hub-focus__go" aria-hidden="true">
+              <ArrowRight size={20} strokeWidth={2.2} />
+            </span>
+          </div>
+        </Link>
+
+        <article className="hub-tile hub-span-full hub-area--schedule hub-sheen" data-reveal="1">
+          <TileHead
+            icon={CalendarDays}
+            name="今日の予定"
+            trailing={
+              <Link to="/schedule?view=calendar" className="hub-tile__go" aria-label="カレンダーを開く">
+                <ChevronRight size={17} />
+              </Link>
+            }
+          />
+
+          {previewEvents.length > 0 ? (
+            <div className="hub-events">
+              {previewEvents.map((event) => {
                 const category = getScheduleCategory(event.category);
-                return <Link key={event.id} to="/schedule?view=calendar" className="home-schedule__row"><span>{event.startTime ?? "終日"}</span><i className={`home-category-dot home-category-dot--${category.tone}`} /><strong>{event.title}</strong><small>{category.label}</small></Link>;
+                const past = !event.allDay && minutesUntil(event.startTime, now) === null;
+                return (
+                  <Link key={event.id} to="/schedule?view=calendar" className={`hub-events__row ${past ? "is-past" : ""}`}>
+                    <time>{event.allDay ? "終日" : event.startTime ?? "終日"}</time>
+                    <i className={`hub-dot hub-dot--${category.tone}`} aria-hidden="true" />
+                    <strong>{event.title}</strong>
+                    <small>{category.label}</small>
+                  </Link>
+                );
               })}
+            </div>
+          ) : (
+            <div className="hub-empty">
+              <span className="hub-empty__icon">
+                <CalendarDays size={21} />
+              </span>
+              <div className="min-w-0">
+                <strong>予定はありません</strong>
+                <p>カレンダーから追加できます</p>
+              </div>
             </div>
           )}
-          <div className="home-timeline" aria-label="今日の時間軸">
-            <div className="home-timeline__labels"><span>6</span><span>12</span><span>18</span><span>24</span></div>
-            <div className="home-timeline__track">
-              <i className="home-timeline__now" style={{ left: `${timelinePosition(format(now, "HH:mm")) ?? 0}%` }} />
-              {todayEvents.map((event) => {
-                const left = timelinePosition(event.startTime);
-                return left === null ? null : <i key={event.id} className="home-timeline__event" style={{ left: `${left}%` }} />;
-              })}
+
+          <div className="hub-rail" aria-hidden="true">
+            <div className="hub-rail__marks">
+              <span>6</span>
+              <span>12</span>
+              <span>18</span>
+              <span>24</span>
             </div>
-            <Link to="/schedule?view=calendar">カレンダー <ArrowUpRight size={12} /></Link>
+            <div className="hub-rail__track">
+              <i className="hub-rail__fill" style={{ width: `${dayProgress}%` }} />
+            </div>
+            <i className="hub-rail__now" style={{ left: `${dayProgress}%` }} />
+            {previewEvents.map((event) => {
+              const left = railPosition(event.startTime);
+              return left === null ? null : <i key={event.id} className="hub-rail__event" style={{ left: `${left}%` }} />;
+            })}
           </div>
         </article>
 
-        <article className={`home-module home-module--tasks home-module--reflect ${todayTasks.length === 0 ? "is-empty" : "has-data"}`}>
-          <ModuleHeading icon={CheckSquare} eyebrow="今日のタスク" action={<span className="home-module__count">{doneCount} / {todayTasks.length}</span>} />
-          <div className="home-task__progress">
-            <div className="home-progress-ring" style={{ "--progress": `${progress * 3.6}deg` } as React.CSSProperties}><span>{progress}<small>%</small></span></div>
-            <div><p className="home-module__title">{todayTasks.length ? (progress === 100 ? "今日の分は完了" : `あと${todayTasks.length - doneCount}件`) : "タスクはありません"}</p><p className="home-module__meta">小さな一歩から、整えていきましょう。</p></div>
-          </div>
-          {previewTasks.length > 0 ? (
-            <div className="home-task__list">
-              {previewTasks.map((task) => <div key={task.id} className={`home-task__row ${task.completed ? "is-done" : ""}`}><button type="button" onClick={() => toggleTaskCompletion(task)} aria-label={`${task.title}の完了を切り替え`}>{task.completed ? <Check size={11} strokeWidth={2.7} /> : <Circle size={14} strokeWidth={1.5} />}</button><Link to="/schedule?view=list">{task.title}</Link>{task.dueTime && <time>{task.dueTime}</time>}</div>)}
+        <article className="hub-tile hub-span-full hub-area--tasks hub-sheen" data-reveal="2">
+          <TileHead
+            icon={CheckSquare}
+            name="タスク"
+            trailing={
+              <Link to="/schedule?view=list" className="hub-tile__go" aria-label="タスク一覧を開く">
+                <ChevronRight size={17} />
+              </Link>
+            }
+          />
+          <div className="hub-tasks">
+            <div className="hub-ring" style={{ "--hub-progress": `${progress * 3.6}deg` } as React.CSSProperties}>
+              <span>
+                {progress}
+                <small>%</small>
+              </span>
             </div>
-          ) : <div className="home-task__empty"><span>0 tasks</span><Link to="/schedule?view=list">タスクを開く <ArrowUpRight size={12} /></Link></div>}
+            {previewTasks.length > 0 ? (
+              <div className="hub-tasks__list">
+                {previewTasks.map((task) => (
+                  <div key={task.id} className={`hub-tasks__row ${task.completed ? "is-done" : ""}`}>
+                    <button
+                      type="button"
+                      className="hub-check"
+                      onClick={() => toggleTaskCompletion(task)}
+                      aria-label={`${task.title}の完了を切り替え`}
+                      aria-pressed={task.completed}
+                    >
+                      {task.completed && <Check size={13} strokeWidth={3} />}
+                    </button>
+                    <Link to="/schedule?view=list">{task.title}</Link>
+                    {task.dueTime && <time>{task.dueTime}</time>}
+                  </div>
+                ))}
+                <p className="hub-tasks__summary">
+                  {openCount === 0 ? "今日の分は完了" : `あと ${openCount} 件`}
+                </p>
+              </div>
+            ) : (
+              <div className="hub-tasks__list">
+                <p className="hub-tasks__summary">今日のタスクはありません</p>
+                <Link to="/schedule?view=list" className="hub-link" style={{ paddingTop: 0 }}>
+                  タスクを追加 <ChevronRight size={16} />
+                </Link>
+              </div>
+            )}
+          </div>
         </article>
 
-        <Link to="/records/expense" className="home-module home-module--finance home-module--interactive">
-          <ModuleHeading icon={Wallet} eyebrow="使えるお金" action={<ChevronRight size={15} />} />
-          <div className={`home-finance__value ${budget && budget.remaining < 0 ? "is-negative" : ""}`}><span>¥</span>{budget ? budget.remaining.toLocaleString() : "---"}</div>
-          <p className="home-module__meta">{budget ? `1日あたり ¥${Math.max(0, budget.perDayUsable).toLocaleString()}` : "給与を登録すると自動計算します"}</p>
-          <div className={`home-finance__bars ${budget ? "has-data" : "is-placeholder"}`} role="img" aria-label={budget ? "収入、固定費差引後、現在残高の比較" : "家計データ未登録のプレースホルダー"}>
-            {financeBars.map((item) => <span key={item.label}><i style={{ height: `${Math.max(10, (Math.max(0, item.value) / financeBarMax) * 100)}%` }} /><small>{item.label}</small></span>)}
-          </div>
-          {budget && <div className="home-finance__facts"><span>支出 ¥{budget.actualSpending.toLocaleString()}</span><span>固定費 ¥{budget.totalFixedCosts.toLocaleString()}</span></div>}
+        <Link to="/records/expense" className="hub-tile hub-tile--compact hub-tap hub-area--money hub-sheen" data-reveal="3">
+          <TileHead icon={Wallet} name="使えるお金" />
+          <p className={`hub-metric ${budget && budget.remaining < 0 ? "is-negative" : ""}`}>
+            <small>¥</small>
+            {budget ? budget.remaining.toLocaleString() : "—"}
+          </p>
+          <p className="hub-metric__note">
+            {budget ? `1日あたり ¥${Math.max(0, budget.perDayUsable).toLocaleString()}` : "給与を登録すると自動計算します"}
+          </p>
         </Link>
 
-        <article className={`home-module home-module--gmail ${gmailPreview?.emails.length ? "has-data" : "is-empty"}`}>
-          <ModuleHeading icon={Mail} eyebrow="Gmail" action={<span className={`home-connection ${gmailPreview?.connected ? "is-online" : ""}`}><i />{gmailPreview?.connected ? "Synced" : "Offline"}</span>} />
+        <Link to="/records/notes" className="hub-tile hub-tile--compact hub-tap hub-area--notes hub-sheen" data-reveal="4">
+          <TileHead icon={NotebookPen} name="メモ" trailing={<span className="hub-tile__badge">{noteTotal}</span>} />
+          <div className="hub-notes">
+            {noteSummaries.map(({ definition, count }) => {
+              const Icon = definition.icon;
+              const label =
+                definition.value === "checklist" ? "チェック" : definition.value === "shopping" ? "買い物" : definition.label;
+              return (
+                <div key={definition.value} className="hub-notes__row">
+                  <Icon size={15} />
+                  <span>{label}</span>
+                  <b>{count}</b>
+                </div>
+              );
+            })}
+          </div>
+        </Link>
+
+        <article className="hub-tile hub-span-full hub-area--mail hub-sheen" data-reveal="5">
+          <TileHead
+            icon={Mail}
+            name="Gmail"
+            trailing={
+              <span className={`hub-status ${gmailPreview?.connected ? "is-online" : ""}`}>
+                <i aria-hidden="true" />
+                {gmailPreview?.connected ? "同期中" : "未接続"}
+              </span>
+            }
+          />
           {gmailPreview?.emails.length ? (
-            <div className="home-mail__list">
-              {gmailPreview.emails.map((email) => {
-                const sender = parseSender(email.from);
-                const unread = email.status === "unprocessed";
-                return <a key={email.id} href={`/gmail/mail/${email.id}`} target="_blank" rel="noopener noreferrer" className={`home-mail__row ${unread ? "is-unread" : ""}`}><span className={`home-mail__avatar ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</span><span className="home-mail__copy"><strong>{sender.name}</strong><small>{email.subject}</small></span><time>{formatGmailTimestamp(email.receivedAt)}</time>{unread && <i />}</a>;
-              })}
-            </div>
-          ) : <div className="home-compact-state"><span className="home-compact-state__icon"><Mail size={20} /></span><div><strong>{gmailPreview?.connected ? "受信トレイは空です" : "Gmailを接続"}</strong><p>{gmailPreview?.connected ? "新しいメールはありません" : "最新メールと返信案をここで確認"}</p><Link to="/gmail">{gmailPreview?.connected ? "受信トレイを開く" : "接続画面を開く"} <ArrowUpRight size={12} /></Link></div><div className="home-mail__signal" aria-hidden="true"><i /><i /><i /></div></div>}
-          {Boolean(gmailPreview?.emails.length) && <Link to="/gmail" className="home-module__footer">受信トレイを開く <ArrowUpRight size={14} /></Link>}
+            <>
+              <div className="hub-mails">
+                {gmailPreview.emails.map((email) => {
+                  const sender = parseSender(email.from);
+                  const unread = email.status === "unprocessed";
+                  return (
+                    <a
+                      key={email.id}
+                      href={`/gmail/mail/${email.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`hub-mails__row ${unread ? "is-unread" : ""}`}
+                    >
+                      <span className={`hub-avatar ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</span>
+                      <span className="hub-mails__copy">
+                        <strong>{sender.name}</strong>
+                        <small>{email.subject}</small>
+                      </span>
+                      <span className="hub-mails__meta">
+                        <time>{formatGmailTimestamp(email.receivedAt)}</time>
+                        {unread && <i aria-hidden="true" />}
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+              <Link to="/gmail" className="hub-link">
+                受信トレイを開く <ChevronRight size={16} />
+              </Link>
+            </>
+          ) : (
+            <>
+              <div className="hub-empty">
+                <span className="hub-empty__icon">
+                  <Mail size={21} />
+                </span>
+                <div className="min-w-0">
+                  <strong>{gmailPreview?.connected ? "受信トレイは空です" : "Gmailを接続"}</strong>
+                  <p>{gmailPreview?.connected ? "新しいメールはありません" : "最新メールと返信案をここで確認"}</p>
+                </div>
+              </div>
+              <Link to="/gmail" className="hub-link">
+                {gmailPreview?.connected ? "受信トレイを開く" : "接続画面を開く"} <ChevronRight size={16} />
+              </Link>
+            </>
+          )}
         </article>
 
-        <Link to="/records/notes" className="home-module home-module--notes home-module--interactive">
-          <ModuleHeading icon={NotebookPen} eyebrow="メモとリスト" action={<ChevronRight size={15} />} />
-          <div className="home-notes__stack">
-            {noteSummaries.map(({ definition, count, latestTitle }) => { const Icon = definition.icon; const compactLabel = definition.value === "checklist" ? "チェック" : definition.value === "shopping" ? "買い物" : definition.label; return <div key={definition.value} className="home-notes__row" title={latestTitle ?? `${definition.label}はまだありません`}><span><Icon size={15} /></span><b>{count}</b><div><strong>{compactLabel}</strong><small>{latestTitle ?? "空のリスト"}</small></div></div>; })}
-          </div>
-        </Link>
-
-        <Link to="/trips" className="home-module home-module--travel home-module--interactive">
-          <div className="home-travel__image" aria-hidden="true" /><div className="home-travel__veil" aria-hidden="true" />
-          <div className="home-travel__content">
-            <ModuleHeading icon={Plane} eyebrow="次の旅" action={<span className="home-travel__status">{featuredTrip ? TRIP_STATUS_LABEL[featuredTrip.status] : "Plan a trip"}</span>} />
-            <div className="home-travel__destination">
-              {featuredTrip ? <><p>{featuredTrip.destination || featuredTrip.name}</p><span><MapPin size={13} />{formatDisplayDate(featuredTrip.startDate)} 〜 {formatDisplayDate(featuredTrip.endDate)}</span>{tripDays !== null && tripDays >= 0 && <strong>{tripDays === 0 ? "TODAY" : `あと ${tripDays} 日`}</strong>}</> : <><p>Where to next?</p><span>次の景色を計画しましょう</span></>}
-              <span className="home-travel__cta">{featuredTrip ? "旅程を見る" : "旅を計画"} <ArrowUpRight size={12} /></span>
-            </div>
-          </div>
+        <Link to="/trips" className="hub-trip hub-tap hub-span-full hub-area--trip" data-reveal="6">
+          <div className="hub-trip__photo" aria-hidden="true" />
+          <div className="hub-trip__veil" aria-hidden="true" />
+          <span className="hub-trip__kicker">
+            <Plane size={14} strokeWidth={2.2} />
+            {featuredTrip ? TRIP_STATUS_LABEL[featuredTrip.status] : "次の旅"}
+          </span>
+          <p className="hub-trip__place">{featuredTrip ? featuredTrip.destination || featuredTrip.name : "次はどこへ"}</p>
+          <p className="hub-trip__when">
+            {featuredTrip
+              ? `${formatDisplayDate(featuredTrip.startDate)} 〜 ${formatDisplayDate(featuredTrip.endDate)}`
+              : "旅の計画を立てましょう"}
+          </p>
+          {featuredTrip && tripDays !== null && tripDays >= 0 && (
+            <span className="hub-trip__count">{tripDays === 0 ? "本日出発" : `あと ${tripDays} 日`}</span>
+          )}
         </Link>
       </div>
     </div>
