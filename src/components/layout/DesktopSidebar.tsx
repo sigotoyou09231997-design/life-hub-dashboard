@@ -41,7 +41,7 @@ function SidebarLink({ to, label, icon: Icon }: (typeof PRIMARY_NAV)[number]) {
       className={`sidebar-link ${active ? "sidebar-link--active" : ""}`}
     >
       <span className="sidebar-link__indicator" aria-hidden="true" />
-      <Icon size={18} strokeWidth={1.65} />
+      <Icon size={21} strokeWidth={1.7} />
       <span>{label}</span>
     </NavLink>
   );
@@ -52,10 +52,7 @@ export function DesktopSidebar() {
     <aside className="desktop-sidebar" aria-label="メインナビゲーション">
       <NavLink to="/" className="sidebar-brand" aria-label="LIFE HUB ホーム">
         <span className="sidebar-brand__mark">LH</span>
-        <span>
-          <span className="sidebar-brand__name">LIFE HUB</span>
-          <span className="sidebar-brand__tagline">PERSONAL OS</span>
-        </span>
+        <span className="sidebar-brand__name">LIFE HUB</span>
       </NavLink>
 
       <nav className="sidebar-nav">
@@ -69,11 +66,8 @@ export function DesktopSidebar() {
       </nav>
 
       <NavLink to="/account" className="sidebar-account" aria-label="アカウント" data-label="アカウント">
-        <span className="sidebar-account__avatar"><UserRound size={17} strokeWidth={1.6} /></span>
-        <span>
-          <span className="block text-xs font-semibold text-slate-700">アカウント</span>
-          <span className="block text-[10px] tracking-wide text-slate-500">SYNC & PROFILE</span>
-        </span>
+        <span className="sidebar-account__avatar"><UserRound size={20} strokeWidth={1.6} /></span>
+        <span className="text-sm font-semibold text-slate-700">アカウント</span>
       </NavLink>
     </aside>
   );

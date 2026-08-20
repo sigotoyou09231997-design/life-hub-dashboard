@@ -30,24 +30,6 @@ export function AppHeader() {
   const displayName =
     (session?.user.user_metadata?.full_name as string | undefined) ?? session?.user.email ?? "アカウント";
 
-  const pageTitle = pathname === "/"
-    ? "ホーム"
-    : pathname.startsWith("/schedule")
-      ? "予定・タスク"
-      : pathname.startsWith("/records/expense")
-        ? "家計簿"
-        : pathname.startsWith("/records/notes")
-          ? "メモ・リスト"
-          : pathname.startsWith("/gmail")
-            ? "Gmail"
-            : pathname.startsWith("/trips")
-              ? "旅行計画"
-              : pathname.startsWith("/settings")
-                ? "設定"
-                : pathname.startsWith("/account")
-                  ? "アカウント"
-                  : "LIFE HUB";
-
   const avatar = avatarUrl ? (
     <img src={avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
   ) : (
@@ -78,10 +60,7 @@ export function AppHeader() {
 
         <div className="app-header__title">
           <span className="app-header__mobile-brand">LIFE HUB</span>
-          <div className="hidden lg:block">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">Life hub</p>
-            <p className="mt-0.5 text-[15px] font-semibold tracking-tight text-slate-800">{pageTitle}</p>
-          </div>
+
         </div>
 
         <div className="app-header__actions">
