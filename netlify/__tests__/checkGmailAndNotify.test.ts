@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { buildNotificationPayload, parseSenderEmail } from "../functions/checkGmailAndNotify";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildNotificationPayload, checkForNewMail, parseSenderEmail } from "../functions/checkGmailAndNotify";
 
 describe("buildNotificationPayload", () => {
   it("uses the sender's display name as the title, and a labeled subject+snippet as the body", () => {
@@ -36,5 +36,65 @@ describe("parseSenderEmail", () => {
 
   it("lowercases a bare address with no display name", () => {
     expect(parseSenderEmail("A@Example.com")).toBe("a@example.com");
+  });
+});
+
+describe("checkForNewMail", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function messageMetaResponse(internalDate: number, from: string, subject: string) {
+    return {
+      ok: true,
+      json: async () => ({
+        snippet: `snippet for ${subject}`,
+        internalDate: String(internalDate),
+        payload: { headers: [{ name: "From", value: from }, { name: "Subject", value: subject }] },
+      }),
+    };
+  }
+
+  it("drops a message the after: query still returned even though its internalDate is at/before the checkpoint", async () => {
+    // Gmail's after: search operator isn't reliably second-precise, so it can resurface a
+    // message received before sinceEpochSec (see the comment on checkForNewMail) — this is
+    // exactly what previously caused "new mail" push notifications with nothing actually new.
+    const sinceEpochSec = 1_700_000_000;
+    const sinceEpochMs = sinceEpochSec * 1000;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/messages?")) {
+        return { ok: true, json: async () => ({ messages: [{ id: "new1" }, { id: "stale1" }] }) };
+      }
+      if (url.includes("/messages/new1")) {
+        return messageMetaResponse(sinceEpochMs + 5_000, "a@example.com", "New mail");
+      }
+      if (url.includes("/messages/stale1")) {
+        return messageMetaResponse(sinceEpochMs - 5_000, "b@example.com", "Already seen");
+      }
+      throw new Error(`unexpected fetch url: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await checkForNewMail("token", sinceEpochSec, new Set());
+
+    expect(result.count).toBe(1);
+    expect(result.latest?.subject).toBe("New mail");
+  });
+
+  it("returns no new mail when the only candidate is stale", async () => {
+    const sinceEpochSec = 1_700_000_000;
+    const sinceEpochMs = sinceEpochSec * 1000;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/messages?")) {
+        return { ok: true, json: async () => ({ messages: [{ id: "stale1" }] }) };
+      }
+      return messageMetaResponse(sinceEpochMs - 1_000, "b@example.com", "Already seen");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await checkForNewMail("token", sinceEpochSec, new Set());
+
+    expect(result.count).toBe(0);
+    expect(result.latest).toBeNull();
   });
 });

@@ -26,6 +26,12 @@ interface LatestMessageMeta {
   snippet: string;
 }
 
+interface FetchedMessageMeta extends LatestMessageMeta {
+  /** Gmail's internalDate (epoch ms) — see the comment in checkForNewMail for why
+   * this, not the after: query, is treated as the authoritative "is it new" check. */
+  internalDateMs: number;
+}
+
 /** Extracts just the display name from a "From" header ("\"Name\" <email>" or a bare
  * address) — same shape as src/lib/gmail.ts's parseSender, duplicated here since
  * Netlify Functions bundle separately from the app's client code. */
@@ -79,7 +85,7 @@ function findHeader(headers: { name: string; value: string }[], name: string): s
   return headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? "";
 }
 
-async function fetchMessageMeta(accessToken: string, messageId: string): Promise<LatestMessageMeta | null> {
+async function fetchMessageMeta(accessToken: string, messageId: string): Promise<FetchedMessageMeta | null> {
   const metaParams = new URLSearchParams({ format: "metadata" });
   metaParams.append("metadataHeaders", "From");
   metaParams.append("metadataHeaders", "Subject");
@@ -87,12 +93,17 @@ async function fetchMessageMeta(accessToken: string, messageId: string): Promise
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (!metaRes.ok) return null;
-  const metaData = (await metaRes.json()) as { snippet?: string; payload?: { headers?: { name: string; value: string }[] } };
+  const metaData = (await metaRes.json()) as {
+    snippet?: string;
+    internalDate?: string;
+    payload?: { headers?: { name: string; value: string }[] };
+  };
   const headers = metaData.payload?.headers ?? [];
   return {
     from: findHeader(headers, "From"),
     subject: findHeader(headers, "Subject") || "(件名なし)",
     snippet: metaData.snippet ?? "",
+    internalDateMs: Number(metaData.internalDate ?? 0),
   };
 }
 
@@ -100,9 +111,22 @@ async function fetchMessageMeta(accessToken: string, messageId: string): Promise
  * Fetches metadata (From/Subject, Gmail already includes `snippet` on a
  * metadata-format response) for every candidate message — not just the newest —
  * so messages from a blocked sender can be excluded before counting/picking the
- * "latest" one for the notification. A message whose metadata couldn't be fetched
- * is kept in the count (can't confirm it's blocked) but never used as `latest`. */
-async function checkForNewMail(
+ * "latest" one for the notification.
+ *
+ * Gmail's after: search operator is not reliably second-precise — it can still
+ * resurface a message received earlier than sinceEpochSec (this codebase already
+ * works around the same behavior elsewhere: src/lib/gmail.ts's
+ * threadHasSentReplyAfter re-checks internalDate in code rather than trusting a
+ * query-level date filter). Since this function has no other way to remember
+ * which messages it already notified about — unlike the client's manual sync in
+ * GmailInbox.tsx, which dedupes against locally-stored message IDs — a stale
+ * resurfaced message here goes straight to a push notification. So internalDate
+ * (an exact per-message timestamp, always present regardless of `format`) is
+ * re-checked here as the authoritative cutoff; the query-level after: filter is
+ * only a cheap pre-filter to keep the candidate list small. A message whose
+ * metadata (and therefore internalDate) couldn't be fetched is dropped rather
+ * than optimistically counted, since we can no longer confirm it's actually new. */
+export async function checkForNewMail(
   accessToken: string,
   sinceEpochSec: number,
   blockedEmails: Set<string>,
@@ -119,8 +143,10 @@ async function checkForNewMail(
   if (messages.length === 0) return { count: 0, latest: null };
 
   const metas = await Promise.all(messages.map((m) => fetchMessageMeta(accessToken, m.id)));
-  const visible = metas.filter((meta) => meta === null || !blockedEmails.has(parseSenderEmail(meta.from)));
-  const latest = visible.find((meta): meta is LatestMessageMeta => meta !== null) ?? null;
+  const sinceEpochMs = sinceEpochSec * 1000;
+  const actuallyNew = metas.filter((meta): meta is FetchedMessageMeta => meta !== null && meta.internalDateMs > sinceEpochMs);
+  const visible = actuallyNew.filter((meta) => !blockedEmails.has(parseSenderEmail(meta.from)));
+  const latest = visible[0] ?? null;
   return { count: visible.length, latest };
 }
 
