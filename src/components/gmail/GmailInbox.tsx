@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Ban, Check, Mail, Search } from "lucide-react";
 import { db } from "../../db/schema";
@@ -61,6 +61,16 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "drafted" | "sent" | "read">("all");
   const [manageBlockedOpen, setManageBlockedOpen] = useState(false);
+  // handleSync can be triggered from two independent, uncoordinated places at once —
+  // this component's own on-mount effect and GmailPage's header "今すぐ同期" button
+  // (which isn't disabled while the mount sync is still running, since it tracks its
+  // own separate `syncing` boolean, not this component's). Two concurrent runs would
+  // both read the same pre-sync `existing` snapshot, compute the same "new" message
+  // ids, and each insert their own row for the same gmailMessageId (not a unique
+  // index — see db/schema.ts's syncedEmails), showing the same email twice in the
+  // inbox. A ref (checked synchronously, unlike state) makes a second call join the
+  // in-flight run instead of starting a duplicate one.
+  const syncInFlightRef = useRef<Promise<void> | null>(null);
 
   const emails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
@@ -110,10 +120,63 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     );
   });
 
+  /** Collapses any syncedEmails rows that share a gmailMessageId back down to one —
+   * a race between two concurrent syncs (see syncInFlightRef above, which now
+   * prevents this going forward) could insert a duplicate row per sync, since
+   * gmailMessageId isn't a unique index (db/schema.ts). Keeps whichever row has
+   * real progress (a status other than "unprocessed", e.g. a generated/sent
+   * draft) over a still-untouched duplicate, falling back to the earliest
+   * createdAt when neither does. Any draftReplies on a row being dropped move
+   * over to the kept row (only if it doesn't already have one, to avoid ending
+   * up with two drafts under the same emailId) rather than being lost. */
+  async function dedupeSyncedEmails(accountId: string): Promise<void> {
+    const rows = await db.syncedEmails.where("accountId").equals(accountId).toArray();
+    const byMessageId = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const group = byMessageId.get(row.gmailMessageId);
+      if (group) group.push(row);
+      else byMessageId.set(row.gmailMessageId, [row]);
+    }
+    for (const group of byMessageId.values()) {
+      if (group.length < 2) continue;
+      const [keep, ...extras] = [...group].sort((a, b) => {
+        const hasProgress = Number(b.status !== "unprocessed") - Number(a.status !== "unprocessed");
+        return hasProgress !== 0 ? hasProgress : a.createdAt - b.createdAt;
+      });
+      for (const extra of extras) {
+        if (!extra.id) continue;
+        const extraDrafts = await db.draftReplies.where("emailId").equals(extra.id).toArray();
+        const keepAlreadyHasDraft = keep.id ? (await db.draftReplies.where("emailId").equals(keep.id).count()) > 0 : false;
+        if (extraDrafts.length > 0 && keep.id && !keepAlreadyHasDraft) {
+          await db.draftReplies.update(extraDrafts[0].id!, { emailId: keep.id });
+          for (const leftover of extraDrafts.slice(1)) await db.draftReplies.delete(leftover.id!);
+        } else {
+          for (const draft of extraDrafts) await db.draftReplies.delete(draft.id!);
+        }
+        await db.syncedEmails.delete(extra.id);
+      }
+    }
+  }
+
   async function handleSync() {
+    if (syncInFlightRef.current) return syncInFlightRef.current;
+    const run = runSync();
+    syncInFlightRef.current = run;
+    try {
+      await run;
+    } finally {
+      syncInFlightRef.current = null;
+    }
+  }
+
+  async function runSync() {
     if (!account.id) return;
     setSyncing(true);
     try {
+      // Merge away any pre-existing duplicates (rows sharing a gmailMessageId) before
+      // reading `existing` below — see dedupeSyncedEmails's own comment for how these
+      // could have been created before the syncInFlightRef guard above existed.
+      await dedupeSyncedEmails(account.id);
       const fresh = await ensureFreshAccessToken(account);
       const sinceEpochSec = Math.floor(Date.now() / 1000) - SYNC_WINDOW_DAYS * 24 * 60 * 60;
       const ids = await listRecentMessageIds(fresh.accessToken, sinceEpochSec);
