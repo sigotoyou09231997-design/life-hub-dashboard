@@ -395,15 +395,10 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     </div>
   );
 
-  const originalBodyBlock = (
-    <>
-      {bodyIsFallback && !loadingOriginal && (
-        <p className="mb-2 text-xs text-slate-400">本文は保存済みの抜粋を表示しています</p>
-      )}
-      <div className="glass-row whitespace-pre-wrap break-words rounded-xl px-4 py-3.5 text-sm text-slate-700">
-        {loadingOriginal ? "本文を読み込み中..." : originalBody}
-      </div>
-    </>
+  const originalBodyText = loadingOriginal ? "本文を読み込み中..." : originalBody;
+
+  const originalBodyNote = bodyIsFallback && !loadingOriginal && (
+    <p className="mb-2 text-xs text-slate-400">本文は保存済みの抜粋を表示しています</p>
   );
 
   const replyFormFields = (
@@ -625,11 +620,12 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     <div className="grid grid-cols-1 gap-6 lg:items-start lg:gap-5 lg:grid-cols-[minmax(320px,0.95fr)_minmax(360px,1.15fr)]">
       {/* 返信: AI下書きの作成・プレビュー・編集・送信。モバイルでは元メール本文より
           先(上)に表示する — スクロールなしですぐ返信内容が見えるように。
-          一覧画面(GmailInbox)と同じく、外側をglass-cardで包まない — ページ自身の
-          px-5に直接乗せ、本文だけが.glass-rowカードとして見える構成にする(以前は
-          ページpx-5 + このカードのp-5 + 本文.glass-rowのpx-4が重なり、横方向の
-          paddingが過大だったため)。 */}
-      <div className="flex flex-col">
+          両カラムとも面(Card)で包む。以前はページのpx-5に直接乗せていたが、背景が
+          写真になった今、面の無い列は濃いインクが夜空に沈んで読めなくなる。横方向の
+          paddingが重なるのを避けるため、本文は面の中でさらに.glass-rowにはせず、
+          カードの地の上に直接置く(インセットは面の中のくぼみなので、面が一枚あれば
+          もう一段沈める必要はない)。 */}
+      <Card className="flex flex-col">
         <div className="flex shrink-0 items-center justify-between gap-2">
           <p className="text-sm font-semibold text-slate-700">AI返信案</p>
           {hasDraft && <Badge tone="success">準備完了</Badge>}
@@ -665,18 +661,19 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
             {replyFormFields}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* 読む: 件名→送信者→区切り線→元メール本文 */}
-      <div className="flex flex-col">
+      <Card className="flex flex-col">
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
           {hasDraft && <Badge tone="accent">AI下書き</Badge>}
         </div>
         <div className="mt-3 shrink-0">{senderRow}</div>
         <div className="my-4 shrink-0 border-t border-white/40" />
-        {originalBodyBlock}
-      </div>
+        {originalBodyNote}
+        <div className="whitespace-pre-wrap break-words text-sm text-slate-700">{originalBodyText}</div>
+      </Card>
 
       {candidateSheet}
     </div>

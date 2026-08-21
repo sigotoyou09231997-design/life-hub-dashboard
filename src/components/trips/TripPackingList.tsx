@@ -37,7 +37,7 @@ export function TripPackingList({ items, onEdit, onDelete }: Props) {
           if (catItems.length === 0) return null;
           return (
             <div key={cat.value}>
-              <p className="mb-2 text-sm font-medium text-slate-600">{cat.label}</p>
+              <p className="label-on-photo mb-2 text-sm font-medium text-slate-600">{cat.label}</p>
               <div className="space-y-2">
                 {catItems.map((item) => (
                   <ListRow key={item.id} className="flex items-center gap-3">

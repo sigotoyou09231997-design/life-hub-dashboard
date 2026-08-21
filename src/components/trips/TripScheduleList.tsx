@@ -27,11 +27,11 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
 
         return (
           <div key={date}>
-            <p className="mb-2 text-sm font-medium text-slate-600">
+            <p className="label-on-photo mb-2 text-sm font-medium text-slate-600">
               {i + 1}日目・{formatDisplayDate(date)}
             </p>
             {dayItems.length === 0 ? (
-              <p className="py-4 text-center text-sm text-slate-400">この日の予定はまだありません</p>
+              <p className="label-on-photo py-4 text-center text-sm text-slate-400">この日の予定はまだありません</p>
             ) : (
               <div className="space-y-2">
                 {dayItems.map((item) => {

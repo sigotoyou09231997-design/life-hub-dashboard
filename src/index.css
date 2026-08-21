@@ -1148,6 +1148,45 @@ body .text-base { font-size: 1.05rem; }
   box-shadow: none;
 }
 
+/* --- 面に載っていない行は、行ではなくカードにする ------------------------
+   --hub-inset は「面の中のくぼみ」であって、それ自体は面ではない(alpha .045)。
+   カードの中に置かれている限り正しく見えるが、カードの外 — つまり写真の上 —
+   に直接置かれると、濃いインクが夜の空に沈んで読めなくなる。日記・目標・習慣
+   の一覧、Gmailヘッダーのボタンがこれに当たっていた。
+
+   祖先に面が無いときだけ、行自身を面(--hub-surface)に昇格させる。除外リストは
+   上の2ブロックで面を与えているクラス + 前面に出る面(シート・ヘッダー・ナビ)。
+   :where() で書くのは詳細度を上げないため — 素の :not() だと (0,N,0) に育って
+   後段の状態指定(選択中の行など)を食い潰す。 */
+.glass-row:not(.note-widget):not(:where(
+  .glass-card *, .spatial-module *, .note-widget *, .notes-toolbar *,
+  .notes-empty-control *, .destination-empty-control *,
+  .planning-timeline-module *, .planning-task-module *,
+  .planning-secondary-module *, .planning-list-module *,
+  .calendar-workspace__detail *, .finance-balance-module *,
+  .finance-summary-module *, .finance-metric-module *,
+  .trip-overview-module *, .trip-detail-hero *,
+  .mail-inbox-workspace *, .finance-ledger-workspace *, .destination-column *,
+  .spatial-sheet *, .glass-modal *, .app-header *, .desktop-sidebar *, .glass-nav *
+)),
+.spatial-control:not(.note-widget):not(:where(
+  .glass-card *, .spatial-module *, .note-widget *, .notes-toolbar *,
+  .notes-empty-control *, .destination-empty-control *,
+  .planning-timeline-module *, .planning-task-module *,
+  .planning-secondary-module *, .planning-list-module *,
+  .calendar-workspace__detail *, .finance-balance-module *,
+  .finance-summary-module *, .finance-metric-module *,
+  .trip-overview-module *, .trip-detail-hero *,
+  .mail-inbox-workspace *, .finance-ledger-workspace *, .destination-column *,
+  .spatial-sheet *, .glass-modal *, .app-header *, .desktop-sidebar *, .glass-nav *
+)) {
+  border-color: var(--hub-edge);
+  background-color: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset), var(--hub-shadow);
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
+}
+
 /* --- 入力・タブ・ボタン -------------------------------------------------- */
 .spatial-field {
   border-radius: var(--hub-r-sm) !important;
@@ -1417,8 +1456,25 @@ body .text-sm { line-height: 1.5; }
   filter: var(--on-photo-shadow);
 }
 
-/* ヘッダー右の「+」など、タイトル行に置かれる操作ボタンは写真の上でも
-   面を持つので、そのままの色で問題ない。 */
+/* ヘッダー右の「+」など、塗りを持つボタンはそのままの色で問題ない。面を持たない
+   ラベルとアイコンボタン — 旅行詳細の編集/削除、Gmailの「同期済み」「自動下書き」—
+   は写真の上に直接乗るので、タイトルと同じ白抜きに揃える。ピル(.glass-row)の中身は
+   面の上に乗る濃いインクなので除外する。 */
+/* カードの列に付く見出し(旅行の「1日目・…」「必需品」「登録した場所」など)は、
+   面ではなく写真の上に直接置かれる。ページタイトルと同じ扱いにして白抜きにする —
+   面の中の見出しには付けないこと(その場合は濃いインクのままが正しい)。 */
+.app-shell .label-on-photo {
+  color: var(--hub-on-photo-2);
+  text-shadow: 0 1px 10px rgba(8, 18, 34, 0.45);
+}
+
+.app-shell .spatial-page-header button:not(:where(.glass-row, .glass-row *, .app-button, .app-button *)),
+.app-shell .spatial-page-header a:not(:where(.glass-row, .glass-row *, .app-button, .app-button *)),
+.app-shell .mail-page-header span:not(:where(.glass-row *)),
+.app-shell .mail-page-header button:not(:where(.glass-row, .glass-row *, .app-button, .app-button *)) {
+  color: var(--hub-on-photo-2);
+  filter: var(--on-photo-shadow);
+}
 
 /* --- 2. 見出しの明朝 ------------------------------------------------------
    本文・数値・ボタン・ラベルはゴシックのまま。明朝は「そのページ/カードが何か」
