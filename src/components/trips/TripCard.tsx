@@ -32,9 +32,11 @@ export function TripCard({ trip, onDelete }: Props) {
             {trip.destination}
           </p>
           <p className="mt-1 text-xs text-slate-200">
-            {formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} ・{" "}
-            {tripDurationLabel(trip.startDate, trip.endDate)}
+            {formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)}
           </p>
+          {/* 泊数を日程に続けて書くと、3列に並べたときに「3泊4/日」で割れる。
+              HOMEの旅行タイルと同じくチップとして独立させる。 */}
+          <span className="trip-module__duration">{tripDurationLabel(trip.startDate, trip.endDate)}</span>
         </div>
         <div className="trip-module__actions flex shrink-0 items-center gap-1">
           <button

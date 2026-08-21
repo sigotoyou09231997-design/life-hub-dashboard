@@ -856,7 +856,8 @@ body .text-base { font-size: 1.05rem; }
 
 @media (min-width: 1024px) {
   .spatial-page-header { padding-top: 1.25rem; padding-bottom: .9rem; }
-  .spatial-page-header__title { font-size: 1.45rem !important; }
+  /* ページ名はその画面の主役。HOMEの時刻に相当する位置なので、はっきり大きく。 */
+  .spatial-page-header__title { font-size: 1.85rem !important; }
   .app-header:not(.app-header--home) { min-height: 3.55rem; border-bottom-color: rgba(255,255,255,.14); background: linear-gradient(115deg, rgba(225,238,247,.17), rgba(211,228,240,.08)); box-shadow: inset 0 1px 0 rgba(255,255,255,.24); backdrop-filter: blur(14px) saturate(118%); }
   .spatial-sheet { margin-bottom: 1rem; border-radius: 1rem !important; }
   .planning-page .spatial-page-tabs, .finance-page .spatial-page-tabs { max-width: 52rem; }
@@ -1999,5 +2000,187 @@ body .text-sm { line-height: 1.5; }
   .note-widget__progress i,
   [data-checked="true"] {
     animation: none !important;
+  }
+}
+
+/* ==========================================================================
+   青の統一(2026-08)
+
+   HOMEは --hub-blue (#2f5ae0)、他の画面は --color-accent (#4f6fff) を使って
+   いた。同じ「アクセント」のつもりの2色が並んでいて、画面を移ると色が変わる。
+   HOME側の濃い方に寄せる — 明るい方は白い面の上でコントラストも足りていない。
+   ========================================================================== */
+
+:root {
+  --color-accent: #2f5ae0;
+  --color-accent-light: rgba(47, 90, 224, 0.1);
+}
+
+/* ==========================================================================
+   写真の上に載る見出し・旅行カード(2026-08)
+   ========================================================================== */
+
+/* 面ではなく写真の上に直接置かれる列見出し(旅行の「計画中」「完了済み」など)は、
+   飾りではなく分類なので、読める大きさまで上げる。 */
+.app-shell .destination-column__title {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* 件数は列の白い面の上に載る。写真の上ではないので白抜きにはしない。 */
+.app-shell .destination-column__title span {
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 旅行カード。HOMEの旅行タイル(.hub-trip)と同じ作法に寄せる:
+     - 下ほど濃いヴェールで、文字が必ず暗い側に乗る
+     - 行き先を主役の大きさにする
+     - 日程に続けて「3泊4日」を素の文字で置くと折り返して割れるので、
+       HOMEと同じくチップにして独立させる */
+.trip-module__veil {
+  background: linear-gradient(
+    180deg,
+    rgba(13, 26, 42, 0.16) 0%,
+    rgba(11, 22, 37, 0.34) 40%,
+    rgba(9, 18, 31, 0.76) 72%,
+    rgba(8, 16, 28, 0.93) 100%
+  );
+}
+
+.trip-module__content .text-navy {
+  font-size: 1.28rem;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.4);
+}
+
+.trip-module__duration {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.55rem;
+  padding: 0.24rem 0.62rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+@media (min-width: 1024px) {
+  .app-shell .destination-column__title { font-size: 1rem; }
+  .trip-module__content .text-navy { font-size: 1.4rem; }
+}
+
+/* ==========================================================================
+   空の状態(2026-08)
+
+   グレーの一行ではなく、HOMEの .hub-empty と同じ「アイコンの面 + 主文 + 副文」に
+   する。中身が無い画面ほど、そのアプリの出来として見られる。
+   ========================================================================== */
+
+.empty-state.spatial-empty {
+  padding-block: 1.65rem;
+}
+
+.empty-state.spatial-empty > div:first-child {
+  width: 2.9rem;
+  height: 2.9rem;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+  color: var(--hub-blue);
+  box-shadow: none;
+}
+
+.empty-state.spatial-empty p:first-of-type {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+
+.empty-state.spatial-empty p + p {
+  color: var(--hub-ink-2);
+}
+
+/* ==========================================================================
+   面と見出しの格(2026-08)
+
+   HOMEのタイルと、他の画面のカードを並べると、動き以前に3つずれていた:
+     角丸  28px  対 20px
+     見出し 1.05rem のミンチョ + アイコンの面  対 .9rem の文字だけ
+     件数  丸いチップ  対 8.8pxの素の数字
+   レイアウトは変えずに、この3つだけHOME側に合わせる。
+   ========================================================================== */
+
+:root {
+  /* カードの角。ページを包む面(--hub-r-lg 28px)より一段内側、行(14px)より外側。 */
+  --hub-r-card: 24px;
+}
+
+.glass-card,
+.spatial-module,
+.note-widget,
+.notes-toolbar,
+.notes-empty-control,
+.destination-empty-control,
+.planning-timeline-module,
+.planning-task-module,
+.planning-secondary-module,
+.planning-list-module,
+.calendar-workspace__detail,
+.finance-balance-module,
+.finance-summary-module,
+.finance-metric-module,
+.finance-metric-module--pace,
+.trip-overview-module {
+  border-radius: var(--hub-r-card) !important;
+}
+
+/* カードの見出し。HOMEの .hub-tile__name と同じ大きさに揃える。 */
+.app-shell .planning-module-heading p,
+.app-shell .notes-empty-control__heading h2,
+.app-shell .destination-empty-control__copy h2 {
+  font-size: 1.05rem;
+}
+
+/* 見出しの右に付く件数は、素の数字ではなくHOMEの .hub-tile__badge と同じチップ。 */
+.app-shell .planning-module-heading b {
+  flex: 0 0 auto;
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Gmailのページ見出しも同じ格に揃える(PCのページタイトルは上の 1024px ブロックが
+   !important で持っているので、そちらを直接上げてある)。 */
+.app-shell .mail-page-header h1 {
+  font-size: 1.4rem;
+}
+
+@media (min-width: 1024px) {
+  .app-shell .mail-page-header h1 { font-size: 1.85rem; }
+
+  /* PCの下限ブロックが .planning-module-heading p を 1.1rem に上げているので、
+     ここで 1.05rem に固定すると逆に縮む。PCではもう一段上に置く。 */
+  .app-shell .planning-module-heading p,
+  .app-shell .notes-empty-control__heading h2,
+  .app-shell .destination-empty-control__copy h2 {
+    font-size: 1.15rem;
+  }
+
+  .app-shell .planning-module-heading b {
+    font-size: 0.86rem;
   }
 }
