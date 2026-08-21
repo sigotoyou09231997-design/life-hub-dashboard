@@ -65,13 +65,13 @@ export default function TripsPage() {
           <Card className="destination-empty-control p-0">
             <div className="destination-empty-control__visual" aria-hidden="true"><span><Plane size={22} /></span><i /><i /><i /></div>
             <div className="destination-empty-control__copy">
-              <span>Destination status</span>
-              <div><strong>Trips</strong><b>0</b></div>
+              <span>旅行</span>
+              <div><strong>登録済み</strong><b>0</b></div>
               <h2>次の旅を計画しましょう</h2>
               <p>行き先と日程を登録すると、旅程・費用・持ち物をひとつの場所で整理できます。</p>
             </div>
             <div className="destination-empty-control__action">
-              <span>Next action</span>
+              <span>次の一歩</span>
               <button type="button" onClick={() => setCreating(true)}><Plus size={15} />旅行を追加</button>
             </div>
           </Card>

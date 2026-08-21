@@ -138,7 +138,7 @@ export default function TripDetailPage() {
 
       <section className="trip-detail-hero mx-5 mb-3 lg:mx-8">
         <div className="trip-detail-hero__photo" aria-hidden="true" /><div className="trip-detail-hero__veil" aria-hidden="true" />
-        <div className="trip-detail-hero__content"><span>Destination workspace</span><h2>{trip.destination}</h2><p>{formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} · {tripDurationLabel(trip.startDate, trip.endDate)}</p></div>
+        <div className="trip-detail-hero__content"><span>旅行</span><h2>{trip.destination}</h2><p>{formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} · {tripDurationLabel(trip.startDate, trip.endDate)}</p></div>
       </section>
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-5">

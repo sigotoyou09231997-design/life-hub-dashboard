@@ -348,19 +348,23 @@ export function parseSender(from: string): ParsedSender {
   return { name: from.trim(), email: from.trim() };
 }
 
+/* 彩度の高い12色(bg-fuchsia-500など)から、落ち着いた濃色に入れ替えた。
+   アバターは常にヘッダーの左上に出続ける = 画面で一番目立つ色になるため、
+   蛍光色が1つ混じるだけで全体の印象が安っぽくなる。どれも白文字がAAで
+   読める明度に揃えてある。 */
 const AVATAR_COLORS = [
-  "bg-rose-400",
-  "bg-orange-400",
-  "bg-amber-500",
-  "bg-lime-500",
-  "bg-emerald-500",
-  "bg-teal-500",
-  "bg-cyan-500",
-  "bg-sky-500",
-  "bg-indigo-500",
-  "bg-violet-500",
-  "bg-fuchsia-500",
-  "bg-pink-500",
+  "bg-[#26364f]",
+  "bg-[#3f5470]",
+  "bg-[#2d6560]",
+  "bg-[#4a6141]",
+  "bg-[#6f5c34]",
+  "bg-[#8f5a42]",
+  "bg-[#7d3f4e]",
+  "bg-[#5c4566]",
+  "bg-[#414a86]",
+  "bg-[#4a5b66]",
+  "bg-[#6a4b3a]",
+  "bg-[#33566b]",
 ];
 
 /** Deterministic avatar background so the same sender always gets the same color. */
