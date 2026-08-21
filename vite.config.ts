@@ -1,9 +1,27 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
+/** Emits dist/version.json with an id unique to this deploy — Netlify's COMMIT_REF
+ * (falling back to Vercel's equivalent, then a timestamp for a plain local build).
+ * netlify/functions/checkAppUpdate.ts polls this file on the live site and compares
+ * it to the last-seen value to detect a new deploy and push an "アップデートしました"
+ * notification, independent of (and a background counterpart to) the in-tab update
+ * check in src/main.tsx/UpdateBanner.tsx, which only fires while a tab is open. Only
+ * meaningful for `vite build` — dev has no deploys to detect. */
+function writeVersionFile(): Plugin {
+  return {
+    name: "write-version-file",
+    generateBundle() {
+      const version = process.env.COMMIT_REF || process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_ID || String(Date.now());
+      this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ version }) });
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
+    writeVersionFile(),
     react(),
     VitePWA({
       // "prompt" (not "autoUpdate") so a found update sits waiting instead of
