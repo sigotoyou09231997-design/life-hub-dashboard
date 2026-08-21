@@ -91,8 +91,8 @@ export function ExpenseSummary({ onAddSalary }: Props) {
   const recentTransactions = [...(periodTransactions ?? [])].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
   return (
-    <div className="finance-control-center grid gap-3 lg:grid-cols-12">
-      <Card className="finance-balance-module flex flex-col p-5 lg:col-span-7 lg:min-h-[280px] lg:p-7">
+    <div className="finance-control-center grid grid-cols-2 gap-3 lg:grid-cols-12">
+      <Card className="finance-balance-module col-span-2 flex flex-col p-5 lg:col-span-7 lg:min-h-[280px] lg:p-7">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             {/* 見出しは折り返させない — 2行に割れると、右のバッジと視覚的に絡まって
@@ -111,7 +111,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
         </div>
       </Card>
 
-      <Card className="finance-summary-module p-5 lg:col-span-5 lg:p-7">
+      <Card className="finance-summary-module col-span-2 p-5 lg:col-span-5 lg:p-7">
         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Period summary</p>
         <div className="mt-5 divide-y divide-white/35">
           {[
@@ -130,19 +130,19 @@ export function ExpenseSummary({ onAddSalary }: Props) {
         ["給料日まで", `${period.daysUntilNextPayday}日`],
         ["次の給料日", formatDisplayDate(toDateStr(period.nextPayday))],
       ].map(([label, value]) => (
-        <Card key={label} className="finance-metric-module p-5 lg:col-span-3">
-          <p className="text-xs text-slate-500">{label}</p>
+        <Card key={label} className="finance-metric-module p-4 lg:col-span-3 lg:p-5">
+          <p className="truncate text-xs text-slate-500">{label}</p>
           <p key={value} className="value-change mt-2 text-xl font-semibold tabular-nums text-slate-800">{value}</p>
         </Card>
       ))}
 
-      <Card className="finance-metric-module finance-metric-module--pace p-5 lg:col-span-3">
+      <Card className="finance-metric-module finance-metric-module--pace p-4 lg:col-span-3 lg:p-5">
         <p className="text-xs text-slate-500">利用ペース</p>
         <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{period.daysUntilNextPayday > 0 ? yen(actualSpending / Math.max(1, expenses.length)) : yen(0)}</p>
         <p className="mt-1 text-[11px] text-slate-400">1支出あたりの平均</p>
       </Card>
 
-      <Card className="finance-breakdown-module p-5 lg:col-span-6 lg:p-6">
+      <Card className="finance-breakdown-module col-span-2 p-5 lg:col-span-6 lg:p-6">
         <p className="mb-4 text-sm font-semibold text-slate-700">カテゴリ別支出</p>
         {categoryBreakdown.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500">今期の支出記録はありません</p>
@@ -158,7 +158,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
         )}
       </Card>
 
-      <Card className="finance-history-module p-5 lg:col-span-6 lg:p-6">
+      <Card className="finance-history-module col-span-2 p-5 lg:col-span-6 lg:p-6">
         <p className="mb-4 text-sm font-semibold text-slate-700">最近の履歴</p>
         {recentTransactions.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500">履歴はありません</p>

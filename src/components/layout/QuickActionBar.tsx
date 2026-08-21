@@ -63,7 +63,7 @@ export function QuickActionBar() {
                   <Link
                     key={key}
                     to={to}
-                    className="relative flex min-h-12 flex-col items-center justify-center gap-1 py-1.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
+                    className={`relative flex min-h-12 flex-col items-center justify-center gap-1 py-1.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${isActive ? "is-active" : ""}`}
                   >
                     {/* アイコンは選択有無に関わらず常にブランドカラー(未選択でも薄いグレーにしない)。
                         Gmailのロゴだけは元から多色なので着色しない。 */}
