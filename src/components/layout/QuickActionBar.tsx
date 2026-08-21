@@ -34,8 +34,14 @@ export function QuickActionBar() {
           inner pb-[...env(safe-area-inset-bottom)...] padding below, not by this
           offset. md:bottom-6 (desktop) is untouched, still mirroring the app
           shell's own md:my-6 bottom margin (App.tsx) so it nests just above the
-          shell's rounded bottom corner there. */}
-      <div className="fixed inset-x-0 bottom-0 z-30 lg:hidden">
+          shell's rounded bottom corner there.
+          transform-gpu promotes this to its own compositor layer: iOS Safari
+          occasionally fails to keep a plain `position: fixed` element pinned to
+          the viewport during a fast scroll when it (or a descendant, here
+          .glass-nav's backdrop-filter blur) is compositing-heavy — the bar
+          visibly detaches and sits wherever the scroll left it until something
+          nudges a repaint. Forcing the layer ahead of time avoids that. */}
+      <div className="fixed inset-x-0 bottom-0 z-30 transform-gpu lg:hidden">
         <div className="mx-auto max-w-md px-2 pb-[env(safe-area-inset-bottom)] pt-2">
           <div className="glass-nav">
             <button
