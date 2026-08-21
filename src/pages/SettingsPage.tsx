@@ -127,15 +127,15 @@ export default function SettingsPage() {
       <div className="system-control-panel settings-account-grid grid gap-3 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
         <Card className="system-section system-section--data">
           <div className="system-section__header">
-            <div className="system-section__identity"><span><Database size={17} /></span><div><p>System</p><h2>データ管理</h2></div></div>
-            <div className="system-status is-online"><i />{session ? "LOCAL + SYNC" : "LOCAL"}</div>
+            <div className="system-section__identity"><span><Database size={17} /></span><div><h2>データ管理</h2></div></div>
+            <div className="system-status is-online"><i />{session ? "端末内 + 同期" : "端末内"}</div>
           </div>
           <p className="system-section__description text-xs text-slate-500">
             すべてのデータは端末内にのみ保存されています。バックアップを取っておくと安心です。
           </p>
           <div className="system-state-control">
-            <div><span>Storage</span><strong>{session ? "この端末 + 同期" : "この端末"}</strong></div>
-            <small>{session ? "同期可能" : "Local only"}</small>
+            <div><span>保存先</span><strong>{session ? "この端末 + 同期" : "この端末"}</strong></div>
+            <small>{session ? "同期可能" : "この端末のみ"}</small>
           </div>
           <div className="system-section__actions flex gap-3">
             <Button variant="secondary" className="flex-1" onClick={handleExport}>
@@ -156,16 +156,16 @@ export default function SettingsPage() {
 
         <Card className="system-section system-section--gmail">
           <div className="system-section__header">
-            <div className="system-section__identity"><span><Mail size={17} /></span><div><p>Connectivity</p><h2>Gmail</h2></div></div>
-            <div className={`system-status ${gmailAccounts && gmailAccounts.length > 0 ? "is-online" : ""}`}><i />{gmailAccounts === undefined ? "CHECKING" : gmailAccounts.length > 0 ? "CONNECTED" : "NOT CONNECTED"}</div>
+            <div className="system-section__identity"><span><Mail size={17} /></span><div><h2>Gmail</h2></div></div>
+            <div className={`system-status ${gmailAccounts && gmailAccounts.length > 0 ? "is-online" : ""}`}><i />{gmailAccounts === undefined ? "確認中" : gmailAccounts.length > 0 ? "連携中" : "未連携"}</div>
           </div>
           <p className="system-section__description text-xs text-slate-500">
             受信メールにAIが返信案を作成します。
             {!pushEnabled && "連携情報はこの端末にのみ保存されます。"}
           </p>
           <div className="system-state-control">
-            <div><span>Connection</span><strong>{gmailAccounts && gmailAccounts.length > 0 ? `${gmailAccounts.length} アカウント` : "未接続"}</strong></div>
-            <small>{gmailAccounts && gmailAccounts.length > 0 ? "AI reply ready" : "AI reply unavailable"}</small>
+            <div><span>接続状態</span><strong>{gmailAccounts && gmailAccounts.length > 0 ? `${gmailAccounts.length} アカウント` : "未接続"}</strong></div>
+            <small>{gmailAccounts && gmailAccounts.length > 0 ? "AI返信 利用可" : "AI返信 利用不可"}</small>
           </div>
           {gmailAccounts && gmailAccounts.length > 0 && (
             <div className="system-account-list space-y-2">

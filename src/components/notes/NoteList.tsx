@@ -84,8 +84,8 @@ export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
         notes.length === 0 ? (
           <section className="notes-empty-control" aria-labelledby="notes-empty-title">
             <div className="notes-empty-control__heading">
-              <div><span>Notes control</span><h2 id="notes-empty-title">メモ・リスト</h2></div>
-              <strong>0 ITEMS</strong>
+              <div><h2 id="notes-empty-title">メモ・リスト</h2></div>
+              <strong>0件</strong>
             </div>
             <div className="notes-empty-control__types">
               {NOTE_TYPE_DEFS.map((def) => {

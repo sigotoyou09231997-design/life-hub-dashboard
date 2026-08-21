@@ -51,7 +51,7 @@ function NoteSummary({ note }: { note: Note }) {
     const planned = items.reduce((sum, i) => sum + (i.price ?? 0), 0);
     const purchased = items.filter((i) => i.purchased).reduce((sum, i) => sum + (i.price ?? 0), 0);
     return (
-      <div className="note-widget__shopping"><strong>{items.length}</strong><span>items</span><small>{items.length === 0 ? "商品がありません" : `${yen(purchased)} / ${yen(planned)}`}</small></div>
+      <div className="note-widget__shopping"><strong>{items.length}</strong><span>件</span><small>{items.length === 0 ? "商品がありません" : `${yen(purchased)} / ${yen(planned)}`}</small></div>
     );
   }
 

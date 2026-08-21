@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { Trip } from "../../types";
 import { formatDisplayDate, tripDurationLabel } from "../../lib/date";
+import { tripCoverImage } from "../../lib/tripCovers";
 import { Card } from "../ui/Card";
 import { ChevronRight, MapPin, Trash2 } from "lucide-react";
 
@@ -16,7 +17,11 @@ export function TripCard({ trip, onDelete }: Props) {
       className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     >
       <Card interactive className={`trip-module trip-module--${trip.status} flex min-h-[190px] items-end justify-between overflow-hidden py-4`}>
-        <div className="trip-module__photo" aria-hidden="true" />
+        <div
+          className="trip-module__photo"
+          style={{ backgroundImage: `url('${tripCoverImage(trip.destination || trip.name)}')` }}
+          aria-hidden="true"
+        />
         <div className="trip-module__veil" aria-hidden="true" />
         <div className="trip-module__content min-w-0">
           <p className="line-clamp-2 font-semibold text-navy" title={trip.name}>

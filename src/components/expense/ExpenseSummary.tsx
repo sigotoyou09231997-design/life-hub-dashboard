@@ -76,7 +76,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
       <div className="finance-empty max-w-4xl">
         <Card className="finance-balance-module flex flex-col p-6 lg:p-8">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Available balance</p>
+            <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">使えるお金</p>
             <p className="mt-4 text-4xl font-medium tabular-nums tracking-[-0.05em] text-navy lg:text-6xl">¥ ---</p>
             <p className="mt-3 max-w-lg text-sm leading-relaxed text-slate-600">給与を登録すると、今月使える金額を自動計算します。</p>
           </div>
@@ -97,7 +97,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
           <div className="min-w-0">
             {/* 見出しは折り返させない — 2行に割れると、右のバッジと視覚的に絡まって
                 どちらが何の情報か読み取れなくなる(スマホ幅で発生していた)。 */}
-            <p className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Available balance</p>
+            <p className="whitespace-nowrap text-[11px] font-semibold tracking-[0.08em] text-slate-500">使えるお金</p>
             <p key={remaining} className={`value-change mt-3 text-4xl font-medium tabular-nums tracking-[-0.05em] lg:text-6xl ${remaining < 0 ? "text-danger" : "text-navy"}`}>{yen(remaining)}</p>
           </div>
           {!period.hasSalaryForPeriod && (
@@ -112,7 +112,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
       </Card>
 
       <Card className="finance-summary-module col-span-2 p-5 lg:col-span-5 lg:p-7">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Period summary</p>
+        <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">今期のまとめ</p>
         <div className="mt-5 divide-y divide-white/35">
           {[
             ["今回の給与", period.hasSalaryForPeriod ? yen(period.salaryAmount) : "未入力"],

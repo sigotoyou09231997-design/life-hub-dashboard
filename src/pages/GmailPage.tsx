@@ -148,16 +148,16 @@ export default function GmailPage() {
               <div className="mail-connect-visual" aria-hidden="true">
                 <div className="mail-connect-visual__icon"><Mail size={20} /></div>
                 <div className="mail-connect-visual__preview"><i /><i /><i /></div>
-                <span>Preview offline</span>
+                <span>未接続</span>
               </div>
               <div className="mail-connect-copy min-w-0">
-                <p className="mail-connect-kicker"><i />Connection status</p>
+                <p className="mail-connect-kicker"><i />接続状態</p>
                 <h2>Gmail未接続</h2>
-                <p>接続すると、受信メールとAI返信案をこのWorkspaceで確認できます。</p>
-                <div className="mail-connect-capability"><Sparkles size={13} /><span>AI reply</span><strong>利用不可</strong></div>
+                <p>接続すると、受信メールとAI返信案をこの画面で確認できます。</p>
+                <div className="mail-connect-capability"><Sparkles size={13} /><span>AI返信</span><strong>利用不可</strong></div>
               </div>
               <div className="mail-connect-action">
-                <span><i />OFFLINE</span>
+                <span><i />未接続</span>
                 <button type="button" onClick={() => navigate("/settings")} className="app-button rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0">
                   Gmailを接続 →
                 </button>

@@ -825,7 +825,7 @@ body .text-base { font-size: 1.05rem; }
 .trip-module__photo { position: absolute; inset: 0; background: url('/backgrounds/evening-glass-pavilion-v5.jpg') center 55% / cover no-repeat; filter: saturate(.78) contrast(.92); transition: transform 800ms cubic-bezier(.2,.7,.2,1); }
 .trip-module--ongoing .trip-module__photo { background-image: url('/backgrounds/day-resort-terrace-v5.jpg'); }
 .trip-module--completed .trip-module__photo { filter: saturate(.55) contrast(.88); }
-.trip-module__veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(19,33,50,.12), rgba(17,30,47,.24) 42%, rgba(14,26,42,.8)); }
+.trip-module__veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(19,33,50,.1) 0%, rgba(17,30,47,.3) 38%, rgba(12,24,40,.72) 70%, rgba(10,20,34,.88) 100%); }
 .trip-module__content, .trip-module__actions { position: relative; z-index: 1; }
 .trip-module__content .text-navy { color: white; font-size: 1.05rem; text-shadow: 0 2px 12px rgba(0,0,0,.18); }
 .trip-detail-hero { position: relative; min-height: 13rem; overflow: hidden; border: 1px solid rgba(255,255,255,.38); border-radius: 1.05rem; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), var(--spatial-shadow); }
@@ -1629,4 +1629,86 @@ body .text-sm { line-height: 1.5; }
   .mail-page-header button[aria-label$="を追加"]:active svg { transform: none !important; }
   .card-interactive::after,
   .note-widget::after { display: none; }
+}
+
+/* ==========================================================================
+   小さいラベルの日本語化(2026-08)
+
+   画面のあちこちにあった AVAILABLE BALANCE / TODAY TIMELINE / Connection status
+   のような英字の飾りラベルを日本語に置き換えた。これらの字送りは英字の大文字を
+   前提に .5〜.6rem(= 8〜9px)まで詰められていて、日本語を入れると単純に読めない。
+   大文字変換をやめ、日本語が読める下限まで上げ、字間で小ささを補う。
+   ========================================================================== */
+
+.planning-module-heading span,
+.planning-module-heading b,
+.planning-empty-footer > span,
+.note-widget__shopping > span,
+.mail-connect-visual > span,
+.mail-connect-kicker,
+.mail-connect-capability,
+.mail-connect-action > span,
+.notes-empty-control__heading span,
+.notes-empty-control__heading > strong,
+.destination-empty-control__copy > span,
+.destination-empty-control__action > span,
+.destination-column__title span,
+.system-section__identity p,
+.profile-module__header span,
+.system-status,
+.system-state-control span,
+.profile-state-row span,
+.system-state-control small,
+.trip-detail-hero__content span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+/* 時刻の目盛りは数字なので小さいままでよいが、8pxは潰れていた。 */
+.planning-time-rail { font-size: 0.62rem; }
+
+@media (max-width: 1023px) {
+  .planning-empty-footer > span { font-size: 0.7rem; }
+}
+
+/* ==========================================================================
+   行の中の操作アイコン(2026-08)
+
+   一覧のすべての行に、ゴミ箱が常に同じ濃さで並んでいた。取り消せない操作が
+   画面の中で一番反復される要素になっていて、目が滑る原因にもなっていた。
+   ポインタのある環境では、その行にカーソルが乗ったときだけ出す(キーボードの
+   フォーカスでも必ず出す)。タッチ環境では他に消す手段がないので出しっぱなしに
+   するが、内容より前に出ないよう薄いままにする。
+   ========================================================================== */
+
+@media (hover: hover) and (pointer: fine) {
+  .glass-row [aria-label="削除"],
+  .glass-row [aria-label="サブタスク追加"],
+  .note-widget [aria-label="削除"],
+  .trip-module__actions [aria-label="削除"] {
+    opacity: 0;
+    transition: opacity 180ms ease-out, color 180ms ease-out, background-color 180ms ease-out;
+  }
+
+  .glass-row:hover [aria-label="削除"],
+  .glass-row:hover [aria-label="サブタスク追加"],
+  .glass-row:focus-within [aria-label="削除"],
+  .glass-row:focus-within [aria-label="サブタスク追加"],
+  .note-widget:hover [aria-label="削除"],
+  .note-widget:focus-within [aria-label="削除"],
+  .trip-module:hover .trip-module__actions [aria-label="削除"],
+  .trip-module:focus-within .trip-module__actions [aria-label="削除"],
+  [aria-label="削除"]:focus-visible,
+  [aria-label="サブタスク追加"]:focus-visible {
+    opacity: 1;
+  }
+
+  .glass-row [aria-label="削除"]:hover,
+  .note-widget [aria-label="削除"]:hover,
+  .trip-module__actions [aria-label="削除"]:hover {
+    color: var(--hub-red);
+    background: rgba(197, 63, 85, 0.09);
+  }
 }

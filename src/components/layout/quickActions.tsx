@@ -1,6 +1,5 @@
 import type { ElementType } from "react";
-import { CalendarDays, Plane, StickyNote, Wallet } from "lucide-react";
-import { GmailLogo } from "../gmail/GmailLogo";
+import { CalendarDays, Mail, Plane, StickyNote, Wallet } from "lucide-react";
 
 export type QuickActionKey = "schedule" | "money" | "notes" | "gmail" | "trips";
 /** Storage values from before 予定/タスク were merged into one "schedule" button
@@ -34,7 +33,9 @@ export const QUICK_ACTIONS: QuickActionDefinition[] = [
   { key: "schedule", label: "予定", icon: CalendarDays, tintIcon: true, to: "/schedule", color: "text-blue-500", underline: "bg-blue-500" },
   { key: "money", label: "お金管理", icon: Wallet, tintIcon: true, to: "/records/expense", color: "text-orange-500", underline: "bg-orange-500" },
   { key: "notes", label: "メモ", icon: StickyNote, tintIcon: true, to: "/records/notes", color: "text-violet-500", underline: "bg-violet-500" },
-  { key: "gmail", label: "Gmail", icon: GmailLogo, tintIcon: false, to: "/gmail", color: "text-red-500", underline: "bg-red-500" },
+  // Gmailの4色ロゴは、ナビの中でここだけ多色になって浮く。ロゴ本体はGmail画面の
+  // ヘッダーに残してあるので、ここは他の項目と同じ単色のアイコンにする。
+  { key: "gmail", label: "Gmail", icon: Mail, tintIcon: true, to: "/gmail", color: "text-rose-500", underline: "bg-rose-500" },
   { key: "trips", label: "旅行", icon: Plane, tintIcon: true, to: "/trips", color: "text-teal-500", underline: "bg-teal-500" },
 ];
 

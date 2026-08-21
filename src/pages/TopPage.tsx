@@ -20,6 +20,7 @@ import { db } from "../db/schema";
 import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
 import { avatarColor, avatarInitial, parseSender } from "../lib/gmail";
 import { NOTE_TYPE_DEFS, getNoteType } from "../lib/noteTypes";
+import { tripCoverImage } from "../lib/tripCovers";
 import { getScheduleCategory } from "../lib/scheduleCategories";
 import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { useHubMotion } from "../hooks/useHubMotion";
@@ -400,7 +401,11 @@ export default function TopPage() {
         </article>
 
         <Link to="/trips" className="hub-trip hub-tap hub-span-full hub-area--trip" data-reveal="6">
-          <div className="hub-trip__photo" aria-hidden="true" />
+          <div
+            className="hub-trip__photo"
+            style={featuredTrip ? { backgroundImage: `url('${tripCoverImage(featuredTrip.destination || featuredTrip.name)}')` } : undefined}
+            aria-hidden="true"
+          />
           <div className="hub-trip__veil" aria-hidden="true" />
           <span className="hub-trip__kicker">
             <Plane size={14} strokeWidth={2.2} />

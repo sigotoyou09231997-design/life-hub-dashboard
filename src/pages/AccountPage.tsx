@@ -61,8 +61,8 @@ export default function AccountPage() {
       <div className="profile-control-panel settings-account-grid grid gap-3 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
         <Card className="profile-identity-module lg:col-span-2">
           <div className="profile-module__header">
-            <div><span>Identity</span><h2>プロフィール</h2></div>
-            <div className={`system-status ${session ? "is-online" : ""}`}><i />{!isSupabaseConfigured ? "UNAVAILABLE" : session ? "SIGNED IN" : "SIGNED OUT"}</div>
+            <div><h2>プロフィール</h2></div>
+            <div className={`system-status ${session ? "is-online" : ""}`}><i />{!isSupabaseConfigured ? "利用不可" : session ? "ログイン中" : "未ログイン"}</div>
           </div>
           <div className="profile-identity-content">
             {session ? (
@@ -97,13 +97,13 @@ export default function AccountPage() {
 
         <Card className="profile-sync-module">
           <div className="profile-module__header">
-            <div><span>Sync</span><h2>端末間同期</h2></div>
+            <div><h2>端末間同期</h2></div>
             <Cloud size={17} />
           </div>
           <p className="profile-module__description text-xs text-slate-500">
             {session ? "お金管理・予定・タスクなどを、ログインした端末同士で同期します。" : "ログイン後に、端末間のリアルタイム同期を利用できます。"}
           </p>
-          <div className="profile-state-row"><span>Current status</span><strong>{session ? "同期可能" : isSupabaseConfigured ? "ログインが必要" : "未設定"}</strong></div>
+          <div className="profile-state-row"><span>現在の状態</span><strong>{session ? "同期可能" : isSupabaseConfigured ? "ログインが必要" : "未設定"}</strong></div>
           {session && (
             <div className="profile-module__actions">
               <Button variant="secondary" className="w-full" onClick={handleSync} disabled={syncing}>
@@ -116,11 +116,11 @@ export default function AccountPage() {
 
         <Card className="profile-gmail-module">
           <div className="profile-module__header">
-            <div><span>Connectivity</span><h2>Gmail</h2></div>
+            <div><h2>Gmail</h2></div>
             <Mail size={17} />
           </div>
           <p className="profile-module__description text-xs text-slate-500">受信メールとAI返信案の接続状態です。管理は設定画面から行えます。</p>
-          <div className="profile-state-row"><span>Connected accounts</span><strong>{gmailAccounts === undefined ? "確認中" : `${gmailAccounts.length}件`}</strong></div>
+          <div className="profile-state-row"><span>連携中のアカウント</span><strong>{gmailAccounts === undefined ? "確認中" : `${gmailAccounts.length}件`}</strong></div>
         </Card>
 
         <Link to="/settings" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:col-span-2">

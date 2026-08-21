@@ -40,8 +40,8 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
       <div className="planning-today__grid grid gap-3 lg:grid-cols-12">
         <Card className="planning-timeline-module flex min-h-[250px] flex-col lg:col-span-7">
           <div className="planning-module-heading">
-            <div><span>Today timeline</span><p>{format(now, "M月d日(E)", { locale: ja })}</p></div>
-            <b>{todayEvents.length} EVENTS</b>
+            <div><p>{format(now, "M月d日(E)", { locale: ja })}</p></div>
+            <b>予定 {todayEvents.length}件</b>
           </div>
           <div className="planning-timeline-detail">
             <div className="planning-time-rail" aria-hidden="true">
@@ -54,7 +54,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
               ) : (
                 <div className="planning-empty-control planning-empty-control--timeline">
                   <div className="planning-compact-empty"><span className="planning-date-glyph">{format(now, "d")}</span><div><strong>静かな一日です</strong><p>次の予定はまだありません</p></div></div>
-                  <div className="planning-empty-footer"><span><i />NOW · Timeline ready</span><button type="button" onClick={onAddEvent}><Plus size={13} />予定を追加</button></div>
+                  <div className="planning-empty-footer"><span><i />今日はまだ空いています</span><button type="button" onClick={onAddEvent}><Plus size={13} />予定を追加</button></div>
                 </div>
               )}
             </div>
@@ -62,16 +62,16 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
         </Card>
 
         <Card className="planning-task-module flex min-h-[250px] flex-col lg:col-span-5">
-          <div className="planning-module-heading"><div><span>Task control</span><p>今日のタスク</p></div><b>{completedTodayCount} / {allDueTodayTasks.length}</b></div>
+          <div className="planning-module-heading"><div><p>今日のタスク</p></div><b>{completedTodayCount} / {allDueTodayTasks.length}</b></div>
           <div className="planning-task-overview">
             <div className="planning-progress-ring" style={{ "--planning-progress": `${taskProgress * 3.6}deg` } as CSSProperties}><span>{taskProgress}<small>%</small></span></div>
-            <div><strong>{allDueTodayTasks.length ? `あと${Math.max(0, allDueTodayTasks.length - completedTodayCount)}件` : "0 tasks"}</strong><p>完了 {completedTodayCount} / 全体 {allDueTodayTasks.length}</p></div>
+            <div><strong>{allDueTodayTasks.length ? `あと${Math.max(0, allDueTodayTasks.length - completedTodayCount)}件` : "タスクなし"}</strong><p>完了 {completedTodayCount} / 全体 {allDueTodayTasks.length}</p></div>
           </div>
           <div className="planning-task-list">
             {dueTodayTasks.length === 0 ? (
               <div className="planning-empty-control planning-empty-control--tasks">
                 <div className="planning-compact-empty"><CheckSquare size={18} /><div><strong>今日のタスクはありません</strong><p>今日のControlは整っています</p></div></div>
-                <div className="planning-empty-footer"><span>0 open · Ready</span><button type="button" onClick={onAddTask}><Plus size={13} />タスクを追加</button></div>
+                <div className="planning-empty-footer"><span>未完了 0件</span><button type="button" onClick={onAddTask}><Plus size={13} />タスクを追加</button></div>
               </div>
             ) : (
               <div className="space-y-2">
