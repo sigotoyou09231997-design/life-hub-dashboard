@@ -309,6 +309,10 @@ export interface BlockedSender {
   accountId: string;
   email: string; // lowercased address, e.g. "spam@example.com"
   createdAt: number;
+  /** Set once this block is confirmed present in Supabase's blocked_senders table.
+   * Un-indexed (no Dexie version bump needed) and read only by src/lib/blockedSenders.ts,
+   * where it separates "never pushed" from "unblocked on another device". */
+  pushedAt?: number;
 }
 
 export interface Settings {

@@ -7,6 +7,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { EmptyState } from "../components/ui/EmptyState";
 import { DraftReview } from "../components/gmail/DraftReview";
+import { pullBlockedSenders } from "../lib/blockedSenders";
 
 /** Opened as its own browser tab (window.open, see GmailInbox.tsx) rather than
  * an in-app Sheet, so a long email can be read full-size and independently of
@@ -31,6 +32,13 @@ export default function GmailMailPage() {
       void db.syncedEmails.update(data.email.id, { readAt: Date.now() });
     }
   }, [data?.email.id, data?.email.readAt]);
+
+  // このページは一覧(GmailPage)を経由せず単独のタブとして開かれるので、そちらと同じ
+  // ブロックリストの取り込みをここでも行う — DraftReviewのブロックボタンの状態
+  // (ブロック済みかどうか)が他端末での操作を反映していないままになるのを防ぐ。
+  useEffect(() => {
+    if (data?.account.id) void pullBlockedSenders(data.account.id, data.account.email);
+  }, [data?.account.id, data?.account.email]);
 
   return (
     <div className="mx-auto max-w-[1240px] pb-10 lg:pb-8">

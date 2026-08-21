@@ -88,11 +88,17 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
   // one push fails (offline, Supabase session not ready yet, transient error), the
   // sender stays blocked locally forever but never reaches checkGmailAndNotify.ts's
   // server-side filter, so background push notifications keep arriving for a sender
-  // the app already shows as blocked. Re-upserting every locally-blocked sender each
-  // time this list loads is a cheap, idempotent self-heal for that gap.
+  // the app already shows as blocked. Retrying the push each time this list loads is
+  // a cheap, idempotent self-heal for that gap.
+  //
+  // Only rows without a pushedAt stamp are retried. Re-pushing confirmed ones would
+  // undo an unblock made on another device (that unblock deletes the server row; a
+  // blind re-upsert from here would put it straight back) — see pullBlockedSenders.
   useEffect(() => {
-    if (!blockedSenders || blockedSenders.length === 0) return;
-    for (const b of blockedSenders) void blockSenderRemote(account.email, b.email);
+    if (!blockedSenders) return;
+    for (const b of blockedSenders) {
+      if (b.pushedAt == null) void blockSenderRemote(account.email, b.email, b.id);
+    }
   }, [blockedSenders, account.email]);
 
   // Separate from any notification/push setting — this only controls whether

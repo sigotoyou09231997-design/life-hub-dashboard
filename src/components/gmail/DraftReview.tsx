@@ -348,8 +348,8 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       showToast("ブロックを解除しました");
     } else {
       if (!confirm(`${sender.email} からのメールを今後この一覧に表示しないようにしますか？(Gmail自体には影響しません)`)) return;
-      await db.blockedSenders.add({ accountId: account.id, email: normalizedEmail, createdAt: Date.now() });
-      void blockSenderRemote(account.email, normalizedEmail);
+      const localId = await db.blockedSenders.add({ accountId: account.id, email: normalizedEmail, createdAt: Date.now() });
+      void blockSenderRemote(account.email, normalizedEmail, localId);
       showToast("送信者をブロックしました");
     }
   }

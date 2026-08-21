@@ -9,6 +9,7 @@ import { Card } from "../components/ui/Card";
 import { Sheet } from "../components/ui/Sheet";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { GmailInbox, type GmailInboxHandle } from "../components/gmail/GmailInbox";
+import { pullBlockedSenders } from "../lib/blockedSenders";
 import { ComposeMail } from "../components/gmail/ComposeMail";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
@@ -31,6 +32,15 @@ export default function GmailPage() {
       setSelectedAccountId(accounts[0].id ?? null);
     }
   }, [accounts, selectedAccountId]);
+
+  // ブロック中の送信者リストは端末ごとのローカル(db.blockedSenders)で、汎用同期エンジンの
+  // 対象外。他端末でのブロック/解除をここで取り込む(src/lib/blockedSenders.ts参照) —
+  // これが無いと、PCでブロックした送信者がスマホの一覧にはそのまま出続ける。
+  useEffect(() => {
+    for (const account of accounts ?? []) {
+      if (account.id) void pullBlockedSenders(account.id, account.email);
+    }
+  }, [accounts]);
 
   const selectedAccount = accounts?.find((a) => a.id === selectedAccountId);
 
