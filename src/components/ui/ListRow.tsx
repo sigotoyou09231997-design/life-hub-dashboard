@@ -13,8 +13,8 @@ export function ListRow({ className = "", interactive = false, children, ...prop
     <div
       className={twMerge(
         "glass-row spatial-control relative p-3",
-        interactive &&
-          "transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        // is-pressable: 押し込み・ホバーの見た目は index.css の「触り心地」で一括管理する。
+        interactive && "is-pressable",
         className,
       )}
       {...props}

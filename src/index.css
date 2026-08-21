@@ -1228,20 +1228,7 @@ body .text-base { font-size: 1.05rem; }
 .spatial-page-header__title,
 .spatial-page-header h1 { color: var(--hub-ink); }
 
-/* --- 背景の写真 ----------------------------------------------------------
-   以前は内側ページで wash を 0.9 まで上げ、写真をほぼ白で塗り潰していた
-   (ページタイトルなど、面を持たない濃いインクが夜の写真の上に直接乗るため)。
-   カード側が --hub-surface で読みやすさを担保している以上ここまで塗る必要は
-   なく、塗り潰すと「HOMEだけ写真、他は白」の分断そのものになる。上端だけ濃く
-   下へ抜ける勾配にして、タイトル周りの可読性は保ったまま写真を質感として残す。 */
-.ambient-background:not(.ambient-background--home) .ambient-background__wash {
-  background: linear-gradient(
-    180deg,
-    rgba(240, 246, 252, 0.82) 0%,
-    rgba(238, 245, 251, 0.62) 34%,
-    rgba(234, 242, 250, 0.46) 100%
-  );
-}
+/* 背景の扱いは、この下の「写真の統一」セクションで全ルート共通にしている。 */
 
 /* ==========================================================================
    密度(2026-08)
@@ -1296,4 +1283,347 @@ body .text-sm { line-height: 1.5; }
   }
 
   .spatial-page-header p { color: var(--hub-ink-2); }
+}
+
+/* ==========================================================================
+   写真の統一・明朝の見出し・触り心地(2026-08)
+
+   1. 写真: これまでTOPだけが「写真の上に浮くUI」で、他のページは写真を白い
+      wash で覆った別世界だった。全ルートでTOPと同じ扱いに統一する — 上端は
+      濃いスクリーンで引き締め、下へ向かって淡く抜ける。ヘッダーとページ
+      タイトルは面を持たず写真の上に直接置き、白抜きにする。
+   2. 見出し: 本文はゴシックのまま、見出しだけ明朝にする。Webフォントは足さない
+      (PWAのオフライン動作と初回表示を犠牲にしないため) — iOSはヒラギノ明朝、
+      WindowsはYu Mincho、Androidは serif が Noto Serif CJK に解決される。
+   3. 触り心地: 押した瞬間に必ず何かが返るようにする。面は沈み、影は浅くなり、
+      指を離すと戻る。減速だけの ease-out ではなく、わずかに行き過ぎて戻る
+      イージングを共通で使う。
+   ========================================================================== */
+
+:root {
+  --font-display: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", YuMincho,
+    "BIZ UDPMincho", "Noto Serif JP", "Songti SC", serif;
+  /* 押し込み・戻りの共通イージング(わずかに行き過ぎてから収まる)。 */
+  --press-ease: cubic-bezier(0.34, 1.3, 0.44, 1);
+  --press-scale: 0.978;
+  /* 写真の上に白抜きで文字を置くときの影。1枚では明るい空に負けるので2枚重ねる。 */
+  --on-photo-shadow: drop-shadow(0 1px 2px rgba(8, 18, 34, 0.5)) drop-shadow(0 2px 14px rgba(8, 18, 34, 0.4));
+}
+
+/* 面をわずかに暖色寄りの紙白にする。青白い写真の上に置いたとき、純白より
+   ざらつきのない上質な紙に見える。 */
+:root {
+  --hub-surface: rgba(253, 252, 250, 0.9);
+  --hub-edge: rgba(255, 255, 255, 0.86);
+}
+
+/* --- 1. 写真: 全ルート共通の wash ---------------------------------------- */
+.ambient-background .ambient-background__wash,
+.ambient-background--home .ambient-background__wash,
+.ambient-background--schedule .ambient-background__wash,
+.ambient-background--notes .ambient-background__wash,
+.ambient-background--finance .ambient-background__wash,
+.ambient-background--gmail .ambient-background__wash,
+.ambient-background--night .ambient-background__wash {
+  /* 濃さの切り替えを % ではなく px で置く。% にすると、画面の高さによって
+     スクリーンの終わる位置が変わり、同じ「ページタイトル」がスマホでは濃い所、
+     デスクトップでは薄い所に乗ってしまう(白抜きの文字が写真に負ける)。
+     ヘッダー + ページタイトルがちょうど収まる 300px を暗部の範囲とする。 */
+  background: linear-gradient(
+    180deg,
+    rgba(9, 20, 37, 0.62) 0px,
+    rgba(9, 20, 37, 0.46) 130px,
+    rgba(9, 20, 37, 0.24) 230px,
+    rgba(11, 24, 42, 0.07) 320px,
+    rgba(226, 238, 249, 0.16) 62%,
+    rgba(230, 240, 249, 0.28) 100%
+  );
+}
+
+/* ヘッダーは全ルートで面を持たない。スクロールした中身がアイコンと重なって
+   読めなくなるのを防ぐため、ヘッダー自身の背面に少し背の高いスクリーンを敷き、
+   その下をくぐる中身をぼかして落とす(::before はヘッダーの重ね順の内側にあるので、
+   ページの中身より前・ヘッダーの文字より後ろに描かれる)。 */
+.glass-header,
+.app-header,
+.glass-header:not(.app-header--home),
+.app-header:not(.app-header--home) {
+  position: sticky;
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.app-header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -1px 0 -1.75rem;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(9, 20, 37, 0.2) 0%, rgba(9, 20, 37, 0.08) 58%, transparent 100%);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+  mask-image: linear-gradient(180deg, #000 62%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 62%, transparent 100%);
+}
+
+.app-header__mobile-brand,
+.app-header [aria-label="ホーム"],
+.app-header [aria-label="通知"],
+.app-header [aria-label="設定"] {
+  color: rgba(255, 255, 255, 0.94);
+  filter: var(--on-photo-shadow);
+}
+
+/* ページタイトルもTOPの挨拶と同じく、写真の上に直接置く白抜きの文字にする。 */
+.spatial-page-header,
+.mail-page-header {
+  margin-top: 0;
+  border-bottom: 0 !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* .app-shell を噛ませて、Tailwindのtext-slate-*を上書きしている前段のインク
+   補正(同じ 0,2,0 の詳細度)より後ろに立たせる。 */
+.app-shell .spatial-page-header__title,
+.app-shell .spatial-page-header h1,
+.app-shell .mail-page-header h1 {
+  color: rgba(255, 255, 255, 0.97);
+  text-shadow: 0 1px 2px rgba(8, 18, 34, 0.45), 0 2px 18px rgba(8, 18, 34, 0.35);
+}
+
+.app-shell .spatial-page-header p,
+.app-shell .mail-page-header p {
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 10px rgba(8, 18, 34, 0.45);
+}
+
+.app-shell .spatial-page-header a[aria-label="戻る"],
+.app-shell .spatial-page-header button[aria-label="戻る"],
+.app-shell .mail-page-header a[aria-label="戻る"],
+.app-shell .mail-page-header button[aria-label="戻る"] {
+  color: rgba(255, 255, 255, 0.9);
+  filter: var(--on-photo-shadow);
+}
+
+/* ヘッダー右の「+」など、タイトル行に置かれる操作ボタンは写真の上でも
+   面を持つので、そのままの色で問題ない。 */
+
+/* --- 2. 見出しの明朝 ------------------------------------------------------
+   本文・数値・ボタン・ラベルはゴシックのまま。明朝は「そのページ/カードが何か」
+   を名乗る見出しにだけ使う。太字の明朝は潰れて安っぽく見えるので、太らせずに
+   字間で品を出す。 */
+.app-shell h1,
+.app-shell h2,
+.spatial-page-header__title,
+.hub-tile__name,
+.hub-focus__title,
+.planning-module-heading p,
+.system-section__identity h2,
+.empty-state h3,
+.trip-detail-hero__content h2,
+.trip-module__content > p:first-child,
+.hub-trip__place {
+  /* 明朝は太らせない。合成ボールドで潰れると途端に安っぽくなるので、階層は
+     太さではなく大きさと字間で作る(iOSならW6ではなくW3寄りに解決される)。 */
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.app-shell .spatial-page-header__title,
+.app-shell .mail-page-header h1 {
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+.hub-greeting__date {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+/* 数字は明朝にすると桁が揃わず、家計簿の金額が読みにくくなる。 */
+.hub-greeting__clock,
+.hub-metric strong,
+.tabular-nums {
+  font-family: inherit;
+}
+
+/* --- 3. 触り心地 ----------------------------------------------------------
+   押せるものは全部、押した瞬間に沈む。面(カード・行)は控えめに、ボタンや
+   チップのような小さい的ははっきり反応させる。 */
+.app-button,
+.spatial-tabs button,
+.glass-nav a,
+.card-interactive,
+.is-pressable,
+.note-widget,
+.hub-tap {
+  transition:
+    transform 260ms var(--press-ease),
+    box-shadow 260ms var(--press-ease),
+    background-color 200ms ease-out,
+    border-color 200ms ease-out;
+  will-change: transform;
+}
+
+.card-interactive:active,
+.is-pressable:active,
+.note-widget:active {
+  transform: scale(var(--press-scale));
+  box-shadow: var(--hub-shadow-inset), 0 6px 16px rgba(10, 24, 46, 0.1);
+}
+
+.app-button:active:not(:disabled),
+.spatial-tabs button:active {
+  transform: scale(0.965);
+}
+
+.glass-nav a:active {
+  transform: scale(0.93);
+}
+
+/* 選択中のナビは、色だけでなくアイコンの大きさでも分かるようにする。 */
+.glass-nav a svg {
+  transition: transform 320ms var(--press-ease);
+}
+
+.glass-nav a[aria-current="page"] svg,
+.glass-nav a.is-active svg {
+  transform: translateY(-1px) scale(1.08);
+}
+
+/* タブのつまみは、減速するだけでなく最後にわずかに行き過ぎてから収まる。 */
+.spatial-tabs__indicator {
+  transition: transform 360ms var(--press-ease) !important;
+}
+
+/* ボタン。単色の塗りではなく、上端が明るい微妙な階調と内側のハイライトを持たせ、
+   押すと沈んで影が浅くなる。 */
+.app-button {
+  border-radius: var(--hub-r-sm);
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 8px 20px rgba(10, 24, 46, 0.12);
+}
+
+.app-button:active:not(:disabled) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 8px rgba(10, 24, 46, 0.1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card-interactive:hover,
+  .is-pressable:hover,
+  .note-widget:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--hub-shadow-inset), var(--hub-shadow-lift);
+  }
+
+  .app-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-interactive:active,
+  .is-pressable:active,
+  .note-widget:active,
+  .app-button:active,
+  .spatial-tabs button:active,
+  .glass-nav a:active,
+  .card-interactive:hover,
+  .is-pressable:hover,
+  .note-widget:hover,
+  .app-button:hover,
+  .glass-nav a[aria-current="page"] svg {
+    transform: none !important;
+  }
+}
+
+/* --- 触り心地の仕上げ ------------------------------------------------------ */
+
+/* ページ右上の「+」。このアプリで一番よく押すボタンなので、他のどのボタンより
+   はっきり反応させる — 押すと縮んで影が沈み、離すと戻る。 */
+.spatial-page-header button[aria-label$="を追加"],
+.mail-page-header button[aria-label$="を追加"] {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32), 0 10px 24px rgba(10, 24, 46, 0.24);
+  transition:
+    transform 260ms var(--press-ease),
+    box-shadow 260ms var(--press-ease),
+    background-color 200ms ease-out;
+}
+
+.spatial-page-header button[aria-label$="を追加"]:active,
+.mail-page-header button[aria-label$="を追加"]:active {
+  transform: scale(0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 3px 10px rgba(10, 24, 46, 0.2);
+}
+
+.spatial-page-header button[aria-label$="を追加"] svg,
+.mail-page-header button[aria-label$="を追加"] svg {
+  transition: transform 320ms var(--press-ease);
+}
+
+.spatial-page-header button[aria-label$="を追加"]:active svg,
+.mail-page-header button[aria-label$="を追加"]:active svg {
+  transform: rotate(90deg);
+}
+
+/* シートは「せり上がって、わずかに行き過ぎてから収まる」。距離も少し長くとって、
+   下から実体が出てくる感じにする。 */
+@keyframes sheet-rise {
+  from { opacity: 0; transform: translate3d(0, 26px, 0) scale(0.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+.spatial-sheet {
+  animation: sheet-rise 420ms var(--press-ease);
+}
+
+/* カードの上を光が滑る反射。TOPのタイルにしか無かったものを、他のページの
+   押せるカードにも広げる(装飾専用・操作は一切受けない)。 */
+@media (hover: hover) and (pointer: fine) {
+  .card-interactive::after,
+  .note-widget::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: linear-gradient(104deg, transparent 26%, rgba(255, 255, 255, 0.6) 46%, transparent 66%);
+    opacity: 0;
+    transform: translate3d(-42%, 0, 0);
+    transition: transform 760ms var(--hub-ease), opacity 320ms ease;
+  }
+
+  .card-interactive:hover::after,
+  .note-widget:hover::after {
+    opacity: 0.7;
+    transform: translate3d(42%, 0, 0);
+  }
+
+  /* 反射は中身より後ろに置く。z-indexを持つ擬似要素は、位置指定のない中身より
+     手前に描かれてしまうため、直下の子だけ1段持ち上げる(TOPのタイルと同じ手当て)。 */
+  .card-interactive > *,
+  .note-widget > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spatial-sheet { animation: none; }
+  .spatial-page-header button[aria-label$="を追加"]:active,
+  .spatial-page-header button[aria-label$="を追加"]:active svg,
+  .mail-page-header button[aria-label$="を追加"]:active,
+  .mail-page-header button[aria-label$="を追加"]:active svg { transform: none !important; }
+  .card-interactive::after,
+  .note-widget::after { display: none; }
 }
