@@ -23,10 +23,12 @@ body,
 }
 
 html {
-  /* App-wide type scale lift (2026-08 redesign). Everything in this codebase is
-     sized in rem, so raising the root size lifts text, spacing and controls
-     together rather than leaving 11px labels next to 16px ones. */
-  font-size: 17px;
+  /* Everything in this codebase is sized in rem, so the root size moves text,
+     spacing and controls together rather than leaving 11px labels next to 16px
+     ones. 一度17pxまで上げたが、スマホでタスクが1.5件・明細が3行しか入らない
+     ほど密度が落ちたため16pxに戻した。読みやすさは字の大きさではなく、面の
+     コントラスト(--hub-surface)と3段のインクで担保する。 */
+  font-size: 16px;
   background: #dbe9f4;
 }
 
@@ -582,7 +584,9 @@ body .text-base { font-size: 1.05rem; }
 .app-header--home [aria-label="通知"],
 .app-header--home [aria-label="設定"] {
   color: rgba(255, 255, 255, .92);
-  filter: drop-shadow(0 1px 8px rgba(10, 22, 40, .45));
+  /* 白い文字が明るい空の写真に溶けるので、輪郭用の短い影と、面を持ち上げる
+     ための広い影を重ねる(1枚だけだと明るい背景でほとんど効かない)。 */
+  filter: drop-shadow(0 1px 2px rgba(8, 18, 34, .55)) drop-shadow(0 2px 12px rgba(8, 18, 34, .42));
 }
 
 .app-shell:has(.hub-home) .sidebar-link:not(.sidebar-link--active) {
@@ -1058,36 +1062,78 @@ body .text-base { font-size: 1.05rem; }
 }
 
 /* ==========================================================================
-   Interim readability lift for the screens not yet rebuilt in the new Liquid
-   Glass language (see src/styles/hub.css). The app-wide type scale went up
-   before these screens were redesigned, and larger text on the old 0.24-alpha
-   glass reads worse, not better — so their surfaces are flattened to the same
-   near-opaque white the new home screen uses. Per-module gradients are switched
-   off here rather than edited one by one; each screen's own rules are replaced
-   wholesale as the rollout reaches it.
+   共通マテリアル(2026-08)
+
+   HOME(src/styles/hub.css の Liquid Glass)で定義したガラスの語彙 --hub-* を、
+   残りの画面にもそのまま共有させるブロック。
+
+   ここには以前 "Interim readability lift" という暫定ブロックがあった。まだ作り
+   直していない画面のカードを一律で不透明な白(0.87)に潰すもので、結果として
+   「HOMEだけ写真の上に浮くガラス、他は白いカードの別アプリ」という2つの素材が
+   同居していた。角丸も 8/10/.86rem と、HOMEの 20/28/32px と噛み合っていない。
+   潰す代わりに、同じトークン(面・角丸・影・インク)を全画面で共有する。
+
+   面の不透明度(--hub-surface = 0.88)は下げない。0.24 alphaの旧ガラスが写真の上
+   で読めなかったことが元々の問題で、ここで薄くすると同じ失敗を繰り返す。統一
+   するのは「素材のルール」であって「透け具合」ではない。写真は、カードの内側
+   ではなくカードの外(--ambient wash)で見せる。
+
+   角丸は面の役割で決める:
+     ページ全体を包む面・シート・ナビ    --hub-r-lg (28px)
+     カード / モジュール                --hub-r-md (20px)
+     カード内の行・入力欄・チップ        --hub-r-sm (14px)
    ========================================================================== */
 
-.spatial-page .spatial-module,
-.spatial-page .glass-card,
+/* --- カード / モジュール ------------------------------------------------- */
 .glass-card,
+.spatial-module,
 .note-widget,
+.notes-toolbar,
 .notes-empty-control,
 .destination-empty-control,
+.planning-timeline-module,
+.planning-task-module,
 .planning-secondary-module,
 .planning-list-module,
-.notes-toolbar,
-.mail-inbox-workspace,
-.finance-ledger-workspace,
-.destination-column,
+.calendar-workspace__detail,
+.finance-balance-module,
+.finance-summary-module,
+.finance-metric-module,
+.finance-metric-module--pace,
 .trip-overview-module {
+  border-radius: var(--hub-r-md) !important;
+  border: 1px solid var(--hub-edge);
   background-image: none;
-  background-color: rgba(255, 255, 255, 0.87);
-  border-color: rgba(255, 255, 255, 0.85);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 20px 48px rgba(10, 24, 46, 0.13);
+  background-color: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset), var(--hub-shadow);
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
 }
 
-.spatial-page .glass-row:not(.note-widget),
-.spatial-page .spatial-control:not(.note-widget),
+/* 一段外側の「作業面」— 中にモジュールを並べる器なので、HOMEのタイルと同じ
+   大きい角丸を使い、影は内側のカードより浅くして階層を保つ。 */
+.mail-inbox-workspace,
+.finance-ledger-workspace,
+.destination-column {
+  border-radius: var(--hub-r-lg) !important;
+  border: 1px solid var(--hub-edge);
+  background-image: none;
+  background-color: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset), 0 18px 44px rgba(10, 24, 46, 0.1);
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
+}
+
+/* 写真そのものが中身のヒーローは、白い面を敷かず角丸と影だけ合わせる。 */
+.trip-detail-hero {
+  border-radius: var(--hub-r-lg) !important;
+  border-color: var(--hub-edge);
+  box-shadow: var(--hub-shadow-inset), var(--hub-shadow);
+}
+
+/* --- カード内の行・くぼみ ------------------------------------------------ */
+.glass-row:not(.note-widget),
+.spatial-control:not(.note-widget),
 .mail-row,
 .planning-timeline-content,
 .system-state-control,
@@ -1095,74 +1141,138 @@ body .text-base { font-size: 1.05rem; }
 .calendar-compact-empty,
 .mail-connect-visual,
 .notes-empty-control__types > div {
+  border-radius: var(--hub-r-sm) !important;
+  border: 1px solid transparent;
   background-image: none;
-  background-color: rgba(18, 40, 72, 0.045);
-  border-color: rgba(23, 46, 78, 0.08);
+  background-color: var(--hub-inset);
   box-shadow: none;
 }
 
+/* --- 入力・タブ・ボタン -------------------------------------------------- */
+.spatial-field {
+  border-radius: var(--hub-r-sm) !important;
+  border-color: var(--hub-hairline) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: none !important;
+}
+
+.spatial-field:focus {
+  border-color: rgba(47, 90, 224, 0.5) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(47, 90, 224, 0.14) !important;
+}
+
 .spatial-tabs {
-  background: rgba(255, 255, 255, 0.82);
-  border-color: rgba(255, 255, 255, 0.85);
+  border-radius: var(--hub-r-sm);
+  border-color: var(--hub-edge);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: var(--hub-shadow-inset), 0 10px 26px rgba(10, 24, 46, 0.08);
 }
 
 .spatial-tabs__indicator {
+  border-radius: calc(var(--hub-r-sm) - 4px);
+  border-color: var(--hub-hairline);
   background: #ffffff;
-  border-color: rgba(23, 46, 78, 0.08);
   box-shadow: 0 4px 12px rgba(10, 24, 46, 0.12);
 }
 
-.spatial-field {
-  background: rgba(255, 255, 255, 0.92) !important;
-  border-color: rgba(23, 46, 78, 0.14) !important;
+.spatial-page .app-button {
+  border-radius: var(--hub-r-sm);
 }
 
-.spatial-sheet {
+/* --- 前面に出る面(シート・モーダル・ナビ) -------------------------------- */
+.spatial-sheet,
+.glass-modal {
+  border-radius: var(--hub-r-lg) !important;
+  border-color: var(--hub-edge);
   background: rgba(255, 255, 255, 0.96);
-  border-color: rgba(255, 255, 255, 0.9);
 }
 
-/* HOME keeps its transparent header over the photograph — see the
-   .app-header--home rules above. */
+.spatial-sheet-backdrop {
+  background: rgba(10, 24, 46, 0.28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* HOMEだけはヘッダーを写真の上に透過させる(.app-header--home を参照)。 */
 .glass-header:not(.app-header--home),
 .app-header:not(.app-header--home) {
-  background: rgba(255, 255, 255, 0.82) !important;
-  border-bottom-color: rgba(23, 46, 78, 0.08) !important;
+  background: rgba(255, 255, 255, 0.74) !important;
+  border-bottom-color: var(--hub-hairline) !important;
+  box-shadow: none;
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
 }
 
+/* 追従ナビは画面下に浮くカードなので、角を落として他の面と同じ語彙にする
+   (これまでは角丸ゼロの帯で、ここだけ別の素材に見えていた)。 */
 .glass-nav {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(255, 255, 255, 0.9);
+  border-radius: var(--hub-r-lg);
+  border: 1px solid var(--hub-edge);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--hub-shadow-inset), 0 -10px 40px rgba(10, 24, 46, 0.14);
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
 }
 
-/* The interim surfaces are opaque, so the old contrast-lift overrides that
-   assumed a translucent backdrop would now read as washed-out grey. */
-.app-shell .text-slate-400 { color: rgb(119 135 155); }
-.app-shell .text-slate-500 { color: rgb(69 89 111); }
-.app-shell .text-slate-600 { color: rgb(52 70 91); }
-.app-shell .text-slate-700 { color: rgb(31 46 66); }
+/* --- インク --------------------------------------------------------------
+   Tailwindのslateではなく、HOMEと同じ3段のインク(--hub-ink / -2 / -3)に寄せる。
+   面が近似不透明なので、写真前提だった旧コントラスト補正はここで打ち消す。 */
+.app-shell .text-slate-400 { color: var(--hub-ink-3); }
+.app-shell .text-slate-500 { color: #667a90; }
+.app-shell .text-slate-600 { color: var(--hub-ink-2); }
+.app-shell .text-slate-700 { color: #34485e; }
+.app-shell .text-slate-800,
+.app-shell .text-slate-900 { color: var(--hub-ink); }
 
-/* Page titles sat on photography with a translucent panel behind them; with the
-   header now opaque they need the same ink as the rest of the page. */
 .spatial-page-header__title,
-.spatial-page-header h1 { color: #0d1b31; }
+.spatial-page-header h1 { color: var(--hub-ink); }
 
-/* Inner screens put dark ink directly on the photograph (page title, subtitle,
-   back arrow), and the backdrop rotates through night scenes where that becomes
-   unreadable. Until each screen is rebuilt, everything except HOME gets a light
-   wash so the photo stays as texture rather than as contrast. */
+/* --- 背景の写真 ----------------------------------------------------------
+   以前は内側ページで wash を 0.9 まで上げ、写真をほぼ白で塗り潰していた
+   (ページタイトルなど、面を持たない濃いインクが夜の写真の上に直接乗るため)。
+   カード側が --hub-surface で読みやすさを担保している以上ここまで塗る必要は
+   なく、塗り潰すと「HOMEだけ写真、他は白」の分断そのものになる。上端だけ濃く
+   下へ抜ける勾配にして、タイトル周りの可読性は保ったまま写真を質感として残す。 */
 .ambient-background:not(.ambient-background--home) .ambient-background__wash {
   background: linear-gradient(
     180deg,
-    rgba(242, 247, 252, .9) 0%,
-    rgba(238, 245, 251, .78) 38%,
-    rgba(234, 242, 250, .7) 100%
+    rgba(240, 246, 252, 0.82) 0%,
+    rgba(238, 245, 251, 0.62) 34%,
+    rgba(234, 242, 250, 0.46) 100%
   );
 }
 
-/* The page title used to float on the photograph directly under an opaque app
-   header — an orphaned band with a faint, misaligned back chevron. On phones it
-   now continues the header surface as one block instead. */
+/* ==========================================================================
+   密度(2026-08)
+
+   ルートを17px→16pxに落としたぶん、面の内側の余白も同じ比率で詰める。狙いは
+   「文字を小さくする」ことではなく、1画面に入る行数を増やすこと — 金額や時刻
+   のように大きいままにすべき数値は、各画面が明示サイズで持っているので縮まない。
+   ========================================================================== */
+
+/* 面の内側の余白は Card / ListRow (src/components/ui/) の既定クラスで持たせる。
+   ここで .glass-card { padding } のように上書きすると、個別に p-0 / p-6 を指定して
+   いる箇所(EventListの行、家計簿のヒーロー等)まで巻き添えで潰れる。 */
+
+body .text-xs { line-height: 1.45; }
+body .text-sm { line-height: 1.5; }
+
+.app-main { padding-bottom: 6.5rem; }
+
+@media (min-width: 1024px) {
+  .spatial-page-header { padding-top: 1.35rem; padding-bottom: 0.9rem; }
+}
+
+@media (max-width: 1023px) {
+  /* スマホは1カラムなので、カードの高さを揃える理由がない。2〜3行のメモでも
+     10rem分の高さを確保していて、カードの下半分がただの空白になっていた。 */
+  .note-widget { min-height: 0; }
+}
+
+/* ページタイトルは、面を持たない濃いインクが写真の上に乗る唯一の場所。スマホ
+   では上のヘッダーと地続きの一枚のガラス帯として扱い、そこだけ確実に読める
+   ようにする(帯の素材はヘッダーと同じ)。 */
 @media (max-width: 1023px) {
   .app-header:not(.app-header--home) {
     border-bottom-color: transparent !important;
@@ -1171,21 +1281,19 @@ body .text-base { font-size: 1.05rem; }
   .spatial-page-header,
   .mail-page-header {
     margin-top: -1px;
-    padding-top: .35rem !important;
-    padding-bottom: .7rem !important;
-    border-bottom: 1px solid rgba(23, 46, 78, .08);
-    background: rgba(255, 255, 255, .82);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    padding-top: 0.3rem !important;
+    padding-bottom: 0.6rem !important;
+    border-bottom: 1px solid var(--hub-hairline);
+    background: rgba(255, 255, 255, 0.74);
+    backdrop-filter: var(--hub-blur);
+    -webkit-backdrop-filter: var(--hub-blur);
   }
 
   .spatial-page-header__title,
   .spatial-page-header h1 {
     font-size: 1.22rem !important;
-    letter-spacing: -.025em;
+    letter-spacing: -0.025em;
   }
 
-  .spatial-page-header p {
-    color: rgb(85 103 124);
-  }
+  .spatial-page-header p { color: var(--hub-ink-2); }
 }

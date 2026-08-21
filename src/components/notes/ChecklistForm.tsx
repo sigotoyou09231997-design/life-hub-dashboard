@@ -172,7 +172,7 @@ export function ChecklistForm({ initial, onSaved, onCancel }: Props) {
               }
             }}
             placeholder="項目を追加"
-            className="min-w-0 flex-1 rounded-[2px] border border-white/50 bg-white/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
+            className="spatial-field min-w-0 flex-1 rounded-[2px] border border-white/50 bg-white/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
           />
           <Button type="button" variant="secondary" onClick={addItem}>
             追加

@@ -13,6 +13,8 @@ import {
   eachDayOfInterval,
   differenceInCalendarDays,
   isToday,
+  isTomorrow,
+  isYesterday,
   isThisYear,
 } from "date-fns";
 import { ja } from "date-fns/locale";
@@ -66,6 +68,19 @@ export function formatDisplayDate(dateStr: string): string {
   const d = parseISO(dateStr);
   if (!isValid(d)) return dateStr;
   return format(d, "M月d日(E)", { locale: ja });
+}
+
+/** 一覧の行に載せるための短い日付。formatDisplayDate("8月21日(金)")は見出し向けで、
+ * バッジのように横幅が限られる場所では長すぎて折り返しの原因になるため、
+ * 今日・明日・昨日は言葉に、同年は "M/d(曜)"、それ以外の年だけ年を付ける。 */
+export function formatCompactDate(dateStr: string): string {
+  const d = parseISO(dateStr);
+  if (!isValid(d)) return dateStr;
+  if (isToday(d)) return "今日";
+  if (isTomorrow(d)) return "明日";
+  if (isYesterday(d)) return "昨日";
+  if (isThisYear(d)) return format(d, "M/d(E)", { locale: ja });
+  return format(d, "yyyy/M/d");
 }
 
 export function formatMonthTitle(date: Date): string {

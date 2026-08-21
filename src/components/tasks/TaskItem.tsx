@@ -1,5 +1,5 @@
 import type { Task } from "../../types";
-import { isOverdue } from "../../lib/date";
+import { formatCompactDate, isOverdue } from "../../lib/date";
 import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
@@ -62,11 +62,13 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
             {task.title}
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <Badge tone={PRIORITY_TONE[task.priority]}>優先度: {PRIORITY_LABEL[task.priority]}</Badge>
+            <Badge tone={PRIORITY_TONE[task.priority]}>優先度 {PRIORITY_LABEL[task.priority]}</Badge>
             {task.dueDate && (
+              // 期限は "2026-08-21 10:00" のようなISO表記だと、これだけでバッジ列が
+              // 折り返して1件あたり1行増えていた。今日/明日など読んで分かる短い形にする。
               <Badge tone={overdue ? "danger" : "neutral"}>
-                {overdue ? "期限切れ: " : "期限: "}
-                {task.dueDate}
+                {overdue ? "期限切れ " : "期限 "}
+                {formatCompactDate(task.dueDate)}
                 {task.dueTime ? ` ${task.dueTime}` : ""}
               </Badge>
             )}

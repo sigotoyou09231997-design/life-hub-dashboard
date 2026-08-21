@@ -64,7 +64,7 @@ export function NoteCard({ note, onEdit, onDelete }: Props) {
   const TypeIcon = typeDef.icon;
 
   return (
-    <ListRow interactive className={`note-widget note-widget--${type} h-full min-h-[190px] p-0`}>
+    <ListRow interactive className={`note-widget note-widget--${type} h-full p-0 md:min-h-[190px]`}>
       <button
         type="button"
         onClick={() => onEdit(note)}
