@@ -1220,13 +1220,17 @@ body .text-base { font-size: 1.05rem; }
    面が近似不透明なので、写真前提だった旧コントラスト補正はここで打ち消す。
    ただし .app-header--home の内側は除外する — TOPのヘッダーアイコン(ホーム/通知/
    設定)は写真の上に直接乗るため上の .app-header--home ルールの白い扱いが必要で、
-   同一詳細度かつ後方にあるこの規則がソース順で勝ってしまう(97b325d の修正を維持)。 */
-.app-shell .text-slate-400:not(.app-header--home *) { color: var(--hub-ink-3); }
-.app-shell .text-slate-500:not(.app-header--home *) { color: #667a90; }
-.app-shell .text-slate-600:not(.app-header--home *) { color: var(--hub-ink-2); }
-.app-shell .text-slate-700:not(.app-header--home *) { color: #34485e; }
-.app-shell .text-slate-800:not(.app-header--home *),
-.app-shell .text-slate-900:not(.app-header--home *) { color: var(--hub-ink); }
+   同一詳細度かつ後方にあるこの規則がソース順で勝ってしまう(97b325d の修正を維持)。
+   除外は :not(:where(...)) で書く。:where() は詳細度ゼロなので、この規則は (0,2,0)
+   のまま保たれる — 素の :not() だと (0,3,0) に上がり、下の
+   .app-shell .spatial-page-header__title(白抜き、同じ 0,2,0 で後方に立つ前提)に
+   勝ってしまい、全ページのタイトルが写真の上で黒く潰れる。 */
+.app-shell .text-slate-400:not(:where(.app-header--home *)) { color: var(--hub-ink-3); }
+.app-shell .text-slate-500:not(:where(.app-header--home *)) { color: #667a90; }
+.app-shell .text-slate-600:not(:where(.app-header--home *)) { color: var(--hub-ink-2); }
+.app-shell .text-slate-700:not(:where(.app-header--home *)) { color: #34485e; }
+.app-shell .text-slate-800:not(:where(.app-header--home *)),
+.app-shell .text-slate-900:not(:where(.app-header--home *)) { color: var(--hub-ink); }
 
 .spatial-page-header__title,
 .spatial-page-header h1 { color: var(--hub-ink); }
