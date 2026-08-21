@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { isOverdue, advanceByRepeat, tripDayList, tripDurationLabel } from "./date";
+import { isOverdue, advanceByRepeat, tripDayList, tripDurationLabel, formatCompactDate } from "./date";
 
 describe("isOverdue", () => {
   beforeEach(() => {
@@ -118,5 +118,34 @@ describe("tripDurationLabel", () => {
 
   it("counts nights correctly across a leap-year February", () => {
     expect(tripDurationLabel("2028-02-27", "2028-03-01")).toBe("3泊4日");
+  });
+});
+
+describe("formatCompactDate", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 15, 12, 0, 0)); // 2026-08-15 12:00
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("uses words for today, tomorrow and yesterday", () => {
+    expect(formatCompactDate("2026-08-15")).toBe("今日");
+    expect(formatCompactDate("2026-08-16")).toBe("明日");
+    expect(formatCompactDate("2026-08-14")).toBe("昨日");
+  });
+
+  it("drops the year within the current year", () => {
+    expect(formatCompactDate("2026-12-31")).toBe("12/31(木)");
+  });
+
+  it("keeps the year for other years", () => {
+    expect(formatCompactDate("2025-12-31")).toBe("2025/12/31");
+  });
+
+  it("passes an unparseable value through untouched", () => {
+    expect(formatCompactDate("いつか")).toBe("いつか");
   });
 });

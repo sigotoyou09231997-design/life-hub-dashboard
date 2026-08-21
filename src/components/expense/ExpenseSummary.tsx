@@ -92,13 +92,17 @@ export function ExpenseSummary({ onAddSalary }: Props) {
 
   return (
     <div className="finance-control-center grid gap-3 lg:grid-cols-12">
-      <Card className="finance-balance-module flex min-h-[280px] flex-col p-5 lg:col-span-7 lg:p-7">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Available balance</p>
+      <Card className="finance-balance-module flex flex-col p-5 lg:col-span-7 lg:min-h-[280px] lg:p-7">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            {/* 見出しは折り返させない — 2行に割れると、右のバッジと視覚的に絡まって
+                どちらが何の情報か読み取れなくなる(スマホ幅で発生していた)。 */}
+            <p className="whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Available balance</p>
             <p key={remaining} className={`value-change mt-3 text-4xl font-medium tabular-nums tracking-[-0.05em] lg:text-6xl ${remaining < 0 ? "text-danger" : "text-navy"}`}>{yen(remaining)}</p>
           </div>
-          {!period.hasSalaryForPeriod && <Badge tone="warning">今期の給与が未入力です</Badge>}
+          {!period.hasSalaryForPeriod && (
+            <span className="shrink-0"><Badge tone="warning">給与が未入力</Badge></span>
+          )}
         </div>
         <div className="mt-auto pt-6"><BalanceTrend expenses={expenses} /></div>
         <div className="mt-2 flex items-center justify-between border-t border-white/35 pt-3 text-xs text-slate-500">

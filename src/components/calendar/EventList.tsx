@@ -34,12 +34,14 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
               aria-label={`${ev.title}を編集`}
               className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             />
-            <div className="pointer-events-none relative z-10 flex items-start justify-between gap-3 p-3.5">
+            <div className="pointer-events-none relative z-10 flex items-start justify-between gap-3 p-3">
               <div className="min-w-0">
                 <p className="line-clamp-2 text-sm font-medium text-slate-900" title={ev.title}>
                   {ev.title}
                 </p>
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+                {/* 時刻・場所・カテゴリを1行にまとめる(以前はカテゴリだけ独立した行に
+                    置いていて、1件あたり1行ぶん余計に高さを使っていた)。 */}
+                <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-400">
                   <span className="flex items-center gap-1">
                     <Clock size={12} />
                     {ev.allDay ? "終日" : ev.startTime ? `${ev.startTime}${ev.endTime ? `〜${ev.endTime}` : ""}` : "時刻未設定"}
@@ -50,8 +52,6 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
                       {ev.location}
                     </span>
                   )}
-                </div>
-                <div className="mt-1.5">
                   <Badge tone={category.tone}>{category.label}</Badge>
                 </div>
               </div>

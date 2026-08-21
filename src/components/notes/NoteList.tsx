@@ -45,16 +45,16 @@ export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="メモ・リストを検索"
-          className="w-full min-h-11 rounded-[2px] border border-white/55 bg-white/30 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent/60 focus:bg-white/55 focus:ring-2 focus:ring-accent/15"
+          className="spatial-field w-full min-h-11 rounded-[2px] border border-white/55 bg-white/30 py-2.5 pl-9 pr-3.5 text-sm outline-none focus:border-accent/60 focus:bg-white/55 focus:ring-2 focus:ring-accent/15"
         />
       </div>
 
-      <div className="flex flex-wrap gap-1.5 lg:justify-end" role="group" aria-label="種類フィルター">
+      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 lg:flex-wrap lg:justify-end" role="group" aria-label="種類フィルター">
         <button
           type="button"
           onClick={() => setTypeFilter("all")}
           aria-pressed={typeFilter === "all"}
-          className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+          className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
             typeFilter === "all"
               ? "border-accent bg-accent-light font-semibold text-accent"
               : "border-white/50 font-medium text-slate-500 hover:border-white/80"
@@ -68,7 +68,7 @@ export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
             type="button"
             onClick={() => setTypeFilter(def.value)}
             aria-pressed={typeFilter === def.value}
-            className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+            className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
               typeFilter === def.value
                 ? "border-accent bg-accent-light font-semibold text-accent"
                 : "border-white/50 font-medium text-slate-500 hover:border-white/80"
