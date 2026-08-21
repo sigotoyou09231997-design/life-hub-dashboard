@@ -1777,3 +1777,108 @@ body .text-sm { line-height: 1.5; }
     background: rgba(197, 63, 85, 0.09);
   }
 }
+
+/* ==========================================================================
+   PCの下限文字サイズ(2026-08)
+
+   ルートは16pxのまま(スマホの密度を守るため。html{} のコメント参照)。ただし
+   PCでは同じremでも視距離が遠く、面も広いので、.5〜.7rem まで詰めたラベルが
+   そのまま小さすぎる文字として残っていた — 一度英字の飾りラベル前提で組んだ
+   字送りを日本語に置き換えたときの名残り。
+
+   ここでは1024px以上でだけ、その下限を持ち上げる。段は4つだけに保つ:
+     補助ラベル・キャプション  0.86rem
+     本文・説明文              0.92rem
+     行の主役(strong)・ボタン  1rem / 0.95rem
+     セクション見出し          1.1rem
+   スマホ側の値には一切触れない。
+   ========================================================================== */
+
+@media (min-width: 1024px) {
+  /* Tailwind側の刻み。約250箇所がこの5つに乗っているので、個別指定より先に
+     ここを上げるのが一番効く。 */
+  body .text-\[10px\] { font-size: .82rem; }
+  body .text-\[11px\] { font-size: .86rem; }
+  body .text-xs { font-size: .9rem; }
+  body .text-sm { font-size: 1rem; }
+
+  /* --- 補助ラベル・キャプション ---------------------------------------- */
+  .planning-module-heading span,
+  .planning-module-heading b,
+  .planning-empty-footer > span,
+  .note-widget__shopping > span,
+  .mail-connect-visual > span,
+  .mail-connect-kicker,
+  .mail-connect-capability,
+  .mail-connect-action > span,
+  .notes-empty-control__heading span,
+  .notes-empty-control__heading > strong,
+  .destination-empty-control__copy > span,
+  .destination-empty-control__action > span,
+  .destination-column__title span,
+  .system-section__identity p,
+  .profile-module__header span,
+  .system-status,
+  .system-state-control span,
+  .profile-state-row span,
+  .system-state-control small,
+  .trip-detail-hero__content span {
+    font-size: .86rem;
+  }
+
+  /* HOMEの語彙は hub.css が index.css より後に読み込まれるので、同じ (0,1,0)
+     では勝てない。.app-shell を噛ませて一段上げる。 */
+  .app-shell .hub-focus__date span,
+  .app-shell .hub-focus__kicker,
+  .app-shell .hub-trip__kicker,
+  .app-shell .hub-tile__badge,
+  .app-shell .hub-status {
+    font-size: .88rem;
+  }
+
+  .app-shell .hub-ring small { font-size: .72rem; }
+
+  /* --- 本文・説明文 ------------------------------------------------------ */
+  .planning-compact-empty p,
+  .planning-task-overview > div:last-child p,
+  .notes-empty-control__action p span,
+  .notes-empty-control__types span,
+  .note-widget__progress small,
+  .note-widget__shopping small,
+  .destination-empty-control__copy p,
+  .mail-connect-copy > p:last-of-type,
+  .trip-detail-hero__content p {
+    font-size: .92rem;
+  }
+
+  /* --- 行の主役 / ボタン ------------------------------------------------- */
+  .planning-compact-empty strong,
+  .notes-empty-control__action p strong,
+  .destination-empty-control__copy > div strong,
+  .system-state-control strong,
+  .profile-state-row strong {
+    font-size: 1rem;
+  }
+
+  .planning-empty-footer button,
+  .notes-empty-control__action button,
+  .destination-empty-control__action button {
+    font-size: .95rem;
+  }
+
+  /* --- セクション見出し --------------------------------------------------- */
+  .planning-module-heading p,
+  .notes-empty-control__heading h2,
+  .destination-empty-control__copy h2,
+  .system-section__identity h2,
+  .profile-module__header h2 {
+    font-size: 1.1rem;
+  }
+
+  /* 数字に添える単位。数字そのものより小さいことに意味があるので、読める下限
+     までに留める(大きくすると円グラフの中で数字と競る)。 */
+  .planning-progress-ring small { font-size: .72rem; }
+
+  /* 時刻の目盛りは数字だけなので、本文ほど上げなくてよい。 */
+  .planning-time-rail { font-size: .78rem; }
+}
