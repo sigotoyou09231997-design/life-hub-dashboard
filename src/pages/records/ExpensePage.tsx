@@ -47,7 +47,7 @@ export default function ExpensePage() {
 
   return (
     <div className="spatial-page finance-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.money}>
-      <PageHeader title="家計簿" subtitle="収支と固定費を管理" backTo="/" />
+      <PageHeader title="お金管理" subtitle="収支と固定費を管理" backTo="/" />
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[840px]">
         <Tabs

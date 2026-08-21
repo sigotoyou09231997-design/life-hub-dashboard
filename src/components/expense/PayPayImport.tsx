@@ -147,7 +147,7 @@ export function PayPayImport() {
       <Card>
         <p className="mb-1 text-sm font-medium text-slate-600">PayPay CSV読み込み</p>
         <p className="mb-3 text-xs text-slate-400">
-          PayPayアプリの「取引履歴」からCSVをエクスポートして読み込むと、支払い・送金・受け取りが支出/収入として自動登録されます(チャージや口座出金などウォレット内の移動は残高計算にのみ反映し、家計簿には登録しません)。
+          PayPayアプリの「取引履歴」からCSVをエクスポートして読み込むと、支払い・送金・受け取りが支出/収入として自動登録されます(チャージや口座出金などウォレット内の移動は残高計算にのみ反映し、お金管理には登録しません)。
         </p>
         <Button
           variant="secondary"
@@ -173,7 +173,7 @@ export function PayPayImport() {
         {result && (
           <div className="mt-4 space-y-1 rounded-xl bg-white/40 p-3.5 text-sm text-slate-600">
             <p>取込対象: {result.total}件</p>
-            <p>家計簿に登録: {result.householdImported}件(支払い・送金・受取)</p>
+            <p>お金管理に登録: {result.householdImported}件(支払い・送金・受取)</p>
             <p>ウォレット内移動としてスキップ: {result.skippedInternal}件(チャージ・口座出金など)</p>
             <p>重複のためスキップ: {result.duplicates}件</p>
           </div>

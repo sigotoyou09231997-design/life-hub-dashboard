@@ -14,7 +14,7 @@ import {
 const PRIMARY_NAV = [
   { to: "/", label: "ホーム", icon: Home },
   { to: "/schedule", label: "予定・タスク", icon: CalendarDays },
-  { to: "/records/expense", label: "家計簿", icon: Landmark },
+  { to: "/records/expense", label: "お金管理", icon: Landmark },
   { to: "/records/notes", label: "メモ・リスト", icon: NotebookPen },
   { to: "/gmail", label: "Gmail", icon: Mail },
   { to: "/trips", label: "旅行計画", icon: Plane },
