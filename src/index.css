@@ -1882,3 +1882,122 @@ body .text-sm { line-height: 1.5; }
   /* 時刻の目盛りは数字だけなので、本文ほど上げなくてよい。 */
   .planning-time-rail { font-size: .78rem; }
 }
+
+/* ==========================================================================
+   出現と手応え(2026-08)
+
+   HOMEにだけあった「面が順にせり上がって現れる / スクロールで奥へ引く」を、
+   src/hooks/usePageMotion.ts 経由で残りの全ページにも配る。ページ側のJSXには
+   触っていない — フックがルートごとに面を数え直して data-reveal を付けるので、
+   出現の定義そのものは hub.css の [data-reveal] をそのまま使う。
+
+   ここに書くのは、その上に載る「動きの当たり」だけ:
+     - 旧来の出現アニメーションとの二重掛けを止める
+     - ページタイトルを写真ごと奥へ引く(操作系は引かない)
+     - メーターが伸びる / チェックが弾む / 行が触れると寄る
+   ========================================================================== */
+
+/* 出現の定義。HOMEの [data-reveal] と同じ動きだが、クラス名は分けている —
+   既存画面の要素には別の由来で .is-revealed が残っているものがあり、HOMEの語彙を
+   そのまま借りると [data-reveal].is-revealed の方が強く当たって「出現前」が一度も
+   適用されず、動かずに終わってしまう。
+
+   .app-shell を噛ませて (0,2,0) にしてあるのは、既存画面側の同名プロパティ
+   (旧 spatial-module-in の fill など)に確実に勝たせるため。 */
+.app-shell .is-page-reveal {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0) scale(0.985);
+  filter: blur(6px);
+  /* 旧 spatial-module-in と重なると同じ要素が二度動いて跳ねて見える。 */
+  animation: none !important;
+}
+
+/* transition は「出現後」の側にだけ置く。出現前の状態に transition を書くと、
+   クラスを付けた瞬間に opacity:1 → 0 へ向かうトランジションが始まってしまい、
+   直後に出現後のクラスを重ねても値が下がりきる前に折り返す — 結果、何も動いて
+   いないように見える。出現前はスナップし、出現後だけ時間をかける。 */
+.app-shell .is-page-reveal.is-page-reveal-in {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+  transition:
+    opacity 620ms var(--hub-ease-out),
+    transform 620ms var(--hub-ease-out),
+    filter 620ms var(--hub-ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell .is-page-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+}
+
+/* --- ページタイトルの視差 --------------------------------------------------
+   HOMEの挨拶と同じ動き。ただし引くのは「文字」だけで、右上の「+」や戻るような
+   操作系は引かない — スクロールした状態で押せなくなるため。--hub-scroll は
+   .page-transition に載っていて、ここまで継承されてくる。 */
+.spatial-page-header__title,
+.spatial-page-header h1,
+.spatial-page-header > div > div > p,
+.mail-page-header h1 {
+  transform: translate3d(0, calc(var(--hub-scroll, 0) * -0.16px), 0);
+  opacity: clamp(0.32, calc(1 - var(--hub-scroll, 0) / 320), 1);
+  will-change: transform, opacity;
+}
+
+/* --- メーターは0から伸びる --------------------------------------------------
+   数字のカウントアップはしない(HOMEで一度入れて取り下げた)。伸びるのは棒だけ。 */
+.task-progress > div,
+.note-widget__progress i {
+  transform-origin: left center;
+  animation: hub-grow-x 760ms var(--hub-ease-out) both;
+}
+
+/* --- チェックの手応え ------------------------------------------------------
+   タスクには既にあった弾みを、習慣・買い物・チェックリストにも揃える。 */
+@keyframes check-ring {
+  from { box-shadow: 0 0 0 0 rgba(18, 135, 106, 0.45); }
+  to { box-shadow: 0 0 0 0.65rem rgba(18, 135, 106, 0); }
+}
+
+[data-checked="true"] {
+  animation: check-ring 520ms var(--hub-ease-out);
+}
+
+/* --- 行に触れる ------------------------------------------------------------
+   HOMEの予定行と同じ当たり。面の中の行はくぼみが濃くなり、わずかに寄る。 */
+@media (hover: hover) and (pointer: fine) {
+  .glass-card .glass-row,
+  .spatial-module .glass-row,
+  .mail-row,
+  .planning-list-module .glass-row {
+    transition: background-color 200ms ease, padding-left 200ms var(--hub-ease);
+  }
+
+  .glass-card .glass-row:hover,
+  .spatial-module .glass-row:hover,
+  .mail-row:hover,
+  .planning-list-module .glass-row:hover {
+    background-color: var(--hub-inset-2);
+    padding-left: calc(var(--row-pad, 0.75rem) + 0.25rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spatial-page-header__title,
+  .spatial-page-header h1,
+  .spatial-page-header > div > div > p,
+  .mail-page-header h1 {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  .task-progress > div,
+  .note-widget__progress i,
+  [data-checked="true"] {
+    animation: none !important;
+  }
+}

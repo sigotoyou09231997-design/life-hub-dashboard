@@ -11,6 +11,7 @@ import { AmbientBackground } from "./components/layout/AmbientBackground";
 import { AppHeader } from "./components/layout/AppHeader";
 import { DesktopSidebar } from "./components/layout/DesktopSidebar";
 import { QuickActionBar } from "./components/layout/QuickActionBar";
+import { usePageMotion } from "./hooks/usePageMotion";
 
 import AuthGatePage from "./pages/AuthGatePage";
 import TopPage from "./pages/TopPage";
@@ -49,6 +50,8 @@ function LazyRoute({ children }: { children: ReactNode }) {
 
 export default function App() {
   const location = useLocation();
+  // HOME以外の全ページに、HOMEと同じ出現アニメーションとスクロール連動を与える。
+  const pageMotionRef = usePageMotion<HTMLDivElement>(location.pathname);
   // 一覧(/gmail)だけ、内部スクロールのメールリストを1画面に収める固定高さのflex
   // レイアウト(下記)が必要。/gmail/mail/:id(新規タブで開く単独のメール詳細ページ)は
   // 他の通常ページと同じ、ページ全体が自然にスクロールする挙動にする — 固定高さ+
@@ -158,7 +161,7 @@ export default function App() {
           <div className="app-workspace">
             <AppHeader />
             <main className={`app-main ${isGmailListRoute ? "app-main--fixed" : ""}`}>
-              <div key={location.pathname} className="page-transition">
+              <div key={location.pathname} ref={pageMotionRef} className="page-transition">
                 <Routes location={location}>
               <Route path="/" element={<TopPage />} />
               <Route path="/schedule" element={<LazyRoute><SchedulePage /></LazyRoute>} />

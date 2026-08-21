@@ -34,11 +34,12 @@ function HabitRow({ habit, onEdit, onDelete }: { habit: Habit; onEdit: (h: Habit
       <button
         onClick={toggleToday}
         aria-label="今日の達成を切り替え"
+        data-checked={doneToday ? "true" : undefined}
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
           doneToday ? "border-success bg-success text-white" : "border-slate-300"
         }`}
       >
-        {doneToday && <Check size={16} strokeWidth={3} />}
+        {doneToday && <Check size={16} strokeWidth={3} className="animate-check-pop motion-reduce:animate-none" />}
       </button>
 
       <button
