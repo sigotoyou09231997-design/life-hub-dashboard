@@ -1617,9 +1617,14 @@ body .text-sm { line-height: 1.5; }
   }
 
   /* 反射は中身より後ろに置く。z-indexを持つ擬似要素は、位置指定のない中身より
-     手前に描かれてしまうため、直下の子だけ1段持ち上げる(TOPのタイルと同じ手当て)。 */
-  .card-interactive > *,
-  .note-widget > * {
+     手前に描かれてしまうため、直下の子だけ1段持ち上げる(TOPのタイルと同じ手当て)。
+
+     面いっぱいに敷く装飾(旅行カードのカバー写真とその上のヴェール、行全体を覆う
+     透明ボタン)は絶対配置のままでなければならない。ここで position:relative に
+     戻すと、flexのカードでは幅0の子に潰れて写真ごと消え、白い面に白い文字だけが
+     残って読めなくなる。 */
+  .card-interactive > *:not(:where(.trip-module__photo, .trip-module__veil, .absolute)),
+  .note-widget > *:not(:where(.absolute)) {
     position: relative;
     z-index: 1;
   }
