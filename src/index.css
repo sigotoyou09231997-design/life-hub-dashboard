@@ -732,9 +732,9 @@ body .text-base { font-size: 1.05rem; }
    アニメーション終了後の状態には影響しない(forwardsと違い、終了後はcontaining blockを
    作らない)。これらのコンテナの直下にSheetモーダルがネストされているページがあった場合の
    同種の不具合も併せて防ぐ。 */
-.spatial-page-content > *, .planning-today__grid > *, .finance-control-center > *, .notes-widget-grid > *, .destination-grid > * { animation: spatial-module-in 330ms cubic-bezier(.18,.78,.24,1) backwards; }
-.planning-today__grid > :nth-child(2), .finance-control-center > :nth-child(2), .notes-widget-grid > :nth-child(2), .destination-grid > :nth-child(2) { animation-delay: 45ms; }
-.finance-control-center > :nth-child(3), .notes-widget-grid > :nth-child(3), .destination-grid > :nth-child(3) { animation-delay: 90ms; }
+.spatial-page-content > *, .planning-today__grid > *, .finance-control-center > *, .notes-widget-grid > * { animation: spatial-module-in 330ms cubic-bezier(.18,.78,.24,1) backwards; }
+.planning-today__grid > :nth-child(2), .finance-control-center > :nth-child(2), .notes-widget-grid > :nth-child(2) { animation-delay: 45ms; }
+.finance-control-center > :nth-child(3), .notes-widget-grid > :nth-child(3) { animation-delay: 90ms; }
 .finance-control-center > :nth-child(4), .notes-widget-grid > :nth-child(4) { animation-delay: 135ms; }
 .finance-control-center > :nth-child(5) { animation-delay: 180ms; }
 @keyframes spatial-module-in { from { opacity: 0; transform: translate3d(0,7px,0); } to { opacity: 1; transform: translate3d(0,0,0); } }
@@ -818,16 +818,6 @@ body .text-base { font-size: 1.05rem; }
 .mail-row.is-unread { background: rgba(230,240,248,.31); box-shadow: inset 0 1px 0 rgba(255,255,255,.44), 0 8px 22px rgba(38,58,82,.055); }
 
 /* Destination workspace */
-.destination-column { min-width: 0; padding: .7rem; border-radius: .88rem; background: rgba(210,226,238,.18); box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 14px 38px rgba(33,52,75,.07); backdrop-filter: blur(15px); }
-.destination-column__title { display: flex; align-items: center; justify-content: space-between; padding-inline: .2rem; color: #304761; }
-.destination-column__title span { color: rgba(47,66,89,.48); font-size: .58rem; }
-.trip-module { position: relative; border-color: rgba(255,255,255,.38); color: white; }
-.trip-module__photo { position: absolute; inset: 0; background: url('/backgrounds/evening-glass-pavilion-v5.jpg') center 55% / cover no-repeat; filter: saturate(.78) contrast(.92); transition: transform 800ms cubic-bezier(.2,.7,.2,1); }
-.trip-module--ongoing .trip-module__photo { background-image: url('/backgrounds/day-resort-terrace-v5.jpg'); }
-.trip-module--completed .trip-module__photo { filter: saturate(.55) contrast(.88); }
-.trip-module__veil { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(19,33,50,.1) 0%, rgba(17,30,47,.3) 38%, rgba(12,24,40,.72) 70%, rgba(10,20,34,.88) 100%); }
-.trip-module__content, .trip-module__actions { position: relative; z-index: 1; }
-.trip-module__content .text-navy { color: white; font-size: 1.05rem; text-shadow: 0 2px 12px rgba(0,0,0,.18); }
 .trip-detail-hero { position: relative; min-height: 13rem; overflow: hidden; border: 1px solid rgba(255,255,255,.38); border-radius: 1.05rem; box-shadow: inset 0 1px 0 rgba(255,255,255,.45), var(--spatial-shadow); }
 .trip-detail-hero__photo { position: absolute; inset: 0; background: url('/backgrounds/evening-glass-pavilion-v5.jpg') center 52% / cover no-repeat; filter: saturate(.8) contrast(.92); }
 .trip-detail-hero__veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(18,32,49,.72), rgba(18,32,49,.22) 58%, rgba(18,32,49,.08)); }
@@ -850,7 +840,6 @@ body .text-base { font-size: 1.05rem; }
   .spatial-page .spatial-module.card-interactive:hover, .note-widget:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.58); box-shadow: inset 0 1px 0 rgba(255,255,255,.62), 0 22px 54px rgba(31,49,73,.13); }
   .note-widget__actions { opacity: .48; transition: opacity 180ms ease; }
   .note-widget:hover .note-widget__actions { opacity: 1; }
-  .trip-module:hover .trip-module__photo { transform: translate3d(0,-2px,0); }
   .mail-row:hover, .planning-list-module .spatial-control:hover { background-color: rgba(255,255,255,.19); }
 }
 
@@ -871,7 +860,6 @@ body .text-base { font-size: 1.05rem; }
   .planning-timeline-detail { min-height: 7.8rem; }
   .calendar-workspace__detail { min-height: auto; }
   .finance-metric-module { min-height: auto; }
-  .destination-column { padding: .5rem; }
 }
 
 @media (max-width: 639px) {
@@ -901,8 +889,6 @@ body .text-base { font-size: 1.05rem; }
   .mail-page-header { padding: 1rem .75rem .8rem; }
   .mail-inbox-workspace { padding: .55rem; }
   .mail-connection-module { margin-top: .5rem; }
-  .destination-grid { gap: .55rem; }
-  .trip-module { min-height: 10rem; }
   .trip-detail-hero { min-height: 10.5rem; margin-inline: .75rem; }
   .trip-detail-hero__content { min-height: 10.5rem; padding: 1rem; }
   .trip-detail-workspace { padding-inline: .75rem; }
@@ -911,8 +897,8 @@ body .text-base { font-size: 1.05rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spatial-page-content > *, .planning-today__grid > *, .finance-control-center > *, .notes-widget-grid > *, .destination-grid > * { animation: none !important; opacity: 1 !important; transform: none !important; }
-  .spatial-page .spatial-module.card-interactive:hover, .note-widget:hover, .trip-module:hover .trip-module__photo { transform: none !important; }
+  .spatial-page-content > *, .planning-today__grid > *, .finance-control-center > *, .notes-widget-grid > * { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .spatial-page .spatial-module.card-interactive:hover, .note-widget:hover { transform: none !important; }
   .note-widget__actions { opacity: 1 !important; }
 }
 
@@ -1012,7 +998,7 @@ body .text-base { font-size: 1.05rem; }
 
 @media (max-width: 639px) {
   .spatial-page-header { padding-bottom: .68rem; }
-  .planning-today__grid, .calendar-workspace, .finance-control-center, .destination-grid { gap: .62rem; }
+  .planning-today__grid, .calendar-workspace, .finance-control-center { gap: .62rem; }
   .planning-empty-footer { margin-inline: .35rem; gap: .35rem; }
   .planning-empty-footer > span { font-size: .5rem; letter-spacing: .03em; }
   .planning-empty-footer button { padding-inline: .4rem; font-size: .58rem; }
@@ -1114,8 +1100,7 @@ body .text-base { font-size: 1.05rem; }
 /* 一段外側の「作業面」— 中にモジュールを並べる器なので、HOMEのタイルと同じ
    大きい角丸を使い、影は内側のカードより浅くして階層を保つ。 */
 .mail-inbox-workspace,
-.finance-ledger-workspace,
-.destination-column {
+.finance-ledger-workspace {
   border-radius: var(--hub-r-lg) !important;
   border: 1px solid var(--hub-edge);
   background-image: none;
@@ -1167,7 +1152,7 @@ body .text-base { font-size: 1.05rem; }
   .calendar-workspace__detail *, .finance-balance-module *,
   .finance-summary-module *, .finance-metric-module *,
   .trip-overview-module *, .trip-detail-hero *,
-  .mail-inbox-workspace *, .finance-ledger-workspace *, .destination-column *,
+  .mail-inbox-workspace *, .finance-ledger-workspace *,
   .spatial-sheet *, .glass-modal *, .app-header *, .desktop-sidebar *, .glass-nav *
 )),
 .spatial-control:not(.note-widget):not(:where(
@@ -1178,7 +1163,7 @@ body .text-base { font-size: 1.05rem; }
   .calendar-workspace__detail *, .finance-balance-module *,
   .finance-summary-module *, .finance-metric-module *,
   .trip-overview-module *, .trip-detail-hero *,
-  .mail-inbox-workspace *, .finance-ledger-workspace *, .destination-column *,
+  .mail-inbox-workspace *, .finance-ledger-workspace *,
   .spatial-sheet *, .glass-modal *, .app-header *, .desktop-sidebar *, .glass-nav *
 )) {
   border-color: var(--hub-edge);
@@ -1490,7 +1475,6 @@ body .text-sm { line-height: 1.5; }
 .system-section__identity h2,
 .empty-state h3,
 .trip-detail-hero__content h2,
-.trip-module__content > p:first-child,
 .hub-trip__place {
   /* 明朝は太らせない。合成ボールドで潰れると途端に安っぽくなるので、階層は
      太さではなく大きさと字間で作る(iOSならW6ではなくW3寄りに解決される)。 */
@@ -1680,7 +1664,7 @@ body .text-sm { line-height: 1.5; }
      透明ボタン)は絶対配置のままでなければならない。ここで position:relative に
      戻すと、flexのカードでは幅0の子に潰れて写真ごと消え、白い面に白い文字だけが
      残って読めなくなる。 */
-  .card-interactive > *:not(:where(.trip-module__photo, .trip-module__veil, .absolute)),
+  .card-interactive > *:not(:where(.absolute)),
   .note-widget > *:not(:where(.absolute)) {
     position: relative;
     z-index: 1;
@@ -1718,7 +1702,6 @@ body .text-sm { line-height: 1.5; }
 .notes-empty-control__heading > strong,
 .destination-empty-control__copy > span,
 .destination-empty-control__action > span,
-.destination-column__title span,
 .system-section__identity p,
 .profile-module__header span,
 .system-status,
@@ -1752,8 +1735,7 @@ body .text-sm { line-height: 1.5; }
 @media (hover: hover) and (pointer: fine) {
   .glass-row [aria-label="削除"],
   .glass-row [aria-label="サブタスク追加"],
-  .note-widget [aria-label="削除"],
-  .trip-module__actions [aria-label="削除"] {
+  .note-widget [aria-label="削除"] {
     opacity: 0;
     transition: opacity 180ms ease-out, color 180ms ease-out, background-color 180ms ease-out;
   }
@@ -1764,16 +1746,13 @@ body .text-sm { line-height: 1.5; }
   .glass-row:focus-within [aria-label="サブタスク追加"],
   .note-widget:hover [aria-label="削除"],
   .note-widget:focus-within [aria-label="削除"],
-  .trip-module:hover .trip-module__actions [aria-label="削除"],
-  .trip-module:focus-within .trip-module__actions [aria-label="削除"],
   [aria-label="削除"]:focus-visible,
   [aria-label="サブタスク追加"]:focus-visible {
     opacity: 1;
   }
 
   .glass-row [aria-label="削除"]:hover,
-  .note-widget [aria-label="削除"]:hover,
-  .trip-module__actions [aria-label="削除"]:hover {
+  .note-widget [aria-label="削除"]:hover {
     color: var(--hub-red);
     background: rgba(197, 63, 85, 0.09);
   }
@@ -1816,8 +1795,7 @@ body .text-sm { line-height: 1.5; }
   .notes-empty-control__heading > strong,
   .destination-empty-control__copy > span,
   .destination-empty-control__action > span,
-  .destination-column__title span,
-  .system-section__identity p,
+    .system-section__identity p,
   .profile-module__header span,
   .system-status,
   .system-state-control span,
@@ -2014,70 +1992,6 @@ body .text-sm { line-height: 1.5; }
 :root {
   --color-accent: #2f5ae0;
   --color-accent-light: rgba(47, 90, 224, 0.1);
-}
-
-/* ==========================================================================
-   写真の上に載る見出し・旅行カード(2026-08)
-   ========================================================================== */
-
-/* 面ではなく写真の上に直接置かれる列見出し(旅行の「計画中」「完了済み」など)は、
-   飾りではなく分類なので、読める大きさまで上げる。 */
-.app-shell .destination-column__title {
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-/* 件数は列の白い面の上に載る。写真の上ではないので白抜きにはしない。 */
-.app-shell .destination-column__title span {
-  padding: 0.1rem 0.55rem;
-  border-radius: 999px;
-  background: var(--hub-inset);
-  color: var(--hub-ink-2);
-  font-size: 0.78rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-/* 旅行カード。HOMEの旅行タイル(.hub-trip)と同じ作法に寄せる:
-     - 下ほど濃いヴェールで、文字が必ず暗い側に乗る
-     - 行き先を主役の大きさにする
-     - 日程に続けて「3泊4日」を素の文字で置くと折り返して割れるので、
-       HOMEと同じくチップにして独立させる */
-.trip-module__veil {
-  background: linear-gradient(
-    180deg,
-    rgba(13, 26, 42, 0.16) 0%,
-    rgba(11, 22, 37, 0.34) 40%,
-    rgba(9, 18, 31, 0.76) 72%,
-    rgba(8, 16, 28, 0.93) 100%
-  );
-}
-
-.trip-module__content .text-navy {
-  font-size: 1.28rem;
-  letter-spacing: -0.01em;
-  line-height: 1.25;
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.4);
-}
-
-.trip-module__duration {
-  display: inline-flex;
-  align-items: center;
-  margin-top: 0.55rem;
-  padding: 0.24rem 0.62rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
-  font-size: 0.82rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-@media (min-width: 1024px) {
-  .app-shell .destination-column__title { font-size: 1rem; }
-  .trip-module__content .text-navy { font-size: 1.4rem; }
 }
 
 /* ==========================================================================
