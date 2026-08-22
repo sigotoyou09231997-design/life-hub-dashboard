@@ -7,7 +7,6 @@ import {
   NotebookPen,
   Plane,
   Settings,
-  Sparkles,
   UserRound,
 } from "lucide-react";
 
@@ -21,17 +20,12 @@ const PRIMARY_NAV = [
 ];
 
 const SECONDARY_NAV = [
-  { to: "/records", label: "日記・目標・習慣", icon: Sparkles },
   { to: "/settings", label: "設定", icon: Settings },
 ];
 
 function SidebarLink({ to, label, icon: Icon }: (typeof PRIMARY_NAV)[number]) {
   const location = useLocation();
-  const active = to === "/"
-    ? location.pathname === "/"
-    : to === "/records"
-      ? ["/records", "/records/diary", "/records/goals", "/records/habits"].includes(location.pathname)
-      : location.pathname.startsWith(to);
+  const active = to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
   return (
     <NavLink
       to={to}

@@ -20,14 +20,10 @@ import AuthCallbackPage from "./pages/AuthCallbackPage";
 const SchedulePage = lazy(() => import("./pages/SchedulePage"));
 const TripsPage = lazy(() => import("./pages/TripsPage"));
 const TripDetailPage = lazy(() => import("./pages/TripDetailPage"));
-const RecordsPage = lazy(() => import("./pages/RecordsPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
 const ExpensePage = lazy(() => import("./pages/records/ExpensePage"));
 const NotePage = lazy(() => import("./pages/records/NotePage"));
-const DiaryPage = lazy(() => import("./pages/records/DiaryPage"));
-const GoalPage = lazy(() => import("./pages/records/GoalPage"));
-const HabitPage = lazy(() => import("./pages/records/HabitPage"));
 const GmailPage = lazy(() => import("./pages/GmailPage"));
 const GmailMailPage = lazy(() => import("./pages/GmailMailPage"));
 const GmailCallbackPage = lazy(() => import("./pages/GmailCallbackPage"));
@@ -113,14 +109,10 @@ export default function App() {
       void import("./pages/SchedulePage");
       void import("./pages/TripsPage");
       void import("./pages/TripDetailPage");
-      void import("./pages/RecordsPage");
       void import("./pages/SettingsPage");
       void import("./pages/AccountPage");
       void import("./pages/records/ExpensePage");
       void import("./pages/records/NotePage");
-      void import("./pages/records/DiaryPage");
-      void import("./pages/records/GoalPage");
-      void import("./pages/records/HabitPage");
       void import("./pages/GmailPage");
       void import("./pages/GmailMailPage");
     };
@@ -170,12 +162,13 @@ export default function App() {
               {/* 予定・タスクは /schedule に統合済み。旧ブックマーク/リンク対策として残す。 */}
               <Route path="/calendar" element={<Navigate to="/schedule" replace />} />
               <Route path="/records/tasks" element={<Navigate to="/schedule" replace />} />
-              <Route path="/records" element={<LazyRoute><RecordsPage /></LazyRoute>} />
               <Route path="/records/expense" element={<LazyRoute><ExpensePage /></LazyRoute>} />
               <Route path="/records/notes" element={<LazyRoute><NotePage /></LazyRoute>} />
-              <Route path="/records/diary" element={<LazyRoute><DiaryPage /></LazyRoute>} />
-              <Route path="/records/goals" element={<LazyRoute><GoalPage /></LazyRoute>} />
-              <Route path="/records/habits" element={<LazyRoute><HabitPage /></LazyRoute>} />
+              {/* 日記・目標・習慣は廃止。旧ブックマーク/リンク対策として残す。 */}
+              <Route path="/records" element={<Navigate to="/" replace />} />
+              <Route path="/records/diary" element={<Navigate to="/" replace />} />
+              <Route path="/records/goals" element={<Navigate to="/" replace />} />
+              <Route path="/records/habits" element={<Navigate to="/" replace />} />
               <Route path="/settings" element={<LazyRoute><SettingsPage /></LazyRoute>} />
               <Route path="/account" element={<LazyRoute><AccountPage /></LazyRoute>} />
               <Route path="/gmail" element={<LazyRoute><GmailPage /></LazyRoute>} />
