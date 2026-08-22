@@ -1,5 +1,12 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { isOverdue, advanceByRepeat, tripDayList, tripDurationLabel, formatCompactDate } from "./date";
+import {
+  isOverdue,
+  advanceByRepeat,
+  tripDayList,
+  tripDurationLabel,
+  tripCountdownLabel,
+  formatCompactDate,
+} from "./date";
 
 describe("isOverdue", () => {
   beforeEach(() => {
@@ -147,5 +154,29 @@ describe("formatCompactDate", () => {
 
   it("passes an unparseable value through untouched", () => {
     expect(formatCompactDate("いつか")).toBe("いつか");
+  });
+});
+
+describe("tripCountdownLabel", () => {
+  const today = "2026-08-22";
+
+  it("counts down the days before departure", () => {
+    expect(tripCountdownLabel("2026-08-25", "2026-08-27", today)).toBe("あと3日");
+  });
+
+  it("says 明日から and 今日から at the edges", () => {
+    expect(tripCountdownLabel("2026-08-23", "2026-08-25", today)).toBe("明日から");
+    expect(tripCountdownLabel("2026-08-22", "2026-08-25", today)).toBe("今日から");
+  });
+
+  it("switches to the day count once the trip has started", () => {
+    expect(tripCountdownLabel("2026-08-20", "2026-08-25", today)).toBe("3日目");
+    // 最終日も旅行中なので「日目」のまま。
+    expect(tripCountdownLabel("2026-08-20", "2026-08-22", today)).toBe("3日目");
+  });
+
+  it("says nothing once the trip is over, or when the dates are unusable", () => {
+    expect(tripCountdownLabel("2026-08-10", "2026-08-12", today)).toBe("");
+    expect(tripCountdownLabel("いつか", "2026-08-25", today)).toBe("");
   });
 });

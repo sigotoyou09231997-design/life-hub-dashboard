@@ -1,0 +1,483 @@
+/* ==========================================================================
+   旅行一覧 (/trips) — HOMEと同じ Liquid Glass の語彙で組み直した骨格
+   (2026-08)
+
+   作り直す前は「旅行中 / 計画中 / 完了済み」を同じ幅の3列に並べていた。3列に
+   割ると1枚が小さくなり、写真が主役になれない。さらに旅行中が1件しか無いと
+   その列だけが空のまま縦に伸びて、画面の3分の1が意味の無い余白になっていた。
+
+   代わりに「今の1つ」を最優先する骨格にする:
+     .trip-lead        いま行っている(無ければ次に行く)旅行1件。全幅の大きな写真。
+     .trip-plan-grid   これから行く旅行。2列の中カード。
+     .trip-archive     終わった旅行。写真は小さなサムネにして行で積む。
+
+   面・角丸・影・インクは hub.css の --hub-* をそのまま使う。この画面のために
+   新しい色や角丸を足さないこと。
+   ========================================================================== */
+
+.trips-board {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+/* --- セクションの見出し --------------------------------------------------
+   写真の上に直接置くので、インクは白側 (--hub-on-photo)。件数はチップにして
+   見出しと同じ行に置く(HOMEのカード見出しと同じ作法)。 */
+/* 見出しは写真の上に直接置くので、明るい所に来ると白文字が消える。背景の写真は
+   ページの上下で明るさが変わる(下ほど白い)ため、白文字＋影では足りない。
+   見出しと件数をひとまとまりの暗い面に載せて、どこに来ても同じ読みやすさにする。 */
+.trips-head {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.34rem 0.85rem 0.34rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(9, 19, 33, 0.46);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.trips-head h2 {
+  color: var(--hub-on-photo);
+  font-family: var(--font-display);
+  font-size: 1.18rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.34);
+}
+
+.trips-head span {
+  display: inline-grid;
+  min-width: 1.6rem;
+  height: 1.5rem;
+  place-items: center;
+  padding-inline: 0.42rem;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--hub-on-photo);
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* --- 1. いま/次の旅行 ---------------------------------------------------- */
+.trip-lead {
+  position: relative;
+  display: flex;
+  min-height: 20rem;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--hub-r-xl);
+  background: #3d5063;
+  box-shadow: var(--hub-shadow);
+  color: #fff;
+  text-decoration: none;
+}
+
+.trip-lead__photo {
+  position: absolute;
+  inset: 0;
+  background-position: center 52%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform: scale(1.04);
+  transition: transform 900ms var(--hub-ease);
+}
+
+.trip-lead__veil {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(12, 24, 40, 0.24) 0%, rgba(10, 21, 35, 0.3) 34%, rgba(8, 17, 30, 0.74) 66%, rgba(7, 15, 27, 0.93) 100%);
+}
+
+.trip-lead > *:not(.trip-lead__photo):not(.trip-lead__veil) {
+  position: relative;
+  z-index: 1;
+}
+
+.trip-lead:hover .trip-lead__photo,
+.trip-plan:hover .trip-plan__photo {
+  transform: scale(1.075);
+}
+
+.trip-lead__top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.trip-lead__kicker,
+.trip-lead__countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.34rem;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* 白い文字を半透明の白に乗せると、明るい写真の上で消える(過去に同じ形で
+   「文字が見にくい」と言われている)。キッカーは必ず暗い面を敷く。 */
+.trip-lead__kicker {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(9, 19, 33, 0.52);
+  color: #fff;
+}
+
+/* 出発までの残り日数は、旅行中は「日目」に変わる。どちらもこのチップ1つで表す。 */
+.trip-lead__countdown {
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--hub-navy);
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-lead__name {
+  margin: 0.85rem 0 0;
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  line-height: 1.18;
+  text-shadow: 0 2px 22px rgba(0, 0, 0, 0.42);
+}
+
+.trip-lead__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.85rem;
+  margin: 0.45rem 0 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.98rem;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+}
+
+.trip-lead__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+/* 中身の3つ(予定・費用・持ち物)。旅行カードが「絵だけ」で終わらないように、
+   カードの中で実データを名乗らせる。数字は必ず全部出す(万で丸めない)。 */
+.trip-lead__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 1.05rem;
+}
+
+.trip-lead__stat {
+  min-width: 0;
+  padding: 0.62rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--hub-r-sm);
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.trip-lead__stat small {
+  display: block;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.trip-lead__stat strong {
+  display: block;
+  margin-top: 0.14rem;
+  overflow: hidden;
+  color: #fff;
+  font-size: 1.12rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 予算は金額と同じ行に置かない。スマホの3列だと「¥61,400…」で切れる。 */
+.trip-lead__stat b {
+  display: block;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.84rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
+}
+
+/* --- 2. これから行く旅行 -------------------------------------------------- */
+.trip-plan-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.8rem;
+}
+
+.trip-plan {
+  position: relative;
+  display: flex;
+  min-height: 12.5rem;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: var(--hub-r-lg);
+  background: #44576b;
+  box-shadow: var(--hub-shadow);
+  color: #fff;
+  text-decoration: none;
+}
+
+.trip-plan__photo {
+  position: absolute;
+  inset: 0;
+  background-position: center 52%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transform: scale(1.03);
+  transition: transform 900ms var(--hub-ease);
+}
+
+.trip-plan__veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13, 26, 42, 0.18) 0%, rgba(11, 22, 37, 0.32) 40%, rgba(9, 18, 31, 0.76) 72%, rgba(8, 16, 28, 0.92) 100%);
+}
+
+.trip-plan > *:not(.trip-plan__photo):not(.trip-plan__veil) {
+  position: relative;
+  z-index: 1;
+}
+
+.trip-plan__countdown {
+  align-self: flex-start;
+  padding: 0.28rem 0.66rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--hub-navy);
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.trip-plan__name {
+  margin: 0.7rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.42rem;
+  font-weight: 500;
+  line-height: 1.22;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.4);
+}
+
+.trip-plan__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.7rem;
+  margin: 0.34rem 0 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 0.92rem;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+}
+
+.trip-plan__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+/* --- 3. 終わった旅行 ------------------------------------------------------
+   アーカイブなので、これから行く旅行と同じ大きさを与えない。写真はサムネに
+   落として行で積む。面はHOMEのカードと同じ白ガラス1枚で包む。 */
+.trip-archive {
+  overflow: hidden;
+  border: 1px solid var(--hub-edge);
+  border-radius: var(--hub-r-lg);
+  background: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset), var(--hub-shadow);
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
+}
+
+.trip-archive__row {
+  display: grid;
+  align-items: center;
+  gap: 0.85rem;
+  grid-template-columns: 4.4rem minmax(0, 1fr) auto;
+  padding: 0.7rem 0.85rem;
+  color: var(--hub-ink);
+  text-decoration: none;
+  transition: background-color 200ms ease;
+}
+
+.trip-archive__row + .trip-archive__row {
+  border-top: 1px solid var(--hub-hairline);
+}
+
+.trip-archive__row:hover {
+  background: var(--hub-inset);
+}
+
+.trip-archive__thumb {
+  height: 3.3rem;
+  border-radius: var(--hub-r-sm);
+  background-position: center 52%;
+  background-size: cover;
+  background-repeat: no-repeat;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+  filter: saturate(0.62) contrast(0.94);
+}
+
+.trip-archive__copy {
+  min-width: 0;
+}
+
+.trip-archive__copy strong {
+  display: block;
+  overflow: hidden;
+  font-size: 1.04rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-archive__copy small {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.6rem;
+  margin-top: 0.12rem;
+  color: var(--hub-ink-2);
+  font-size: 0.88rem;
+}
+
+.trip-archive__copy small span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.24rem;
+  min-width: 0;
+}
+
+/* --- 削除 ----------------------------------------------------------------
+   カード全体がリンクなので、削除だけは中で前面に浮かせる。普段は引っ込んで
+   いて、カードに触れたときだけ出てくる(写真の情報量を削らないため)。 */
+.trip-remove {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 2;
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(12, 22, 38, 0.42);
+  color: rgba(255, 255, 255, 0.82);
+  opacity: 0;
+  transition: opacity 220ms ease, background-color 200ms ease, color 200ms ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.trip-remove:hover,
+.trip-remove:focus-visible {
+  background: rgba(197, 63, 85, 0.9);
+  color: #fff;
+}
+
+.trip-lead:hover .trip-remove,
+.trip-plan:hover .trip-remove,
+.trip-remove:focus-visible {
+  opacity: 1;
+}
+
+/* 触れて確かめられない端末では隠しておく意味が無いので、常時見せる。 */
+@media (hover: none) {
+  .trip-remove { opacity: 1; }
+}
+
+.trip-archive__remove {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--hub-ink-3);
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+.trip-archive__remove:hover,
+.trip-archive__remove:focus-visible {
+  background: rgba(197, 63, 85, 0.12);
+  color: var(--hub-red);
+}
+
+.trip-lead:focus-visible,
+.trip-plan:focus-visible,
+.trip-archive__row:focus-visible,
+.trip-remove:focus-visible,
+.trip-archive__remove:focus-visible {
+  outline: 3px solid var(--hub-blue);
+  outline-offset: 3px;
+}
+
+/* --------------------------------------------------------------------------
+   画面幅
+   -------------------------------------------------------------------------- */
+
+@media (min-width: 768px) {
+  .trip-plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1024px) {
+  .trips-board { gap: 1.4rem; }
+  .trip-lead { min-height: 24rem; padding: 1.7rem; }
+  .trip-lead__name { font-size: 2.55rem; }
+  .trip-lead__stats { max-width: 40rem; }
+  .trip-plan { min-height: 14rem; }
+  .trips-head h2 { font-size: 1.3rem; }
+}
+
+/* 画面が広いときだけ3列にする。狭い幅で3列にすると、作り直す前と同じ
+   「小さすぎるカード」に戻る。 */
+@media (min-width: 1440px) {
+  .trip-plan-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 400px) {
+  .trip-lead { min-height: 17.5rem; padding: 1.1rem; }
+  .trip-lead__name { font-size: 1.8rem; }
+  .trip-lead__stats { gap: 0.4rem; }
+  .trip-lead__stat { padding: 0.5rem 0.55rem; }
+  .trip-lead__stat small { font-size: 0.78rem; }
+  .trip-lead__stat strong { font-size: 0.98rem; }
+  .trip-lead__stat b { font-size: 0.76rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-lead__photo,
+  .trip-plan__photo {
+    transform: none !important;
+    transition: none !important;
+  }
+}

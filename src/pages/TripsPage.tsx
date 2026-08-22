@@ -3,12 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Plane, Plus } from "lucide-react";
 import { db } from "../db/schema";
-import type { TripStatus } from "../types";
+import type { Trip } from "../types";
+import { todayStr } from "../lib/date";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { Card } from "../components/ui/Card";
 import { TripForm } from "../components/trips/TripForm";
-import { TripCard } from "../components/trips/TripCard";
+import { TripLeadCard } from "../components/trips/TripLeadCard";
+import { TripPlanCard } from "../components/trips/TripPlanCard";
+import { TripArchiveList } from "../components/trips/TripArchiveList";
 import { useToast } from "../components/ui/ToastProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
@@ -23,11 +26,36 @@ export async function deleteTripCascade(tripId: string) {
   await db.trips.delete(tripId);
 }
 
-const STATUS_GROUPS: { status: TripStatus; label: string }[] = [
-  { status: "ongoing", label: "旅行中" },
-  { status: "planning", label: "計画中" },
-  { status: "completed", label: "完了済み" },
-];
+/**
+ * 一覧の並び。以前は「旅行中 / 計画中 / 完了済み」を同じ幅の3列に流していたが、
+ * 3列に割るとカードが小さくなって写真が主役になれず、旅行中が1件しか無いと
+ * その列だけが空のまま伸びていた。代わりに1件だけを大きく先頭に立てる:
+ *
+ *   lead     いま行っている旅行。無ければ、次に出発する旅行。
+ *   upcoming これから行く残り。近い順。
+ *   archive  終わった旅行。新しい順。
+ *
+ * 終わった旅行しか無いときは archive を先頭に置いても寂しいだけなので、その
+ * ときだけ最後の1件を lead に立てて画面が空で始まらないようにする。
+ */
+function splitTrips(trips: Trip[], today: string) {
+  const byStart = (a: Trip, b: Trip) => a.startDate.localeCompare(b.startDate);
+
+  const ongoing = trips.filter((trip) => trip.status === "ongoing").sort(byStart);
+  const planning = trips.filter((trip) => trip.status === "planning").sort(byStart);
+  const completed = trips.filter((trip) => trip.status === "completed").sort((a, b) => b.endDate.localeCompare(a.endDate));
+
+  // 出発済みのものより、これから出発するものを先に出す。
+  const upcomingFirst = [...planning].sort(
+    (a, b) => Number(a.startDate < today) - Number(b.startDate < today) || byStart(a, b),
+  );
+
+  const lead = ongoing[0] ?? upcomingFirst[0] ?? completed[0] ?? null;
+  const upcoming = [...ongoing.slice(1), ...upcomingFirst].filter((trip) => trip !== lead);
+  const archive = completed.filter((trip) => trip !== lead);
+
+  return { lead, upcoming, archive };
+}
 
 export default function TripsPage() {
   const navigate = useNavigate();
@@ -36,6 +64,8 @@ export default function TripsPage() {
   const tripsResult = useLiveQuery(() => db.trips.toArray(), []);
   const trips = tripsResult ?? [];
   const showSkeleton = useDelayedFlag(tripsResult === undefined);
+
+  const { lead, upcoming, archive } = splitTrips(trips, todayStr());
 
   function handleDelete(id: string) {
     deleteTripCascade(id);
@@ -76,21 +106,38 @@ export default function TripsPage() {
             </div>
           </Card>
         ) : (
-          <div className="destination-grid grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-            {STATUS_GROUPS.map(({ status, label }) => {
-              const group = trips.filter((t) => t.status === status);
-              if (group.length === 0) return null;
-              return (
-                <section key={status} className={`destination-column destination-column--${status}`}>
-                  <p className="destination-column__title mb-2 text-sm font-medium text-slate-600">{label}<span>{group.length}</span></p>
-                  <div className="space-y-3">
-                    {group.map((trip) => (
-                      <TripCard key={trip.id} trip={trip} onDelete={handleDelete} />
-                    ))}
+          <div className="trips-board">
+            {lead && <TripLeadCard trip={lead} onDelete={handleDelete} />}
+
+            {upcoming.length > 0 && (
+              <section className="trips-board__section">
+                <div data-page-block>
+                  <div className="trips-head">
+                    <h2>これから行く</h2>
+                    <span>{upcoming.length}</span>
                   </div>
-                </section>
-              );
-            })}
+                </div>
+                <div className="trip-plan-grid mt-2.5">
+                  {upcoming.map((trip) => (
+                    <TripPlanCard key={trip.id} trip={trip} onDelete={handleDelete} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {archive.length > 0 && (
+              <section className="trips-board__section">
+                <div data-page-block>
+                  <div className="trips-head">
+                    <h2>行ってきた</h2>
+                    <span>{archive.length}</span>
+                  </div>
+                </div>
+                <div className="mt-2.5">
+                  <TripArchiveList trips={archive} onDelete={handleDelete} />
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>

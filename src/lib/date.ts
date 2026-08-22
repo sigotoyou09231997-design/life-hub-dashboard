@@ -136,3 +136,28 @@ export function tripDurationLabel(startDate: string, endDate: string): string {
   if (nights <= 0) return "日帰り";
   return `${nights}泊${nights + 1}日`;
 }
+
+/**
+ * 旅行カードの右肩に出す一言。旅行一覧は「今どの旅行が近いか」を最初に答える
+ * べき画面なので、日付そのものより残り日数のほうが上に来る。
+ *
+ *   出発前   … あと3日 / 明日 / 今日から
+ *   旅行中   … 2日目
+ *   終わった … 空文字(アーカイブ側は日付だけを見せる)
+ */
+export function tripCountdownLabel(startDate: string, endDate: string, today: string = todayStr()): string {
+  const start = parseISO(startDate);
+  const end = parseISO(endDate);
+  const now = parseISO(today);
+  if (!isValid(start) || !isValid(now)) return "";
+
+  const untilStart = differenceInCalendarDays(start, now);
+  if (untilStart > 1) return `あと${untilStart}日`;
+  if (untilStart === 1) return "明日から";
+  if (untilStart === 0) return "今日から";
+
+  if (isValid(end) && differenceInCalendarDays(end, now) >= 0) {
+    return `${differenceInCalendarDays(now, start) + 1}日目`;
+  }
+  return "";
+}

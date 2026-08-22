@@ -38,7 +38,6 @@ const BLOCK_SELECTOR = [
   ".trip-detail-hero",
   ".mail-inbox-workspace",
   ".finance-ledger-workspace",
-  ".destination-column",
   ".glass-row",
   ".spatial-control",
   ".empty-state",
