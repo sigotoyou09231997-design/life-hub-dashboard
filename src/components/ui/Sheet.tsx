@@ -89,36 +89,30 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
 
   return (
     <div
-      className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center ${reserveBottomBar ? "bottom-[calc(env(safe-area-inset-bottom)+6.5rem)]" : "bottom-0"}`}
+      className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center lg:items-center lg:p-6 ${reserveBottomBar ? "bottom-[calc(env(safe-area-inset-bottom)+6.5rem)]" : "bottom-0"}`}
       role="dialog"
       aria-modal="true"
       aria-label={title}
     >
-      <div className="spatial-sheet-backdrop absolute inset-0 bg-slate-900/20 backdrop-blur-[2px] animate-fade-in motion-reduce:animate-none" onClick={onClose} aria-hidden />
+      <div className="spatial-sheet-backdrop absolute inset-0 animate-fade-in motion-reduce:animate-none" onClick={onClose} aria-hidden />
       <div
         ref={panelRef}
-        className={`glass-modal spatial-sheet relative z-10 flex w-full max-w-md flex-col animate-slide-up motion-reduce:animate-none lg:max-w-xl ${
-          compact ? "h-[55vh] max-h-[55vh]" : "max-h-[88vh]"
+        className={`glass-modal spatial-sheet sheet-panel relative z-10 flex w-full max-w-md flex-col animate-slide-up motion-reduce:animate-none lg:max-w-xl ${
+          compact ? "h-[55vh] max-h-[55vh]" : "max-h-[88vh] lg:max-h-[86vh]"
         }`}
       >
-        {compact && (
-          <div className="flex shrink-0 items-center justify-center pb-1 pt-2.5" aria-hidden="true">
-            <span className="h-1 w-9 rounded-full bg-slate-300/70" />
-          </div>
-        )}
-        <div className="flex shrink-0 items-center justify-between border-b border-white/40 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
-          <button
-            onClick={onClose}
-            aria-label="閉じる"
-            className="rounded-full p-1.5 text-slate-400 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-          >
-            <X size={20} />
+        {/* つまみはスマホだけ。PCではダイアログとして画面の真ん中に置くので、
+            下から引き上げる部品の名残を残さない(CSSで隠す)。 */}
+        <div className="sheet-grip shrink-0" aria-hidden="true">
+          <span />
+        </div>
+        <div className="sheet-head shrink-0">
+          <h2>{title}</h2>
+          <button type="button" onClick={onClose} aria-label="閉じる" className="sheet-close">
+            <X size={19} />
           </button>
         </div>
-        <div
-          className={`min-h-0 flex-1 overflow-y-auto px-5 py-5 ${reserveBottomBar ? "pb-5" : "pb-[calc(env(safe-area-inset-bottom)+1.25rem)]"}`}
-        >
+        <div className={`sheet-body min-h-0 flex-1 overflow-y-auto ${reserveBottomBar ? "!pb-5" : ""}`}>
           {children}
         </div>
       </div>

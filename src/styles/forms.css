@@ -1,0 +1,810 @@
+/* ==========================================================================
+   入力(シートの中のフォーム) — 2026-08
+
+   作り直す前の入力画面は、一覧画面と別のアプリに見えていた。原因は3つ:
+
+     1. 真っ白なシートの上に、白92%のフィールドを浮かべていた。境界が見えず、
+        どこが入力欄なのか輪郭で分からない。
+     2. すべての項目が同じ大きさの箱で縦に並ぶだけ。「旅行名(必須)」と
+        「メモ(任意)」が同じ格に見え、どこから埋めればいいのか分からない。
+     3. 日付とプルダウンがOSの素の部品のまま。日付は 08/22/2026 とアメリカ式で
+        出ていて、この app の他のどこにも無い見た目だった。
+
+   代わりに:
+
+     .form-panel   関係のある項目を1枚の白い面にまとめ、面と面のあいだで
+                   意味を切る。シートの地はうっすら沈ませて、面が浮いて見える。
+     .field        1項目 = 見出し + 入力 + 補足。任意の項目にはラベル横に印。
+     .field-shell  入力そのもの。地の上でへこんで見えるように内側に影を持つ。
+
+   色・角丸・影は hub.css の --hub-* をそのまま使う。
+   ========================================================================== */
+
+/* --- シートの地 ----------------------------------------------------------
+   白い面(パネル)を浮かせるために、シートの本体をわずかに沈ませる。 */
+.spatial-sheet .sheet-body,
+.glass-modal .sheet-body {
+  background: linear-gradient(180deg, rgba(232, 238, 246, 0.72), rgba(226, 234, 244, 0.86));
+}
+
+/* --- パネル --------------------------------------------------------------- */
+.form-panel {
+  overflow: hidden;
+  border: 1px solid var(--hub-edge);
+  border-radius: var(--hub-r-md);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--hub-shadow-inset), 0 12px 30px rgba(10, 24, 46, 0.07);
+}
+
+.form-panel__caption {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.45rem 0.7rem;
+  color: var(--hub-ink-2);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.form-panel__caption svg {
+  color: var(--hub-ink-3);
+}
+
+.form-panel__body > * + * {
+  border-top: 1px solid var(--hub-hairline);
+}
+
+/* --- 1項目 ---------------------------------------------------------------- */
+.field {
+  display: block;
+  padding: 0.78rem 0.9rem 0.85rem;
+}
+
+.field__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.42rem;
+}
+
+.field__label {
+  color: var(--hub-ink-2);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+/* 「(任意)」をラベル本文に混ぜると、項目名そのものが長くなって読みにくい。
+   印として切り離す。 */
+.field__optional {
+  padding: 0.06rem 0.42rem;
+  border-radius: 999px;
+  background: var(--hub-inset-2);
+  color: var(--hub-ink-3);
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.field__hint,
+.field__error {
+  margin-top: 0.38rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.field__hint { color: var(--hub-ink-3); }
+.field__error { color: var(--hub-red); font-weight: 600; }
+
+/* --- 入力そのもの --------------------------------------------------------
+   白い面の上の白い入力欄は輪郭が消える。地に対して「へこんでいる」ほうに寄せ、
+   触れる的として十分な高さ(3rem)を持たせる。 */
+.field-shell {
+  display: flex;
+  width: 100%;
+  min-height: 3rem;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.62rem 0.8rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-sm);
+  background: rgba(240, 244, 250, 0.9);
+  box-shadow: inset 0 1px 2px rgba(10, 24, 46, 0.055);
+  color: var(--hub-ink);
+  font-size: 1.02rem;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.field-shell::placeholder,
+.field-shell input::placeholder,
+.field-shell textarea::placeholder {
+  color: var(--hub-ink-3);
+}
+
+textarea.field-shell {
+  min-height: 5.4rem;
+  align-items: stretch;
+  line-height: 1.6;
+  resize: none;
+}
+
+.field-shell:hover:not(:disabled) {
+  border-color: rgba(23, 46, 78, 0.18);
+}
+
+.field-shell:focus,
+.field-shell:focus-visible,
+.field-shell:focus-within {
+  border-color: rgba(47, 90, 224, 0.55);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(47, 90, 224, 0.15);
+  outline: none;
+}
+
+.field.has-error .field-shell {
+  border-color: rgba(197, 63, 85, 0.55);
+  background: rgba(255, 246, 247, 0.95);
+}
+
+.field.has-error .field-shell:focus {
+  box-shadow: 0 0 0 3px rgba(197, 63, 85, 0.16);
+}
+
+/* 押して開くフィールド(日付・分類)。値が入っていないときは薄く。 */
+.field-shell--button {
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.field-shell--button.is-empty {
+  color: var(--hub-ink-3);
+}
+
+.field-shell--button svg {
+  flex: 0 0 auto;
+  color: var(--hub-ink-3);
+}
+
+.field-shell--button.is-open {
+  border-color: rgba(47, 90, 224, 0.55);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(47, 90, 224, 0.15);
+}
+
+/* --- 金額 ----------------------------------------------------------------
+   金額は桁が読めることが最優先。¥ を固定の飾りとして左に置き、数字は等幅で
+   大きく。万で丸めた表示は使わない(この app の決め事)。 */
+.field-shell--amount {
+  padding-block: 0.5rem;
+}
+
+.field-shell--amount > span {
+  color: var(--hub-ink-3);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.field-shell--amount input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--hub-ink);
+  font-size: 1.34rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+/* 数字入力のスピナーは、金額欄では邪魔なだけなので消す。 */
+.field-shell--amount input::-webkit-outer-spin-button,
+.field-shell--amount input::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+/* --- 選択肢が少ないものはプルダウンにしない ------------------------------
+   3〜4個の選択肢にOSのプルダウンを使うと、開くまで何が選べるのか分からない
+   うえに、OSの部品がそのまま出てこの app の見た目から外れる。 */
+.segmented {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.28rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-sm);
+  background: rgba(240, 244, 250, 0.9);
+  box-shadow: inset 0 1px 2px rgba(10, 24, 46, 0.055);
+}
+
+.segmented__option {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--hub-r-sm) - 4px);
+  color: var(--hub-ink-2);
+  font-size: 0.96rem;
+  font-weight: 600;
+  transition:
+    background-color 200ms var(--hub-ease),
+    color 200ms var(--hub-ease),
+    box-shadow 200ms var(--hub-ease),
+    transform 200ms var(--hub-ease);
+}
+
+.segmented__option:active { transform: scale(0.965); }
+
+.segmented__option[aria-pressed="true"] {
+  border-color: var(--hub-edge);
+  background: #fff;
+  color: var(--hub-blue);
+  box-shadow: 0 3px 10px rgba(10, 24, 46, 0.12);
+}
+
+.segmented__option:focus-visible {
+  outline: 3px solid var(--hub-blue);
+  outline-offset: 2px;
+}
+
+/* --- 日付 ----------------------------------------------------------------
+   OSの日付入力は使わない(表示形式がアメリカ式になり、この app のどこにも無い
+   見た目が出る)。押すと、その場でカレンダーが下に開く。別のシートを重ねない
+   のは、入力の途中で画面が積み上がると今どこを触っているのか分からなくなる
+   ため。 */
+.date-popover {
+  overflow: hidden;
+  margin-top: 0.5rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-md);
+  background: #fff;
+  box-shadow: 0 14px 34px rgba(10, 24, 46, 0.12);
+  animation: field-expand 260ms var(--hub-ease-out);
+}
+
+.date-popover__inner {
+  padding: 0.55rem 0.6rem 0.65rem;
+}
+
+.date-popover__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem 0.65rem;
+  border-top: 1px solid var(--hub-hairline);
+}
+
+.date-popover__today {
+  padding: 0.34rem 0.7rem;
+  border-radius: 999px;
+  background: var(--hub-inset-2);
+  color: var(--hub-ink-2);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.date-popover__done {
+  padding: 0.34rem 0.9rem;
+  border-radius: 999px;
+  background: var(--hub-blue);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+@keyframes field-expand {
+  from { opacity: 0; transform: translateY(-6px) scaleY(0.96); transform-origin: top; }
+  to { opacity: 1; transform: none; }
+}
+
+/* --- 期間(開始 → 終了)を1つの項目として見せる --------------------------- */
+.range-field {
+  display: grid;
+  align-items: stretch;
+  gap: 0.4rem;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+
+.range-field__arrow {
+  display: grid;
+  place-items: center;
+  color: var(--hub-ink-3);
+}
+
+.range-field__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  background: var(--hub-inset-2);
+  color: var(--hub-ink-2);
+  font-size: 0.86rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- 下に貼りつく操作 ----------------------------------------------------
+   各フォームが -mx-5 で自前の footer を作っていた。シート側の余白と噛み合わず
+   端が欠けることがあるので、1か所にまとめる。 */
+.form-actions {
+  position: sticky;
+  bottom: calc(env(safe-area-inset-bottom) * -1 - 1.25rem);
+  z-index: 2;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  margin: 0.2rem -1.15rem calc(env(safe-area-inset-bottom) * -1 - 1.25rem);
+  padding: 0.75rem 1.15rem calc(env(safe-area-inset-bottom) + 0.85rem);
+  border-top: 1px solid rgba(255, 255, 255, 0.6);
+  background: linear-gradient(180deg, rgba(236, 241, 248, 0.82), rgba(232, 238, 246, 0.97));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.form-actions--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* --- シートそのもの ------------------------------------------------------- */
+.sheet-grip {
+  display: grid;
+  padding: 0.55rem 0 0.15rem;
+  place-items: center;
+}
+
+.sheet-grip span {
+  width: 2.6rem;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: rgba(23, 46, 78, 0.18);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.55rem 1.15rem 0.8rem;
+}
+
+.sheet-head h2 {
+  min-width: 0;
+  color: var(--hub-ink);
+  font-family: var(--font-display);
+  font-size: 1.32rem;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+
+.sheet-close {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--hub-inset-2);
+  color: var(--hub-ink-2);
+  transition: background-color 200ms ease, color 200ms ease, transform 200ms var(--hub-ease);
+}
+
+.sheet-close:hover { background: rgba(18, 40, 72, 0.12); color: var(--hub-ink); }
+.sheet-close:active { transform: scale(0.92); }
+.sheet-close:focus-visible { outline: 3px solid var(--hub-blue); outline-offset: 2px; }
+
+.sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 1.15rem calc(env(safe-area-inset-bottom) + 1.25rem);
+}
+
+/* PCでは下端に貼りつく必要が無い。画面の真ん中に置いて、ダイアログとして扱う。 */
+@media (min-width: 1024px) {
+  .sheet-grip { display: none; }
+
+  .form-actions {
+    bottom: -1.25rem;
+    margin-bottom: -1.25rem;
+    padding-bottom: 1rem;
+  }
+
+  .sheet-body {
+    gap: 1.05rem;
+    padding: 1.15rem 1.4rem 1.25rem;
+  }
+
+  .sheet-head {
+    padding: 1.1rem 1.4rem 0.85rem;
+  }
+
+  .sheet-head h2 { font-size: 1.45rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .date-popover { animation: none; }
+}
+
+/* --- シートの器 ----------------------------------------------------------
+   スマホでは画面の下端に貼りつくので、下側の角は丸めない(丸めても画面の外で
+   切れるだけで、上端だけが浮いて見える)。PCでは四隅を丸めて中央に置く。 */
+/* 下に貼りつく操作(.form-actions)は器の端まで背景を伸ばすので、丸めた角から
+   はみ出さないように器の側で切る。 */
+.sheet-panel {
+  overflow: hidden;
+  border-bottom-right-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+@media (min-width: 1024px) {
+  .sheet-panel {
+    border-radius: var(--hub-r-xl) !important;
+    animation: sheet-zoom 320ms var(--hub-ease-out) !important;
+  }
+}
+
+@keyframes sheet-zoom {
+  from { opacity: 0; transform: translateY(14px) scale(0.975); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-panel { animation: none !important; }
+}
+
+/* --- フォームの中のカレンダー --------------------------------------------
+   予定画面のカレンダーは1日ぶんの中身まで見せる大きさだが、入力欄から開く
+   ものは日付を選ぶだけなので、同じ高さは要らない。 */
+.date-popover .spatial-calendar__cell {
+  min-height: 2.75rem !important;
+  gap: 0;
+  padding-block: 0.3rem;
+}
+
+.date-popover .spatial-calendar__cell > span:nth-child(2) {
+  display: none;
+}
+
+.date-popover .spatial-calendar__cell > span:last-child {
+  height: 0.85rem;
+  font-size: 0.62rem;
+  line-height: 0.85rem;
+}
+
+.date-popover .spatial-calendar__cell > span:first-child {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.94rem;
+}
+
+/* --- 入り切り ------------------------------------------------------------
+   素のチェックボックスはOSごとに見た目が変わり、的も小さい。行ごと押せる
+   スイッチにして、状態を形と色の両方で示す。 */
+.switch-field {
+  padding: 0;
+}
+
+.switch-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.8rem 0.9rem;
+  text-align: left;
+  transition: background-color 200ms ease;
+}
+
+.switch-row:hover { background: var(--hub-inset); }
+.switch-row:focus-visible { outline: 3px solid var(--hub-blue); outline-offset: -3px; }
+
+.switch-row__copy {
+  display: block;
+  min-width: 0;
+  flex: 1;
+}
+
+.switch-row__copy .field__hint {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.switch {
+  position: relative;
+  display: block;
+  width: 3.1rem;
+  height: 1.82rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(23, 46, 78, 0.16);
+  box-shadow: inset 0 1px 2px rgba(10, 24, 46, 0.12);
+  transition: background-color 240ms var(--hub-ease);
+}
+
+.switch__knob {
+  position: absolute;
+  top: 0.19rem;
+  left: 0.19rem;
+  width: 1.44rem;
+  height: 1.44rem;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(10, 24, 46, 0.28);
+  transition: transform 240ms var(--hub-ease);
+}
+
+[aria-checked="true"] .switch {
+  background: var(--hub-blue);
+}
+
+[aria-checked="true"] .switch__knob {
+  transform: translateX(1.28rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switch__knob { transition: none; }
+}
+
+/* --- 進み具合のつまみ ------------------------------------------------------ */
+.progress-field {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.progress-field input[type="range"] {
+  height: 1.6rem;
+  min-width: 0;
+  flex: 1;
+  accent-color: var(--hub-blue);
+}
+
+.progress-field strong {
+  min-width: 3.4rem;
+  color: var(--hub-ink);
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* --- 日記 ----------------------------------------------------------------- */
+.diary-today {
+  padding: 0.85rem 1rem 0.9rem;
+  border: 1px solid var(--hub-edge);
+  border-radius: var(--hub-r-md);
+  background: linear-gradient(150deg, rgba(16, 30, 53, 0.96), rgba(23, 44, 76, 0.94));
+  box-shadow: 0 14px 32px rgba(10, 24, 46, 0.16);
+  color: #fff;
+}
+
+.diary-today > span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.diary-today > div {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0.5rem;
+}
+
+.diary-today small {
+  display: block;
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.diary-today strong {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 1.06rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.mood-grid {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.mood-grid__option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.55rem 0.2rem 0.5rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-sm);
+  background: rgba(240, 244, 250, 0.9);
+  transition:
+    background-color 200ms var(--hub-ease),
+    border-color 200ms var(--hub-ease),
+    transform 200ms var(--hub-ease);
+}
+
+.mood-grid__option span { font-size: 1.35rem; line-height: 1.3; }
+.mood-grid__option small { color: var(--hub-ink-3); font-size: 0.76rem; font-weight: 700; }
+.mood-grid__option:active { transform: scale(0.95); }
+
+.mood-grid__option[aria-pressed="true"] {
+  border-color: rgba(47, 90, 224, 0.5);
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(10, 24, 46, 0.12);
+}
+
+.mood-grid__option[aria-pressed="true"] small { color: var(--hub-blue); }
+.mood-grid__option[aria-pressed="true"] span { transform: scale(1.12); }
+
+.rating-row {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.rating-row__step {
+  min-height: 2.7rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-sm);
+  background: rgba(240, 244, 250, 0.9);
+  color: var(--hub-ink-3);
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 200ms var(--hub-ease), color 200ms var(--hub-ease), transform 200ms var(--hub-ease);
+}
+
+.rating-row__step:active { transform: scale(0.95); }
+
+.rating-row__step[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--hub-blue);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(47, 90, 224, 0.28);
+}
+
+.mood-grid__option:focus-visible,
+.rating-row__step:focus-visible,
+.photo-add:focus-within {
+  outline: 3px solid var(--hub-blue);
+  outline-offset: 2px;
+}
+
+.photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+
+.photo-grid__item {
+  position: relative;
+  width: 4.4rem;
+  height: 4.4rem;
+  overflow: hidden;
+  border-radius: var(--hub-r-sm);
+  box-shadow: inset 0 0 0 1px var(--hub-hairline);
+}
+
+.photo-grid__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-grid__item button {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.2rem;
+  display: grid;
+  width: 1.4rem;
+  height: 1.4rem;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(10, 20, 34, 0.62);
+  color: #fff;
+}
+
+.photo-add {
+  display: inline-flex;
+  min-height: 2.7rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.95rem;
+  border: 1px dashed rgba(23, 46, 78, 0.24);
+  border-radius: var(--hub-r-sm);
+  background: rgba(240, 244, 250, 0.9);
+  color: var(--hub-ink-2);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+
+.photo-add:hover { border-color: rgba(47, 90, 224, 0.45); background: #fff; }
+.photo-add input { display: none; }
+
+/* --- 選ぶだけのシート ----------------------------------------------------- */
+.choice-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.choice-grid__option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 1.15rem 0.7rem 1.05rem;
+  border: 1px solid var(--hub-edge);
+  border-radius: var(--hub-r-md);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--hub-shadow-inset), 0 12px 30px rgba(10, 24, 46, 0.08);
+  color: var(--hub-ink);
+  transition: transform 220ms var(--hub-ease), box-shadow 220ms var(--hub-ease);
+}
+
+.choice-grid__option:hover { box-shadow: var(--hub-shadow-inset), 0 16px 38px rgba(10, 24, 46, 0.14); }
+.choice-grid__option:active { transform: scale(0.97); }
+.choice-grid__option:focus-visible { outline: 3px solid var(--hub-blue); outline-offset: 2px; }
+
+.choice-grid__icon {
+  display: grid;
+  width: 2.9rem;
+  height: 2.9rem;
+  place-items: center;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset-2);
+  color: var(--hub-blue);
+}
+
+.choice-grid__option strong { margin-top: 0.35rem; font-size: 1.06rem; font-weight: 700; }
+.choice-grid__option small { color: var(--hub-ink-3); font-size: 0.85rem; }
+
+/* --- 買い物リストの合計 --------------------------------------------------- */
+.shopping-total {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--hub-edge);
+  border-radius: var(--hub-r-md);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--hub-shadow-inset), 0 12px 30px rgba(10, 24, 46, 0.07);
+}
+
+.shopping-total small {
+  display: block;
+  color: var(--hub-ink-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.shopping-total strong {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--hub-ink);
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.shopping-total strong.is-done { color: var(--hub-green); }
+
+.choice-grid--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.choice-grid--three .choice-grid__option { padding-inline: 0.4rem; }
+.choice-grid--three .choice-grid__option strong { font-size: 0.98rem; }

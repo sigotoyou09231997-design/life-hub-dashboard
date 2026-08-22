@@ -70,6 +70,15 @@ export function formatDisplayDate(dateStr: string): string {
   return format(d, "M月d日(E)", { locale: ja });
 }
 
+/** 期間(開始→終了)を横に2つ並べる入力欄のための日付。formatDisplayDate の
+ * "8月22日(土)" は幅の狭い端末で2つ並べると切れ、formatCompactDate の
+ * 「今日/明日」は日付を選んでいる最中に出ると何日か分からなくなる。 */
+export function formatShortDate(dateStr: string): string {
+  const d = parseISO(dateStr);
+  if (!isValid(d)) return dateStr;
+  return format(d, "M/d(E)", { locale: ja });
+}
+
 /** 一覧の行に載せるための短い日付。formatDisplayDate("8月21日(金)")は見出し向けで、
  * バッジのように横幅が限られる場所では長すぎて折り返しの原因になるため、
  * 今日・明日・昨日は言葉に、同年は "M/d(曜)"、それ以外の年だけ年を付ける。 */

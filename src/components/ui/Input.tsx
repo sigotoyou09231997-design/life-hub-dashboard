@@ -1,42 +1,44 @@
-import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
+import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import { Field } from "./Field";
 
-interface FieldWrapperProps {
+interface Common {
   label?: string;
-  children: React.ReactNode;
+  optional?: boolean;
+  hint?: ReactNode;
+  error?: ReactNode;
 }
 
-function FieldWrapper({ label, children }: FieldWrapperProps) {
+interface InputProps extends InputHTMLAttributes<HTMLInputElement>, Common {}
+
+export function Input({ label, optional, hint, error, className = "", ...props }: InputProps) {
   return (
-    <label className="block">
-      {label && <span className="mb-1.5 block text-sm font-medium text-slate-600">{label}</span>}
-      {children}
-    </label>
+    <Field label={label} optional={optional} hint={hint} error={error}>
+      <input className={`field-shell ${className}`} {...props} />
+    </Field>
   );
 }
 
-const fieldClasses =
-  "spatial-field w-full min-h-11 rounded-[2px] border border-white/55 bg-white/32 px-3.5 py-2.5 text-base text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,.55)] outline-none placeholder:text-slate-400 focus:border-accent/60 focus:bg-white/55 focus:ring-2 focus:ring-accent/15";
+interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement>, Common {}
 
-interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-}
-
-export function Input({ label, className = "", ...props }: InputProps) {
+export function Textarea({ label, optional, hint, error, className = "", ...props }: TextareaProps) {
   return (
-    <FieldWrapper label={label}>
-      <input className={`${fieldClasses} ${className}`} {...props} />
-    </FieldWrapper>
+    <Field label={label} optional={optional} hint={hint} error={error}>
+      <textarea className={`field-shell ${className}`} {...props} />
+    </Field>
   );
 }
 
-interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label?: string;
-}
+interface AmountProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "type">, Common {}
 
-export function Textarea({ label, className = "", ...props }: TextareaProps) {
+/** 金額専用。¥ を固定の飾りとして持ち、数字は等幅で大きく出す。金額を
+ *  「17万」のように丸めて表示しないのはこの app の決め事。 */
+export function AmountInput({ label, optional, hint, error, className = "", ...props }: AmountProps) {
   return (
-    <FieldWrapper label={label}>
-      <textarea className={`${fieldClasses} resize-none ${className}`} {...props} />
-    </FieldWrapper>
+    <Field label={label} optional={optional} hint={hint} error={error}>
+      <span className="field-shell field-shell--amount">
+        <span aria-hidden="true">¥</span>
+        <input type="number" inputMode="numeric" className={className} {...props} />
+      </span>
+    </Field>
   );
 }

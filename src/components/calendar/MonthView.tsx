@@ -60,6 +60,7 @@ export function MonthView({
     <div className="spatial-calendar">
       <div className="mb-3 flex items-center justify-between">
         <button
+          type="button"
           onClick={() => onMonthChange(subMonths(currentMonth, 1))}
           className="rounded-full p-2 text-slate-400 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           aria-label="前の月"
@@ -68,6 +69,7 @@ export function MonthView({
         </button>
         <p className="text-sm font-semibold text-slate-900">{formatMonthTitle(currentMonth)}</p>
         <button
+          type="button"
           onClick={() => onMonthChange(addMonths(currentMonth, 1))}
           className="rounded-full p-2 text-slate-400 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           aria-label="次の月"
@@ -98,6 +100,7 @@ export function MonthView({
           return (
             <button
               key={dateStr}
+              type="button"
               onClick={() => !disabled && onSelectDate(dateStr)}
               disabled={disabled}
               title={disabled ? `${minDate}以降のみ選択できます` : holidayName}

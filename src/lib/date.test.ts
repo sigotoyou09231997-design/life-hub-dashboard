@@ -6,6 +6,7 @@ import {
   tripDurationLabel,
   tripCountdownLabel,
   formatCompactDate,
+  formatShortDate,
 } from "./date";
 
 describe("isOverdue", () => {
@@ -178,5 +179,17 @@ describe("tripCountdownLabel", () => {
   it("says nothing once the trip is over, or when the dates are unusable", () => {
     expect(tripCountdownLabel("2026-08-10", "2026-08-12", today)).toBe("");
     expect(tripCountdownLabel("いつか", "2026-08-25", today)).toBe("");
+  });
+});
+
+describe("formatShortDate", () => {
+  it("keeps the weekday but drops the 月日 characters, so two fit side by side", () => {
+    expect(formatShortDate("2026-08-22")).toBe("8/22(土)");
+    expect(formatShortDate("2026-12-05")).toBe("12/5(土)");
+  });
+
+  it("passes an unparseable value through untouched", () => {
+    expect(formatShortDate("")).toBe("");
+    expect(formatShortDate("いつか")).toBe("いつか");
   });
 });
