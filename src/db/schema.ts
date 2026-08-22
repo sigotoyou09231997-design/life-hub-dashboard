@@ -5,10 +5,6 @@ import type {
   CalendarEvent,
   Task,
   Note,
-  DiaryEntry,
-  Goal,
-  Habit,
-  HabitLog,
   Settings,
   PayPayLedgerEntry,
   SalaryEntry,
@@ -42,9 +38,9 @@ interface TableSchema {
   hasUpdatedAt: boolean;
 }
 
-/** Drives the v6-v9 UUID-migration chain below and the app's runtime table list.
- * Adding a table here only affects the *shape* of the migration — it does not
- * enroll the table in sync (see src/lib/sync.ts's registerSyncedTable calls). */
+/** The app's runtime table list: drives the UUID/updatedAt hooks at the bottom of
+ * the constructor. Adding a table here does not enroll it in sync (see
+ * src/lib/sync.ts's registerSyncedTable calls). */
 const TABLE_SCHEMAS: TableSchema[] = [
   { name: "transactions", indexes: "type, date, category, externalId", fks: [], hasUpdatedAt: true },
   { name: "fixedCosts", indexes: "", fks: [], hasUpdatedAt: true },
@@ -56,15 +52,6 @@ const TABLE_SCHEMAS: TableSchema[] = [
     hasUpdatedAt: true,
   },
   { name: "notes", indexes: "*tags", fks: [], hasUpdatedAt: true },
-  { name: "diaryEntries", indexes: "date", fks: [], hasUpdatedAt: true },
-  { name: "goals", indexes: "deadline", fks: [], hasUpdatedAt: true },
-  { name: "habits", indexes: "", fks: [], hasUpdatedAt: true },
-  {
-    name: "habitLogs",
-    indexes: "habitId, date, [habitId+date]",
-    fks: [{ field: "habitId", refTable: "habits" }],
-    hasUpdatedAt: true,
-  },
   { name: "settings", indexes: "", fks: [], hasUpdatedAt: false },
   { name: "paypayTransactions", indexes: "externalId, importedAt", fks: [], hasUpdatedAt: true },
   { name: "salaries", indexes: "month", fks: [], hasUpdatedAt: true },
@@ -90,6 +77,26 @@ const TABLE_SCHEMAS: TableSchema[] = [
   },
 ];
 
+/** 日記・目標・習慣で使っていた、v11で削除済みのテーブル。もう画面も型も無いが、
+ * v6-v9のUUID移行チェーンはこの4つを含んだ当時の形のまま再現しないといけない —
+ * ここから外すと、v8で主キーを文字列idに作り直した実DBに対して、Dexieがv1の
+ * `++id`(自動採番の数値)を突き合わせて「主キーの変更は未サポート」で開けなくなる。
+ * v11の削除もチェーンを最後まで通ってからでないと効かないため、履歴として残す。 */
+const RETIRED_TABLE_SCHEMAS: TableSchema[] = [
+  { name: "diaryEntries", indexes: "date", fks: [], hasUpdatedAt: true },
+  { name: "goals", indexes: "deadline", fks: [], hasUpdatedAt: true },
+  { name: "habits", indexes: "", fks: [], hasUpdatedAt: true },
+  {
+    name: "habitLogs",
+    indexes: "habitId, date, [habitId+date]",
+    fks: [{ field: "habitId", refTable: "habits" }],
+    hasUpdatedAt: true,
+  },
+];
+
+/** v6-v9のUUID移行チェーンが見るテーブル一覧(当時存在した全テーブル)。 */
+const MIGRATION_TABLE_SCHEMAS: TableSchema[] = [...TABLE_SCHEMAS, ...RETIRED_TABLE_SCHEMAS];
+
 function withStringId(indexes: string): string {
   return indexes ? `id, ${indexes}` : "id";
 }
@@ -103,7 +110,7 @@ function withStringId(indexes: string): string {
 async function migrateToUuidIds(tx: DexieTransaction): Promise<void> {
   const idMaps = new Map<string, Map<number, string>>();
 
-  for (const schema of TABLE_SCHEMAS) {
+  for (const schema of MIGRATION_TABLE_SCHEMAS) {
     const rows: Record<string, unknown>[] = await tx.table(schema.name).toArray();
     const map = new Map<number, string>();
     for (const row of rows) {
@@ -112,7 +119,7 @@ async function migrateToUuidIds(tx: DexieTransaction): Promise<void> {
     idMaps.set(schema.name, map);
   }
 
-  for (const schema of TABLE_SCHEMAS) {
+  for (const schema of MIGRATION_TABLE_SCHEMAS) {
     const rows: Record<string, unknown>[] = await tx.table(schema.name).toArray();
     if (rows.length === 0) continue;
     const remapped = rows.map((row) => {
@@ -133,10 +140,6 @@ export class LifeHubDB extends Dexie {
   calendarEvents!: EntityTable<CalendarEvent, "id">;
   tasks!: EntityTable<Task, "id">;
   notes!: EntityTable<Note, "id">;
-  diaryEntries!: EntityTable<DiaryEntry, "id">;
-  goals!: EntityTable<Goal, "id">;
-  habits!: EntityTable<Habit, "id">;
-  habitLogs!: EntityTable<HabitLog, "id">;
   settings!: EntityTable<Settings, "id">;
   paypayTransactions!: EntityTable<PayPayLedgerEntry, "id">;
   salaries!: EntityTable<SalaryEntry, "id">;
@@ -196,7 +199,7 @@ export class LifeHubDB extends Dexie {
     // サポートしないため、並行テーブル(_v2)へコピー→旧テーブル削除→本来の名前で再作成→_v2削除、
     // という4バージョンの連続移行にする(ユーザーには初回起動時の一瞬の処理として見えるだけ)。
     const v2Stores: Record<string, string> = { syncQueue: "++id, [table+rowId]" };
-    for (const schema of TABLE_SCHEMAS) {
+    for (const schema of MIGRATION_TABLE_SCHEMAS) {
       v2Stores[`${schema.name}_v2`] = withStringId(schema.indexes);
     }
     this.version(6)
@@ -204,30 +207,42 @@ export class LifeHubDB extends Dexie {
       .upgrade((tx) => migrateToUuidIds(tx));
 
     const dropOriginals: Record<string, null> = {};
-    for (const schema of TABLE_SCHEMAS) dropOriginals[schema.name] = null;
+    for (const schema of MIGRATION_TABLE_SCHEMAS) dropOriginals[schema.name] = null;
     this.version(7).stores(dropOriginals);
 
     const recreatedStores: Record<string, string> = {};
-    for (const schema of TABLE_SCHEMAS) recreatedStores[schema.name] = withStringId(schema.indexes);
+    for (const schema of MIGRATION_TABLE_SCHEMAS) recreatedStores[schema.name] = withStringId(schema.indexes);
     this.version(8)
       .stores(recreatedStores)
       .upgrade(async (tx) => {
-        for (const schema of TABLE_SCHEMAS) {
+        for (const schema of MIGRATION_TABLE_SCHEMAS) {
           const rows = await tx.table(`${schema.name}_v2`).toArray();
           if (rows.length) await tx.table(schema.name).bulkAdd(rows);
         }
       });
 
     const dropV2: Record<string, null> = {};
-    for (const schema of TABLE_SCHEMAS) dropV2[`${schema.name}_v2`] = null;
+    for (const schema of MIGRATION_TABLE_SCHEMAS) dropV2[`${schema.name}_v2`] = null;
     this.version(9).stores(dropV2);
 
     // ブロックした送信者(このアプリ内でのみ受信一覧から除外、Gmail本体には影響しない)。
-    // TABLE_SCHEMASには加えない — その配列はv6-v9のUUID移行チェーンにも使われており、
+    // TABLE_SCHEMASには加えない — その配列はMIGRATION_TABLE_SCHEMAS経由でv6-v9のUUID
+    // 移行チェーンにも流れ込んでおり、
     // 追加すると新規インストール時にそのチェーンがこのテーブルをまだ存在しない時点で
     // 参照してしまう。UUID採番フックはこのテーブル専用に個別登録する。
     this.version(10).stores({
       blockedSenders: "id, accountId, email, [accountId+email]",
+    });
+
+    // 日記・目標・習慣を廃止(画面ごと削除)したので、その4テーブルを落として端末から
+    // データも消す。移行チェーン(v6-v9)は当時の形のままRETIRED_TABLE_SCHEMASを含めて
+    // 走らせ、最後にここで削除する — チェーンから外すとDexieが主キーの不一致を見て
+    // DBごと開けなくなる(RETIRED_TABLE_SCHEMASのコメント参照)。
+    this.version(11).stores({
+      diaryEntries: null,
+      goals: null,
+      habits: null,
+      habitLogs: null,
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

@@ -20,8 +20,8 @@ vi.mock("./lib/pushNotifications", () => ({ clearShownPushNotifications: vi.fn()
 vi.mock("./db/schema", () => ({
   ensureDefaultSettings: vi.fn(),
   db: {
-    transactions: {}, fixedCosts: {}, calendarEvents: {}, tasks: {}, notes: {}, goals: {}, habits: {},
-    habitLogs: {}, salaries: {}, trips: {}, tripSchedule: {}, tripExpenses: {}, tripPackingItems: {}, paypayTransactions: {},
+    transactions: {}, fixedCosts: {}, calendarEvents: {}, tasks: {}, notes: {},
+    salaries: {}, trips: {}, tripSchedule: {}, tripExpenses: {}, tripPackingItems: {}, paypayTransactions: {},
   },
 }));
 vi.mock("./pages/AuthGatePage", () => ({ default: () => <div>Login gate</div> }));

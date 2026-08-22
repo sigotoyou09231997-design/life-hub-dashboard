@@ -146,55 +146,6 @@ export interface Note {
   userId?: string;
 }
 
-export type Mood = "great" | "good" | "okay" | "bad" | "terrible";
-
-export interface DiaryEntry {
-  id?: string;
-  date: string; // YYYY-MM-DD
-  content: string;
-  photos: Blob[];
-  mood: Mood;
-  satisfaction: number; // 1-5
-  createdAt: number;
-  updatedAt?: number;
-  deviceId?: string;
-  userId?: string;
-}
-
-export interface Goal {
-  id?: string;
-  title: string;
-  deadline?: string; // YYYY-MM-DD
-  progress: number; // 0-100
-  category?: string;
-  targetAmount?: number;
-  currentAmount?: number;
-  createdAt: number;
-  updatedAt?: number;
-  deviceId?: string;
-  userId?: string;
-}
-
-export interface Habit {
-  id?: string;
-  title: string;
-  active: boolean;
-  createdAt: number;
-  updatedAt?: number;
-  deviceId?: string;
-  userId?: string;
-}
-
-export interface HabitLog {
-  id?: string;
-  habitId: string;
-  date: string; // YYYY-MM-DD
-  done: boolean;
-  updatedAt?: number;
-  deviceId?: string;
-  userId?: string;
-}
-
 export type TripStatus = "planning" | "ongoing" | "completed";
 
 export interface Trip {

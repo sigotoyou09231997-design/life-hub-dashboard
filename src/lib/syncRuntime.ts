@@ -16,9 +16,6 @@ function loadSyncModule(): Promise<SyncModule> {
         module.registerSyncedTable(db.calendarEvents, "calendar_events");
         module.registerSyncedTable(db.tasks, "tasks");
         module.registerSyncedTable(db.notes, "notes");
-        module.registerSyncedTable(db.goals, "goals");
-        module.registerSyncedTable(db.habits, "habits");
-        module.registerSyncedTable(db.habitLogs, "habit_logs");
         module.registerSyncedTable(db.salaries, "salaries");
         module.registerSyncedTable(db.trips, "trips");
         module.registerSyncedTable(db.tripSchedule, "trip_schedule");
