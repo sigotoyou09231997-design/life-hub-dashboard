@@ -2,8 +2,12 @@ import { useState } from "react";
 import { db } from "../../db/schema";
 import type { TripExpense, TripExpenseCategory } from "../../types";
 import { TRIP_EXPENSE_CATEGORIES } from "../../lib/tripCategories";
-import { Input, Textarea } from "../ui/Input";
+import { Input, Textarea, AmountInput } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { SwitchField } from "../ui/SwitchField";
+import { DateField } from "../ui/DateField";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 
 interface Props {
@@ -49,44 +53,47 @@ export function TripExpenseForm({ tripId, initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="項目名" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-      <Input
-        label="金額"
-        type="number"
-        inputMode="numeric"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        required
-        min={1}
-      />
-      <Select label="種類" value={category} onChange={(e) => setCategory(e.target.value as TripExpenseCategory)}>
-        {TRIP_EXPENSE_CATEGORIES.map((c) => (
-          <option key={c.value} value={c.value}>
-            {c.label}
-          </option>
-        ))}
-      </Select>
-      <Input label="支払日(任意)" type="date" value={paidDate} onChange={(e) => setPaidDate(e.target.value)} />
-      <label className="flex items-center gap-2 text-sm text-slate-600">
-        <input
-          type="checkbox"
-          checked={paid}
-          onChange={(e) => setPaid(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel caption="何にいくら">
+        <Input
+          label="項目名"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 航空券"
+          required
+          autoFocus
         />
-        支払い済み
-      </label>
-      <Textarea label="メモ" value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} placeholder="任意" />
+        <AmountInput
+          label="金額"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          required
+          min={1}
+          placeholder="0"
+        />
+        <Select label="種類" value={category} onChange={(e) => setCategory(e.target.value as TripExpenseCategory)}>
+          {TRIP_EXPENSE_CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </Select>
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormPanel caption="支払い">
+        <SwitchField label="支払い済み" checked={paid} onChange={setPaid} />
+        <DateField label="支払日" optional value={paidDate} onChange={setPaidDate} placeholder="まだ決めていない" />
+        <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
+      </FormPanel>
+
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "費用を追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

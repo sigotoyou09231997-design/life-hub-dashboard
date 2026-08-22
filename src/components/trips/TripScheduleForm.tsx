@@ -2,8 +2,12 @@ import { useState } from "react";
 import { db } from "../../db/schema";
 import type { TripScheduleItem, TripScheduleType } from "../../types";
 import { TRIP_SCHEDULE_TYPES } from "../../lib/tripCategories";
+import { MapPinned } from "lucide-react";
 import { Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { DateField } from "../ui/DateField";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 
 interface Props {
@@ -49,30 +53,52 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="タイトル" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="日付" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-        <Input label="開始時刻(任意)" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-      </div>
-      <Select label="種類" value={type} onChange={(e) => setType(e.target.value as TripScheduleType)}>
-        {TRIP_SCHEDULE_TYPES.map((t) => (
-          <option key={t.value} value={t.value}>
-            {t.label}
-          </option>
-        ))}
-      </Select>
-      <Input label="場所" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="任意" />
-      <Textarea label="メモ" value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} placeholder="任意" />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel caption="何をする" icon={MapPinned}>
+        <Input
+          label="タイトル"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 五稜郭"
+          required
+          autoFocus
+        />
+        <Select label="種類" value={type} onChange={(e) => setType(e.target.value as TripScheduleType)}>
+          {TRIP_SCHEDULE_TYPES.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </Select>
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormPanel caption="いつ・どこで">
+        <DateField label="日付" value={date} onChange={setDate} />
+        <Input
+          label="開始時刻"
+          optional
+          type="time"
+          value={startTime}
+          onChange={(e) => setStartTime(e.target.value)}
+        />
+        <Input
+          label="場所"
+          optional
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="例: 函館市元町"
+        />
+        <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
+      </FormPanel>
+
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "予定を追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

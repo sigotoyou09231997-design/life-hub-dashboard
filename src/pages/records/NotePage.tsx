@@ -77,20 +77,24 @@ export default function NotePage() {
       </div>
 
       <Sheet open={addTypeOpen} onClose={() => setAddTypeOpen(false)} title="何を追加しますか?">
-        <div className="grid grid-cols-3 gap-3">
+        {/* 選ぶだけの画面なので、入力欄と同じ面ではなく「押す的」として見せる。 */}
+        <div className="choice-grid choice-grid--three">
           {NOTE_TYPE_DEFS.map((def) => {
             const Icon = def.icon;
             return (
               <button
                 key={def.value}
+                type="button"
                 onClick={() => {
                   setAddTypeOpen(false);
                   setEditing({ mode: "new", type: def.value });
                 }}
-                className="flex flex-col items-center gap-2 rounded-2xl glass-row py-5 active:bg-white/70"
+                className="choice-grid__option"
               >
-                <Icon size={24} className="text-accent" />
-                <span className="text-xs font-medium text-slate-700">{def.label}</span>
+                <span className="choice-grid__icon">
+                  <Icon size={22} />
+                </span>
+                <strong>{def.label}</strong>
               </button>
             );
           })}

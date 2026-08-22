@@ -2,6 +2,8 @@ import { useState } from "react";
 import { db } from "../../db/schema";
 import type { Habit } from "../../types";
 import { Input } from "../ui/Input";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 
 interface Props {
@@ -35,23 +37,27 @@ export function HabitForm({ initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input
-        label="習慣"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        placeholder="例: 毎日30分運動する"
-        required
-        autoFocus
-      />
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel>
+        <Input
+          label="続けたいこと"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 毎日30分歩く"
+          hint="毎日チェックして、続いた日数を数えます。"
+          required
+          autoFocus
+        />
+      </FormPanel>
+
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "習慣を追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

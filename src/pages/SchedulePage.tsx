@@ -162,26 +162,35 @@ export default function SchedulePage() {
       </div>
 
       <Sheet open={addTypeOpen} onClose={() => setAddTypeOpen(false)} title="何を追加しますか?">
-        <div className="grid grid-cols-2 gap-3">
+        {/* 選ぶだけの画面なので、入力欄と同じ面ではなく「押す的」として見せる。 */}
+        <div className="choice-grid">
           <button
+            type="button"
             onClick={() => {
               setAddTypeOpen(false);
               setEditingEvent("new");
             }}
-            className="flex flex-col items-center gap-2 rounded-2xl glass-row py-5 active:bg-white/70"
+            className="choice-grid__option"
           >
-            <CalendarIcon size={24} className="text-accent" />
-            <span className="text-sm font-medium text-slate-700">予定</span>
+            <span className="choice-grid__icon">
+              <CalendarIcon size={22} />
+            </span>
+            <strong>予定</strong>
+            <small>時間が決まっているもの</small>
           </button>
           <button
+            type="button"
             onClick={() => {
               setAddTypeOpen(false);
               setEditingTask({ mode: "new" });
             }}
-            className="flex flex-col items-center gap-2 rounded-2xl glass-row py-5 active:bg-white/70"
+            className="choice-grid__option"
           >
-            <CheckSquare size={24} className="text-accent" />
-            <span className="text-sm font-medium text-slate-700">タスク</span>
+            <span className="choice-grid__icon">
+              <CheckSquare size={22} />
+            </span>
+            <strong>タスク</strong>
+            <small>終わらせたいこと</small>
           </button>
         </div>
       </Sheet>

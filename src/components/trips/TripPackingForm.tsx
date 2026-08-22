@@ -4,6 +4,8 @@ import type { TripPackingItem, TripPackingCategory } from "../../types";
 import { TRIP_PACKING_CATEGORIES } from "../../lib/tripCategories";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 
 interface Props {
@@ -41,28 +43,37 @@ export function TripPackingForm({ tripId, initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="持ち物" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-      <Select
-        label="カテゴリ"
-        value={category}
-        onChange={(e) => setCategory(e.target.value as TripPackingCategory)}
-      >
-        {TRIP_PACKING_CATEGORIES.map((c) => (
-          <option key={c.value} value={c.value}>
-            {c.label}
-          </option>
-        ))}
-      </Select>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel>
+        <Input
+          label="持ち物"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 充電器"
+          required
+          autoFocus
+        />
+        <Select
+          label="カテゴリ"
+          value={category}
+          onChange={(e) => setCategory(e.target.value as TripPackingCategory)}
+        >
+          {TRIP_PACKING_CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </Select>
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "持ち物を追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

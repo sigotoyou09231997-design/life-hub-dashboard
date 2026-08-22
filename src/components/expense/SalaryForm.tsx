@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { db } from "../../db/schema";
 import type { SalaryEntry } from "../../types";
-import { Input } from "../ui/Input";
+import { Input, AmountInput } from "../ui/Input";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 
 interface Props {
@@ -53,36 +55,41 @@ export function SalaryForm({ initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="対象月" type="month" value={month} onChange={(e) => setMonth(e.target.value)} required />
-      <Input
-        label="給料日(毎月)"
-        type="number"
-        inputMode="numeric"
-        value={payday}
-        onChange={(e) => setPayday(e.target.value)}
-        min={1}
-        max={31}
-      />
-      <Input
-        label="給与額"
-        type="number"
-        inputMode="numeric"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        required
-        min={1}
-      />
-      {error && <p className="text-sm text-danger">{error}</p>}
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel caption="いつの給与">
+        <Input label="対象月" type="month" value={month} onChange={(e) => setMonth(e.target.value)} required />
+        <Input
+          label="給料日"
+          hint="毎月この日に振り込まれるものとして、使えるお金を数えます。"
+          type="number"
+          inputMode="numeric"
+          value={payday}
+          onChange={(e) => setPayday(e.target.value)}
+          min={1}
+          max={31}
+        />
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormPanel caption="いくら">
+        <AmountInput
+          label="手取り額"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          required
+          min={1}
+          placeholder="0"
+          error={error}
+        />
+      </FormPanel>
+
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "給与を登録"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

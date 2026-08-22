@@ -2,8 +2,11 @@ import { useState } from "react";
 import { db } from "../../db/schema";
 import type { FixedCost } from "../../types";
 import { FIXED_COST_CATEGORIES } from "../../lib/categories";
-import { Input } from "../ui/Input";
+import { Input, AmountInput } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { SwitchField } from "../ui/SwitchField";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 
 interface Props {
@@ -44,51 +47,60 @@ export function FixedCostForm({ initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="項目名" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="例: 家賃" required />
-      <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value)}>
-        {FIXED_COST_CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </Select>
-      <Input
-        label="毎月の金額"
-        type="number"
-        inputMode="numeric"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        required
-        min={1}
-      />
-      <Input
-        label="支払い日(毎月)"
-        type="number"
-        inputMode="numeric"
-        value={dueDay}
-        onChange={(e) => setDueDay(e.target.value)}
-        min={1}
-        max={31}
-      />
-      <label className="flex items-center gap-2 text-sm text-slate-600">
-        <input
-          type="checkbox"
-          checked={active}
-          onChange={(e) => setActive(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel caption="何の支払い">
+        <Input
+          label="項目名"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 家賃"
+          required
+          autoFocus
         />
-        現在も発生している固定費
-      </label>
+        <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value)}>
+          {FIXED_COST_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormPanel caption="いくら・いつ">
+        <AmountInput
+          label="毎月の金額"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          required
+          min={1}
+          placeholder="0"
+        />
+        <Input
+          label="支払い日"
+          hint="毎月この日に引き落とされるものとして数えます。"
+          type="number"
+          inputMode="numeric"
+          value={dueDay}
+          onChange={(e) => setDueDay(e.target.value)}
+          min={1}
+          max={31}
+        />
+        <SwitchField
+          label="いまも発生している"
+          hint="切ると、これからの計算に入れなくなります(記録は残ります)。"
+          checked={active}
+          onChange={setActive}
+        />
+      </FormPanel>
+
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "固定費を追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

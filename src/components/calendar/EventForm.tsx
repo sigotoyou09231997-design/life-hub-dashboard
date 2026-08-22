@@ -1,9 +1,15 @@
 import { useState } from "react";
+import { CalendarDays, Tag } from "lucide-react";
 import { db } from "../../db/schema";
 import type { CalendarEvent, ScheduleCategory } from "../../types";
 import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
 import { Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { SegmentedField } from "../ui/SegmentedField";
+import { DateField } from "../ui/DateField";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
+import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
 
 interface Props {
@@ -20,6 +26,11 @@ const NOTIFY_OPTIONS = [
   { value: "30", label: "30分前" },
   { value: "60", label: "1時間前" },
   { value: "1440", label: "前日" },
+];
+
+const SPAN_OPTIONS = [
+  { value: "timed", label: "時間を決める" },
+  { value: "allday", label: "終日" },
 ];
 
 export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
@@ -66,59 +77,86 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="タイトル" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-      <Input label="日付" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-
-      <label className="flex items-center gap-2 text-sm text-slate-600">
-        <input
-          type="checkbox"
-          checked={allDay}
-          onChange={(e) => setAllDay(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel caption="何の予定" icon={CalendarDays}>
+        <Input
+          label="タイトル"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 歯医者"
+          required
+          autoFocus
         />
-        終日
-      </label>
+      </FormPanel>
 
-      {!allDay && (
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="開始時刻" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-          <Input label="終了時刻" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-        </div>
-      )}
+      <FormPanel caption="いつ">
+        <DateField label="日付" value={date} onChange={setDate} />
+        <SegmentedField
+          label="時間"
+          value={allDay ? "allday" : "timed"}
+          options={SPAN_OPTIONS}
+          onChange={(value) => setAllDay(value === "allday")}
+        />
+        {!allDay && (
+          <Field label="開始 → 終了" as="div">
+            <div className="range-field">
+              <input
+                type="time"
+                aria-label="開始時刻"
+                className="field-shell"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+              <span className="range-field__arrow" aria-hidden="true">
+                〜
+              </span>
+              <input
+                type="time"
+                aria-label="終了時刻"
+                className="field-shell"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
+            </div>
+          </Field>
+        )}
+        {!allDay && (
+          <Select label="通知" value={notify} onChange={(e) => setNotify(e.target.value)}>
+            {NOTIFY_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        )}
+      </FormPanel>
 
-      <Select
-        label="カテゴリ"
-        value={category}
-        onChange={(e) => setCategory(e.target.value as ScheduleCategory)}
-      >
-        {SCHEDULE_CATEGORIES.map((c) => (
-          <option key={c.value} value={c.value}>
-            {c.label}
-          </option>
-        ))}
-      </Select>
-
-      <Input label="場所" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="任意" />
-      {!allDay && (
-        <Select label="通知" value={notify} onChange={(e) => setNotify(e.target.value)}>
-          {NOTIFY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+      <FormPanel caption="そのほか" icon={Tag}>
+        <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value as ScheduleCategory)}>
+          {SCHEDULE_CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
             </option>
           ))}
         </Select>
-      )}
-      <Textarea label="メモ" value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} placeholder="任意" />
+        <Input
+          label="場所"
+          optional
+          value={location}
+          onChange={(e) => setLocation(e.target.value)}
+          placeholder="例: 駅前クリニック"
+        />
+        <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "予定を追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

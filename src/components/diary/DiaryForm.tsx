@@ -5,9 +5,12 @@ import type { DiaryEntry, Mood } from "../../types";
 import { todayStr } from "../../lib/date";
 import { Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
+import { Field } from "../ui/Field";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
 import { useObjectUrls } from "../../hooks/useObjectUrls";
-import { X } from "lucide-react";
+import { formatDisplayDate } from "../../lib/date";
+import { ImagePlus, X } from "lucide-react";
 
 interface Props {
   initial?: DiaryEntry;
@@ -82,107 +85,107 @@ export function DiaryForm({ initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <p className="text-sm text-slate-400">{date}</p>
-
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {todaySummary && (
-        <Card className="grid grid-cols-3 gap-2 text-center text-xs">
+        <div className="diary-today">
+          <span>{formatDisplayDate(date)}</span>
           <div>
-            <p className="text-slate-400">今日の支出</p>
-            <p className="mt-1 font-semibold text-slate-900">¥{todaySummary.spentToday.toLocaleString()}</p>
+            <div>
+              <small>使った額</small>
+              <strong>¥{todaySummary.spentToday.toLocaleString("ja-JP")}</strong>
+            </div>
+            <div>
+              <small>予定</small>
+              <strong>{todaySummary.eventCount}件</strong>
+            </div>
+            <div>
+              <small>終えたタスク</small>
+              <strong>{todaySummary.completedCount}件</strong>
+            </div>
           </div>
-          <div>
-            <p className="text-slate-400">今日の予定</p>
-            <p className="mt-1 font-semibold text-slate-900">{todaySummary.eventCount}件</p>
-          </div>
-          <div>
-            <p className="text-slate-400">完了タスク</p>
-            <p className="mt-1 font-semibold text-slate-900">{todaySummary.completedCount}件</p>
-          </div>
-        </Card>
+        </div>
       )}
 
-      <div>
-        <span className="mb-1.5 block text-sm font-medium text-slate-600">今日の気分</span>
-        <div className="grid grid-cols-5 gap-1.5">
-          {MOODS.map((m) => (
-            <button
-              type="button"
-              key={m.value}
-              onClick={() => setMood(m.value)}
-              aria-pressed={mood === m.value}
-              aria-label={m.label}
-              className={`flex flex-col items-center gap-1 rounded-xl border py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-                mood === m.value ? "border-accent bg-accent-light" : "border-white/50 bg-white/40 hover:border-white/80"
-              }`}
-            >
-              <span className="text-xl">{m.emoji}</span>
-              <span className={`text-[10px] ${mood === m.value ? "font-semibold text-accent" : "text-slate-500"}`}>
-                {m.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <span className="mb-1.5 block text-sm font-medium text-slate-600">満足度</span>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              type="button"
-              key={n}
-              onClick={() => setSatisfaction(n)}
-              aria-pressed={satisfaction >= n}
-              aria-label={`満足度 ${n}`}
-              className={`flex-1 rounded-xl border py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-                satisfaction >= n ? "border-accent bg-accent text-white" : "border-white/50 text-slate-400 hover:border-white/80"
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <Textarea
-        label="今日の出来事"
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        rows={5}
-        placeholder="今日あったことを書いてみましょう"
-      />
-
-      <div>
-        <span className="mb-1.5 block text-sm font-medium text-slate-600">写真</span>
-        {photoUrls.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2">
-            {photoUrls.map((url, i) => (
-              <div key={url} className="relative h-16 w-16 overflow-hidden rounded-lg">
-                <img src={url} className="h-full w-full object-cover" alt="" />
-                <button
-                  type="button"
-                  onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
-                  aria-label="写真を削除"
-                  className="absolute right-0.5 top-0.5 rounded-full bg-black/50 p-0.5 text-white"
-                >
-                  <X size={12} />
-                </button>
-              </div>
+      <FormPanel caption="今日はどうだった">
+        <Field label="気分" as="div">
+          <div className="mood-grid">
+            {MOODS.map((m) => (
+              <button
+                type="button"
+                key={m.value}
+                onClick={() => setMood(m.value)}
+                aria-pressed={mood === m.value}
+                aria-label={m.label}
+                className="mood-grid__option"
+              >
+                <span>{m.emoji}</span>
+                <small>{m.label}</small>
+              </button>
             ))}
           </div>
-        )}
-        <input type="file" accept="image/*" multiple onChange={handlePhotoChange} className="text-sm" />
-      </div>
+        </Field>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+        <Field label="満足度" as="div">
+          <div className="rating-row">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                type="button"
+                key={n}
+                onClick={() => setSatisfaction(n)}
+                aria-pressed={satisfaction >= n}
+                aria-label={`満足度 ${n}`}
+                className="rating-row__step"
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </Field>
+      </FormPanel>
+
+      <FormPanel caption="書きとめる">
+        <Textarea
+          label="今日の出来事"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={5}
+          placeholder="今日あったことを書いてみましょう"
+        />
+
+        <Field label="写真" optional as="div">
+          {photoUrls.length > 0 && (
+            <div className="photo-grid">
+              {photoUrls.map((url, i) => (
+                <div key={url} className="photo-grid__item">
+                  <img src={url} alt="" />
+                  <button
+                    type="button"
+                    onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                    aria-label="写真を削除"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {/* OSごとに見た目が変わる素のファイル選択は隠し、この app のボタンで包む。 */}
+          <label className="photo-add">
+            <ImagePlus size={16} />
+            写真を追加
+            <input type="file" accept="image/*" multiple onChange={handlePhotoChange} />
+          </label>
+        </Field>
+      </FormPanel>
+
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "日記を保存"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

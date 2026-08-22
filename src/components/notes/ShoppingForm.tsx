@@ -5,8 +5,11 @@ import { moveItem } from "../../lib/noteTypes";
 import { NOTE_CATEGORIES } from "../../lib/categories";
 import { Input, Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
 import { ListRow } from "../ui/ListRow";
+import { SwitchField } from "../ui/SwitchField";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
+import { Field } from "../ui/Field";
 import { CategorySelect } from "./CategorySelect";
 import { Check, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 
@@ -91,41 +94,45 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="タイトル" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-      <CategorySelect value={category} onChange={setCategory} />
-      <Input
-        label="タグ(カンマ区切り)"
-        value={tagsInput}
-        onChange={(e) => setTagsInput(e.target.value)}
-        placeholder="例: 買い物, 仕事"
-      />
-      <Textarea label="メモ(任意)" value={body} onChange={(e) => setBody(e.target.value)} rows={2} />
-      <label className="flex items-center gap-2 text-sm text-slate-600">
-        <input
-          type="checkbox"
-          checked={pinned}
-          onChange={(e) => setPinned(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel>
+        <Input
+          label="タイトル"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 週末の買い出し"
+          required
+          autoFocus
         />
-        ピン留めする
-      </label>
+        <Textarea label="メモ" optional value={body} onChange={(e) => setBody(e.target.value)} rows={2} />
+      </FormPanel>
 
-      <Card>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <p className="text-slate-400">購入予定額</p>
-            <p className="mt-0.5 font-semibold text-slate-900">{yen(plannedTotal)}</p>
-          </div>
-          <div>
-            <p className="text-slate-400">購入済み合計</p>
-            <p className="mt-0.5 font-semibold text-success">{yen(purchasedTotal)}</p>
-          </div>
+      <FormPanel caption="整理のしかた">
+        <CategorySelect value={category} onChange={setCategory} />
+        <Input
+          label="タグ"
+          optional
+          hint="カンマで区切ると複数付けられます。"
+          value={tagsInput}
+          onChange={(e) => setTagsInput(e.target.value)}
+          placeholder="例: 買い物, 仕事"
+        />
+        <SwitchField label="ピン留めする" hint="一覧のいちばん上に出します。" checked={pinned} onChange={setPinned} />
+      </FormPanel>
+
+      <div className="shopping-total">
+        <div>
+          <small>買う予定</small>
+          <strong>{yen(plannedTotal)}</strong>
         </div>
-      </Card>
+        <div>
+          <small>買ったぶん</small>
+          <strong className="is-done">{yen(purchasedTotal)}</strong>
+        </div>
+      </div>
 
-      <div>
-        <p className="mb-2 text-sm font-medium text-slate-600">商品</p>
+      <FormPanel caption="商品">
+        <Field as="div">
         {items.length === 0 ? (
           <p className="py-4 text-center text-sm text-slate-400">商品がありません</p>
         ) : (
@@ -193,7 +200,7 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
                         })
                       }
                       placeholder="—"
-                      className="spatial-field w-14 rounded-[2px] border border-white/50 bg-white/40 px-2 py-1 text-slate-900 outline-none focus:border-accent focus:bg-white"
+                      className="field-shell w-16 !min-h-9 !px-2 !py-1"
                     />
                   </label>
                   <label className="flex items-center gap-1 text-slate-400">
@@ -209,7 +216,7 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
                         })
                       }
                       placeholder="—"
-                      className="spatial-field w-20 rounded-[2px] border border-white/50 bg-white/40 px-2 py-1 text-slate-900 outline-none focus:border-accent focus:bg-white"
+                      className="field-shell w-24 !min-h-9 !px-2 !py-1"
                     />
                   </label>
                 </div>
@@ -218,33 +225,34 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
           </div>
         )}
 
-        <div className="mt-2 flex gap-2">
-          <input
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addItem();
-              }
-            }}
-            placeholder="商品を追加"
-            className="spatial-field min-w-0 flex-1 rounded-[2px] border border-white/50 bg-white/40 px-3.5 py-2.5 text-sm outline-none focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20"
-          />
-          <Button type="button" variant="secondary" onClick={addItem}>
-            追加
-          </Button>
-        </div>
-      </div>
+          <div className="mt-2 flex gap-2">
+            <input
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addItem();
+                }
+              }}
+              placeholder="商品を追加"
+              className="field-shell min-w-0 flex-1"
+            />
+            <Button type="button" variant="secondary" onClick={addItem}>
+              追加
+            </Button>
+          </div>
+        </Field>
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "リストを追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

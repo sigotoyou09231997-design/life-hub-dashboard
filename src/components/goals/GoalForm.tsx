@@ -2,8 +2,14 @@ import { useState } from "react";
 import { db } from "../../db/schema";
 import type { Goal } from "../../types";
 import { GOAL_CATEGORIES } from "../../lib/categories";
-import { Input } from "../ui/Input";
+import { Target } from "lucide-react";
+import { Input, AmountInput } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { SwitchField } from "../ui/SwitchField";
+import { DateField } from "../ui/DateField";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
+import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
 
 interface Props {
@@ -52,66 +58,75 @@ export function GoalForm({ initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="目標" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-      <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value)}>
-        {GOAL_CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </Select>
-      <Input label="期限" type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
-
-      <label className="flex items-center gap-2 text-sm text-slate-600">
-        <input
-          type="checkbox"
-          checked={useAmount}
-          onChange={(e) => setUseAmount(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel caption="何を目指す" icon={Target}>
+        <Input
+          label="目標"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 旅行資金を貯める"
+          required
+          autoFocus
         />
-        金額で進捗を管理する(例: 貯金目標)
-      </label>
+        <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value)}>
+          {GOAL_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+        <DateField label="期限" optional value={deadline} onChange={setDeadline} placeholder="期限なし" />
+      </FormPanel>
 
-      {useAmount ? (
-        <div className="grid grid-cols-2 gap-3">
-          <Input
-            label="目標金額"
-            type="number"
-            inputMode="numeric"
-            value={targetAmount}
-            onChange={(e) => setTargetAmount(e.target.value)}
-          />
-          <Input
-            label="現在の金額"
-            type="number"
-            inputMode="numeric"
-            value={currentAmount}
-            onChange={(e) => setCurrentAmount(e.target.value)}
-          />
-        </div>
-      ) : (
-        <div>
-          <span className="mb-1.5 block text-sm font-medium text-slate-600">進捗率: {progress}%</span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={progress}
-            onChange={(e) => setProgress(Number(e.target.value))}
-            className="w-full accent-accent"
-          />
-        </div>
-      )}
+      <FormPanel caption="進み具合の数え方">
+        <SwitchField
+          label="金額で数える"
+          hint="貯金のように、目標額に対していくら貯まったかで進み具合を出します。"
+          checked={useAmount}
+          onChange={setUseAmount}
+        />
+        {useAmount ? (
+          <>
+            <AmountInput
+              label="目標金額"
+              value={targetAmount}
+              onChange={(e) => setTargetAmount(e.target.value)}
+              min={0}
+              placeholder="0"
+            />
+            <AmountInput
+              label="いま貯まっている額"
+              value={currentAmount}
+              onChange={(e) => setCurrentAmount(e.target.value)}
+              min={0}
+              placeholder="0"
+            />
+          </>
+        ) : (
+          <Field label="進み具合" as="div">
+            <div className="progress-field">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={progress}
+                aria-label="進み具合"
+                onChange={(e) => setProgress(Number(e.target.value))}
+              />
+              <strong>{progress}%</strong>
+            </div>
+          </Field>
+        )}
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "目標を追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

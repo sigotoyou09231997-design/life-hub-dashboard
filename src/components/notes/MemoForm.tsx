@@ -2,6 +2,9 @@ import { useState } from "react";
 import { db } from "../../db/schema";
 import type { Note } from "../../types";
 import { Input, Textarea } from "../ui/Input";
+import { SwitchField } from "../ui/SwitchField";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 import { CategorySelect } from "./CategorySelect";
 import { NOTE_CATEGORIES } from "../../lib/categories";
@@ -52,34 +55,40 @@ export function MemoForm({ initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="タイトル" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus />
-      <Textarea label="本文" value={body} onChange={(e) => setBody(e.target.value)} rows={5} />
-      <CategorySelect value={category} onChange={setCategory} />
-      <Input
-        label="タグ(カンマ区切り)"
-        value={tagsInput}
-        onChange={(e) => setTagsInput(e.target.value)}
-        placeholder="例: 買い物, 仕事"
-      />
-      <label className="flex items-center gap-2 text-sm text-slate-600">
-        <input
-          type="checkbox"
-          checked={pinned}
-          onChange={(e) => setPinned(e.target.checked)}
-          className="h-4 w-4 rounded border-slate-300 text-accent focus:ring-accent"
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel>
+        <Input
+          label="タイトル"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="例: 引っ越しの持ち物"
+          required
+          autoFocus
         />
-        ピン留めする
-      </label>
+        <Textarea label="本文" optional value={body} onChange={(e) => setBody(e.target.value)} rows={5} />
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormPanel caption="整理のしかた">
+        <CategorySelect value={category} onChange={setCategory} />
+        <Input
+          label="タグ"
+          optional
+          hint="カンマで区切ると複数付けられます。"
+          value={tagsInput}
+          onChange={(e) => setTagsInput(e.target.value)}
+          placeholder="例: 買い物, 仕事"
+        />
+        <SwitchField label="ピン留めする" hint="一覧のいちばん上に出します。" checked={pinned} onChange={setPinned} />
+      </FormPanel>
+
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "メモを追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

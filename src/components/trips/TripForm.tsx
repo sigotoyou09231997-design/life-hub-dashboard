@@ -1,9 +1,13 @@
 import { useState } from "react";
+import { CalendarRange, MapPin, Plane, Check, Sparkles } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Trip, TripStatus } from "../../types";
 import { todayStr } from "../../lib/date";
-import { Input, Textarea } from "../ui/Input";
-import { Select } from "../ui/Select";
+import { Input, Textarea, AmountInput } from "../ui/Input";
+import { SegmentedField } from "../ui/SegmentedField";
+import { DateRangeField } from "../ui/DateField";
+import { FormPanel } from "../ui/FormPanel";
+import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 
 interface Props {
@@ -12,11 +16,11 @@ interface Props {
   onCancel: () => void;
 }
 
-const STATUS_LABEL: Record<TripStatus, string> = {
-  planning: "計画中",
-  ongoing: "旅行中",
-  completed: "完了",
-};
+const STATUS_OPTIONS = [
+  { value: "planning" as TripStatus, label: "計画中", icon: Sparkles },
+  { value: "ongoing" as TripStatus, label: "旅行中", icon: Plane },
+  { value: "completed" as TripStatus, label: "完了", icon: Check },
+];
 
 export function TripForm({ initial, onSaved, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? "");
@@ -62,46 +66,68 @@ export function TripForm({ initial, onSaved, onCancel }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input label="旅行名" value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
-      <Input
-        label="主な行き先"
-        value={destination}
-        onChange={(e) => setDestination(e.target.value)}
-        placeholder="例: 京都"
-        required
-      />
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="開始日" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-        <Input label="終了日" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
-      </div>
-      <Select label="ステータス" value={status} onChange={(e) => setStatus(e.target.value as TripStatus)}>
-        {(["planning", "ongoing", "completed"] as TripStatus[]).map((s) => (
-          <option key={s} value={s}>
-            {STATUS_LABEL[s]}
-          </option>
-        ))}
-      </Select>
-      <Input
-        label="予算(任意)"
-        type="number"
-        inputMode="numeric"
-        value={budget}
-        onChange={(e) => setBudget(e.target.value)}
-        min={0}
-      />
-      <Textarea label="メモ" value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} placeholder="任意" />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FormPanel caption="どこへ" icon={MapPin}>
+        <Input
+          label="旅行名"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="例: 夏の北海道"
+          required
+          autoFocus
+        />
+        <Input
+          label="主な行き先"
+          value={destination}
+          onChange={(e) => setDestination(e.target.value)}
+          placeholder="例: 北海道・函館"
+          required
+        />
+      </FormPanel>
 
-      {error && <p className="text-sm text-danger">{error}</p>}
+      <FormPanel caption="いつ" icon={CalendarRange}>
+        <DateRangeField
+          label="日程"
+          start={startDate}
+          end={endDate}
+          onChangeStart={(value) => {
+            setStartDate(value);
+            // 開始を終了より後ろにずらしたら、終了も一緒に動かす。手で直させない。
+            if (endDate < value) setEndDate(value);
+          }}
+          onChangeEnd={setEndDate}
+          error={error}
+        />
+        <SegmentedField label="いまの状態" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+      </FormPanel>
 
-      <div className="sticky bottom-0 -mx-5 flex gap-3 border-t border-white/50 bg-white/80 px-5 py-3 backdrop-blur-md">
-        <Button type="button" variant="secondary" className="flex-1" onClick={onCancel}>
+      <FormPanel caption="そのほか">
+        <AmountInput
+          label="予算"
+          optional
+          value={budget}
+          onChange={(e) => setBudget(e.target.value)}
+          min={0}
+          placeholder="0"
+        />
+        <Textarea
+          label="メモ"
+          optional
+          value={memo}
+          onChange={(e) => setMemo(e.target.value)}
+          rows={2}
+          placeholder="持っていくもの、調べたことなど"
+        />
+      </FormPanel>
+
+      <FormActions>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           キャンセル
         </Button>
-        <Button type="submit" className="flex-1" disabled={saving}>
-          保存する
+        <Button type="submit" disabled={saving}>
+          {initial ? "変更を保存" : "旅行を追加"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }
