@@ -350,7 +350,9 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       {showSkeleton ? (
         <ListSkeleton />
       ) : filteredEmails && filteredEmails.length > 0 ? (
-        <div className="flex flex-col gap-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-0.5">
+        // 末尾の余白は、右下の新規作成ボタン(FAB)に最後の行の「既読にする」が
+        // 隠れないための逃げ。一覧が画面下端まで伸びるPCでだけ必要。
+        <div className="flex flex-col gap-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-14 lg:pr-0.5">
           {filteredEmails.map((email) => {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed" && !email.readAt;

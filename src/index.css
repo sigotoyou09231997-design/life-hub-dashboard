@@ -1266,6 +1266,11 @@ body .text-sm { line-height: 1.5; }
 
 @media (min-width: 1024px) {
   .spatial-page-header { padding-top: 1.35rem; padding-bottom: 0.9rem; }
+
+  /* 上の .app-main { padding-bottom: 6.5rem } はスマホのクイックアクションバーの
+     ぶんの逃げ。PCではバーが非表示(lg:hidden)なので、画面下端まで使い切る
+     固定レイアウト(Gmail一覧)では、その帯がただの空白として残っていた。 */
+  .app-main--fixed { padding-bottom: 0; }
 }
 
 @media (max-width: 1023px) {
