@@ -211,6 +211,23 @@ export interface TripPackingItem {
   userId?: string;
 }
 
+export interface TripRoutePlace {
+  id?: string;
+  tripId: string;
+  name: string;
+  /** 地図にそのまま渡す文字列。住所でも施設名でもよい(キー無しの埋め込みURLは
+   * どちらも解決できる)。空にはしない — 空だと地図が行き先ごと迷子になる。 */
+  address: string;
+  /** 回る順。1始まりの連番で詰めて持ち、並べ替えのたびに振り直す。 */
+  sortOrder: number;
+  memo?: string;
+  visited: boolean;
+  createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
+}
+
 export interface GmailAccount {
   id?: string;
   email: string;

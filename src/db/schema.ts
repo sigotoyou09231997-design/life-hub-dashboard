@@ -12,6 +12,7 @@ import type {
   TripScheduleItem,
   TripExpense,
   TripPackingItem,
+  TripRoutePlace,
   GmailAccount,
   SyncedEmail,
   DraftReply,
@@ -97,6 +98,18 @@ const RETIRED_TABLE_SCHEMAS: TableSchema[] = [
 /** v6-v9のUUID移行チェーンが見るテーブル一覧(当時存在した全テーブル)。 */
 const MIGRATION_TABLE_SCHEMAS: TableSchema[] = [...TABLE_SCHEMAS, ...RETIRED_TABLE_SCHEMAS];
 
+/** UUID移行チェーン(v6-v9)が済んだ後に足したテーブル。TABLE_SCHEMASには入れられない —
+ * あの配列はMIGRATION_TABLE_SCHEMASを通じてチェーンにも流れ込むので、加えると新規
+ * インストール時にv6がまだ作られていないテーブルを読みにいって開けなくなる。主キーは
+ * 最初からUUID文字列なので移行そのものが要らず、フックだけここから登録する。 */
+const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
+  { name: "blockedSenders", indexes: "accountId, email, [accountId+email]", fks: [], hasUpdatedAt: false },
+  { name: "tripRoutePlaces", indexes: "tripId", fks: [], hasUpdatedAt: true },
+];
+
+/** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
+const HOOKED_TABLE_SCHEMAS: TableSchema[] = [...TABLE_SCHEMAS, ...POST_MIGRATION_TABLE_SCHEMAS];
+
 function withStringId(indexes: string): string {
   return indexes ? `id, ${indexes}` : "id";
 }
@@ -147,6 +160,7 @@ export class LifeHubDB extends Dexie {
   tripSchedule!: EntityTable<TripScheduleItem, "id">;
   tripExpenses!: EntityTable<TripExpense, "id">;
   tripPackingItems!: EntityTable<TripPackingItem, "id">;
+  tripRoutePlaces!: EntityTable<TripRoutePlace, "id">;
   gmailAccounts!: EntityTable<GmailAccount, "id">;
   syncedEmails!: EntityTable<SyncedEmail, "id">;
   draftReplies!: EntityTable<DraftReply, "id">;
@@ -245,21 +259,24 @@ export class LifeHubDB extends Dexie {
       habitLogs: null,
     });
 
+    // 旅行の「行きたい場所」(ルート)。v10のblockedSendersと同じくTABLE_SCHEMASには
+    // 加えず、ここで作ってPOST_MIGRATION_TABLE_SCHEMAS側からフックを張る。
+    this.version(12).stores({
+      tripRoutePlaces: "id, tripId",
+    });
+
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに
     // UUIDを補うフックを全テーブルへ登録する(Dexie公式が示すUUID主キーの標準パターン)。
-    for (const schema of TABLE_SCHEMAS) {
+    for (const schema of HOOKED_TABLE_SCHEMAS) {
       this.table(schema.name).hook("creating", (_primKey, obj: { id?: string }) => {
         if (!obj.id) obj.id = crypto.randomUUID();
       });
     }
-    this.table("blockedSenders").hook("creating", (_primKey, obj: { id?: string }) => {
-      if (!obj.id) obj.id = crypto.randomUUID();
-    });
 
     // updatedAtはLWW同期の判定に使うため、同期対象になり得るテーブルでは常にDB層で付与する
     // (まだsrc/lib/sync.tsのregisterSyncedTableを呼んでいないテーブルの.add()/.update()呼び出し
     // 側を書き換えずに済ませるため)。
-    for (const schema of TABLE_SCHEMAS.filter((s) => s.hasUpdatedAt)) {
+    for (const schema of HOOKED_TABLE_SCHEMAS.filter((s) => s.hasUpdatedAt)) {
       this.table(schema.name).hook("creating", (_primKey, obj: { updatedAt?: number }) => {
         if (obj.updatedAt === undefined) obj.updatedAt = Date.now();
       });

@@ -22,6 +22,7 @@ export async function deleteTripCascade(tripId: string) {
     db.tripSchedule.where("tripId").equals(tripId).delete(),
     db.tripExpenses.where("tripId").equals(tripId).delete(),
     db.tripPackingItems.where("tripId").equals(tripId).delete(),
+    db.tripRoutePlaces.where("tripId").equals(tripId).delete(),
   ]);
   await db.trips.delete(tripId);
 }

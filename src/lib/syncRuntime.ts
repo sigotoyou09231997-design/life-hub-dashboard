@@ -21,6 +21,7 @@ function loadSyncModule(): Promise<SyncModule> {
         module.registerSyncedTable(db.tripSchedule, "trip_schedule");
         module.registerSyncedTable(db.tripExpenses, "trip_expenses");
         module.registerSyncedTable(db.tripPackingItems, "trip_packing_items");
+        module.registerSyncedTable(db.tripRoutePlaces, "trip_route_places");
         module.registerSyncedTable(db.paypayTransactions, "paypay_transactions");
         return module;
       })
