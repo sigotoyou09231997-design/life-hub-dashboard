@@ -19,6 +19,7 @@ import {
 import { db } from "../db/schema";
 import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
+import { pullBlockedSenders } from "../lib/blockedSenders";
 import { NOTE_TYPE_DEFS, getNoteType } from "../lib/noteTypes";
 import { tripCoverImage } from "../lib/tripCovers";
 import { getScheduleCategory } from "../lib/scheduleCategories";
@@ -107,6 +108,19 @@ export default function TopPage() {
 
   const { data: budget } = usePayPeriodBudget();
 
+  // ブロック中の送信者リストは端末ごとのローカル(db.blockedSenders)で、汎用同期エンジンの
+  // 対象外。取り込みは受信トレイ(/gmail)とメール画面でしか走っていなかったので、PCで
+  // ブロックした送信者がスマホのTOPには出続けていた(受信トレイを一度開くまで消えない)。
+  // TOPは受信トレイを開かずに眺める画面なので、ここでも取り込む(src/lib/blockedSenders.ts)。
+  const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
+  useEffect(() => {
+    for (const account of gmailAccounts ?? []) {
+      if (account.id) void pullBlockedSenders(account.id, account.email);
+    }
+  }, [gmailAccounts]);
+
+  // アカウントはこの中でも読み直す — 上のgmailAccountsは読み込み中がundefinedで、
+  // それを使うと一瞬「未接続」の表示が出てしまう。
   const gmailPreview = useLiveQuery(async () => {
     const accounts = await db.gmailAccounts.toArray();
     if (accounts.length === 0) return { connected: false, emails: [] };
