@@ -281,9 +281,10 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     showToast("ブロックを解除しました");
   }
 
-  // 開かずに一覧から直接既読にできる(GmailMailPage.tsxを開いた時の自動既読化とは別の
-  // 手動エントリポイント)。readAtは「すべて」タブの除外/「既読」タブの表示にも使われるため、
-  // 押すとその場でこの一覧(「すべて」時)から消える。
+  // 既読になるのは、この一覧のチェックボタンか、メール画面(DraftReview)の既読ボタンを
+  // 本人が押した時だけ — 開いただけでは既読にしない(2026-08-23にその自動既読化は廃止)。
+  // readAtは「すべて」タブの除外/「既読」タブの表示にも使われるため、押すとその場で
+  // この一覧(「すべて」時)から消える。
   async function handleMarkRead(id: string) {
     await db.syncedEmails.update(id, { readAt: Date.now() });
     showToast("既読にしました");

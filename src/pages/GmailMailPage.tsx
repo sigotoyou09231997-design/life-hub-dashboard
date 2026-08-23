@@ -25,13 +25,8 @@ export default function GmailMailPage() {
     return { email, account };
   }, [emailId]);
 
-  // 一覧の「既読」フィルタータブ向け。readAtはstatus(AI下書き・送信ワークフローの進行状況)とは
-  // 独立に、人間が実際にこの画面を開いたかどうかだけを表す。既に既読なら書き込まない。
-  useEffect(() => {
-    if (data?.email.id && !data.email.readAt) {
-      void db.syncedEmails.update(data.email.id, { readAt: Date.now() });
-    }
-  }, [data?.email.id, data?.email.readAt]);
+  // 開いただけでは既読にしない(2026-08-23) — 既読は必ず本人がボタンを押した時だけ。
+  // 既読にする操作は一覧のチェックボタンと、この画面のDraftReview内のボタンの2つ。
 
   // このページは一覧(GmailPage)を経由せず単独のタブとして開かれるので、そちらと同じ
   // ブロックリストの取り込みをここでも行う — DraftReviewのブロックボタンの状態

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban, Copy } from "lucide-react";
+import { Ban, Copy, Mail, MailOpen } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
@@ -354,6 +354,19 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     }
   }
 
+  // 既読は「開いたら自動」ではなく、必ずこのボタン(と一覧のチェックボタン)を押した時だけ
+  // 付ける。押し間違えても未読に戻せるようにトグルにしてある。
+  async function handleToggleRead() {
+    if (!email.id) return;
+    if (email.readAt) {
+      await db.syncedEmails.update(email.id, { readAt: undefined });
+      showToast("未読に戻しました");
+    } else {
+      await db.syncedEmails.update(email.id, { readAt: Date.now() });
+      showToast("既読にしました");
+    }
+  }
+
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(bodyText);
@@ -380,6 +393,17 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="text-xs text-slate-500">{formatGmailTimestamp(email.receivedAt)}</span>
+        <button
+          type="button"
+          onClick={handleToggleRead}
+          aria-label={email.readAt ? "未読に戻す" : "既読にする"}
+          title={email.readAt ? "未読に戻す" : "既読にする(一覧の「既読」タブへ移ります)"}
+          className={`rounded-full p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
+            email.readAt ? "text-accent active:bg-accent-light" : "text-slate-300 active:bg-accent-light active:text-accent"
+          }`}
+        >
+          {email.readAt ? <MailOpen size={16} /> : <Mail size={16} />}
+        </button>
         <button
           type="button"
           onClick={handleToggleBlock}
