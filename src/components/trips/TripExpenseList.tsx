@@ -49,7 +49,7 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete }: Props) {
       </Card>
 
       {expenses.length === 0 ? (
-        <EmptyState icon={Receipt} title="費用がまだ登録されていません" description="下のボタンから追加できます。" />
+        <EmptyState icon={Receipt} title="費用がまだ登録されていません" description="下のボタンから追加できます。" card />
       ) : (
         <div className="space-y-2">
           {expenses.map((e) => {

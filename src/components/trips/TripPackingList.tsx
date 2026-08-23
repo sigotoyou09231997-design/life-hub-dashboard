@@ -30,7 +30,7 @@ export function TripPackingList({ items, onEdit, onDelete }: Props) {
       </Card>
 
       {items.length === 0 ? (
-        <EmptyState icon={Package} title="持ち物がまだ登録されていません" description="下のボタンから追加できます。" />
+        <EmptyState icon={Package} title="持ち物がまだ登録されていません" description="下のボタンから追加できます。" card />
       ) : (
         TRIP_PACKING_CATEGORIES.map((cat) => {
           const catItems = items.filter((i) => i.category === cat.value);
