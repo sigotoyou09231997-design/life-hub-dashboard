@@ -279,16 +279,52 @@ export async function generateComposeDraft(
   });
 }
 
+/** Gmail APIの「1分あたり」の上限に当たった時の待ち直し。上限は分単位で回復するので、
+ * 数百ミリ秒〜数秒空けて数回やり直せば、ユーザーには見えないまま通ることが多い。
+ * それでも通らない分は呼び出し側が次回の同期に持ち越す。 */
+const RATE_LIMIT_RETRIES = 3;
+const RATE_LIMIT_BASE_DELAY_MS = 700;
+
+/** 429、または403のうち利用量超過(rateLimitExceeded/quotaExceeded)だけを再試行の対象に
+ * する。同じ403でも権限やスコープの問題は、待っても直らないのですぐ失敗させる。 */
+function isRateLimited(status: number, body: string): boolean {
+  if (status === 429) return true;
+  return status === 403 && /rateLimitExceeded|userRateLimitExceeded|quotaExceeded|RATE_LIMIT_EXCEEDED/i.test(body);
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function gmailFetch(accessToken: string, path: string, init?: RequestInit): Promise<any> {
-  const res = await fetch(`${GMAIL_API_BASE}${path}`, {
-    ...init,
-    headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${accessToken}` },
-  });
-  if (!res.ok) {
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`${GMAIL_API_BASE}${path}`, {
+      ...init,
+      headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${accessToken}` },
+    });
+    if (res.ok) return res.json();
+
     const text = await res.text().catch(() => "");
+    if (attempt < RATE_LIMIT_RETRIES && isRateLimited(res.status, text)) {
+      // 端末が複数あると同じタイミングで再試行しがちなので、待ち時間を少しばらす。
+      await delay(RATE_LIMIT_BASE_DELAY_MS * 2 ** attempt + Math.random() * 300);
+      continue;
+    }
     throw new Error(`Gmail API error (${res.status}): ${text}`);
   }
-  return res.json();
+}
+
+/** 一度に投げるリクエストを`limit`件までに抑えて順に処理する。Promise.allで全件を
+ * 同時に投げると、メールが数百件ある端末では1分あたりの上限を即座に超えてしまう。 */
+export async function mapWithConcurrency<T>(items: T[], limit: number, run: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const item = items[next++];
+      await run(item);
+    }
+  });
+  await Promise.all(workers);
 }
 
 /** 1回の同期で辿るページ数の上限。1ページ100件なので最大500件 —

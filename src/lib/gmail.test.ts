@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { attachmentsTotalBytes, base64UrlDecode, base64UrlEncode, buildRawMessage, encodeHeaderWord } from "./gmail";
+import { describe, expect, it, vi } from "vitest";
+import {
+  attachmentsTotalBytes,
+  base64UrlDecode,
+  base64UrlEncode,
+  buildRawMessage,
+  encodeHeaderWord,
+  mapWithConcurrency,
+} from "./gmail";
 
 describe("base64UrlEncode/base64UrlDecode", () => {
   it("round-trips ASCII text", () => {
@@ -80,5 +87,31 @@ describe("attachmentsTotalBytes", () => {
 
   it("returns 0 for an empty list", () => {
     expect(attachmentsTotalBytes([])).toBe(0);
+  });
+});
+
+describe("mapWithConcurrency", () => {
+  it("同時に走る本数を上限までに抑える", async () => {
+    const items = Array.from({ length: 10 }, (_, i) => i);
+    let running = 0;
+    let peak = 0;
+    const done: number[] = [];
+
+    await mapWithConcurrency(items, 3, async (item) => {
+      running++;
+      peak = Math.max(peak, running);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      done.push(item);
+      running--;
+    });
+
+    expect(peak).toBeLessThanOrEqual(3);
+    expect(done.sort((a, b) => a - b)).toEqual(items);
+  });
+
+  it("空の配列でも止まらない", async () => {
+    const run = vi.fn();
+    await mapWithConcurrency([], 3, run);
+    expect(run).not.toHaveBeenCalled();
   });
 });

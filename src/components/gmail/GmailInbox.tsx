@@ -10,6 +10,7 @@ import {
   generateDraftForEmail,
   getMessageMeta,
   listRecentMessageIds,
+  mapWithConcurrency,
   parseSender,
   threadHasSentReplyAfter,
 } from "../../lib/gmail";
@@ -38,6 +39,16 @@ export interface GmailInboxHandle {
 
 const SYNC_WINDOW_DAYS = 30;
 
+/** 「Gmail側で直接返信されていないか」の確認を1回の同期で何件まで行うか、
+ * そのうち何本まで同時にGmail APIへ投げるか。Gmail APIは1分あたりの利用量に
+ * 上限があり、越えると403 RATE_LIMIT_EXCEEDEDで同期全体が失敗する。 */
+const RECONCILE_PER_SYNC = 40;
+const RECONCILE_CONCURRENCY = 4;
+
+/** 1回の同期で新しく取り込むメールの上限。1通ごとに本文以外の情報を取りに行くため、
+ * 連携し直した直後のように未取得が数百件ある端末では、ここを絞らないと上限に当たる。 */
+const NEW_EMAILS_PER_SYNC = 120;
+
 /** 何が起きたか分からない「メールの取得に失敗しました」だけだと、端末ごとに一覧が
  * 揃わない時に原因を切り分けられない。よくある失敗(連携切れ)は次にやることまで書き、
  * それ以外は元のメッセージをそのまま出す。
@@ -46,6 +57,11 @@ const SYNC_WINDOW_DAYS = 30;
  * OAuth同意画面が「テスト中」のままだと更新用トークンが7日で失効するため。 */
 function describeSyncError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
+  // 利用量超過は連携切れと同じ403で返ってくるが、対処はまったく違う(待てば直る)。
+  // 連携切れの案内より先に判定する。
+  if (/rateLimitExceeded|userRateLimitExceeded|quotaExceeded|RATE_LIMIT_EXCEEDED|\b429\b/i.test(raw)) {
+    return "Gmailの利用制限に達しました。1分ほど待ってから、もう一度同期してください";
+  }
   if (/invalid_grant|expired|revoked|\b40[13]\b/i.test(raw)) {
     return `Gmailの連携が切れています。設定 → Gmail連携 でつなぎ直してください (${raw})`;
   }
@@ -221,7 +237,12 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       const { ids, complete } = await listRecentMessageIds(fresh.accessToken, sinceEpochSec);
       const existing = await db.syncedEmails.where("accountId").equals(account.id).toArray();
       const known = new Set(existing.map((e) => e.gmailMessageId));
-      const newIds = ids.filter((id) => !known.has(id));
+      // 未取得のメールが大量にある(連携し直した直後など)端末で、1回の同期に大量の
+      // リクエストを投げて上限に当たらないよう、新しい方から少しずつ取り込む。
+      // 残りは次の同期で取り込まれる。
+      const pendingIds = ids.filter((id) => !known.has(id));
+      const newIds = pendingIds.slice(0, NEW_EMAILS_PER_SYNC);
+      const deferred = pendingIds.length - newIds.length;
 
       let added = 0;
       let failed = 0;
@@ -267,30 +288,36 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       // 場合、この app には知る手段がないため、まだ未送信扱いのトラッキング中メールは
       // 毎回スレッドの実際の状態と突き合わせて「送信済み」を確定させる。新規追加分より
       // 古いメールが対象なので、際限なく増え続けないようsinceEpochSecの範囲に限定する。
-      const unresolvedExisting = existing.filter((e) => e.status !== "sent" && e.receivedAt >= sinceEpochSec * 1000);
+      // 1分あたりの上限に当たらないよう、確認する件数と同時に投げる本数を絞る。
+      // 全件を Promise.all で一斉に投げていた頃は、メールの多い端末で同期のたびに
+      // Gmail APIから 403 RATE_LIMIT_EXCEEDED が返っていた。ここで確認しきれなかった
+      // 分は次回の同期に回る(新しいものから確認する)。
+      const unresolvedExisting = existing
+        .filter((e) => e.status !== "sent" && e.receivedAt >= sinceEpochSec * 1000)
+        .sort((a, b) => b.receivedAt - a.receivedAt)
+        .slice(0, RECONCILE_PER_SYNC);
       let reconciled = 0;
-      await Promise.all(
-        unresolvedExisting.map(async (e) => {
-          if (!e.id) return;
-          try {
-            const actuallySent = await threadHasSentReplyAfter(fresh.accessToken, e.threadId, e.receivedAt);
-            if (!actuallySent) return;
-            const now = Date.now();
-            const existingDraft = await db.draftReplies.where("emailId").equals(e.id).first();
-            if (existingDraft?.id) {
-              if (!existingDraft.sentAt) await db.draftReplies.update(existingDraft.id, { sentAt: now });
-            } else {
-              // 下書きレコード自体がない(=このアプリ経由で下書きを作らずGmail側で直接
-              // 返信した)場合も作っておく — これがないとDraftReview側で「下書きなし」
-              // 扱いとなり、送信済みなのに再度下書き作成・送信ができてしまう。
-              await db.draftReplies.add({
-                emailId: e.id,
-                accountId: account.id!,
-                body: "(Gmail側で直接返信済み。このアプリの外で送信されたため、本文はここには保存されていません)",
-                subject: e.subject,
-                createdAt: now,
-                updatedAt: now,
-                sentAt: now,
+      await mapWithConcurrency(unresolvedExisting, RECONCILE_CONCURRENCY, async (e) => {
+        if (!e.id) return;
+        try {
+          const actuallySent = await threadHasSentReplyAfter(fresh.accessToken, e.threadId, e.receivedAt);
+          if (!actuallySent) return;
+          const now = Date.now();
+          const existingDraft = await db.draftReplies.where("emailId").equals(e.id).first();
+          if (existingDraft?.id) {
+            if (!existingDraft.sentAt) await db.draftReplies.update(existingDraft.id, { sentAt: now });
+          } else {
+            // 下書きレコード自体がない(=このアプリ経由で下書きを作らずGmail側で直接
+            // 返信した)場合も作っておく — これがないとDraftReview側で「下書きなし」
+            // 扱いとなり、送信済みなのに再度下書き作成・送信ができてしまう。
+            await db.draftReplies.add({
+              emailId: e.id,
+              accountId: account.id!,
+              body: "(Gmail側で直接返信済み。このアプリの外で送信されたため、本文はここには保存されていません)",
+              subject: e.subject,
+              createdAt: now,
+              updatedAt: now,
+              sentAt: now,
               });
             }
             await db.syncedEmails.update(e.id, { status: "sent" });
@@ -298,8 +325,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
           } catch {
             // 個別スレッドの確認失敗で同期全体を止めない。
           }
-        }),
-      );
+      });
 
       // Gmailの受信トレイ(直近SYNC_WINDOW_DAYS日)に無くなったメールをこの端末からも消す。
       // これが無いと、アーカイブ/削除された分や、片方の端末にだけ残っている古い分が
@@ -323,6 +349,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       if (pushedStates.count > 0) parts.push(`${pushedStates.count}件の既読を他の端末へ送信`);
       if (pulledStates.count > 0) parts.push(`${pulledStates.count}件の既読を他の端末から反映`);
       if (failed > 0) parts.push(`${failed}件は取得できず次回に持ち越し`);
+      if (deferred > 0) parts.push(`残り${deferred}件は次回の同期で取り込み`);
       // 既読の共有だけ失敗した場合、メール取得自体は成功しているのでそこは伝えつつ、
       // 黙って揃わないままにならないようエラーも出す(以前はconsoleにしか出ていなかった)。
       if (stateError) showToast(`既読の同期に失敗しました: ${stateError}`, "error");
