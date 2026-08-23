@@ -2,13 +2,16 @@ import { ArrowDown, Check, ExternalLink, Map, MoveLeft, MoveRight, Pencil, Plus,
 import { db } from "../../db/schema";
 import type { TripRoutePlace } from "../../types";
 import { buildMapEmbedUrl, buildLegSearchUrl, buildRouteSearchUrl } from "../../lib/googleMaps";
-import { EmptyState } from "../ui/EmptyState";
+import { TripRouteForm } from "./TripRouteForm";
 
 interface Props {
+  tripId: string;
   destination: string;
   /** 並べ替え済み(sortOrder昇順)で渡すこと。 */
   places: TripRoutePlace[];
   onAdd: () => void;
+  /** 1件目をこの画面の中で保存し終えたとき(空のとき出すフォーム用)。 */
+  onFirstSaved: () => void;
   onEdit: (place: TripRoutePlace) => void;
   onDelete: (id: string) => void;
 }
@@ -22,8 +25,8 @@ interface Props {
  * 縦(スマホ)と横(PC)の切り替えは trips.css 側。矢印はCSSで回すので、DOMは
  * どちらでも同じ1本の鎖のまま。
  */
-export function TripRouteView({ destination, places, onAdd, onEdit, onDelete }: Props) {
-  const queries = places.length > 0 ? places.map((p) => p.address) : [destination];
+export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved, onEdit, onDelete }: Props) {
+  const queries = places.map((p) => p.address);
 
   async function swap(a: TripRoutePlace, b: TripRoutePlace) {
     if (!a.id || !b.id) return;
@@ -35,24 +38,30 @@ export function TripRouteView({ destination, places, onAdd, onEdit, onDelete }: 
 
   return (
     <div className="trip-route">
-      <a
-        className="trip-route__open"
-        href={buildRouteSearchUrl(queries)}
-        target="_blank"
-        rel="noreferrer"
-      >
-        <Map size={16} />
-        {places.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
-        <ExternalLink size={14} />
-      </a>
+      {/* 1件も無いうちは「地図で開く」を出さない — 開いても行き先の地図が出るだけで、
+          この画面でやることは「1件目を入れる」しかない。代わりに入力欄をそのまま出す。 */}
+      {places.length > 0 && (
+        <a
+          className="trip-route__open"
+          href={buildRouteSearchUrl(queries)}
+          target="_blank"
+          rel="noreferrer"
+        >
+          <Map size={16} />
+          {places.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
+          <ExternalLink size={14} />
+        </a>
+      )}
 
       {places.length === 0 ? (
-        <EmptyState
-          icon={Map}
-          title="行きたい場所がまだありません"
-          description="住所か施設名を入れると、その場所の地図がここに並びます。"
-          action={{ label: "場所を追加", onClick: onAdd }}
-        />
+        <div className="trip-route-start">
+          <div className="trip-route-start__lead">
+            <span aria-hidden="true"><Map size={20} /></span>
+            <h2>行きたい場所を追加</h2>
+            <p>{destination}で行きたい場所を、住所か施設名で入れてください。入れた場所の地図がここに並びます。</p>
+          </div>
+          <TripRouteForm tripId={tripId} nextSortOrder={1} inline onSaved={onFirstSaved} onCancel={onFirstSaved} />
+        </div>
       ) : (
         <ol className="trip-route__chain">
           {places.map((place, i) => {

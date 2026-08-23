@@ -16,6 +16,9 @@ interface Props {
   /** 日程の場所からルートに起こすときに、入力欄を埋めておく値。名前は予定の
    * タイトル(「朝市」)、住所はその予定の場所(「函館市若松町9-19」)。 */
   preset?: { name: string; address: string };
+  /** 1件も無いときにルートタブへ直接置く形。戻る先が無いので「キャンセル」は出さず、
+   * 面の見出しも「どこへ行きたいか」ではなく最初の一歩として書き換える。 */
+  inline?: boolean;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -24,7 +27,7 @@ interface Props {
  *  読み込みが走って手元が重くなる。 */
 const PREVIEW_DEBOUNCE_MS = 600;
 
-export function TripRouteForm({ tripId, initial, nextSortOrder, preset, onSaved, onCancel }: Props) {
+export function TripRouteForm({ tripId, initial, nextSortOrder, preset, inline = false, onSaved, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? preset?.name ?? "");
   const [address, setAddress] = useState(initial?.address ?? preset?.address ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
@@ -69,7 +72,7 @@ export function TripRouteForm({ tripId, initial, nextSortOrder, preset, onSaved,
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <FormPanel caption="どこへ行きたいか" icon={MapPin}>
+      <FormPanel caption={inline ? "最初の行きたい場所" : "どこへ行きたいか"} icon={MapPin}>
         <Input
           label="場所の名前"
           value={name}
@@ -112,14 +115,22 @@ export function TripRouteForm({ tripId, initial, nextSortOrder, preset, onSaved,
         />
       </FormPanel>
 
-      <FormActions>
-        <Button type="button" variant="secondary" onClick={onCancel}>
-          キャンセル
+      {/* FormActions はシートの底に貼りつく作りなので、シートの外(ルートタブに直接
+          置く形)では使わない — 画面下端に貼りついて入力欄の上に重なってしまう。 */}
+      {inline ? (
+        <Button type="submit" disabled={saving} className="w-full">
+          ルートに追加
         </Button>
-        <Button type="submit" disabled={saving}>
-          {initial ? "変更を保存" : "ルートに追加"}
-        </Button>
-      </FormActions>
+      ) : (
+        <FormActions>
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            キャンセル
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {initial ? "変更を保存" : "ルートに追加"}
+          </Button>
+        </FormActions>
+      )}
     </form>
   );
 }

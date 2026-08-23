@@ -259,12 +259,14 @@ export default function TripDetailPage() {
 
         {tab === "route" && (
           <TripRouteView
+            tripId={tripId}
             destination={trip.destination}
             places={routePlaces}
             onAdd={() => {
               setRoutePreset(undefined);
               setEditingRoute("new");
             }}
+            onFirstSaved={() => showToast("保存しました")}
             onEdit={(place) => {
               setRoutePreset(undefined);
               setEditingRoute(place);
