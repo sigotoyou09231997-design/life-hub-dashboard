@@ -26,6 +26,11 @@ export default function DiaryPage() {
     [],
   );
   const entries = result ?? [];
+  const trips = useLiveQuery(() => db.trips.toArray(), []) ?? [];
+  const tripNameById = new Map(trips.filter((t) => t.id).map((t) => [t.id as string, t.name]));
+  const tripOptions = [...trips]
+    .sort((a, b) => b.startDate.localeCompare(a.startDate))
+    .map((t) => ({ id: t.id as string, name: t.name }));
   const showSkeleton = useDelayedFlag(result === undefined);
 
   return (
@@ -58,6 +63,7 @@ export default function DiaryPage() {
         ) : (
           <DiaryList
             entries={entries}
+            tripNameById={tripNameById}
             onEdit={(entry) => setEditing(entry)}
             onDelete={(id) => {
               db.diaryEntries.delete(id);
@@ -75,6 +81,7 @@ export default function DiaryPage() {
         {editing && (
           <DiaryForm
             initial={editing === "new" ? undefined : editing}
+            tripOptions={tripOptions}
             onSaved={() => {
               setEditing(null);
               showToast("保存しました");

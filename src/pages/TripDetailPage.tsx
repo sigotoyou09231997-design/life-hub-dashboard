@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Pencil, Trash2 } from "lucide-react";
+import { NotebookPen, Pencil, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
-import type { TripScheduleItem, TripExpense, TripPackingItem, TripRoutePlace, TripStatus } from "../types";
+import type { TripScheduleItem, TripExpense, TripPackingItem, TripRoutePlace, TripStatus, DiaryEntry } from "../types";
 import { formatDisplayDate, tripDayList, tripDurationLabel, todayStr } from "../lib/date";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
@@ -19,15 +19,18 @@ import { TripPackingForm } from "../components/trips/TripPackingForm";
 import { TripPackingList } from "../components/trips/TripPackingList";
 import { TripRouteView } from "../components/trips/TripRouteView";
 import { TripRouteForm } from "../components/trips/TripRouteForm";
+import { DiaryList } from "../components/diary/DiaryList";
+import { DiaryForm } from "../components/diary/DiaryForm";
+import { EmptyState } from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 
-type Tab = "schedule" | "expense" | "packing" | "route";
+type Tab = "schedule" | "expense" | "packing" | "route" | "diary";
 
-const VALID_TABS: Tab[] = ["schedule", "expense", "packing", "route"];
+const VALID_TABS: Tab[] = ["schedule", "expense", "packing", "route", "diary"];
 
 const STATUS_LABEL: Record<TripStatus, string> = {
   planning: "計画中",
@@ -49,6 +52,7 @@ export default function TripDetailPage() {
   const [editingExpense, setEditingExpense] = useState<TripExpense | "new" | null>(null);
   const [editingPacking, setEditingPacking] = useState<TripPackingItem | "new" | null>(null);
   const [editingRoute, setEditingRoute] = useState<TripRoutePlace | "new" | null>(null);
+  const [editingDiary, setEditingDiary] = useState<DiaryEntry | "new" | null>(null);
   // 日程の場所からルートを起こすとき、追加フォームに渡して埋めておく値。
   const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
 
@@ -67,6 +71,20 @@ export default function TripDetailPage() {
           .equals(tripId)
           .toArray()
           .then((rows) => rows.sort((a, b) => a.sortOrder - b.sortOrder)),
+      [tripId],
+    ) ?? [];
+
+  // この旅行の日記。索引は張っていないので、全件から絞る(日記は件数が少ない)。
+  const diaryEntries =
+    useLiveQuery(
+      () =>
+        db.diaryEntries
+          .toArray()
+          .then((rows) =>
+            rows
+              .filter((entry) => entry.tripId === tripId)
+              .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt),
+          ),
       [tripId],
     ) ?? [];
 
@@ -106,7 +124,7 @@ export default function TripDetailPage() {
 
   async function handleDelete() {
     if (!trip?.id) return;
-    if (!confirm(`「${trip.name}」を削除しますか?関連するスケジュール・費用・持ち物・行きたい場所もすべて削除されます。`)) return;
+    if (!confirm(`「${trip.name}」を削除しますか?関連するスケジュール・費用・持ち物・行きたい場所もすべて削除されます。(日記は消えず、日記画面に残ります)`)) return;
     await deleteTripCascade(trip.id);
     navigate("/trips");
   }
@@ -149,6 +167,7 @@ export default function TripDetailPage() {
             { value: "expense", label: "費用" },
             { value: "packing", label: "持ち物" },
             { value: "route", label: "ルート" },
+            { value: "diary", label: "日記" },
           ]}
           value={tab}
           onChange={setTab}
@@ -246,6 +265,34 @@ export default function TripDetailPage() {
             }}
           />
         )}
+
+        {tab === "diary" && (
+          <>
+            {diaryEntries.length === 0 ? (
+              <EmptyState
+                card
+                icon={NotebookPen}
+                title="この旅行の日記はまだありません"
+                description="書き始めると、そのときいた場所も一緒に残せます。"
+                action={{ label: "日記を書く", onClick: () => setEditingDiary("new") }}
+              />
+            ) : (
+              <>
+                <DiaryList
+                  entries={diaryEntries}
+                  onEdit={(entry) => setEditingDiary(entry)}
+                  onDelete={(id) => {
+                    db.diaryEntries.delete(id);
+                    showToast("削除しました");
+                  }}
+                />
+                <Button className="mt-4 w-full" onClick={() => setEditingDiary("new")}>
+                  日記を書く
+                </Button>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       <Sheet open={editingTrip} onClose={() => setEditingTrip(false)} title="旅行を編集">
@@ -292,6 +339,25 @@ export default function TripDetailPage() {
               showToast("保存しました");
             }}
             onCancel={() => setEditingExpense(null)}
+          />
+        )}
+      </Sheet>
+
+      <Sheet
+        open={editingDiary !== null}
+        onClose={() => setEditingDiary(null)}
+        title={editingDiary === "new" ? "日記を書く" : "日記を編集"}
+      >
+        {editingDiary && (
+          <DiaryForm
+            initial={editingDiary === "new" ? undefined : editingDiary}
+            lockedTripId={tripId}
+            defaultDate={scheduleDefaultDate}
+            onSaved={() => {
+              setEditingDiary(null);
+              showToast("保存しました");
+            }}
+            onCancel={() => setEditingDiary(null)}
           />
         )}
       </Sheet>

@@ -234,6 +234,9 @@ export interface DiaryEntry {
   id?: string;
   date: string; // YYYY-MM-DD
   body: string;
+  /** どの旅行の日か。旅行の外で書いた日は付かない。索引は張らない —
+   * 日記は件数が少なく、旅行1件ぶんの絞り込みはJS側で足りる。 */
+  tripId?: string;
   mood?: DiaryMood;
   /** 書いた場所。端末の位置情報から取る。地名の文字は自分で付ける(placeLabel)。 */
   latitude?: number;

@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { MapPin, PenLine, Smile } from "lucide-react";
+import { MapPin, PenLine, Plane, Smile } from "lucide-react";
 import { db } from "../../db/schema";
 import type { DiaryEntry, DiaryMood } from "../../types";
 import { todayStr } from "../../lib/date";
 import { buildMapEmbedUrl, coordsQuery } from "../../lib/googleMaps";
 import { Input, Textarea } from "../ui/Input";
+import { Select } from "../ui/Select";
 import { SegmentedField } from "../ui/SegmentedField";
 import { DateField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
@@ -13,6 +14,12 @@ import { Button } from "../ui/Button";
 
 interface Props {
   initial?: DiaryEntry;
+  /** 旅行の中から書くとき。この旅行の日として保存し、選び直させない。 */
+  lockedTripId?: string;
+  /** 旅行の外(日記画面)から書くときに選べる旅行。 */
+  tripOptions?: { id: string; name: string }[];
+  /** 旅行の中から書くときの既定日(旅行の期間内)。 */
+  defaultDate?: string;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -28,8 +35,9 @@ interface Spot {
   longitude: number;
 }
 
-export function DiaryForm({ initial, onSaved, onCancel }: Props) {
-  const [date, setDate] = useState(initial?.date ?? todayStr());
+export function DiaryForm({ initial, lockedTripId, tripOptions, defaultDate, onSaved, onCancel }: Props) {
+  const [date, setDate] = useState(initial?.date ?? defaultDate ?? todayStr());
+  const [tripId, setTripId] = useState(initial?.tripId ?? lockedTripId ?? "");
   const [body, setBody] = useState(initial?.body ?? "");
   const [mood, setMood] = useState<DiaryMood>(initial?.mood ?? "normal");
   const [placeLabel, setPlaceLabel] = useState(initial?.placeLabel ?? "");
@@ -73,6 +81,7 @@ export function DiaryForm({ initial, onSaved, onCancel }: Props) {
     setSaving(true);
     const record: DiaryEntry = {
       date,
+      tripId: lockedTripId ?? (tripId || undefined),
       body: body.trim(),
       mood,
       latitude: spot?.latitude,
@@ -104,6 +113,24 @@ export function DiaryForm({ initial, onSaved, onCancel }: Props) {
           autoFocus
         />
       </FormPanel>
+
+      {!lockedTripId && tripOptions && tripOptions.length > 0 && (
+        <FormPanel caption="旅行" icon={Plane}>
+          <Select
+            label="旅行の日として残す"
+            optional
+            value={tripId}
+            onChange={(e) => setTripId(e.target.value)}
+          >
+            <option value="">旅行に紐づけない</option>
+            {tripOptions.map((trip) => (
+              <option key={trip.id} value={trip.id}>
+                {trip.name}
+              </option>
+            ))}
+          </Select>
+        </FormPanel>
+      )}
 
       <FormPanel caption="気分" icon={Smile}>
         <SegmentedField label="今日はどうだった?" value={mood} options={MOOD_OPTIONS} onChange={setMood} />
