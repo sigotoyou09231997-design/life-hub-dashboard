@@ -8,6 +8,7 @@ import { todayStr } from "../lib/date";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
+import { PageFab } from "../components/ui/PageFab";
 import { Tabs } from "../components/ui/Tabs";
 import { EventForm } from "../components/calendar/EventForm";
 import { TaskForm } from "../components/tasks/TaskForm";
@@ -149,16 +150,9 @@ export default function SchedulePage() {
         )}
       </div>
 
-      {/* 追加ボタンは画面右下。Gmailの「新規メールを作成」と同じ位置・大きさに揃える —
-          スマホでは親指の届く下側の方が押しやすく、ページごとに置き場所が変わらない。 */}
-      <button
-        type="button"
-        onClick={() => setAddTypeOpen(true)}
-        aria-label="予定・タスクを追加"
-        className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_28px_rgba(79,111,255,0.35)] transition-all active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:bottom-8 lg:right-8"
-      >
+      <PageFab onClick={() => setAddTypeOpen(true)} label="予定・タスクを追加">
         <Plus size={24} />
-      </button>
+      </PageFab>
 
       <Sheet open={addTypeOpen} onClose={() => setAddTypeOpen(false)} title="何を追加しますか?">
         {/* 選ぶだけの画面なので、入力欄と同じ面ではなく「押す的」として見せる。 */}

@@ -7,6 +7,7 @@ import type { Trip } from "../types";
 import { todayStr } from "../lib/date";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
+import { PageFab } from "../components/ui/PageFab";
 import { Card } from "../components/ui/Card";
 import { TripForm } from "../components/trips/TripForm";
 import { TripLeadCard } from "../components/trips/TripLeadCard";
@@ -84,19 +85,12 @@ export default function TripsPage() {
 
   return (
     <div className="spatial-page trips-page micro-contrast mx-auto max-w-[1480px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
-      <PageHeader
-        title="旅行計画"
-        backTo="/"
-        right={
-          <button
-            onClick={() => setCreating(true)}
-            aria-label="旅行を追加"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white shadow-sm transition-colors active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-          >
-            <Plus size={20} />
-          </button>
-        }
-      />
+      <PageHeader title="旅行計画" backTo="/" />
+
+      {/* 追加ボタンは他のページと同じ画面右下(src/components/ui/PageFab.tsx)。 */}
+      <PageFab onClick={() => setCreating(true)} label="旅行を追加">
+        <Plus size={24} />
+      </PageFab>
 
       <div className="destination-workspace px-5 lg:px-8">
         {showSkeleton ? (
