@@ -5,6 +5,7 @@ import { ensureDefaultSettings } from "./db/schema";
 import { auth, isSupabaseConfigured } from "./lib/supabase";
 import { clearShownPushNotifications } from "./lib/pushNotifications";
 import { startSync, stopSync } from "./lib/syncRuntime";
+import { ensureDataOwner } from "./lib/dataOwner";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AmbientBackground } from "./components/layout/AmbientBackground";
@@ -77,6 +78,9 @@ export default function App() {
       }
       setSyncReady(false);
       try {
+        // 同期を始める前に、この端末のローカルデータが本当にこのユーザーのものか確かめる。
+        // 別アカウントでログインし直した場合は空にしてから同期する(src/lib/dataOwner.ts)。
+        if (await ensureDataOwner(next.user.id)) await ensureDefaultSettings();
         await startSync(next.user.id, next.access_token);
       } catch (error) {
         console.error("[sync] failed to initialize:", error);
