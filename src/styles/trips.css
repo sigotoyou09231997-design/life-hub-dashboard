@@ -101,7 +101,10 @@
     linear-gradient(180deg, rgba(12, 24, 40, 0.24) 0%, rgba(10, 21, 35, 0.3) 34%, rgba(8, 17, 30, 0.74) 66%, rgba(7, 15, 27, 0.93) 100%);
 }
 
-.trip-lead > *:not(.trip-lead__photo):not(.trip-lead__veil) {
+/* 中身を写真とベールの上に出す。削除ボタンだけは除く — このセレクタは
+   .trip-remove より詳細度が高いので、含めると position:absolute を打ち消して
+   ボタンが本文の流れに落ち、「次の旅行」バッジの上に重なって出てしまう。 */
+.trip-lead > *:not(.trip-lead__photo):not(.trip-lead__veil):not(.trip-remove) {
   position: relative;
   z-index: 1;
 }
@@ -260,7 +263,8 @@
   background: linear-gradient(180deg, rgba(13, 26, 42, 0.18) 0%, rgba(11, 22, 37, 0.32) 40%, rgba(9, 18, 31, 0.76) 72%, rgba(8, 16, 28, 0.92) 100%);
 }
 
-.trip-plan > *:not(.trip-plan__photo):not(.trip-plan__veil) {
+/* .trip-lead 側と同じ理由で、削除ボタンは除く。 */
+.trip-plan > *:not(.trip-plan__photo):not(.trip-plan__veil):not(.trip-remove) {
   position: relative;
   z-index: 1;
 }
@@ -458,11 +462,9 @@
   .trips-head h2 { font-size: 1.3rem; }
 }
 
-/* 画面が広いときだけ3列にする。狭い幅で3列にすると、作り直す前と同じ
-   「小さすぎるカード」に戻る。 */
-@media (min-width: 1440px) {
-  .trip-plan-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
+/* PCでも2列で止める。以前は1440px以上で3列にしていたが、1件あたりの写真が
+   小さくなるうえ、旅行が2件しか無いと3列目だけが空いて列が揃わない。広い画面
+   では列を増やさず、2列のまま1枚を大きく見せる。 */
 
 @media (max-width: 400px) {
   .trip-lead { min-height: 17.5rem; padding: 1.1rem; }
