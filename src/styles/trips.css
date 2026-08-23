@@ -691,6 +691,48 @@
   white-space: pre-wrap;
 }
 
+/* --- 現在地からの経路 ------------------------------------------------------
+   カードの中に開く。区間パネルと同じ見た目だが、こちらは「いまいる場所から
+   そこへどう行くか」なので、鎖の間ではなくその場所のカードの中に置く。 */
+.trip-route-here {
+  margin-top: 0.15rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--hub-hairline);
+}
+
+.trip-route-here__title {
+  margin: 0 0 0.45rem;
+  color: rgba(13, 27, 49, 0.66);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.trip-route-here__map {
+  overflow: hidden;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+}
+
+.trip-route-here__map iframe {
+  display: block;
+  width: 100%;
+  height: 11rem;
+  border: 0;
+}
+
+.trip-route-here__state {
+  margin: 0;
+  padding: 0.7rem 0.2rem;
+  color: rgba(13, 27, 49, 0.55);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.trip-route-card__tools button.is-active {
+  background: var(--hub-inset);
+  color: var(--accent, var(--hub-blue));
+}
+
 /* --- カードとカードをつなぐ矢印 ------------------------------------------
    ただの飾りにせず、その区間だけの経路検索への入り口にする。 */
 .trip-route-arrow {

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildRouteEmbedUrl, buildRouteSearchUrl, buildLegEmbedUrl, buildLegSearchUrl } from "./googleMaps";
+import {
+  buildRouteEmbedUrl,
+  buildRouteSearchUrl,
+  buildLegEmbedUrl,
+  buildLegSearchUrl,
+  buildFromHereSearchUrl,
+  coordsQuery,
+} from "./googleMaps";
 
 describe("buildRouteEmbedUrl", () => {
   it("chains every stop through saddr / daddr+to:", () => {
@@ -66,5 +73,20 @@ describe("buildLegEmbedUrl", () => {
   it("maps 車 and 徒歩 to their own codes", () => {
     expect(buildLegEmbedUrl("A", "B", "driving")).toContain("dirflg=d");
     expect(buildLegEmbedUrl("A", "B", "walking")).toContain("dirflg=w");
+  });
+});
+
+describe("buildFromHereSearchUrl", () => {
+  it("leaves the origin out so Googleマップ側が現在地を入れる", () => {
+    const url = buildFromHereSearchUrl("神奈川県鎌倉市坂下6-10");
+    expect(url).not.toContain("origin=");
+    expect(url).toContain("destination=%E7%A5%9E%E5%A5%88%E5%B7%9D%E7%9C%8C");
+    expect(url).toContain("travelmode=transit");
+  });
+});
+
+describe("coordsQuery", () => {
+  it("formats a geolocation reading for the embed URL", () => {
+    expect(coordsQuery(35.3192345678, 139.5301)).toBe("35.319235,139.530100");
   });
 });

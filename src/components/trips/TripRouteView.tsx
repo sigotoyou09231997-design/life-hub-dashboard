@@ -1,8 +1,15 @@
 import { useState } from "react";
-import { ArrowDown, Check, ExternalLink, Footprints, Map, MoveLeft, MoveRight, Pencil, Plus, Train, Car, Trash2 } from "lucide-react";
+import { ArrowDown, Check, ExternalLink, Footprints, LocateFixed, Map, MoveLeft, MoveRight, Pencil, Plus, Train, Car, Trash2 } from "lucide-react";
 import { db } from "../../db/schema";
 import type { TripRoutePlace } from "../../types";
-import { buildMapEmbedUrl, buildLegEmbedUrl, buildLegSearchUrl, buildRouteSearchUrl } from "../../lib/googleMaps";
+import {
+  buildMapEmbedUrl,
+  buildLegEmbedUrl,
+  buildLegSearchUrl,
+  buildRouteSearchUrl,
+  buildFromHereSearchUrl,
+  coordsQuery,
+} from "../../lib/googleMaps";
 import type { TravelMode } from "../../lib/googleMaps";
 import { TripRouteForm } from "./TripRouteForm";
 
@@ -39,6 +46,35 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
   const [mode, setMode] = useState<TravelMode>("transit");
   /** 経路を開いている区間の、始点の場所id。同時に開くのは1区間だけ。 */
   const [openLeg, setOpenLeg] = useState<string | null>(null);
+  /** 「現在地から」を開いている場所id。 */
+  const [fromHere, setFromHere] = useState<string | null>(null);
+  /** 端末から取れた現在地。一度取れたら他の場所にも使い回す。 */
+  const [here, setHere] = useState<string | null>(null);
+  const [hereState, setHereState] = useState<"idle" | "asking" | "denied">("idle");
+
+  function showFromHere(placeId: string) {
+    if (fromHere === placeId) {
+      setFromHere(null);
+      return;
+    }
+    setFromHere(placeId);
+    if (here || hereState === "asking") return;
+    if (!navigator.geolocation) {
+      setHereState("denied");
+      return;
+    }
+    setHereState("asking");
+    // 現在地はブラウザの標準機能から取る(APIキーは要らない)。断られたら地図は
+    // 出せないので、Googleマップ側に現在地を入れてもらうリンクだけを残す。
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setHere(coordsQuery(pos.coords.latitude, pos.coords.longitude));
+        setHereState("idle");
+      },
+      () => setHereState("denied"),
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 5 * 60_000 },
+    );
+  }
 
   async function swap(a: TripRoutePlace, b: TripRoutePlace) {
     if (!a.id || !b.id) return;
@@ -127,6 +163,15 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
                       >
                         <MoveRight size={15} />
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => place.id && showFromHere(place.id)}
+                        aria-expanded={fromHere === place.id}
+                        aria-label={`現在地から${place.name}までの経路`}
+                        className={fromHere === place.id ? "is-active" : undefined}
+                      >
+                        <LocateFixed size={15} />
+                      </button>
                       <button type="button" onClick={() => onEdit(place)} aria-label={`${place.name}を編集`}>
                         <Pencil size={15} />
                       </button>
@@ -154,6 +199,38 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
 
                   <p className="trip-route-card__address" title={place.address}>{place.address}</p>
                   {place.memo && <p className="trip-route-card__memo">{place.memo}</p>}
+
+                  {fromHere === place.id && (
+                    <div className="trip-route-here">
+                      <p className="trip-route-here__title">現在地 → {place.name}</p>
+                      {here ? (
+                        <div className="trip-route-here__map">
+                          <iframe
+                            key={`${here}-${place.id}-${mode}`}
+                            title={`現在地から${place.name}までの経路`}
+                            src={buildLegEmbedUrl(here, place.address, mode)}
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                          />
+                        </div>
+                      ) : (
+                        <p className="trip-route-here__state">
+                          {hereState === "asking"
+                            ? "現在地を確認しています…"
+                            : "現在地を取得できませんでした。下のリンクなら、Googleマップ側が現在地から案内します。"}
+                        </p>
+                      )}
+                      <a
+                        className="trip-route-leg__open"
+                        href={buildFromHereSearchUrl(place.address, mode)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        現在地からの案内をGoogleマップで開く
+                        <ExternalLink size={13} />
+                      </a>
+                    </div>
+                  )}
                 </article>
 
                 {next && (

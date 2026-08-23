@@ -68,3 +68,17 @@ export function buildLegEmbedUrl(from: string, to: string, mode: TravelMode): st
 export function buildLegSearchUrl(from: string, to: string, mode: TravelMode = "transit"): string {
   return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}&travelmode=${mode}`;
 }
+
+/**
+ * 出発地を書かない経路リンク。Googleマップ側が端末の現在地を出発地として
+ * 埋めてくれるので、こちらは行き先だけ渡す(アプリ内の埋め込み地図は現在地を
+ * 知らないため、そちらへは緯度経度を文字列で渡す — buildLegEmbedUrl参照)。
+ */
+export function buildFromHereSearchUrl(destination: string, mode: TravelMode = "transit"): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=${mode}`;
+}
+
+/** 埋め込み地図に渡せる「現在地」。Geolocationの結果をそのまま座標文字列にする。 */
+export function coordsQuery(latitude: number, longitude: number): string {
+  return `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+}
