@@ -13,6 +13,7 @@ import type {
   TripExpense,
   TripPackingItem,
   TripRoutePlace,
+  DiaryEntry,
   GmailAccount,
   SyncedEmail,
   DraftReply,
@@ -105,6 +106,7 @@ const MIGRATION_TABLE_SCHEMAS: TableSchema[] = [...TABLE_SCHEMAS, ...RETIRED_TAB
 const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "blockedSenders", indexes: "accountId, email, [accountId+email]", fks: [], hasUpdatedAt: false },
   { name: "tripRoutePlaces", indexes: "tripId", fks: [], hasUpdatedAt: true },
+  { name: "diaryEntries", indexes: "date", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -161,6 +163,7 @@ export class LifeHubDB extends Dexie {
   tripExpenses!: EntityTable<TripExpense, "id">;
   tripPackingItems!: EntityTable<TripPackingItem, "id">;
   tripRoutePlaces!: EntityTable<TripRoutePlace, "id">;
+  diaryEntries!: EntityTable<DiaryEntry, "id">;
   gmailAccounts!: EntityTable<GmailAccount, "id">;
   syncedEmails!: EntityTable<SyncedEmail, "id">;
   draftReplies!: EntityTable<DraftReply, "id">;
@@ -263,6 +266,13 @@ export class LifeHubDB extends Dexie {
     // 加えず、ここで作ってPOST_MIGRATION_TABLE_SCHEMAS側からフックを張る。
     this.version(12).stores({
       tripRoutePlaces: "id, tripId",
+    });
+
+    // 日記を作り直す。v11で一度落とした同じ名前のテーブルだが、中身は別物
+    // (本文と気分に加えて、書いた場所の緯度経度を持つ)。v11の削除より後の
+    // バージョンで作るので、古い端末でも「落としてから作る」の順で流れる。
+    this.version(13).stores({
+      diaryEntries: "id, date",
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

@@ -228,6 +228,23 @@ export interface TripRoutePlace {
   userId?: string;
 }
 
+export type DiaryMood = "good" | "normal" | "bad";
+
+export interface DiaryEntry {
+  id?: string;
+  date: string; // YYYY-MM-DD
+  body: string;
+  mood?: DiaryMood;
+  /** 書いた場所。端末の位置情報から取る。地名の文字は自分で付ける(placeLabel)。 */
+  latitude?: number;
+  longitude?: number;
+  placeLabel?: string;
+  createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
+}
+
 export interface GmailAccount {
   id?: string;
   email: string;
