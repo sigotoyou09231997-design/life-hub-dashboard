@@ -36,14 +36,22 @@ export default function GmailCallbackPage() {
 
       try {
         const result = await exchangeAuthorizationCode(code);
-        await db.gmailAccounts.add({
-          email: result.email,
+        const tokens = {
           accessToken: result.accessToken,
           accessTokenExpiresAt: Date.now() + result.expiresIn * 1000,
           refreshToken: result.refreshToken,
           connectedAt: Date.now(),
-        });
-        showToast(`${result.email} と連携しました`);
+        };
+        // 同じアドレスで連携し直した場合は、行を増やさず既存の行を上書きする。
+        // 増やしていた頃は、古い行にぶら下がったメール・AI下書き・ブロックリストが
+        // そのまま残り、TOPや通知の件数(全アカウント合算)が端末ごとに食い違っていた。
+        const existing = await db.gmailAccounts.where("email").equals(result.email).first();
+        if (existing?.id) {
+          await db.gmailAccounts.update(existing.id, tokens);
+        } else {
+          await db.gmailAccounts.add({ email: result.email, ...tokens });
+        }
+        showToast(`${result.email} と${existing ? "つなぎ直しました" : "連携しました"}`);
         navigate("/settings", { replace: true });
       } catch {
         setStatus("error");

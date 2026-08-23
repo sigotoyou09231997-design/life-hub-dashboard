@@ -10,6 +10,7 @@ import { Sheet } from "../components/ui/Sheet";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { GmailInbox, type GmailInboxHandle } from "../components/gmail/GmailInbox";
 import { pullBlockedSenders } from "../lib/blockedSenders";
+import { consolidateGmailAccounts } from "../lib/gmailAccounts";
 import { ComposeMail } from "../components/gmail/ComposeMail";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
@@ -41,6 +42,12 @@ export default function GmailPage() {
       if (account.id) void pullBlockedSenders(account.id, account.email);
     }
   }, [accounts]);
+
+  // 連携し直しで増えてしまった重複アカウントと、どのアカウントにも属さない
+  // メール/下書き/ブロックリストを片付ける(src/lib/gmailAccounts.ts)。
+  useEffect(() => {
+    void consolidateGmailAccounts();
+  }, []);
 
   const selectedAccount = accounts?.find((a) => a.id === selectedAccountId);
 

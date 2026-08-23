@@ -222,8 +222,18 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       const newIds = ids.filter((id) => !known.has(id));
 
       let added = 0;
+      let failed = 0;
       for (const id of newIds) {
-        const meta = await getMessageMeta(fresh.accessToken, id);
+        // 1通の取得失敗で同期全体を止めない。止めていた頃は、通信が不安定な端末だけ
+        // 途中までしか取り込めず、PCとスマホで一覧の件数が食い違う原因になっていた。
+        // 取り込めなかった分は保存されないので、次の同期でそのまま再挑戦される。
+        let meta: Awaited<ReturnType<typeof getMessageMeta>>;
+        try {
+          meta = await getMessageMeta(fresh.accessToken, id);
+        } catch {
+          failed++;
+          continue;
+        }
         // ブロック中の送信者でも保存する。隠すのは表示時(visibleEmails)だけ —
         // ここで捨てていた頃は、後でブロックを解除しても30日窓/取得上限から外れた
         // メールがその端末にだけ戻らず、PCとスマホで一覧の中身がずれていた。
@@ -310,6 +320,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       if (removed > 0) parts.push(`${removed}件をGmailに合わせて削除`);
       if (pushedStates.count > 0) parts.push(`${pushedStates.count}件の既読を他の端末へ送信`);
       if (pulledStates.count > 0) parts.push(`${pulledStates.count}件の既読を他の端末から反映`);
+      if (failed > 0) parts.push(`${failed}件は取得できず次回に持ち越し`);
       // 既読の共有だけ失敗した場合、メール取得自体は成功しているのでそこは伝えつつ、
       // 黙って揃わないままにならないようエラーも出す(以前はconsoleにしか出ていなかった)。
       if (stateError) showToast(`既読の同期に失敗しました: ${stateError}`, "error");
