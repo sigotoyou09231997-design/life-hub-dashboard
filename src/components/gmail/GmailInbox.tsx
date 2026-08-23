@@ -15,6 +15,7 @@ import {
 } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
+import { pullMessageStates, updateMessageState } from "../../lib/gmailMessageState";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
@@ -36,6 +37,22 @@ export interface GmailInboxHandle {
 }
 
 const SYNC_WINDOW_DAYS = 30;
+
+/** Gmailの受信トレイに無くなったメールをこの端末からも消す(AI下書きも一緒に)。
+ * `inboxIds` はその期間の受信トレイを最後まで数えきれた場合のみ渡ってくる —
+ * 途中までのリストで消すと、まだ受信トレイにあるメールまで消えてしまう。 */
+async function pruneMissingEmails(accountId: string, inboxIds: string[]): Promise<number> {
+  const keep = new Set(inboxIds);
+  const stale = (await db.syncedEmails.where("accountId").equals(accountId).toArray()).filter(
+    (email) => email.id && !keep.has(email.gmailMessageId),
+  );
+  for (const email of stale) {
+    const drafts = await db.draftReplies.where("emailId").equals(email.id!).toArray();
+    for (const draft of drafts) await db.draftReplies.delete(draft.id!);
+    await db.syncedEmails.delete(email.id!);
+  }
+  return stale.length;
+}
 
 const STATUS_LABEL: Record<EmailStatus, string> = {
   unprocessed: "未処理",
@@ -185,7 +202,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       await dedupeSyncedEmails(account.id);
       const fresh = await ensureFreshAccessToken(account);
       const sinceEpochSec = Math.floor(Date.now() / 1000) - SYNC_WINDOW_DAYS * 24 * 60 * 60;
-      const ids = await listRecentMessageIds(fresh.accessToken, sinceEpochSec);
+      const { ids, complete } = await listRecentMessageIds(fresh.accessToken, sinceEpochSec);
       const existing = await db.syncedEmails.where("accountId").equals(account.id).toArray();
       const known = new Set(existing.map((e) => e.gmailMessageId));
       const newIds = ids.filter((id) => !known.has(id));
@@ -193,7 +210,9 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       let added = 0;
       for (const id of newIds) {
         const meta = await getMessageMeta(fresh.accessToken, id);
-        if (blockedSet.has(parseSender(meta.from).email.toLowerCase())) continue;
+        // ブロック中の送信者でも保存する。隠すのは表示時(visibleEmails)だけ —
+        // ここで捨てていた頃は、後でブロックを解除しても30日窓/取得上限から外れた
+        // メールがその端末にだけ戻らず、PCとスマホで一覧の中身がずれていた。
         const newEmail = {
           accountId: account.id,
           gmailMessageId: id,
@@ -210,7 +229,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
 
         // 自動下書き: 送信は行わない。draftReplies を作成するところまでで、
         // 送信は必ずDraftReview側で本人が「送信する」を押した場合のみ。
-        if (autoDraftEnabled) {
+        if (autoDraftEnabled && !blockedSet.has(parseSender(meta.from).email.toLowerCase())) {
           try {
             await generateDraftForEmail(account, { ...newEmail, id: newEmailId });
           } catch {
@@ -256,10 +275,22 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
         }),
       );
 
+      // Gmailの受信トレイ(直近SYNC_WINDOW_DAYS日)に無くなったメールをこの端末からも消す。
+      // これが無いと、アーカイブ/削除された分や、片方の端末にだけ残っている古い分が
+      // 端末ごとに溜まり続け、同じアカウントなのに一覧の面ぶれが揃わない。
+      // completeがfalse(=取得上限まで辿っても数えきれなかった)時は、単に取得しきれて
+      // いないだけのメールを消してしまうので掃除しない。
+      const removed = complete ? await pruneMissingEmails(account.id, ids) : 0;
+
+      // 他端末での既読/未読/送信済みを取り込む。上でメールを入れた後に呼ぶ —
+      // ローカルに行が無いメッセージの状態は入れる場所が無いため。
+      await pullMessageStates(account.id, account.email);
+
       await db.gmailAccounts.update(account.id, { lastSyncedAt: Date.now() });
       const parts: string[] = [];
       if (added > 0) parts.push(`${added}件の新着メール`);
       if (reconciled > 0) parts.push(`${reconciled}件を送信済みに更新`);
+      if (removed > 0) parts.push(`${removed}件をGmailに合わせて削除`);
       showToast(parts.length > 0 ? `${parts.join("・")}しました` : "新着メールはありませんでした");
     } catch {
       showToast("メールの取得に失敗しました", "error");
@@ -286,7 +317,9 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
   // readAtは「すべて」タブの除外/「既読」タブの表示にも使われるため、押すとその場で
   // この一覧(「すべて」時)から消える。
   async function handleMarkRead(id: string) {
-    await db.syncedEmails.update(id, { readAt: Date.now() });
+    const email = await db.syncedEmails.get(id);
+    if (!email) return;
+    await updateMessageState(account.email, email, { readAt: Date.now() });
     showToast("既読にしました");
   }
 

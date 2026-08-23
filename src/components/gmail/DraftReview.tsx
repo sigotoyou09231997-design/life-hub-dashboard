@@ -26,6 +26,7 @@ import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 import { MonthView } from "../calendar/MonthView";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
+import { updateMessageState } from "../../lib/gmailMessageState";
 import { AttachmentPicker } from "./AttachmentPicker";
 
 const EMPTY_DATE_SET = new Set<string>();
@@ -271,7 +272,6 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
 
   async function performSend() {
     if (!email.id) return;
-    const emailId = email.id;
     setSending(true);
     const attemptStartedAt = Date.now();
     const markSent = async () => {
@@ -279,7 +279,8 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       if (draft?.id) {
         await db.draftReplies.update(draft.id, { body: bodyText, subject: subjectText, to: toText, updatedAt: now, sentAt: now });
       }
-      await db.syncedEmails.update(emailId, { status: "sent" });
+      // 送信済みは他端末にも配る(既読と同じ仕組み) — 同じメールへの二重返信を防ぐ。
+      await updateMessageState(account.email, email, { status: "sent" });
     };
     try {
       const fresh = await ensureFreshAccessToken(account);
@@ -359,10 +360,10 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   async function handleToggleRead() {
     if (!email.id) return;
     if (email.readAt) {
-      await db.syncedEmails.update(email.id, { readAt: undefined });
+      await updateMessageState(account.email, email, { readAt: undefined });
       showToast("未読に戻しました");
     } else {
-      await db.syncedEmails.update(email.id, { readAt: Date.now() });
+      await updateMessageState(account.email, email, { readAt: Date.now() });
       showToast("既読にしました");
     }
   }

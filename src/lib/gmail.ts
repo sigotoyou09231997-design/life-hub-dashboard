@@ -291,12 +291,32 @@ async function gmailFetch(accessToken: string, path: string, init?: RequestInit)
   return res.json();
 }
 
-export async function listRecentMessageIds(accessToken: string, sinceEpochSec: number): Promise<string[]> {
+/** 1回の同期で辿るページ数の上限。1ページ100件なので最大500件 —
+ * 直近30日の受信トレイがこれを超える場合だけ `complete: false` になる。 */
+const MESSAGE_ID_PAGE_LIMIT = 5;
+
+/** `complete` は「この期間の受信トレイを最後まで数えきれたか」。false の時に
+ * 「Gmail側に無いローカル行を消す」判断をすると、単に取得しきれていないだけの
+ * メールまで消してしまうため、呼び出し側(GmailInbox)はこれを見て掃除を止める。 */
+export interface RecentMessageIds {
+  ids: string[];
+  complete: boolean;
+}
+
+export async function listRecentMessageIds(accessToken: string, sinceEpochSec: number): Promise<RecentMessageIds> {
   // in:inbox を付けないと、Gmail検索のデフォルト範囲(受信トレイ+送信済み)により、この
   // アプリ自身が送信した返信(送信済みフォルダ行き)まで受信一覧に混ざってしまう。
-  const params = new URLSearchParams({ q: `in:inbox after:${sinceEpochSec}`, maxResults: "100" });
-  const data = await gmailFetch(accessToken, `/messages?${params.toString()}`);
-  return ((data.messages ?? []) as { id: string }[]).map((m) => m.id);
+  const ids: string[] = [];
+  let pageToken: string | undefined;
+  for (let page = 0; page < MESSAGE_ID_PAGE_LIMIT; page++) {
+    const params = new URLSearchParams({ q: `in:inbox after:${sinceEpochSec}`, maxResults: "100" });
+    if (pageToken) params.set("pageToken", pageToken);
+    const data = await gmailFetch(accessToken, `/messages?${params.toString()}`);
+    for (const m of (data.messages ?? []) as { id: string }[]) ids.push(m.id);
+    pageToken = data.nextPageToken as string | undefined;
+    if (!pageToken) return { ids, complete: true };
+  }
+  return { ids, complete: false };
 }
 
 async function listRecentSentMessageIds(accessToken: string, limit: number): Promise<string[]> {
