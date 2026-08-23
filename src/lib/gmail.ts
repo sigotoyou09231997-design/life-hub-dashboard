@@ -388,6 +388,17 @@ async function getRecentSentBodies(accessToken: string, limit: number): Promise<
   return bodies.map(stripQuotedReply).filter((b) => b.length > 0);
 }
 
+/** 受信トレイの「すべて」タブと、TOPのGmailカードに出す条件 —
+ * まだ手を付けていないメールだけを指す。既読にしたものは「既読」タブへ、
+ * 返信を送ったものは「送信済み」タブへ移る。
+ *
+ * 2か所で別々に書いていた頃は、TOPだけ既読も返信済みも並べ続けていて、
+ * 受信トレイでは片付いているのにTOPにはそのまま残る、という食い違いが出ていた。
+ * 条件はここに1本化して、両方から同じ関数を呼ぶ。 */
+export function isUnhandledEmail(email: Pick<SyncedEmail, "readAt" | "status">): boolean {
+  return !email.readAt && email.status !== "sent";
+}
+
 export interface ParsedSender {
   name: string;
   email: string;
