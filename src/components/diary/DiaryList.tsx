@@ -1,4 +1,4 @@
-import { ExternalLink, MapPin, Pencil, Plane, Trash2 } from "lucide-react";
+import { ExternalLink, MapPin, Pencil, Trash2 } from "lucide-react";
 import type { DiaryEntry, DiaryMood } from "../../types";
 import { formatDisplayDate } from "../../lib/date";
 import { buildMapEmbedUrl, buildMapSearchUrl, coordsQuery } from "../../lib/googleMaps";
@@ -7,9 +7,6 @@ import { Badge } from "../ui/Badge";
 
 interface Props {
   entries: DiaryEntry[];
-  /** 旅行に紐づいた日記に旅行名を出すための対応表。旅行の中では渡さない
-   * (その旅行の日記しか並んでいないので、全部に同じ名前が付くだけになる)。 */
-  tripNameById?: Map<string, string>;
   onEdit: (entry: DiaryEntry) => void;
   onDelete: (id: string) => void;
 }
@@ -38,7 +35,7 @@ export function groupByMonth(entries: DiaryEntry[]): { label: string; items: Dia
   return groups;
 }
 
-export function DiaryList({ entries, tripNameById, onEdit, onDelete }: Props) {
+export function DiaryList({ entries, onEdit, onDelete }: Props) {
   return (
     <div className="diary-board">
       {groupByMonth(entries).map((group) => (
@@ -68,12 +65,6 @@ export function DiaryList({ entries, tripNameById, onEdit, onDelete }: Props) {
                           <span className="diary-entry__place">
                             <MapPin size={12} />
                             {entry.placeLabel || "場所を記録"}
-                          </span>
-                        )}
-                        {entry.tripId && tripNameById?.get(entry.tripId) && (
-                          <span className="diary-entry__place diary-entry__trip">
-                            <Plane size={12} />
-                            {tripNameById.get(entry.tripId)}
                           </span>
                         )}
                       </div>

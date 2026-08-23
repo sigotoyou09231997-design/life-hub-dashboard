@@ -24,7 +24,6 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
 const ExpensePage = lazy(() => import("./pages/records/ExpensePage"));
 const NotePage = lazy(() => import("./pages/records/NotePage"));
-const DiaryPage = lazy(() => import("./pages/DiaryPage"));
 const GmailPage = lazy(() => import("./pages/GmailPage"));
 const GmailMailPage = lazy(() => import("./pages/GmailMailPage"));
 const GmailCallbackPage = lazy(() => import("./pages/GmailCallbackPage"));
@@ -114,7 +113,6 @@ export default function App() {
       void import("./pages/AccountPage");
       void import("./pages/records/ExpensePage");
       void import("./pages/records/NotePage");
-      void import("./pages/DiaryPage");
       void import("./pages/GmailPage");
       void import("./pages/GmailMailPage");
     };
@@ -166,11 +164,10 @@ export default function App() {
               <Route path="/records/tasks" element={<Navigate to="/schedule" replace />} />
               <Route path="/records/expense" element={<LazyRoute><ExpensePage /></LazyRoute>} />
               <Route path="/records/notes" element={<LazyRoute><NotePage /></LazyRoute>} />
-              <Route path="/diary" element={<LazyRoute><DiaryPage /></LazyRoute>} />
-              {/* 目標・習慣は廃止。旧ブックマーク/リンク対策として残す。
-                  日記は作り直したので、旧URLは新しい画面へ送る。 */}
+              {/* 目標・習慣は廃止。日記は旅行詳細のタブに入れたので単独の画面は無い。
+                  旧ブックマーク/リンク対策として、いずれもホームへ返す。 */}
               <Route path="/records" element={<Navigate to="/" replace />} />
-              <Route path="/records/diary" element={<Navigate to="/diary" replace />} />
+              <Route path="/records/diary" element={<Navigate to="/" replace />} />
               <Route path="/records/goals" element={<Navigate to="/" replace />} />
               <Route path="/records/habits" element={<Navigate to="/" replace />} />
               <Route path="/settings" element={<LazyRoute><SettingsPage /></LazyRoute>} />

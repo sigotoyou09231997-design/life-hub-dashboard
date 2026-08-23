@@ -124,7 +124,7 @@ export default function TripDetailPage() {
 
   async function handleDelete() {
     if (!trip?.id) return;
-    if (!confirm(`「${trip.name}」を削除しますか?関連するスケジュール・費用・持ち物・行きたい場所もすべて削除されます。(日記は消えず、日記画面に残ります)`)) return;
+    if (!confirm(`「${trip.name}」を削除しますか?関連するスケジュール・費用・持ち物・行きたい場所・日記もすべて削除されます。`)) return;
     await deleteTripCascade(trip.id);
     navigate("/trips");
   }
@@ -351,7 +351,7 @@ export default function TripDetailPage() {
         {editingDiary && (
           <DiaryForm
             initial={editingDiary === "new" ? undefined : editingDiary}
-            lockedTripId={tripId}
+            tripId={tripId}
             defaultDate={scheduleDefaultDate}
             onSaved={() => {
               setEditingDiary(null);

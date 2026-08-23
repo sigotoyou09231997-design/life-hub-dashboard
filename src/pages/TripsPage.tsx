@@ -18,13 +18,14 @@ import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 
 export async function deleteTripCascade(tripId: string) {
-  // 日記だけは消さない。旅程や費用と違って「その旅行の付属物」ではなく、
-  // 書いた本人の記録なので、旅行を消したら紐づけだけ外して日記画面に残す。
+  // 日記は旅行の中でしか読めない(単独の画面は無い)ので、紐づけを外すと
+  // どこからも辿れない行が残ってしまう。旅行と一緒に消す — 削除の確認文でも
+  // 日記が消えることを明記している。
   const diaryIds = (await db.diaryEntries.toArray())
     .filter((entry) => entry.tripId === tripId)
     .map((entry) => entry.id!)
     .filter(Boolean);
-  await Promise.all(diaryIds.map((id) => db.diaryEntries.update(id, { tripId: undefined })));
+  await Promise.all(diaryIds.map((id) => db.diaryEntries.delete(id)));
 
   await Promise.all([
     db.tripSchedule.where("tripId").equals(tripId).delete(),
