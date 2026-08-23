@@ -14,7 +14,8 @@ import "./styles/forms.css";
 // (here + on tab refocus) means an already-open session notices new deploys
 // without any manual action. registerType: "prompt" (see vite.config.ts) means
 // a found update just sits waiting here instead of reloading the tab out from
-// under the user — UpdateBanner.tsx applies it at the next safe interaction.
+// under the user — UpdateBanner.tsx shows the banner as soon as it lands and
+// applies it a moment later (holding off only while a form is open).
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {

@@ -1,12 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { applyUpdate, subscribeUpdateAvailable } from "../../lib/pwaUpdate";
 
 const PROGRESS_DURATION_MS = 1500;
-
-/** Interaction types that mean "the user is actively using the app right now" —
- * the moment to surface the update rather than yanking the page from under them. */
-const INTERACTION_EVENTS = ["pointerdown", "keydown"] as const;
 
 /** True while a Sheet (add/edit form) is open — Sheet.tsx is the only place that
  * locks body scroll, so this doubles as "don't reload mid-edit". */
@@ -17,29 +13,13 @@ function isFormOpen(): boolean {
 export function UpdateBanner() {
   const [phase, setPhase] = useState<"idle" | "updating">("idle");
   const [filled, setFilled] = useState(false);
-  const armedRef = useRef(false);
+  /** フォームを開いているせいで切り替えを待っている間だけ true。 */
+  const [waitingForForm, setWaitingForForm] = useState(false);
 
-  useEffect(() => {
-    function armInteractionWatch() {
-      if (armedRef.current) return;
-      armedRef.current = true;
-
-      function onInteraction() {
-        // Defer the check a frame: a pointerdown that itself opens a Sheet fires
-        // before React commits that state change, so isFormOpen() would still
-        // read false at this instant even though a form is about to appear.
-        requestAnimationFrame(() => {
-          if (isFormOpen()) return; // keep watching; don't interrupt an open form
-          INTERACTION_EVENTS.forEach((type) => document.removeEventListener(type, onInteraction));
-          setPhase("updating");
-        });
-      }
-
-      INTERACTION_EVENTS.forEach((type) => document.addEventListener(type, onInteraction, { passive: true }));
-    }
-
-    return subscribeUpdateAvailable(armInteractionWatch);
-  }, []);
+  // 更新が見つかった時点ですぐ帯を出す。以前は次のタップ/キー入力まで黙って
+  // 待っていたので、画面を開いたまま眺めているだけの人には更新が来たことが
+  // まったく伝わらなかった。触っているかどうかに関係なく知らせる。
+  useEffect(() => subscribeUpdateAvailable(() => setPhase("updating")), []);
 
   useEffect(() => {
     if (phase !== "updating") return;
@@ -47,10 +27,12 @@ export function UpdateBanner() {
     let cancelled = false;
     let timeoutId: number;
     const startedAt = Date.now();
-    // Upper bound on how long an open form can keep deferring the reload —
-    // without this, a form that never closes (or a stuck overflow flag) would
-    // keep rescheduling forever and the banner would never go away.
-    const MAX_DEFER_MS = 15_000;
+    // フォームを開いている間は切り替えを待つ。待ちっぱなしにはできない
+    // (閉じないフォームやoverflowフラグの取り残しがあると帯が永遠に残る)ので
+    // 上限は要るが、短すぎると入力の途中でリロードして書きかけを捨ててしまう。
+    // 帯を触られていなくても出すようになった分ここに居合わせる確率が上がったため、
+    // 15秒から5分に伸ばしてある。
+    const MAX_DEFER_MS = 5 * 60_000;
 
     // Re-checked at fire time (and re-armed if needed) so a form opened *during*
     // the animation still gets to finish before the reload happens.
@@ -58,9 +40,11 @@ export function UpdateBanner() {
       timeoutId = window.setTimeout(() => {
         if (cancelled) return;
         if (isFormOpen() && Date.now() - startedAt < MAX_DEFER_MS) {
+          setWaitingForForm(true);
           scheduleApply(1000);
           return;
         }
+        setWaitingForForm(false);
         void applyUpdate();
       }, delay);
     }
@@ -86,7 +70,9 @@ export function UpdateBanner() {
           <Download size={18} className="shrink-0 text-white/80" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium">アップデートが来ています</p>
-            <p className="mt-0.5 text-xs text-white/60">最新版に更新しています…</p>
+            <p className="mt-0.5 text-xs text-white/60">
+              {waitingForForm ? "入力が終わったら切り替えます" : "最新版に更新しています…"}
+            </p>
           </div>
         </div>
         <div className="h-1 w-full bg-white/15">
