@@ -6,6 +6,7 @@ import {
   Mail,
   NotebookPen,
   Plane,
+  BookHeart,
   Settings,
   UserRound,
 } from "lucide-react";
@@ -17,6 +18,7 @@ const PRIMARY_NAV = [
   { to: "/records/notes", label: "メモ・リスト", icon: NotebookPen },
   { to: "/gmail", label: "Gmail", icon: Mail },
   { to: "/trips", label: "旅行計画", icon: Plane },
+  { to: "/diary", label: "日記", icon: BookHeart },
 ];
 
 const SECONDARY_NAV = [

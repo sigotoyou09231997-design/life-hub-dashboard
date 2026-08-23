@@ -7,6 +7,7 @@ import { markUpdateAvailable, setUpdateApplier } from "./lib/pwaUpdate";
 import "./index.css";
 import "./styles/hub.css";
 import "./styles/trips.css";
+import "./styles/diary.css";
 import "./styles/forms.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a

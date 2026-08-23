@@ -1,0 +1,166 @@
+/* ==========================================================================
+   日記 (/diary) — 旅行のカードと同じ Liquid Glass の語彙で組む
+   (2026-08)
+
+   1件が「日付 + 気分 + 場所 + 本文 + そのときいた場所の地図」で1枚の面。
+   面・角丸・影・インクは hub.css の --hub-* をそのまま使う。この画面のために
+   新しい色や角丸を足さないこと。
+   ========================================================================== */
+
+.diary-board {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+/* 月の見出し。写真の上に置くので、旅行一覧の見出しと同じ作法に乗せる。 */
+.diary-head h2 {
+  font-size: 1.15rem;
+}
+
+/* 月の中の並び。見出しは列の外(この器の外)に出す。 */
+.diary-grid {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.9rem;
+}
+
+.diary-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.diary-entry__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.diary-entry__date {
+  margin: 0;
+  color: var(--hub-ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.diary-entry__place {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: rgba(13, 27, 49, 0.62);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.diary-entry__tools {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.1rem;
+}
+
+.diary-entry__tools button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 999px;
+  color: rgba(13, 27, 49, 0.42);
+  transition: color 0.18s var(--hub-ease), background-color 0.18s var(--hub-ease);
+}
+
+.diary-entry__tools .diary-entry__remove:active {
+  background: rgba(197, 63, 85, 0.1);
+  color: var(--hub-red);
+}
+
+.diary-entry__body {
+  margin: 0;
+  color: rgba(13, 27, 49, 0.82);
+  font-size: 0.94rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+/* --- そのとき居た場所 ------------------------------------------------------ */
+.diary-entry__spot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.diary-entry__map {
+  overflow: hidden;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+}
+
+.diary-entry__map iframe {
+  display: block;
+  width: 100%;
+  height: 12rem;
+  border: 0;
+}
+
+.diary-entry__spot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--accent, var(--hub-blue));
+  font-size: 0.83rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* --- 書くときの地図 -------------------------------------------------------- */
+.diary-form__map {
+  overflow: hidden;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+}
+
+.diary-form__map iframe {
+  display: block;
+  width: 100%;
+  height: 11rem;
+  border: 0;
+}
+
+.diary-form__spot-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.diary-form__spot-empty p {
+  margin: 0;
+  color: rgba(13, 27, 49, 0.55);
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+/* --- PCでは2列 ------------------------------------------------------------
+   旅行一覧と同じ考え方。1件が縦に長いので、広い画面では左右に流す。 */
+@media (min-width: 1024px) {
+  .diary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .diary-entry__map iframe {
+    height: 14rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diary-entry__tools button {
+    transition: none;
+  }
+}
