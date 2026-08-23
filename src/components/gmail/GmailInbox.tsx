@@ -38,6 +38,20 @@ export interface GmailInboxHandle {
 
 const SYNC_WINDOW_DAYS = 30;
 
+/** 何が起きたか分からない「メールの取得に失敗しました」だけだと、端末ごとに一覧が
+ * 揃わない時に原因を切り分けられない。よくある失敗(連携切れ)は次にやることまで書き、
+ * それ以外は元のメッセージをそのまま出す。
+ *
+ * 連携切れが起きるのは、Google側でアクセスを取り消した場合のほか、Google Cloudの
+ * OAuth同意画面が「テスト中」のままだと更新用トークンが7日で失効するため。 */
+function describeSyncError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/invalid_grant|expired|revoked|\b40[13]\b/i.test(raw)) {
+    return `Gmailの連携が切れています。設定 → Gmail連携 でつなぎ直してください (${raw})`;
+  }
+  return `メールの取得に失敗しました: ${raw}`;
+}
+
 /** Gmailの受信トレイに無くなったメールをこの端末からも消す(AI下書きも一緒に)。
  * `inboxIds` はその期間の受信トレイを最後まで数えきれた場合のみ渡ってくる —
  * 途中までのリストで消すと、まだ受信トレイにあるメールまで消えてしまう。 */
@@ -300,8 +314,8 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       // 黙って揃わないままにならないようエラーも出す(以前はconsoleにしか出ていなかった)。
       if (stateError) showToast(`既読の同期に失敗しました: ${stateError}`, "error");
       showToast(parts.length > 0 ? `${parts.join("・")}しました` : "新着メールはありませんでした");
-    } catch {
-      showToast("メールの取得に失敗しました", "error");
+    } catch (err) {
+      showToast(describeSyncError(err), "error");
     } finally {
       setSyncing(false);
     }
