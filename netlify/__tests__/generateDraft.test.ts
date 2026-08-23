@@ -154,6 +154,35 @@ describe("stripKnownGreetingAndClosing", () => {
     const result = stripKnownGreetingAndClosing("承知いたしました。日程はご相談させてください。");
     expect(result).toBe("承知いたしました。日程はご相談させてください。");
   });
+
+  // 実際に出た不具合(2026-08-24): お礼の次の行で改めて名乗るため、固定で足す
+  // 「お世話になっております。船田です。」と合わせて名乗りが2回続いて見えていた。
+  it("removes a second self-introduction that follows a thanks line", () => {
+    const result = stripKnownGreetingAndClosing(
+      "ご連絡いただきありがとうございます。\n船田です。\n\n履歴書の再提出につきまして、承知いたしました。",
+    );
+    expect(result).toBe("ご連絡いただきありがとうございます。\n\n履歴書の再提出につきまして、承知いたしました。");
+  });
+
+  it("removes a greeting sentence that shares a line with real content, keeping the content", () => {
+    const result = stripKnownGreetingAndClosing("お世話になっております。船田です。ご連絡ありがとうございます。");
+    expect(result).toBe("ご連絡ありがとうございます。");
+  });
+
+  it("removes a company-prefixed self-introduction", () => {
+    const result = stripKnownGreetingAndClosing("いつもお世話になっております。\n株式会社サンプルの船田でございます。\n\n承知いたしました。");
+    expect(result).toBe("承知いたしました。");
+  });
+
+  it("keeps a set phrase that appears mid-sentence as part of the actual message", () => {
+    const result = stripKnownGreetingAndClosing("当日はお世話になります。何卒よろしくお願いいたします。");
+    expect(result).toBe("当日はお世話になります。何卒よろしくお願いいたします。");
+  });
+
+  it("keeps a sentence that merely mentions the name without being a self-introduction", () => {
+    const result = stripKnownGreetingAndClosing("採用担当の田中様にお伝えください。");
+    expect(result).toBe("採用担当の田中様にお伝えください。");
+  });
 });
 
 describe("formatBusySlots", () => {

@@ -181,15 +181,43 @@ export function buildComposeUserMessage(payload: GenerateDraftBody): string {
   return sections.join("\n\n");
 }
 
-/** Defensive cleanup for when the model includes the greeting/closing our fixed
- * template already adds despite the system prompt telling it not to — without
- * this, "お世話になっております。船田です。" (or the closing) could end up doubled. */
+/** 呼び出し側が固定で足す挨拶(「お世話になっております」)・名乗り(「船田です」)と
+ * 同じものを、システムプロンプトの指示に反してモデルが本文にも書いてしまった時の取り除き。
+ *
+ * 以前は本文の先頭だけを見ていたため、
+ *   ご連絡いただきありがとうございます。
+ *   船田です。            ← 2つ目の名乗り
+ * のように、お礼の次の行で改めて名乗るパターンを取りこぼし、画面上では
+ * 「お世話になっております。船田です。」が2回続いて見えていた(2026-08-24に発生)。
+ *
+ * そこで、挨拶・名乗りの決まり文句だけで出来ている行は、本文のどこにあっても落とす。
+ * 要件部分の本文にこの1行だけが単独で現れることは無いので、消しすぎる心配はない。
+ * 決まり文句と他の文が同じ行に入っている場合(「お世話になっております。ご連絡ありがとう
+ * ございます。」)は、決まり文句の側だけを取り除いて残りは活かす。 */
+const LEADING_BOILERPLATE =
+  /^(?:(?:いつも|平素より|平素は|大変)?(?:大変)?お世話になって(?:おります|います)[。.]|お世話になります[。.]|(?:.{0,14}の)?船田(?:です|でございます)[。.])\s*/;
+
+/** 行頭に並んでいる決まり文句だけを、無くなるまで繰り返し落とす。行の途中は触らない —
+ * 「当日はお世話になります。」のような、要件の一部として書かれた一文まで削ると、
+ * 「当日は」だけが残って文章が壊れてしまうため。 */
+function stripLeadingBoilerplate(line: string): string {
+  let rest = line.trim();
+  for (;;) {
+    const next = rest.replace(LEADING_BOILERPLATE, "").trim();
+    if (next === rest) return rest;
+    rest = next;
+  }
+}
+
 export function stripKnownGreetingAndClosing(body: string): string {
-  let result = body;
-  result = result.replace(/^\s*お世話になっております[。.]?\s*\n*/, "");
-  result = result.replace(/^\s*船田です[。.]?\s*\n*/, "");
-  result = result.replace(/\s*以上、?よろしくお願い(いたします|します)[。.]?\s*$/, "");
-  return result.trim();
+  const kept = body
+    .split("\n")
+    .map((line) => ({ original: line.trim(), cleaned: stripLeadingBoilerplate(line) }))
+    // 決まり文句しか無かった行は落とす。元から空だった行(段落の区切り)はそのまま残す。
+    .filter((line) => line.cleaned !== "" || line.original === "")
+    .map((line) => line.cleaned)
+    .join("\n");
+  return kept.replace(/\s*以上、?よろしくお願い(いたします|します)[。.]?\s*$/, "").trim();
 }
 
 const REPLY_SYSTEM_PROMPT = `あなたはユーザーの代わりにメール返信を検討するアシスタントです。必ず以下の構成で出力してください(${BODY_MARKER}内で日程を提案しない場合は${CANDIDATES_MARKER}セクション自体を省略してよい)。
@@ -214,6 +242,8 @@ ${BODY_MARKER}
 受信メールへの返信文の、要件部分の本文のみ(そのメールと同じ言語)。件名は含めない。
 冒頭の挨拶(「お世話になっております」等)・名乗り(「船田です」等)・結びの言葉(「よろしくお願いします」等)は
 呼び出し側で別途付け足すので、${BODY_MARKER}にはそれらを一切含めず、要件そのものから書き始めること。
+お礼(「ご連絡いただきありがとうございます」等)から書き始めるのは構わないが、そのあとに改めて名乗らないこと。
+名乗りは冒頭に限らず本文中のどこにも書いてはならない(お礼の直後の行に「船田です。」と書くのも不可)。
 日程を提案する場合、本文中でその日付は必ず「M/D(曜) HH:mm〜HH:mm」の形式で書き(例: 8/20(木) 14:00〜15:00、時刻未定なら「8/20(木)」のみ)、
 ${CANDIDATES_MARKER}に書いた内容と表記を完全に一致させること(この表記が一致しないと、ユーザーが日付を後から変更できなくなる)。
 
@@ -250,6 +280,8 @@ ${BODY_MARKER}
 メールの要件部分の本文のみ(ユーザーの指示と同じ言語)。件名は含めない。
 冒頭の挨拶(「お世話になっております」等)・名乗り(「船田です」等)・結びの言葉(「よろしくお願いします」等)は
 呼び出し側で別途付け足すので、${BODY_MARKER}にはそれらを一切含めず、要件そのものから書き始めること。
+お礼(「ご連絡いただきありがとうございます」等)から書き始めるのは構わないが、そのあとに改めて名乗らないこと。
+名乗りは冒頭に限らず本文中のどこにも書いてはならない(お礼の直後の行に「船田です。」と書くのも不可)。
 日程を提案する場合、本文中でその日付は必ず「M/D(曜) HH:mm〜HH:mm」の形式で書き(例: 8/20(木) 14:00〜15:00、時刻未定なら「8/20(木)」のみ)、
 ${CANDIDATES_MARKER}に書いた内容と表記を完全に一致させること(この表記が一致しないと、ユーザーが日付を後から変更できなくなる)。
 
