@@ -1,7 +1,9 @@
-import { ArrowDown, Check, ExternalLink, Map, MoveLeft, MoveRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { ArrowDown, Check, ExternalLink, Footprints, Map, MoveLeft, MoveRight, Pencil, Plus, Train, Car, Trash2 } from "lucide-react";
 import { db } from "../../db/schema";
 import type { TripRoutePlace } from "../../types";
-import { buildMapEmbedUrl, buildLegSearchUrl, buildRouteSearchUrl } from "../../lib/googleMaps";
+import { buildMapEmbedUrl, buildLegEmbedUrl, buildLegSearchUrl, buildRouteSearchUrl } from "../../lib/googleMaps";
+import type { TravelMode } from "../../lib/googleMaps";
 import { TripRouteForm } from "./TripRouteForm";
 
 interface Props {
@@ -25,8 +27,18 @@ interface Props {
  * 縦(スマホ)と横(PC)の切り替えは trips.css 側。矢印はCSSで回すので、DOMは
  * どちらでも同じ1本の鎖のまま。
  */
+/** 区間の移動手段。旅行の移動は電車が既定 — 空港や駅を経由する線が出るのはこれ。 */
+const TRAVEL_MODES: { value: TravelMode; label: string; icon: typeof Train }[] = [
+  { value: "transit", label: "電車", icon: Train },
+  { value: "driving", label: "車", icon: Car },
+  { value: "walking", label: "徒歩", icon: Footprints },
+];
+
 export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved, onEdit, onDelete }: Props) {
   const queries = places.map((p) => p.address);
+  const [mode, setMode] = useState<TravelMode>("transit");
+  /** 経路を開いている区間の、始点の場所id。同時に開くのは1区間だけ。 */
+  const [openLeg, setOpenLeg] = useState<string | null>(null);
 
   async function swap(a: TripRoutePlace, b: TripRoutePlace) {
     if (!a.id || !b.id) return;
@@ -41,16 +53,34 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
       {/* 1件も無いうちは「地図で開く」を出さない — 開いても行き先の地図が出るだけで、
           この画面でやることは「1件目を入れる」しかない。代わりに入力欄をそのまま出す。 */}
       {places.length > 0 && (
-        <a
-          className="trip-route__open"
-          href={buildRouteSearchUrl(queries)}
-          target="_blank"
-          rel="noreferrer"
-        >
-          <Map size={16} />
-          {places.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
-          <ExternalLink size={14} />
-        </a>
+        <div className="trip-route__head">
+          {places.length > 1 && (
+            <div className="trip-route__modes" role="group" aria-label="区間の移動手段">
+              {TRAVEL_MODES.map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setMode(value)}
+                  aria-pressed={mode === value}
+                  className={mode === value ? "is-active" : undefined}
+                >
+                  <Icon size={15} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <a
+            className="trip-route__open"
+            href={buildRouteSearchUrl(queries, mode)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Map size={16} />
+            {places.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
+            <ExternalLink size={14} />
+          </a>
+        </div>
       )}
 
       {places.length === 0 ? (
@@ -127,16 +157,44 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
                 </article>
 
                 {next && (
-                  <a
-                    className="trip-route-arrow"
-                    href={buildLegSearchUrl(place.address, next.address)}
-                    target="_blank"
-                    rel="noreferrer"
-                    aria-label={`${place.name}から${next.name}までの経路をGoogleマップで見る`}
-                  >
-                    <span className="trip-route-arrow__mark"><ArrowDown size={17} /></span>
-                    <small>経路</small>
-                  </a>
+                  <div className="trip-route-leg">
+                    <button
+                      type="button"
+                      className="trip-route-arrow"
+                      onClick={() => setOpenLeg(openLeg === place.id ? null : (place.id ?? null))}
+                      aria-expanded={openLeg === place.id}
+                      aria-label={`${place.name}から${next.name}までの経路を${openLeg === place.id ? "閉じる" : "見る"}`}
+                    >
+                      <span className="trip-route-arrow__mark"><ArrowDown size={17} /></span>
+                      <small>経路</small>
+                    </button>
+
+                    {openLeg === place.id && (
+                      <div className="trip-route-leg__panel">
+                        <p className="trip-route-leg__title">
+                          {place.name} → {next.name}
+                        </p>
+                        <div className="trip-route-leg__map">
+                          <iframe
+                            key={`${place.id}-${mode}`}
+                            title={`${place.name}から${next.name}までの経路`}
+                            src={buildLegEmbedUrl(place.address, next.address, mode)}
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                          />
+                        </div>
+                        <a
+                          className="trip-route-leg__open"
+                          href={buildLegSearchUrl(place.address, next.address, mode)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          乗換と所要時間をGoogleマップで見る
+                          <ExternalLink size={13} />
+                        </a>
+                      </div>
+                    )}
+                  </div>
                 )}
               </li>
             );

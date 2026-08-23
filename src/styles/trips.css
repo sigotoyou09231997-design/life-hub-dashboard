@@ -521,6 +521,41 @@
   text-decoration: none;
 }
 
+/* 移動手段の切り替えと「Googleマップで開く」を1行に。狭いときは縦に折る。 */
+.trip-route__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.trip-route__modes {
+  display: inline-flex;
+  align-self: flex-start;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.trip-route__modes button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  color: rgba(13, 27, 49, 0.6);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: background-color 0.18s var(--hub-ease), color 0.18s var(--hub-ease);
+}
+
+.trip-route__modes button.is-active {
+  background: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset), 0 1px 3px rgba(10, 24, 46, 0.12);
+  color: var(--accent, var(--hub-blue));
+}
+
 .trip-route__chain {
   display: flex;
   flex-direction: column;
@@ -684,6 +719,58 @@
   font-weight: 600;
 }
 
+/* --- 区間(カードとカードの間) --------------------------------------------
+   矢印を押すとその区間の経路地図が開く。乗換の文字はキー無しの埋め込みには
+   含まれないので、そこまで要るときのために本体を開くリンクを下に置く。 */
+.trip-route-leg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.trip-route-leg__panel {
+  width: 100%;
+  margin-bottom: 0.35rem;
+  padding: 0.7rem 0.75rem 0.75rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-md);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: var(--hub-shadow-inset);
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
+}
+
+.trip-route-leg__title {
+  margin: 0 0 0.5rem;
+  color: rgba(13, 27, 49, 0.66);
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+
+.trip-route-leg__map {
+  overflow: hidden;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+}
+
+.trip-route-leg__map iframe {
+  display: block;
+  width: 100%;
+  height: 12rem;
+  border: 0;
+}
+
+.trip-route-leg__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.55rem;
+  color: var(--accent, var(--hub-blue));
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 /* --- 末尾の追加タイル ----------------------------------------------------- */
 .trip-route-add {
   display: flex;
@@ -826,6 +913,19 @@
     flex-direction: column;
     gap: 0.15rem;
     padding: 0 0.7rem;
+  }
+
+  /* 横並びのときは、区間パネルもカードとカードの間に列として挟まる
+     (矢印が先、その右に地図 — 縦並びの「矢印の下に地図」と同じ読み順)。 */
+  .trip-route-leg {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .trip-route-leg__panel {
+    width: 17rem;
+    margin-right: 0.7rem;
+    margin-bottom: 0;
   }
 
   .trip-route-arrow__mark svg {

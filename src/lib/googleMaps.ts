@@ -15,6 +15,12 @@ export function buildMapSearchUrl(query: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+/** 移動手段。キー無しの埋め込みURLでは dirflg、api=1 のリンクでは travelmode で渡す。 */
+export type TravelMode = "transit" | "driving" | "walking";
+
+/** 従来型の埋め込みURLが取る移動手段のコード(r=乗換案内, d=車, w=徒歩)。 */
+const DIRFLG: Record<TravelMode, string> = { transit: "r", driving: "d", walking: "w" };
+
 /**
  * 複数地点をつないだ経路の埋め込みURL。1地点だけの埋め込み(`?q=`)と同じく
  * キーも課金も要らない、Googleマップ自身が出す従来型の埋め込み形式で、
@@ -35,7 +41,7 @@ export function buildRouteEmbedUrl(queries: string[]): string {
  * api=1 の公式なdeep linkで、途中の地点は waypoints に `|` 区切りで渡す。
  * 地点が1つなら経路ではなく単なる検索リンクにする。
  */
-export function buildRouteSearchUrl(queries: string[]): string {
+export function buildRouteSearchUrl(queries: string[], mode: TravelMode = "transit"): string {
   const stops = queries.filter((q) => q.trim());
   if (stops.length === 0) return buildMapSearchUrl("");
   if (stops.length === 1) return buildMapSearchUrl(stops[0]);
@@ -44,11 +50,21 @@ export function buildRouteSearchUrl(queries: string[]): string {
   // 区切りの `|` もエスケープしておく(生のパイプはURLとしては不正で、
   // 一部のアプリ内ブラウザがリンクをそこで切る)。Google側は %7C で受け取る。
   const waypoints = stops.slice(1, -1).map((q) => encodeURIComponent(q)).join("%7C");
-  const base = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+  const base = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${mode}`;
   return waypoints ? `${base}&waypoints=${waypoints}` : base;
 }
 
-/** 隣り合う2地点だけの経路リンク(カードの間の矢印から開く)。 */
-export function buildLegSearchUrl(from: string, to: string): string {
-  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}`;
+/**
+ * 隣り合う2地点だけの経路を、移動手段つきで埋め込む。乗換案内(dirflg=r)にすると
+ * 空港や駅を経由する線が地図に出る — キーも課金も要らないのはここまでで、
+ * 「何線に乗って何分」という文字はこの埋め込みには含まれない(公式のDirections API
+ * が要る)。文字で確かめたいときは下の buildLegSearchUrl でGoogleマップ本体を開く。
+ */
+export function buildLegEmbedUrl(from: string, to: string, mode: TravelMode): string {
+  return `https://maps.google.com/maps?saddr=${encodeURIComponent(from)}&daddr=${encodeURIComponent(to)}&dirflg=${DIRFLG[mode]}&output=embed`;
+}
+
+/** 隣り合う2地点だけの経路リンク(その区間をGoogleマップ本体で開く)。 */
+export function buildLegSearchUrl(from: string, to: string, mode: TravelMode = "transit"): string {
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}&travelmode=${mode}`;
 }

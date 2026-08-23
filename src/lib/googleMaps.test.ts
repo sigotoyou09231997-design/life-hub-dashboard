@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRouteEmbedUrl, buildRouteSearchUrl, buildLegSearchUrl } from "./googleMaps";
+import { buildRouteEmbedUrl, buildRouteSearchUrl, buildLegEmbedUrl, buildLegSearchUrl } from "./googleMaps";
 
 describe("buildRouteEmbedUrl", () => {
   it("chains every stop through saddr / daddr+to:", () => {
@@ -34,6 +34,11 @@ describe("buildRouteSearchUrl", () => {
     expect(buildRouteSearchUrl(["函館駅", "元町"])).not.toContain("waypoints");
   });
 
+  it("defaults to 電車 and carries other modes", () => {
+    expect(buildRouteSearchUrl(["函館駅", "元町"])).toContain("travelmode=transit");
+    expect(buildRouteSearchUrl(["函館駅", "元町"], "driving")).toContain("travelmode=driving");
+  });
+
   it("degrades to a plain place search for one stop", () => {
     expect(buildRouteSearchUrl(["五稜郭"])).toContain("/maps/search/?api=1");
   });
@@ -42,7 +47,24 @@ describe("buildRouteSearchUrl", () => {
 describe("buildLegSearchUrl", () => {
   it("routes from one place to the next", () => {
     expect(buildLegSearchUrl("五稜郭", "元町")).toBe(
-      "https://www.google.com/maps/dir/?api=1&origin=%E4%BA%94%E7%A8%9C%E9%83%AD&destination=%E5%85%83%E7%94%BA",
+      "https://www.google.com/maps/dir/?api=1&origin=%E4%BA%94%E7%A8%9C%E9%83%AD&destination=%E5%85%83%E7%94%BA&travelmode=transit",
     );
+  });
+
+  it("carries the travel mode", () => {
+    expect(buildLegSearchUrl("五稜郭", "元町", "walking")).toContain("travelmode=walking");
+  });
+});
+
+describe("buildLegEmbedUrl", () => {
+  it("asks for 乗換案内 with dirflg=r", () => {
+    expect(buildLegEmbedUrl("羽田空港", "鎌倉駅", "transit")).toBe(
+      "https://maps.google.com/maps?saddr=%E7%BE%BD%E7%94%B0%E7%A9%BA%E6%B8%AF&daddr=%E9%8E%8C%E5%80%89%E9%A7%85&dirflg=r&output=embed",
+    );
+  });
+
+  it("maps 車 and 徒歩 to their own codes", () => {
+    expect(buildLegEmbedUrl("A", "B", "driving")).toContain("dirflg=d");
+    expect(buildLegEmbedUrl("A", "B", "walking")).toContain("dirflg=w");
   });
 });
