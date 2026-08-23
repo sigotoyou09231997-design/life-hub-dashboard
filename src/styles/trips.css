@@ -672,7 +672,9 @@
 .trip-route-card__map iframe {
   display: block;
   width: 100%;
-  height: 11rem;
+  /* 地図の中の文字(駅名・路線名)が読める高さ。低くすると縮尺だけ寄って、
+     結局どこなのか分からない絵になる。 */
+  height: 14rem;
   border: 0;
 }
 
@@ -707,7 +709,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 11rem;
+  min-height: 14rem;
   margin: 0;
   padding: 0 0.9rem;
   border-radius: var(--hub-r-sm);
@@ -724,31 +726,105 @@
 }
 
 /* --- カードとカードをつなぐ矢印 ------------------------------------------
-   ただの飾りにせず、その区間だけの経路検索への入り口にする。 */
+   ただの飾りにせず、その区間だけの経路への入り口にする。丸の中に矢印を置くだけ
+   だと、カードとカードの間に小さな点が浮いているようにしか見えず、鎖として
+   つながって読めなかった。点線を1本通してカードを実際につなぎ、その線の上に
+   ピルを載せる。開いているときはピルが色を持ち、矢印が反転して閉じ方を示す。 */
 .trip-route-arrow {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.3rem;
-  padding: 0.45rem 0;
-  color: rgba(13, 27, 49, 0.45);
+  gap: 0.34rem;
+  align-self: stretch;
+  padding: 0.75rem 0;
+  border: 0;
+  background: none;
+  color: rgba(13, 27, 49, 0.5);
+  font: inherit;
   text-decoration: none;
 }
 
+/* カードからカードへ通す点線。ピルはこの上に載る。 */
+.trip-route-arrow::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(13, 27, 49, 0.22) 0 3px,
+    transparent 3px 8px
+  );
+}
+
 .trip-route-arrow__mark {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.7rem;
-  height: 1.7rem;
+  width: 1.85rem;
+  height: 1.85rem;
   border-radius: 999px;
-  border: 1px dashed rgba(13, 27, 49, 0.22);
-  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--hub-edge);
+  background: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset), 0 6px 16px rgba(10, 24, 46, 0.16);
+  color: var(--accent, var(--hub-blue));
+  transition:
+    transform 240ms var(--hub-ease),
+    background-color 200ms var(--hub-ease),
+    color 200ms var(--hub-ease),
+    box-shadow 240ms var(--hub-ease);
 }
 
 .trip-route-arrow small {
-  font-size: 0.75rem;
-  font-weight: 600;
+  position: relative;
+  z-index: 1;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--hub-edge);
+  background: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: color 200ms var(--hub-ease), background-color 200ms var(--hub-ease);
+}
+
+/* 開いているとき: 色を持たせて、矢印を反転させる(もう一度押すと閉じる)。 */
+.trip-route-arrow[aria-expanded="true"] .trip-route-arrow__mark {
+  background: var(--accent, var(--hub-blue));
+  color: #fff;
+  transform: rotate(180deg);
+  box-shadow: 0 8px 20px rgba(10, 24, 46, 0.22);
+}
+
+.trip-route-arrow[aria-expanded="true"] small {
+  color: var(--accent, var(--hub-blue));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .trip-route-arrow:hover .trip-route-arrow__mark {
+    transform: translateY(2px);
+    box-shadow: var(--hub-shadow-inset), 0 10px 22px rgba(10, 24, 46, 0.22);
+  }
+
+  .trip-route-arrow[aria-expanded="true"]:hover .trip-route-arrow__mark {
+    transform: rotate(180deg) translateY(2px);
+  }
+}
+
+.trip-route-arrow:focus-visible {
+  outline: none;
+}
+
+.trip-route-arrow:focus-visible .trip-route-arrow__mark {
+  outline: 2px solid var(--accent, var(--hub-blue));
+  outline-offset: 3px;
 }
 
 /* --- 区間(カードとカードの間) --------------------------------------------
@@ -788,7 +864,7 @@
 .trip-route-leg__map iframe {
   display: block;
   width: 100%;
-  height: 12rem;
+  height: 14rem;
   border: 0;
 }
 
@@ -932,19 +1008,55 @@
     scroll-snap-align: start;
   }
 
+  /* 横並びのカードは、地図の中の文字が読める大きさまで広げる。狭いカードを
+     たくさん並べても、1枚ずつが読めないなら意味が無い。 */
   .trip-route-card {
-    width: 19.5rem;
+    width: 24rem;
   }
 
   .trip-route-card__map iframe {
-    height: 12.5rem;
+    height: 17rem;
   }
 
-  /* 下向きの矢印を右向きに倒す。DOMを分けずにここだけで向きを決める。 */
+  .trip-route-card__state {
+    min-height: 17rem;
+  }
+
+  /* 下向きの矢印を右向きに倒す。DOMを分けずにここだけで向きを決める。
+     点線も縦から横に引き直す。 */
   .trip-route-arrow {
     flex-direction: column;
-    gap: 0.15rem;
-    padding: 0 0.7rem;
+    gap: 0.3rem;
+    align-self: center;
+    padding: 0 0.85rem;
+  }
+
+  .trip-route-arrow::before {
+    top: 50%;
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: auto;
+    height: 2px;
+    transform: translateY(-50%);
+    background-image: repeating-linear-gradient(
+      to right,
+      rgba(13, 27, 49, 0.22) 0 3px,
+      transparent 3px 8px
+    );
+  }
+
+  .trip-route-arrow__mark svg {
+    transform: rotate(-90deg);
+  }
+
+  .trip-route-arrow[aria-expanded="true"] .trip-route-arrow__mark {
+    /* 横並びでは「開く方向」が右なので、回すのではなく矢印だけ反転させる。 */
+    transform: none;
+  }
+
+  .trip-route-arrow[aria-expanded="true"] .trip-route-arrow__mark svg {
+    transform: rotate(90deg);
   }
 
   /* 横並びのときは、区間パネルもカードとカードの間に列として挟まる
@@ -955,13 +1067,13 @@
   }
 
   .trip-route-leg__panel {
-    width: 17rem;
+    width: 21rem;
     margin-right: 0.7rem;
     margin-bottom: 0;
   }
 
-  .trip-route-arrow__mark svg {
-    transform: rotate(-90deg);
+  .trip-route-leg__map iframe {
+    height: 15rem;
   }
 
   .trip-route__node--add {
@@ -970,7 +1082,7 @@
 
   .trip-route-add {
     flex-direction: column;
-    width: 9.5rem;
+    width: 11rem;
     height: 100%;
     margin-top: 0;
     margin-left: 0.7rem;
@@ -979,7 +1091,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .trip-route-card__index,
-  .trip-route-card__tools button {
+  .trip-route-card__tools button,
+  .trip-route-arrow__mark,
+  .trip-route-arrow small {
     transition: none;
   }
 }
