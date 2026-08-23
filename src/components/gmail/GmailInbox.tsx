@@ -15,7 +15,7 @@ import {
 } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
-import { pullMessageStates, updateMessageState } from "../../lib/gmailMessageState";
+import { pullMessageStates, pushPendingMessageStates, updateMessageState } from "../../lib/gmailMessageState";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
@@ -282,15 +282,23 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       // いないだけのメールを消してしまうので掃除しない。
       const removed = complete ? await pruneMissingEmails(account.id, ids) : 0;
 
-      // 他端末での既読/未読/送信済みを取り込む。上でメールを入れた後に呼ぶ —
-      // ローカルに行が無いメッセージの状態は入れる場所が無いため。
-      await pullMessageStates(account.id, account.email);
+      // 既読の共有。まだ送っていないこの端末の既読(この機能より前の分を含む)を送ってから、
+      // 他端末の分を取り込む。取り込みはメールを入れた後 — ローカルに行が無い
+      // メッセージの状態は入れる場所が無いため。
+      const pushedStates = await pushPendingMessageStates(account.id, account.email);
+      const pulledStates = await pullMessageStates(account.id, account.email);
+      const stateError = pushedStates.error ?? pulledStates.error;
 
       await db.gmailAccounts.update(account.id, { lastSyncedAt: Date.now() });
       const parts: string[] = [];
       if (added > 0) parts.push(`${added}件の新着メール`);
       if (reconciled > 0) parts.push(`${reconciled}件を送信済みに更新`);
       if (removed > 0) parts.push(`${removed}件をGmailに合わせて削除`);
+      if (pushedStates.count > 0) parts.push(`${pushedStates.count}件の既読を他の端末へ送信`);
+      if (pulledStates.count > 0) parts.push(`${pulledStates.count}件の既読を他の端末から反映`);
+      // 既読の共有だけ失敗した場合、メール取得自体は成功しているのでそこは伝えつつ、
+      // 黙って揃わないままにならないようエラーも出す(以前はconsoleにしか出ていなかった)。
+      if (stateError) showToast(`既読の同期に失敗しました: ${stateError}`, "error");
       showToast(parts.length > 0 ? `${parts.join("・")}しました` : "新着メールはありませんでした");
     } catch {
       showToast("メールの取得に失敗しました", "error");

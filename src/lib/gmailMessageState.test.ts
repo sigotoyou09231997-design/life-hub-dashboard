@@ -11,7 +11,7 @@ vi.mock("./supabase", () => ({ isSupabaseConfigured: true, auth: { getSession: m
 vi.mock("./supabaseData", () => ({ getSupabaseDataClient: vi.fn(async () => ({ from: mocks.from })) }));
 vi.mock("../db/schema", () => ({ db: { syncedEmails: mocks.syncedEmails } }));
 
-import { pullMessageStates, updateMessageState } from "./gmailMessageState";
+import { pullMessageStates, pushPendingMessageStates, updateMessageState } from "./gmailMessageState";
 
 /** Stands in for db.syncedEmails.where("accountId").equals(id).toArray(). */
 function localEmails(rows: SyncedEmail[]) {
@@ -125,5 +125,50 @@ describe("updateMessageState", () => {
     const row = upsert.mock.calls[0][0] as Record<string, unknown>;
     expect(row).toMatchObject({ account_email: "me@example.com", gmail_message_id: "msg-1", sent: false });
     expect(row.read_at).toBe(new Date(5_000).toISOString());
+  });
+});
+
+describe("pushPendingMessageStates", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getSession.mockResolvedValue({ data: { session: { user: { id: "user-1" } } } });
+  });
+
+  it("この仕組みより前に既読にした分をまとめて送り、読んだ時刻をupdated_atにする", async () => {
+    const query = remoteStates([]);
+    localEmails([
+      email({ id: "local-1", gmailMessageId: "msg-1", readAt: 5_000 }),
+      email({ id: "local-2", gmailMessageId: "msg-2" }),
+      email({ id: "local-3", gmailMessageId: "msg-3", status: "sent" }),
+    ]);
+
+    const result = await pushPendingMessageStates("account-1", "me@example.com");
+
+    expect(result).toEqual({ count: 2, error: null });
+    const rows = (query.upsert as ReturnType<typeof vi.fn>).mock.calls[0][0] as Record<string, unknown>[];
+    expect(rows.map((r) => r.gmail_message_id)).toEqual(["msg-1", "msg-3"]);
+    // 未読のmsg-2は送らない。msg-1のupdated_atは「今」ではなく実際に読んだ時刻。
+    expect(rows[0].updated_at).toBe(new Date(5_000).toISOString());
+    expect(mocks.syncedEmails.update).toHaveBeenCalledWith("local-1", { stateUpdatedAt: 5_000 });
+  });
+
+  it("一度送った分(stateUpdatedAtあり)は送り直さない", async () => {
+    const query = remoteStates([]);
+    localEmails([email({ readAt: 5_000, stateUpdatedAt: 5_000 })]);
+
+    expect(await pushPendingMessageStates("account-1", "me@example.com")).toEqual({ count: 0, error: null });
+    expect(query.upsert).not.toHaveBeenCalled();
+  });
+
+  it("失敗したらエラーを返し、送信済みとして印を付けない", async () => {
+    const query = remoteStates([]);
+    (query.upsert as ReturnType<typeof vi.fn>).mockResolvedValue({ error: { message: "relation does not exist" } });
+    localEmails([email({ readAt: 5_000 })]);
+
+    expect(await pushPendingMessageStates("account-1", "me@example.com")).toEqual({
+      count: 0,
+      error: "relation does not exist",
+    });
+    expect(mocks.syncedEmails.update).not.toHaveBeenCalled();
   });
 });
