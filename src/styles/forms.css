@@ -312,11 +312,34 @@ textarea.field-shell {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
-/* グリッドの子は既定の最小幅が「中身の幅」なので、iOSの時刻/日付入力のように
-   自前の幅を持つ部品は列(minmax(0,1fr))より縮まず、右側の入力欄が画面から
-   はみ出して途切れていた。最小幅を0にして、列の幅にきちんと収める。 */
+/* グリッドの子は既定の最小幅が「中身の幅」なので、自前の幅を持つ部品は
+   列(minmax(0,1fr))より縮まない。最小幅を0にして、列の幅に収める。 */
 .range-field > * {
   min-width: 0;
+}
+
+/* 時刻の期間(開始 → 終了)は、スマホでは縦に積む。
+   iOSの <input type="time"> は「--:-- 午前」を表示できる幅(実測 約176px)を自前で
+   持っていて、横に2つ並べると1列あたり約150pxしか無いスマホの幅に収まらず、右側の
+   欄が画面外へ出て途切れていた(最小幅を0にしても、今度は欄の中で値が切れる)。
+   縦に積めば1つあたり幅いっぱいを使えるので、どの端末でも値が最後まで見える。
+   横に並べても余裕がある画面幅から、元の横並びに戻す。 */
+.range-field--time {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.range-field--time .range-field__arrow {
+  justify-self: center;
+}
+
+@media (min-width: 640px) {
+  .range-field--time {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .range-field--time .range-field__arrow {
+    justify-self: stretch;
+  }
 }
 
 .range-field__arrow {
