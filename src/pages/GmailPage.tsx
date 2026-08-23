@@ -7,6 +7,7 @@ import { GmailLogo } from "../components/gmail/GmailLogo";
 import { Tabs } from "../components/ui/Tabs";
 import { Card } from "../components/ui/Card";
 import { Sheet } from "../components/ui/Sheet";
+import { PageFab } from "../components/ui/PageFab";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { GmailInbox, type GmailInboxHandle } from "../components/gmail/GmailInbox";
 import { pullBlockedSenders } from "../lib/blockedSenders";
@@ -206,14 +207,9 @@ export default function GmailPage() {
       </div>
 
       {selectedAccount && (
-        <button
-          type="button"
-          onClick={() => setComposeOpen(true)}
-          aria-label="新規メールを作成"
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_28px_rgba(79,111,255,0.35)] transition-all active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:bottom-8 lg:right-8"
-        >
+        <PageFab onClick={() => setComposeOpen(true)} label="新規メールを作成">
           <Plus size={24} />
-        </button>
+        </PageFab>
       )}
 
       {selectedAccount && (

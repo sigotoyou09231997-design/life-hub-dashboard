@@ -192,6 +192,10 @@ export default function App() {
                 </Routes>
               </div>
             </main>
+            {/* 右下の丸ボタン(PageFab)の置き場。ページの中(.page-transition)に置くと、
+                切り替えのアニメーションが position:fixed の基準になってボタンが動いて
+                見えるので、その外側に出す(src/components/ui/PageFab.tsx)。 */}
+            <div id="page-fab-root" />
           </div>
           <QuickActionBar />
         </div>
