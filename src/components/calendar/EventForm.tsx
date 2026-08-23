@@ -99,7 +99,7 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
         />
         {!allDay && (
           <Field label="開始 → 終了" as="div">
-            <div className="range-field">
+            <div className="range-field range-field--time">
               <input
                 type="time"
                 aria-label="開始時刻"
