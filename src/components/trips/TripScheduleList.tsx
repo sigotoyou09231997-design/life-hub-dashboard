@@ -10,7 +10,7 @@ interface Props {
   items: TripScheduleItem[];
   onEdit: (item: TripScheduleItem) => void;
   onDelete: (id: string) => void;
-  onLocationTap: (location: string) => void;
+  onLocationTap: (location: string, title: string) => void;
 }
 
 export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationTap }: Props) {
@@ -60,7 +60,7 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
                           {item.location && (
                             <button
                               type="button"
-                              onClick={() => onLocationTap(item.location!)}
+                              onClick={() => onLocationTap(item.location!, item.title)}
                               className="pointer-events-auto mt-1 flex items-center gap-1 text-xs text-accent active:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                             >
                               <MapPin size={12} />

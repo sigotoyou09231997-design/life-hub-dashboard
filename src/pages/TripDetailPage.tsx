@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Pencil, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
-import type { TripScheduleItem, TripExpense, TripPackingItem, TripStatus } from "../types";
+import type { TripScheduleItem, TripExpense, TripPackingItem, TripRoutePlace, TripStatus } from "../types";
 import { formatDisplayDate, tripDayList, tripDurationLabel, todayStr } from "../lib/date";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
@@ -18,16 +18,17 @@ import { TripExpenseForm } from "../components/trips/TripExpenseForm";
 import { TripExpenseList } from "../components/trips/TripExpenseList";
 import { TripPackingForm } from "../components/trips/TripPackingForm";
 import { TripPackingList } from "../components/trips/TripPackingList";
-import { TripMapView } from "../components/trips/TripMapView";
+import { TripRouteView } from "../components/trips/TripRouteView";
+import { TripRouteForm } from "../components/trips/TripRouteForm";
 import { useToast } from "../components/ui/ToastProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 
-type Tab = "overview" | "schedule" | "expense" | "packing" | "map";
+type Tab = "overview" | "schedule" | "expense" | "packing" | "route";
 
-const VALID_TABS: Tab[] = ["overview", "schedule", "expense", "packing", "map"];
+const VALID_TABS: Tab[] = ["overview", "schedule", "expense", "packing", "route"];
 
 const STATUS_LABEL: Record<TripStatus, string> = {
   planning: "計画中",
@@ -54,7 +55,9 @@ export default function TripDetailPage() {
   const [editingSchedule, setEditingSchedule] = useState<TripScheduleItem | "new" | null>(null);
   const [editingExpense, setEditingExpense] = useState<TripExpense | "new" | null>(null);
   const [editingPacking, setEditingPacking] = useState<TripPackingItem | "new" | null>(null);
-  const [mapQuery, setMapQuery] = useState("");
+  const [editingRoute, setEditingRoute] = useState<TripRoutePlace | "new" | null>(null);
+  // 日程の場所からルートを起こすとき、追加フォームに渡して埋めておく値。
+  const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
 
   // Wrapped in an object so `undefined` unambiguously means "still loading" —
   // db.trips.get() itself resolves to `undefined` for a missing id too, which
@@ -63,17 +66,22 @@ export default function TripDetailPage() {
   const schedule = useLiveQuery(() => db.tripSchedule.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
   const expenses = useLiveQuery(() => db.tripExpenses.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
   const packing = useLiveQuery(() => db.tripPackingItems.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
+  const routePlaces =
+    useLiveQuery(
+      () =>
+        db.tripRoutePlaces
+          .where("tripId")
+          .equals(tripId)
+          .toArray()
+          .then((rows) => rows.sort((a, b) => a.sortOrder - b.sortOrder)),
+      [tripId],
+    ) ?? [];
 
   const dayList = useMemo(
     () => (tripResult?.trip ? tripDayList(tripResult.trip.startDate, tripResult.trip.endDate) : []),
     [tripResult?.trip?.startDate, tripResult?.trip?.endDate],
   );
   const scheduleDefaultDate = dayList.includes(todayStr()) ? todayStr() : (dayList[0] ?? todayStr());
-
-  const scheduleLocations = useMemo(
-    () => Array.from(new Set(schedule.map((s) => s.location).filter((l): l is string => !!l))),
-    [schedule],
-  );
 
   const showSkeleton = useDelayedFlag(tripResult === undefined);
 
@@ -105,7 +113,7 @@ export default function TripDetailPage() {
 
   async function handleDelete() {
     if (!trip?.id) return;
-    if (!confirm(`「${trip.name}」を削除しますか?関連するスケジュール・費用・持ち物もすべて削除されます。`)) return;
+    if (!confirm(`「${trip.name}」を削除しますか?関連するスケジュール・費用・持ち物・行きたい場所もすべて削除されます。`)) return;
     await deleteTripCascade(trip.id);
     navigate("/trips");
   }
@@ -148,7 +156,7 @@ export default function TripDetailPage() {
             { value: "schedule", label: "日程" },
             { value: "expense", label: "費用" },
             { value: "packing", label: "持ち物" },
-            { value: "map", label: "地図" },
+            { value: "route", label: "ルート" },
           ]}
           value={tab}
           onChange={setTab}
@@ -198,9 +206,14 @@ export default function TripDetailPage() {
                 db.tripSchedule.delete(id);
                 showToast("削除しました");
               }}
-              onLocationTap={(location) => {
-                setMapQuery(location);
-                setTab("map");
+              onLocationTap={(location, title) => {
+                setTab("route");
+                // まだルートに無い場所なら、そのまま追加フォームを開いて拾わせる。
+                // 一覧に戻って同じ住所を打ち直させない。
+                if (!routePlaces.some((place) => place.address === location || place.name === location)) {
+                  setRoutePreset({ name: title, address: location });
+                  setEditingRoute("new");
+                }
               }}
             />
             {dayList.length > 0 && (
@@ -244,12 +257,22 @@ export default function TripDetailPage() {
           </>
         )}
 
-        {tab === "map" && (
-          <TripMapView
+        {tab === "route" && (
+          <TripRouteView
             destination={trip.destination}
-            locations={scheduleLocations}
-            selectedQuery={mapQuery}
-            onSelectQuery={setMapQuery}
+            places={routePlaces}
+            onAdd={() => {
+              setRoutePreset(undefined);
+              setEditingRoute("new");
+            }}
+            onEdit={(place) => {
+              setRoutePreset(undefined);
+              setEditingRoute(place);
+            }}
+            onDelete={(id) => {
+              db.tripRoutePlaces.delete(id);
+              showToast("削除しました");
+            }}
           />
         )}
       </div>
@@ -298,6 +321,30 @@ export default function TripDetailPage() {
               showToast("保存しました");
             }}
             onCancel={() => setEditingExpense(null)}
+          />
+        )}
+      </Sheet>
+
+      <Sheet
+        open={editingRoute !== null}
+        onClose={() => setEditingRoute(null)}
+        title={editingRoute === "new" ? "行きたい場所を追加" : "行きたい場所を編集"}
+      >
+        {editingRoute && (
+          <TripRouteForm
+            tripId={tripId}
+            initial={editingRoute === "new" ? undefined : editingRoute}
+            nextSortOrder={(routePlaces[routePlaces.length - 1]?.sortOrder ?? 0) + 1}
+            preset={editingRoute === "new" ? routePreset : undefined}
+            onSaved={() => {
+              setEditingRoute(null);
+              setRoutePreset(undefined);
+              showToast("保存しました");
+            }}
+            onCancel={() => {
+              setEditingRoute(null);
+              setRoutePreset(undefined);
+            }}
           />
         )}
       </Sheet>
