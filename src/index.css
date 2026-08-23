@@ -1995,7 +1995,7 @@ body .text-sm { line-height: 1.5; }
   padding-block: 1.65rem;
 }
 
-.empty-state.spatial-empty > div:first-child {
+.empty-state.spatial-empty > .empty-state-icon {
   width: 2.9rem;
   height: 2.9rem;
   border-radius: var(--hub-r-sm);
