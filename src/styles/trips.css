@@ -691,46 +691,36 @@
   white-space: pre-wrap;
 }
 
-/* --- 現在地からの経路 ------------------------------------------------------
-   カードの中に開く。区間パネルと同じ見た目だが、こちらは「いまいる場所から
-   そこへどう行くか」なので、鎖の間ではなくその場所のカードの中に置く。 */
-.trip-route-here {
-  margin-top: 0.15rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--hub-hairline);
+/* --- 鎖の先頭の「現在地」カード --------------------------------------------
+   ボタンを押させず、開いた時点で現在地から最初の目的地までを出す。見た目は
+   場所のカードと同じにして、横並びのときも同じ列として並ぶようにする。 */
+.trip-route-card--here {
+  border-style: dashed;
 }
 
-.trip-route-here__title {
-  margin: 0 0 0.45rem;
-  color: rgba(13, 27, 49, 0.66);
-  font-size: 0.82rem;
-  font-weight: 600;
+.trip-route-card__index.is-here {
+  background: var(--accent-light, rgba(47, 90, 224, 0.12));
+  color: var(--accent, var(--hub-blue));
 }
 
-.trip-route-here__map {
-  overflow: hidden;
+.trip-route-card__state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 11rem;
+  margin: 0;
+  padding: 0 0.9rem;
   border-radius: var(--hub-r-sm);
   background: var(--hub-inset);
-}
-
-.trip-route-here__map iframe {
-  display: block;
-  width: 100%;
-  height: 11rem;
-  border: 0;
-}
-
-.trip-route-here__state {
-  margin: 0;
-  padding: 0.7rem 0.2rem;
   color: rgba(13, 27, 49, 0.55);
-  font-size: 0.82rem;
-  line-height: 1.5;
+  font-size: 0.83rem;
+  line-height: 1.55;
+  text-align: center;
 }
 
-.trip-route-card__tools button.is-active {
-  background: var(--hub-inset);
-  color: var(--accent, var(--hub-blue));
+/* 経路はもう地図に出ているので、この矢印は向きを示すだけ(押せない)。 */
+.trip-route-arrow--static {
+  opacity: 0.75;
 }
 
 /* --- カードとカードをつなぐ矢印 ------------------------------------------
