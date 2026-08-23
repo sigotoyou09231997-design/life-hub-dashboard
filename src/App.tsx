@@ -77,10 +77,16 @@ export default function App() {
         return;
       }
       setSyncReady(false);
+      // 同期を始める前に、この端末のローカルデータが本当にこのユーザーのものか確かめる。
+      // 別アカウントでログインし直した場合は空にしてから同期する(src/lib/dataOwner.ts)。
+      // ここで失敗しても同期の開始は止めない — 持ち主の確認ができないことより、
+      // 同期そのものが黙って動かなくなる方が実害が大きい。
       try {
-        // 同期を始める前に、この端末のローカルデータが本当にこのユーザーのものか確かめる。
-        // 別アカウントでログインし直した場合は空にしてから同期する(src/lib/dataOwner.ts)。
         if (await ensureDataOwner(next.user.id)) await ensureDefaultSettings();
+      } catch (error) {
+        console.error("[dataOwner] failed to verify local data owner:", error);
+      }
+      try {
         await startSync(next.user.id, next.access_token);
       } catch (error) {
         console.error("[sync] failed to initialize:", error);
