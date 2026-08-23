@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { db } from "../db/schema";
 import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
-import { avatarColor, avatarInitial, parseSender } from "../lib/gmail";
+import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
 import { NOTE_TYPE_DEFS, getNoteType } from "../lib/noteTypes";
 import { tripCoverImage } from "../lib/tripCovers";
 import { getScheduleCategory } from "../lib/scheduleCategories";
@@ -115,8 +115,14 @@ export default function TopPage() {
       db.syncedEmails.orderBy("receivedAt").reverse().toArray(),
     ]);
     const blockedSet = new Set(blocked.map((item) => `${item.accountId}:${item.email}`));
+    // 受信トレイの「すべて」タブとまったく同じ絞り込み — ブロック中の送信者を外し、
+    // 既読にしたものと返信を送ったものも外して、まだ手を付けていない直近だけを出す
+    // (isUnhandledEmailはGmailInboxと共有。TOPだけ独自に「全部の直近」を出していた
+    // 頃は、受信トレイでは片付いているメールがTOPには残り続けていた)。
     const visible = allEmails.filter(
-      (email) => !blockedSet.has(`${email.accountId}:${parseSender(email.from).email.toLowerCase()}`),
+      (email) =>
+        !blockedSet.has(`${email.accountId}:${parseSender(email.from).email.toLowerCase()}`) &&
+        isUnhandledEmail(email),
     );
     return { connected: true, emails: visible.slice(0, GMAIL_PREVIEW_LIMIT) };
   }, []);
@@ -389,8 +395,8 @@ export default function TopPage() {
                   <Mail size={21} />
                 </span>
                 <div className="min-w-0">
-                  <strong>{gmailPreview?.connected ? "受信トレイは空です" : "Gmailを接続"}</strong>
-                  <p>{gmailPreview?.connected ? "新しいメールはありません" : "最新メールと返信案をここで確認"}</p>
+                  <strong>{gmailPreview?.connected ? "未処理のメールはありません" : "Gmailを接続"}</strong>
+                  <p>{gmailPreview?.connected ? "既読・返信済みは受信トレイで見られます" : "最新メールと返信案をここで確認"}</p>
                 </div>
               </div>
               <Link to="/gmail" className="hub-link">

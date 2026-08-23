@@ -9,6 +9,7 @@ import {
   ensureFreshAccessToken,
   generateDraftForEmail,
   getMessageMeta,
+  isUnhandledEmail,
   listRecentMessageIds,
   mapWithConcurrency,
   parseSender,
@@ -159,10 +160,10 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     if (statusFilter === "drafted") return email.status === "drafted" || email.status === "edited";
     if (statusFilter === "sent") return email.status === "sent";
     if (statusFilter === "read") return !!email.readAt;
-    // "すべて" = まだ手を付けていないメール。既読にしたものは「既読」タブへ、返信済みの
-    // ものは「送信済み」タブへ移る。返信済みを除くのは、開いただけでは既読にしなくなって
-    // (2026-08-23)以降、返信を送ったメールが「すべて」に残り続けてしまうため。
-    return !email.readAt && email.status !== "sent";
+    // "すべて" = まだ手を付けていないメール。条件そのものはsrc/lib/gmail.tsに置いて
+    // TOPのGmailカードと共有する — 別々に書いていた頃は、受信トレイでは片付いている
+    // メールがTOPにだけ残り続けていた。
+    return isUnhandledEmail(email);
   });
 
   const filteredEmails = statusFilteredEmails?.filter((email) => {

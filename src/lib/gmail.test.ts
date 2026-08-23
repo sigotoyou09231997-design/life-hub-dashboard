@@ -5,6 +5,7 @@ import {
   base64UrlEncode,
   buildRawMessage,
   encodeHeaderWord,
+  isUnhandledEmail,
   mapWithConcurrency,
 } from "./gmail";
 
@@ -113,5 +114,21 @@ describe("mapWithConcurrency", () => {
     const run = vi.fn();
     await mapWithConcurrency([], 3, run);
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe("isUnhandledEmail", () => {
+  it("未読でまだ返信していないメールは残す", () => {
+    expect(isUnhandledEmail({ status: "unprocessed" })).toBe(true);
+    expect(isUnhandledEmail({ status: "drafted" })).toBe(true);
+    expect(isUnhandledEmail({ status: "edited" })).toBe(true);
+  });
+
+  it("既読にしたメールは外す", () => {
+    expect(isUnhandledEmail({ status: "unprocessed", readAt: 1_700_000_000_000 })).toBe(false);
+  });
+
+  it("返信を送ったメールは、未読のままでも外す", () => {
+    expect(isUnhandledEmail({ status: "sent" })).toBe(false);
   });
 });
