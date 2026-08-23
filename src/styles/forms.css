@@ -312,6 +312,13 @@ textarea.field-shell {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
+/* グリッドの子は既定の最小幅が「中身の幅」なので、iOSの時刻/日付入力のように
+   自前の幅を持つ部品は列(minmax(0,1fr))より縮まず、右側の入力欄が画面から
+   はみ出して途切れていた。最小幅を0にして、列の幅にきちんと収める。 */
+.range-field > * {
+  min-width: 0;
+}
+
 .range-field__arrow {
   display: grid;
   place-items: center;
