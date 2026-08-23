@@ -175,6 +175,9 @@ export default function App() {
               <Route path="/gmail/mail/:emailId" element={<LazyRoute><GmailMailPage /></LazyRoute>} />
               <Route path="/gmail/callback" element={<LazyRoute><GmailCallbackPage /></LazyRoute>} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
+              {/* 知らないURLはヘッダーとサイドバーだけの真っ白な画面になっていた
+                  (どのRouteにも当たらないと中身が何も描かれない)。ホームに戻す。 */}
+              <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>
             </main>
