@@ -34,7 +34,7 @@ const BLOCK_SELECTOR = [
   ".finance-balance-module",
   ".finance-summary-module",
   ".finance-metric-module",
-  ".trip-overview-module",
+  ".trip-memo-note",
   ".trip-detail-hero",
   ".mail-inbox-workspace",
   ".finance-ledger-workspace",

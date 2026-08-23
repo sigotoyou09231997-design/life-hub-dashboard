@@ -823,7 +823,7 @@ body .text-base { font-size: 1.05rem; }
 .trip-detail-hero__content span { color: rgba(255,255,255,.68); font-size: .56rem; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
 .trip-detail-hero__content h2 { margin: .35rem 0 0; font-size: clamp(1.5rem,3vw,2.35rem); font-weight: 610; letter-spacing: -.035em; }
 .trip-detail-hero__content p { margin: .35rem 0 0; color: rgba(255,255,255,.76); font-size: .68rem; }
-.trip-overview-module { max-width: 800px; background: rgba(210,227,239,.34); }
+.trip-memo-note { max-width: 800px; background: rgba(210,227,239,.34); }
 
 /* System and profile panels */
 .system-control-panel, .profile-control-panel { align-items: stretch; }
@@ -1085,7 +1085,7 @@ body .text-base { font-size: 1.05rem; }
 .finance-summary-module,
 .finance-metric-module,
 .finance-metric-module--pace,
-.trip-overview-module {
+.trip-memo-note {
   border-radius: var(--hub-r-md) !important;
   border: 1px solid var(--hub-edge);
   background-image: none;
@@ -1149,7 +1149,7 @@ body .text-base { font-size: 1.05rem; }
   .planning-secondary-module *, .planning-list-module *,
   .calendar-workspace__detail *, .finance-balance-module *,
   .finance-summary-module *, .finance-metric-module *,
-  .trip-overview-module *, .trip-detail-hero *,
+  .trip-memo-note *, .trip-detail-hero *,
   .mail-inbox-workspace *, .finance-ledger-workspace *,
   .spatial-sheet *, .glass-modal *, .app-header *, .desktop-sidebar *, .glass-nav *
 )),
@@ -1160,7 +1160,7 @@ body .text-base { font-size: 1.05rem; }
   .planning-secondary-module *, .planning-list-module *,
   .calendar-workspace__detail *, .finance-balance-module *,
   .finance-summary-module *, .finance-metric-module *,
-  .trip-overview-module *, .trip-detail-hero *,
+  .trip-memo-note *, .trip-detail-hero *,
   .mail-inbox-workspace *, .finance-ledger-workspace *,
   .spatial-sheet *, .glass-modal *, .app-header *, .desktop-sidebar *, .glass-nav *
 )) {
@@ -2043,7 +2043,7 @@ body .text-sm { line-height: 1.5; }
 .finance-summary-module,
 .finance-metric-module,
 .finance-metric-module--pace,
-.trip-overview-module {
+.trip-memo-note {
   border-radius: var(--hub-r-card) !important;
 }
 

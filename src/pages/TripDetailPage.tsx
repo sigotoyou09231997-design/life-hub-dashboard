@@ -10,7 +10,6 @@ import { Sheet } from "../components/ui/Sheet";
 import { Button } from "../components/ui/Button";
 import { Tabs } from "../components/ui/Tabs";
 import { Card } from "../components/ui/Card";
-import { Badge } from "../components/ui/Badge";
 import { TripForm } from "../components/trips/TripForm";
 import { TripScheduleForm } from "../components/trips/TripScheduleForm";
 import { TripScheduleList } from "../components/trips/TripScheduleList";
@@ -26,20 +25,14 @@ import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 
-type Tab = "overview" | "schedule" | "expense" | "packing" | "route";
+type Tab = "schedule" | "expense" | "packing" | "route";
 
-const VALID_TABS: Tab[] = ["overview", "schedule", "expense", "packing", "route"];
+const VALID_TABS: Tab[] = ["schedule", "expense", "packing", "route"];
 
 const STATUS_LABEL: Record<TripStatus, string> = {
   planning: "計画中",
   ongoing: "旅行中",
   completed: "完了",
-};
-
-const STATUS_TONE: Record<TripStatus, "accent" | "success" | "neutral"> = {
-  planning: "neutral",
-  ongoing: "accent",
-  completed: "success",
 };
 
 export default function TripDetailPage() {
@@ -49,7 +42,7 @@ export default function TripDetailPage() {
   const showToast = useToast();
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const initialTab: Tab = VALID_TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "overview";
+  const initialTab: Tab = VALID_TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "schedule";
   const [tab, setTab] = useState<Tab>(initialTab);
   const [editingTrip, setEditingTrip] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<TripScheduleItem | "new" | null>(null);
@@ -146,13 +139,12 @@ export default function TripDetailPage() {
 
       <section className="trip-detail-hero mx-5 mb-3 lg:mx-8">
         <div className="trip-detail-hero__photo" aria-hidden="true" /><div className="trip-detail-hero__veil" aria-hidden="true" />
-        <div className="trip-detail-hero__content"><span>旅行</span><h2>{trip.destination}</h2><p>{formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} · {tripDurationLabel(trip.startDate, trip.endDate)}</p></div>
+        <div className="trip-detail-hero__content"><span>{STATUS_LABEL[trip.status]}</span><h2>{trip.destination}</h2><p>{formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} · {tripDurationLabel(trip.startDate, trip.endDate)}</p></div>
       </section>
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-5">
         <Tabs
           options={[
-            { value: "overview", label: "概要" },
             { value: "schedule", label: "日程" },
             { value: "expense", label: "費用" },
             { value: "packing", label: "持ち物" },
@@ -165,39 +157,16 @@ export default function TripDetailPage() {
       </div>
 
       <div className={`trip-detail-workspace trip-detail-workspace--${tab} px-5 lg:px-8`}>
-        {tab === "overview" && (
-          <Card className="trip-overview-module space-y-3">
-            <div className="flex items-center justify-between">
-              <Badge tone={STATUS_TONE[trip.status]}>{STATUS_LABEL[trip.status]}</Badge>
-              <span className="text-sm text-slate-400">{tripDurationLabel(trip.startDate, trip.endDate)}</span>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">日程</p>
-              <p className="mt-0.5 text-sm font-medium text-slate-900">
-                {formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400">行き先</p>
-              <p className="mt-0.5 text-sm font-medium text-slate-900">{trip.destination}</p>
-            </div>
-            {trip.budget != null && (
-              <div>
-                <p className="text-xs text-slate-400">予算</p>
-                <p className="mt-0.5 text-sm font-medium text-slate-900">¥{trip.budget.toLocaleString()}</p>
-              </div>
-            )}
-            {trip.memo && (
-              <div>
-                <p className="text-xs text-slate-400">メモ</p>
-                <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{trip.memo}</p>
-              </div>
-            )}
-          </Card>
-        )}
-
         {tab === "schedule" && (
           <>
+            {/* 旅行のメモ。専用の「概要」タブは行き先も日程もヒーローと重複していて
+                消したので、唯一そこにしか無かったメモを日程の先頭に置く。 */}
+            {trip.memo && (
+              <Card className="trip-memo-note mb-3">
+                <p className="text-xs text-slate-400">メモ</p>
+                <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{trip.memo}</p>
+              </Card>
+            )}
             <TripScheduleList
               dayList={dayList}
               items={schedule}

@@ -45,7 +45,7 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete }: Props) {
             <p className="mt-0.5 font-semibold text-success">{yen(paidTotal)}</p>
           </div>
         </div>
-        {budget == null && <p className="mt-3 text-xs text-slate-400">予算は「概要」タブから設定できます。</p>}
+        {budget == null && <p className="mt-3 text-xs text-slate-400">予算は右上の鉛筆(旅行を編集)から設定できます。</p>}
       </Card>
 
       {expenses.length === 0 ? (
