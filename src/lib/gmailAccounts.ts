@@ -1,4 +1,5 @@
 import { db } from "../db/schema";
+import { dedupeSyncedEmails } from "./syncedEmails";
 
 /** 同じGmailアドレスで連携し直した時に増えてしまった重複アカウント行を1つにまとめ、
  * どのアカウントにも属さなくなった行(メール・AI下書き・ブロックリスト)を片付ける。
@@ -34,6 +35,10 @@ export async function consolidateGmailAccounts(): Promise<number> {
       await db.gmailAccounts.delete(extra.id!);
       merged++;
     }
+    // 付け替えた結果、同じメールが2行(重複していたアカウントぶん)になっていることが
+    // ある — どちらのアカウントも同じ受信トレイを取り込んでいたため。ここで畳まないと、
+    // まったく同じ差出人・件名・時刻の行が一覧に二重で並ぶ(2026-08-24 に発生)。
+    await dedupeSyncedEmails(keeper.id!);
     await dedupeBlockedSenders(keeper.id!);
   }
 
