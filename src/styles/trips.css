@@ -606,6 +606,20 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* 飛行機の行だけは地図の切り替えではなく、Googleフライトへの外部リンク。
+   押した先が別のサービスだと分かるよう、文字色と外部リンクの印で区別する。 */
+a.trip-leg-mode--link {
+  text-decoration: none;
+}
+
+.trip-leg-mode--link .trip-leg-mode__figures b {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--accent, var(--hub-blue));
+  font-size: 0.78rem;
+}
+
 .trip-leg-modes__note {
   margin: 0.35rem 0 0;
   color: rgba(13, 27, 49, 0.45);

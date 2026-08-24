@@ -52,6 +52,15 @@ export function formatMoney(money: { currency: string; amount: number }): string
   return money.currency === "JPY" ? `${rounded.toLocaleString("ja-JP")}円` : `${money.currency} ${rounded.toLocaleString("ja-JP")}`;
 }
 
+/** 飛行機を出し始める距離。Googleマップ本体も、短い区間では飛行機のタブを出さない。
+ * 距離が分からない場合(APIキー未設定など)は出す — 出すぎるより、長距離の時に
+ * 選択肢が無い方が困るため。 */
+export const FLIGHT_MIN_DISTANCE_METERS = 100_000;
+
+export function shouldOfferFlight(distanceMeters: number | undefined): boolean {
+  return distanceMeters == null || distanceMeters >= FLIGHT_MIN_DISTANCE_METERS;
+}
+
 /** 区間ごとの結果は動かない(場所を変えない限り同じ)ので、同じ組み合わせは
  * 一度取ったら使い回す。無料枠の消費と待ち時間の両方を減らすため。 */
 const cache = new Map<string, Promise<RouteInfoResponse>>();

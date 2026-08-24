@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Car, Footprints, Train, type LucideIcon } from "lucide-react";
+import { Car, ExternalLink, Footprints, Plane, Train, type LucideIcon } from "lucide-react";
 import {
   FUEL_ASSUMPTION_LABEL,
   estimateFuelCostYen,
@@ -7,10 +7,12 @@ import {
   formatDistance,
   formatDuration,
   formatMoney,
+  shouldOfferFlight,
   type RouteInfoResponse,
   type RouteLegInfo,
   type RouteMode,
 } from "../../lib/routeInfo";
+import { buildFlightSearchUrl } from "../../lib/googleMaps";
 
 const MODES: { value: RouteMode; label: string; icon: LucideIcon }[] = [
   { value: "walking", label: "徒歩", icon: Footprints },
@@ -31,9 +33,13 @@ interface Props {
  * その手段の地図に切り替わる。
  *
  * 所要時間と金額は、サーバー側にGoogleのAPIキーを設定している時だけ出る
- * (src/lib/routeInfo.ts)。キーが無い場合も3行はそのまま出して、手段の選び替えと
+ * (src/lib/routeInfo.ts)。キーが無い場合も行はそのまま出して、手段の選び替えと
  * Googleマップへの導線としてはこれまでどおり使えるようにしてある — 数字が出ない
  * ことを理由に選択肢ごと消すと、キーを入れるまでこの画面が退化してしまうため。
+ *
+ * 長い区間では飛行機も足す。ただし飛行機はGoogleの経路案内に無い移動手段
+ * (Routes APIが扱うのは車・二輪・自転車・徒歩・公共交通機関だけ)なので、地図には
+ * 出せない。Googleマップ本体と同じように、Googleフライトの検索へ渡す1行にしてある。
  */
 export function TripLegModes({ origin, destination, mode, onModeChange }: Props) {
   const [info, setInfo] = useState<RouteInfoResponse | null>(null);
@@ -54,6 +60,12 @@ export function TripLegModes({ origin, destination, mode, onModeChange }: Props)
 
   const modes = info?.configured ? info.modes : undefined;
   const showsFuelEstimate = !!modes?.driving.distanceMeters;
+  // 距離は手段によって違う(電車は乗換で遠回りになる)ので、分かっている中でいちばん
+  // 長いものを基準にする。1つも分からない時(キー未設定)は undefined のまま。
+  const knownDistances = [modes?.driving.distanceMeters, modes?.transit.distanceMeters, modes?.walking.distanceMeters].filter(
+    (value): value is number => value != null,
+  );
+  const offersFlight = shouldOfferFlight(knownDistances.length > 0 ? Math.max(...knownDistances) : undefined);
 
   return (
     <div className="trip-leg-modes">
@@ -83,6 +95,26 @@ export function TripLegModes({ origin, destination, mode, onModeChange }: Props)
             </button>
           );
         })}
+        {offersFlight && (
+          <a
+            className="trip-leg-mode trip-leg-mode--link"
+            href={buildFlightSearchUrl(origin, destination)}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <span className="trip-leg-mode__icon" aria-hidden="true">
+              <Plane size={16} />
+            </span>
+            <span className="trip-leg-mode__label">飛行機</span>
+            <span className="trip-leg-mode__figures">
+              <b>
+                Googleフライト
+                <ExternalLink size={12} />
+              </b>
+              <small>時間と料金を検索</small>
+            </span>
+          </a>
+        )}
       </div>
       {showsFuelEstimate && <p className="trip-leg-modes__note">車の金額は目安です（{FUEL_ASSUMPTION_LABEL}）。</p>}
     </div>
