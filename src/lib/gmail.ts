@@ -399,6 +399,43 @@ export function isUnhandledEmail(email: Pick<SyncedEmail, "readAt" | "status">):
   return !email.readAt && email.status !== "sent";
 }
 
+/** 同期し終わった時にトーストへ出す文言。
+ *
+ * 「新着」に数えるのは、実際に受信トレイの一覧へ出るものだけ(freshAdded)。取り込んだ
+ * 中には他の端末で既に読んだもの(既読・送信済みタブへ入る)や、ブロック中の送信者のもの
+ * (どこにも出ない)が混ざる。それらまで新着として数えていたため、「7件の新着メール」と
+ * 出るのに一覧には何も増えない、という食い違いが起きていた(2026-08-24)。
+ * 数から外すだけだと今度は「何も起きていない」ように見えるので、括弧で理由を添える。 */
+export interface SyncSummaryCounts {
+  freshAdded: number;
+  handledElsewhere: number;
+  blockedAdded: number;
+  reconciled: number;
+  removed: number;
+  pushedStates: number;
+  pulledStates: number;
+  failed: number;
+  deferred: number;
+}
+
+export function buildSyncSummary(counts: SyncSummaryCounts): string {
+  const parts: string[] = [];
+  if (counts.freshAdded > 0) parts.push(`${counts.freshAdded}件の新着メール`);
+  if (counts.reconciled > 0) parts.push(`${counts.reconciled}件を送信済みに更新`);
+  if (counts.removed > 0) parts.push(`${counts.removed}件をGmailに合わせて削除`);
+  if (counts.pushedStates > 0) parts.push(`${counts.pushedStates}件の既読を他の端末へ送信`);
+  if (counts.pulledStates > 0) parts.push(`${counts.pulledStates}件の既読を他の端末から反映`);
+  if (counts.failed > 0) parts.push(`${counts.failed}件は取得できず次回に持ち越し`);
+  if (counts.deferred > 0) parts.push(`残り${counts.deferred}件は次回の同期で取り込み`);
+
+  const notes: string[] = [];
+  if (counts.handledElsewhere > 0) notes.push(`${counts.handledElsewhere}件は他の端末で処理済み(既読・送信済みタブ)`);
+  if (counts.blockedAdded > 0) notes.push(`${counts.blockedAdded}件はブロック中の送信者`);
+
+  const summary = parts.length > 0 ? `${parts.join("・")}しました` : "新着メールはありませんでした";
+  return notes.length > 0 ? `${summary}(${notes.join("・")})` : summary;
+}
+
 export interface ParsedSender {
   name: string;
   email: string;

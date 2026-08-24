@@ -6,6 +6,7 @@ import type { EmailStatus, GmailAccount } from "../../types";
 import {
   avatarColor,
   avatarInitial,
+  buildSyncSummary,
   ensureFreshAccessToken,
   generateDraftForEmail,
   getMessageMeta,
@@ -250,6 +251,9 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
 
       let added = 0;
       let failed = 0;
+      // 取り込んだ行のid。既読の取り込み(後述のpullMessageStates)が済んだ時点で
+      // 読み直し、そのうち何件が実際に一覧へ出るのかを数えるために持っておく。
+      const addedIds: string[] = [];
       for (const id of newIds) {
         // 1通の取得失敗で同期全体を止めない。止めていた頃は、通信が不安定な端末だけ
         // 途中までしか取り込めず、PCとスマホで一覧の件数が食い違う原因になっていた。
@@ -276,6 +280,7 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
           createdAt: Date.now(),
         };
         const newEmailId = await db.syncedEmails.add(newEmail);
+        if (newEmailId) addedIds.push(newEmailId);
         added++;
 
         // 自動下書き: 送信は行わない。draftReplies を作成するところまでで、
@@ -345,19 +350,39 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       const pulledStates = await pullMessageStates(account.id, account.email);
       const stateError = pushedStates.error ?? pulledStates.error;
 
+      // 「新着」として数えるのは、実際にこの一覧へ出るものだけにする。取り込んだ中には
+      // 他の端末で既に読んだもの(既読タブへ入る)や、ブロック中の送信者のもの(どこにも
+      // 出ない)が混ざる。以前はそれも含めて数えていたため、「7件の新着メールしました」と
+      // 出るのに一覧には何も増えない、という食い違いが起きていた(2026-08-24)。
+      // 数え直しは既読の取り込みが済んだ後に行う — 先に数えると、この直後に既読へ
+      // 変わるものまで新着に入ってしまう。
+      const addedRows = addedIds.length > 0 ? await db.syncedEmails.bulkGet(addedIds) : [];
+      let blockedAdded = 0;
+      let handledElsewhere = 0;
+      for (const row of addedRows) {
+        if (!row) continue;
+        if (blockedSet.has(parseSender(row.from).email.toLowerCase())) blockedAdded++;
+        else if (!isUnhandledEmail(row)) handledElsewhere++;
+      }
+      const freshAdded = added - blockedAdded - handledElsewhere;
+
       await db.gmailAccounts.update(account.id, { lastSyncedAt: Date.now() });
-      const parts: string[] = [];
-      if (added > 0) parts.push(`${added}件の新着メール`);
-      if (reconciled > 0) parts.push(`${reconciled}件を送信済みに更新`);
-      if (removed > 0) parts.push(`${removed}件をGmailに合わせて削除`);
-      if (pushedStates.count > 0) parts.push(`${pushedStates.count}件の既読を他の端末へ送信`);
-      if (pulledStates.count > 0) parts.push(`${pulledStates.count}件の既読を他の端末から反映`);
-      if (failed > 0) parts.push(`${failed}件は取得できず次回に持ち越し`);
-      if (deferred > 0) parts.push(`残り${deferred}件は次回の同期で取り込み`);
       // 既読の共有だけ失敗した場合、メール取得自体は成功しているのでそこは伝えつつ、
       // 黙って揃わないままにならないようエラーも出す(以前はconsoleにしか出ていなかった)。
       if (stateError) showToast(`既読の同期に失敗しました: ${stateError}`, "error");
-      showToast(parts.length > 0 ? `${parts.join("・")}しました` : "新着メールはありませんでした");
+      showToast(
+        buildSyncSummary({
+          freshAdded,
+          handledElsewhere,
+          blockedAdded,
+          reconciled,
+          removed,
+          pushedStates: pushedStates.count,
+          pulledStates: pulledStates.count,
+          failed,
+          deferred,
+        }),
+      );
     } catch (err) {
       showToast(describeSyncError(err), "error");
     } finally {
