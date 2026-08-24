@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { keyboardInsetFrom } from "../../lib/viewport";
 
 interface Props {
   open: boolean;
@@ -28,6 +29,9 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
 
 export function Sheet({ open, onClose, title, children, reserveBottomBar = false, compact = false }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // キーボードで隠れている高さ。その分だけシートを持ち上げて、入力欄が最初から
+  // キーボードの上に出ている状態にする(src/lib/viewport.ts)。
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(false);
 
@@ -85,11 +89,28 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     };
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open) return;
+    const visual = window.visualViewport;
+    if (!visual) return;
+    const update = () => setKeyboardInset(keyboardInsetFrom(window.innerHeight, visual.height, visual.offsetTop));
+    update();
+    visual.addEventListener("resize", update);
+    visual.addEventListener("scroll", update);
+    return () => {
+      visual.removeEventListener("resize", update);
+      visual.removeEventListener("scroll", update);
+      setKeyboardInset(0);
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
     <div
       className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center lg:items-center lg:p-6 ${reserveBottomBar ? "bottom-[calc(env(safe-area-inset-bottom)+6.5rem)]" : "bottom-0"}`}
+      // キーボードのぶんを下に空けると、items-end のシートはその上まで持ち上がる。
+      style={keyboardInset > 0 ? { paddingBottom: keyboardInset } : undefined}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -100,6 +121,10 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
         className={`glass-modal spatial-sheet sheet-panel relative z-10 flex w-full max-w-md flex-col animate-slide-up motion-reduce:animate-none lg:max-w-xl ${
           compact ? "h-[55vh] max-h-[55vh]" : "max-h-[88vh] lg:max-h-[86vh]"
         }`}
+        // キーボードが出ている間は、画面の高さ(88vh等)ではなく「キーボードより上に
+        // 残っている高さ」に合わせる。合わせないと、持ち上げたぶんシートの上側が
+        // 画面外へはみ出してしまう。
+        style={keyboardInset > 0 ? { maxHeight: "calc(100% - 0.5rem)" } : undefined}
       >
         {/* つまみはスマホだけ。PCではダイアログとして画面の真ん中に置くので、
             下から引き上げる部品の名残を残さない(CSSで隠す)。 */}
