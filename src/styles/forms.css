@@ -342,6 +342,25 @@ textarea.field-shell {
   }
 }
 
+/* iOSのSafariは <input type="time"> を「自前の幅を持つ部品」として描き、width の
+   指定を無視する。そのため縦に積んで幅いっぱいを与えても、欄が枠からはみ出して
+   右端が途切れたままだった(2026-08-24)。既定の見た目(-webkit-appearance)を外すと
+   ふつうの入力欄として扱われ、指定した幅に収まる。
+
+   指の操作(pointer: coarse)の端末だけに当てる — PCではこの既定の見た目に時計の
+   ボタンが含まれており、外すとカレンダー/時計から選べなくなるため。
+   iOS側は既定の見た目を外しても、欄を押せばこれまでどおり時刻のピッカーが開く。 */
+@media (pointer: coarse) {
+  .range-field--time input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+}
+
 .range-field__arrow {
   display: grid;
   place-items: center;
