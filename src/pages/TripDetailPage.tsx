@@ -49,6 +49,8 @@ export default function TripDetailPage() {
   const [tab, setTab] = useState<Tab>(initialTab);
   const [editingTrip, setEditingTrip] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<TripScheduleItem | "new" | null>(null);
+  /** 「この日に予定を追加」から開いた時の日付。下部の「予定を追加」からは付かない(null)。 */
+  const [scheduleDatePreset, setScheduleDatePreset] = useState<string | null>(null);
   const [editingExpense, setEditingExpense] = useState<TripExpense | "new" | null>(null);
   const [editingPacking, setEditingPacking] = useState<TripPackingItem | "new" | null>(null);
   const [editingRoute, setEditingRoute] = useState<TripRoutePlace | "new" | null>(null);
@@ -194,6 +196,10 @@ export default function TripDetailPage() {
                 db.tripSchedule.delete(id);
                 showToast("削除しました");
               }}
+              onAddForDate={(date) => {
+                setScheduleDatePreset(date);
+                setEditingSchedule("new");
+              }}
               onLocationTap={(location, title) => {
                 setTab("route");
                 // まだルートに無い場所なら、そのまま追加フォームを開いて拾わせる。
@@ -205,7 +211,13 @@ export default function TripDetailPage() {
               }}
             />
             {dayList.length > 0 && (
-              <Button className="mt-4 w-full" onClick={() => setEditingSchedule("new")}>
+              <Button
+                className="mt-4 w-full"
+                onClick={() => {
+                  setScheduleDatePreset(null);
+                  setEditingSchedule("new");
+                }}
+              >
                 予定を追加
               </Button>
             )}
@@ -308,19 +320,26 @@ export default function TripDetailPage() {
 
       <Sheet
         open={editingSchedule !== null}
-        onClose={() => setEditingSchedule(null)}
+        onClose={() => {
+          setEditingSchedule(null);
+          setScheduleDatePreset(null);
+        }}
         title={editingSchedule === "new" ? "予定を追加" : "予定を編集"}
       >
         {editingSchedule && (
           <TripScheduleForm
             tripId={tripId}
             initial={editingSchedule === "new" ? undefined : editingSchedule}
-            defaultDate={scheduleDefaultDate}
+            defaultDate={scheduleDatePreset ?? scheduleDefaultDate}
             onSaved={() => {
               setEditingSchedule(null);
+              setScheduleDatePreset(null);
               showToast("保存しました");
             }}
-            onCancel={() => setEditingSchedule(null)}
+            onCancel={() => {
+              setEditingSchedule(null);
+              setScheduleDatePreset(null);
+            }}
           />
         )}
       </Sheet>

@@ -643,6 +643,105 @@ a.trip-leg-mode--link {
 }
 
 /* --- 場所1件のカード ------------------------------------------------------ */
+/* --- 日程タブ: 1日=1枚のカード ------------------------------------------
+   以前は日付も「予定はまだありません」も背景の写真の上に文字だけで置いていたため、
+   明るい写真の日はほとんど読めなかった。ルートや費用と同じく面の上に載せる。
+   予定が無い日は1行の「予定を追加」に畳んで、空の日ほど場所を取らないようにする。 */
+.trip-day-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.trip-day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.8rem 0.9rem 0.85rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-md);
+  background: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset);
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
+}
+
+/* 予定が無い日は控えめに。並んだ時に「予定のある日」が先に目に入るようにする。 */
+.trip-day--empty {
+  gap: 0.4rem;
+  padding-bottom: 0.7rem;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.trip-day__head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.trip-day__index {
+  display: flex;
+  width: 1.65rem;
+  height: 1.65rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--hub-ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-day__head h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--hub-ink);
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-day__head h3 span {
+  color: var(--hub-ink-2);
+  font-weight: 500;
+}
+
+.trip-day__head b {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.trip-day__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-start;
+  min-height: 2rem;
+  margin-left: 2.2rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--hub-r-sm);
+  color: var(--accent, var(--hub-blue));
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: background-color 0.18s var(--hub-ease);
+}
+
+.trip-day__add:hover {
+  background: var(--hub-inset);
+}
+
+
 .trip-route-card {
   display: flex;
   flex-direction: column;
