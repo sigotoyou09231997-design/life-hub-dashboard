@@ -78,6 +78,19 @@ export function buildFromHereSearchUrl(destination: string, mode: TravelMode = "
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=${mode}`;
 }
 
+/**
+ * 飛行機だけはGoogleマップの経路(Routes API・埋め込みどちらも)に無い移動手段なので、
+ * Googleマップ本体と同じくGoogleフライトの検索へ渡す。
+ *
+ * 出発地が現在地(緯度,経度)の場合は出発地を書かない — 座標を渡してもGoogleフライトは
+ * 空港に解決できないため。書かなければ向こうが現在地から近い空港を出発地に埋めてくれる。
+ */
+export function buildFlightSearchUrl(origin: string, destination: string): string {
+  const isCoords = /^\s*-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?\s*$/.test(origin);
+  const query = isCoords || !origin.trim() ? `Flights to ${destination}` : `Flights from ${origin} to ${destination}`;
+  return `https://www.google.com/travel/flights?q=${encodeURIComponent(query)}&hl=ja`;
+}
+
 /** 埋め込み地図に渡せる「現在地」。Geolocationの結果をそのまま座標文字列にする。 */
 export function coordsQuery(latitude: number, longitude: number): string {
   return `${latitude.toFixed(6)},${longitude.toFixed(6)}`;

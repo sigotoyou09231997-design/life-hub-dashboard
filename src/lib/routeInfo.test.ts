@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  FLIGHT_MIN_DISTANCE_METERS,
   estimateFuelCostYen,
   formatDistance,
   formatDuration,
   formatMoney,
   normalizeQuery,
+  shouldOfferFlight,
 } from "./routeInfo";
+import { buildFlightSearchUrl } from "./googleMaps";
 
 describe("formatDuration", () => {
   it("1時間未満は分で出す", () => {
@@ -55,5 +58,35 @@ describe("normalizeQuery", () => {
 
   it("住所は前後の空白を落とすだけ", () => {
     expect(normalizeQuery(" 鎌倉駅 ")).toBe("鎌倉駅");
+  });
+});
+
+describe("shouldOfferFlight", () => {
+  it("短い区間では出さない", () => {
+    expect(shouldOfferFlight(2_100)).toBe(false);
+    expect(shouldOfferFlight(FLIGHT_MIN_DISTANCE_METERS - 1)).toBe(false);
+  });
+
+  it("長い区間では出す", () => {
+    expect(shouldOfferFlight(FLIGHT_MIN_DISTANCE_METERS)).toBe(true);
+    expect(shouldOfferFlight(620_000)).toBe(true);
+  });
+
+  it("距離が分からない時(APIキー未設定など)は出す", () => {
+    expect(shouldOfferFlight(undefined)).toBe(true);
+  });
+});
+
+describe("buildFlightSearchUrl", () => {
+  it("地名どうしなら出発地と行き先の両方を渡す", () => {
+    const url = buildFlightSearchUrl("岡山駅前", "神奈川県鎌倉市");
+    expect(url).toContain("google.com/travel/flights");
+    expect(decodeURIComponent(url)).toContain("Flights from 岡山駅前 to 神奈川県鎌倉市");
+  });
+
+  it("出発地が現在地(座標)なら出発地は渡さない(Googleフライト側が現在地から埋める)", () => {
+    const url = buildFlightSearchUrl("34.665,133.918", "神奈川県鎌倉市");
+    expect(decodeURIComponent(url)).toContain("Flights to 神奈川県鎌倉市");
+    expect(decodeURIComponent(url)).not.toContain("34.665");
   });
 });
