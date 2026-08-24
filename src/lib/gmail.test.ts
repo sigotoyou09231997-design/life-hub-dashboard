@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   attachmentsTotalBytes,
+  buildSyncSummary,
   base64UrlDecode,
   base64UrlEncode,
   buildRawMessage,
@@ -130,5 +131,53 @@ describe("isUnhandledEmail", () => {
 
   it("返信を送ったメールは、未読のままでも外す", () => {
     expect(isUnhandledEmail({ status: "sent" })).toBe(false);
+  });
+});
+
+describe("buildSyncSummary", () => {
+  const none = {
+    freshAdded: 0,
+    handledElsewhere: 0,
+    blockedAdded: 0,
+    reconciled: 0,
+    removed: 0,
+    pushedStates: 0,
+    pulledStates: 0,
+    failed: 0,
+    deferred: 0,
+  };
+
+  it("一覧に出る新着だけを「新着メール」として数える", () => {
+    expect(buildSyncSummary({ ...none, freshAdded: 3 })).toBe("3件の新着メールしました");
+  });
+
+  // 実際に出た不具合(2026-08-24): 取り込んだ7件が全て他の端末で既読済みだったのに
+  // 「7件の新着メール」と出て、一覧には何も増えていなかった。
+  it("他の端末で処理済みの分は新着に数えず、理由を添える", () => {
+    expect(buildSyncSummary({ ...none, handledElsewhere: 7 })).toBe(
+      "新着メールはありませんでした(7件は他の端末で処理済み(既読・送信済みタブ))",
+    );
+  });
+
+  it("ブロック中の送信者の分も新着に数えない", () => {
+    expect(buildSyncSummary({ ...none, blockedAdded: 2 })).toBe(
+      "新着メールはありませんでした(2件はブロック中の送信者)",
+    );
+  });
+
+  it("新着と、出ない分が混ざる場合は両方を出す", () => {
+    expect(buildSyncSummary({ ...none, freshAdded: 1, handledElsewhere: 4, blockedAdded: 2 })).toBe(
+      "1件の新着メールしました(4件は他の端末で処理済み(既読・送信済みタブ)・2件はブロック中の送信者)",
+    );
+  });
+
+  it("何も無ければこれまでどおりの文言", () => {
+    expect(buildSyncSummary(none)).toBe("新着メールはありませんでした");
+  });
+
+  it("取得できなかった分・持ち越した分はこれまでどおり伝える", () => {
+    expect(buildSyncSummary({ ...none, freshAdded: 2, failed: 1, deferred: 30 })).toBe(
+      "2件の新着メール・1件は取得できず次回に持ち越し・残り30件は次回の同期で取り込みしました",
+    );
   });
 });
