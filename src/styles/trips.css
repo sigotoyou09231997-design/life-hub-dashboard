@@ -528,32 +528,88 @@
   gap: 0.55rem;
 }
 
-.trip-route__modes {
-  display: inline-flex;
-  align-self: flex-start;
-  gap: 0.2rem;
-  padding: 0.2rem;
-  border: 1px solid var(--hub-hairline);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
+/* --- 区間ごとの移動手段(徒歩・公共交通機関・車) ---------------------------
+   Googleマップと同じく3つを並べて見比べられるようにする。押すとその手段の地図に
+   切り替わる。所要時間と金額はGoogleのAPIキーを設定している時だけ入り、無い時は
+   行の右側が空のまま(選び替えとしてはそのまま使える)。 */
+.trip-leg-modes {
+  margin-bottom: 0.55rem;
 }
 
-.trip-route__modes button {
-  display: inline-flex;
+.trip-leg-modes > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.trip-leg-mode {
+  display: grid;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 999px;
-  color: rgba(13, 27, 49, 0.6);
-  font-size: 0.85rem;
-  font-weight: 600;
+  gap: 0.55rem;
+  grid-template-columns: 1.55rem minmax(0, 1fr) auto;
+  min-height: 2.6rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--hub-r-sm);
+  color: rgba(13, 27, 49, 0.62);
+  text-align: left;
   transition: background-color 0.18s var(--hub-ease), color 0.18s var(--hub-ease);
 }
 
-.trip-route__modes button.is-active {
+.trip-leg-mode.is-active {
+  border-color: var(--hub-hairline);
   background: var(--hub-surface);
-  box-shadow: var(--hub-shadow-inset), 0 1px 3px rgba(10, 24, 46, 0.12);
+  box-shadow: var(--hub-shadow-inset);
   color: var(--accent, var(--hub-blue));
+}
+
+.trip-leg-mode__icon {
+  display: grid;
+  width: 1.55rem;
+  height: 1.55rem;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--hub-inset);
+}
+
+.trip-leg-mode.is-active .trip-leg-mode__icon {
+  background: rgba(79, 111, 255, 0.12);
+}
+
+.trip-leg-mode__label {
+  min-width: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.trip-leg-mode__figures {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+
+.trip-leg-mode__figures b {
+  color: rgba(13, 27, 49, 0.82);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-leg-mode.is-active .trip-leg-mode__figures b {
+  color: var(--accent, var(--hub-blue));
+}
+
+.trip-leg-mode__figures small {
+  color: rgba(13, 27, 49, 0.5);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-leg-modes__note {
+  margin: 0.35rem 0 0;
+  color: rgba(13, 27, 49, 0.45);
+  font-size: 0.68rem;
 }
 
 .trip-route__chain {

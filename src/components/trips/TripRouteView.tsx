@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowDown, Check, ExternalLink, Footprints, LocateFixed, Map, MoveLeft, MoveRight, Pencil, Plus, Train, Car, Trash2 } from "lucide-react";
+import { ArrowDown, Check, ExternalLink, LocateFixed, Map, MoveLeft, MoveRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { db } from "../../db/schema";
 import type { TripRoutePlace } from "../../types";
 import {
@@ -12,6 +12,7 @@ import {
 } from "../../lib/googleMaps";
 import type { TravelMode } from "../../lib/googleMaps";
 import { TripRouteForm } from "./TripRouteForm";
+import { TripLegModes } from "./TripLegModes";
 
 interface Props {
   tripId: string;
@@ -34,13 +35,6 @@ interface Props {
  * 縦(スマホ)と横(PC)の切り替えは trips.css 側。矢印はCSSで回すので、DOMは
  * どちらでも同じ1本の鎖のまま。
  */
-/** 区間の移動手段。旅行の移動は電車が既定 — 空港や駅を経由する線が出るのはこれ。 */
-const TRAVEL_MODES: { value: TravelMode; label: string; icon: typeof Train }[] = [
-  { value: "transit", label: "電車", icon: Train },
-  { value: "driving", label: "車", icon: Car },
-  { value: "walking", label: "徒歩", icon: Footprints },
-];
-
 export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved, onEdit, onDelete }: Props) {
   const queries = places.map((p) => p.address);
   const [mode, setMode] = useState<TravelMode>("transit");
@@ -89,22 +83,6 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
           この画面でやることは「1件目を入れる」しかない。代わりに入力欄をそのまま出す。 */}
       {places.length > 0 && (
         <div className="trip-route__head">
-          {places.length > 1 && (
-            <div className="trip-route__modes" role="group" aria-label="区間の移動手段">
-              {TRAVEL_MODES.map(({ value, label, icon: Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setMode(value)}
-                  aria-pressed={mode === value}
-                  className={mode === value ? "is-active" : undefined}
-                >
-                  <Icon size={15} />
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
           <a
             className="trip-route__open"
             href={buildRouteSearchUrl(queries, mode)}
@@ -155,6 +133,10 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
                     ? "現在地を確認しています…"
                     : "現在地を取得できませんでした。下のリンクなら、Googleマップ側が現在地から案内します。"}
                 </p>
+              )}
+
+              {here && (
+                <TripLegModes origin={here} destination={places[0].address} mode={mode} onModeChange={setMode} />
               )}
 
               <a
@@ -255,6 +237,12 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
                         <p className="trip-route-leg__title">
                           {place.name} → {next.name}
                         </p>
+                        <TripLegModes
+                          origin={place.address}
+                          destination={next.address}
+                          mode={mode}
+                          onModeChange={setMode}
+                        />
                         <div className="trip-route-leg__map">
                           <iframe
                             key={`${place.id}-${mode}`}

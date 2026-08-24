@@ -159,7 +159,10 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
   const statusFilteredEmails = visibleEmails?.filter((email) => {
     if (statusFilter === "drafted") return email.status === "drafted" || email.status === "edited";
     if (statusFilter === "sent") return email.status === "sent";
-    if (statusFilter === "read") return !!email.readAt;
+    // 既読タブからも返信済みは外す — 返信を送った時点でそのメールは「送信済み」へ移る、
+    // という見え方に揃える(以前は既読にしてから返信すると、送信済みと既読の両方に
+    // 残り続けていた)。
+    if (statusFilter === "read") return !!email.readAt && email.status !== "sent";
     // "すべて" = まだ手を付けていないメール。条件そのものはsrc/lib/gmail.tsに置いて
     // TOPのGmailカードと共有する — 別々に書いていた頃は、受信トレイでは片付いている
     // メールがTOPにだけ残り続けていた。
