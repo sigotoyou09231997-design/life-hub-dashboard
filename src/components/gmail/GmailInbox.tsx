@@ -19,6 +19,7 @@ import {
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { pullMessageStates, pushPendingMessageStates, updateMessageState } from "../../lib/gmailMessageState";
+import { addEmailIfAbsent, dedupeSyncedEmails } from "../../lib/syncedEmails";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
@@ -180,44 +181,6 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     );
   });
 
-  /** Collapses any syncedEmails rows that share a gmailMessageId back down to one —
-   * a race between two concurrent syncs (see syncInFlightRef above, which now
-   * prevents this going forward) could insert a duplicate row per sync, since
-   * gmailMessageId isn't a unique index (db/schema.ts). Keeps whichever row has
-   * real progress (a status other than "unprocessed", e.g. a generated/sent
-   * draft) over a still-untouched duplicate, falling back to the earliest
-   * createdAt when neither does. Any draftReplies on a row being dropped move
-   * over to the kept row (only if it doesn't already have one, to avoid ending
-   * up with two drafts under the same emailId) rather than being lost. */
-  async function dedupeSyncedEmails(accountId: string): Promise<void> {
-    const rows = await db.syncedEmails.where("accountId").equals(accountId).toArray();
-    const byMessageId = new Map<string, typeof rows>();
-    for (const row of rows) {
-      const group = byMessageId.get(row.gmailMessageId);
-      if (group) group.push(row);
-      else byMessageId.set(row.gmailMessageId, [row]);
-    }
-    for (const group of byMessageId.values()) {
-      if (group.length < 2) continue;
-      const [keep, ...extras] = [...group].sort((a, b) => {
-        const hasProgress = Number(b.status !== "unprocessed") - Number(a.status !== "unprocessed");
-        return hasProgress !== 0 ? hasProgress : a.createdAt - b.createdAt;
-      });
-      for (const extra of extras) {
-        if (!extra.id) continue;
-        const extraDrafts = await db.draftReplies.where("emailId").equals(extra.id).toArray();
-        const keepAlreadyHasDraft = keep.id ? (await db.draftReplies.where("emailId").equals(keep.id).count()) > 0 : false;
-        if (extraDrafts.length > 0 && keep.id && !keepAlreadyHasDraft) {
-          await db.draftReplies.update(extraDrafts[0].id!, { emailId: keep.id });
-          for (const leftover of extraDrafts.slice(1)) await db.draftReplies.delete(leftover.id!);
-        } else {
-          for (const draft of extraDrafts) await db.draftReplies.delete(draft.id!);
-        }
-        await db.syncedEmails.delete(extra.id);
-      }
-    }
-  }
-
   async function handleSync() {
     if (syncInFlightRef.current) return syncInFlightRef.current;
     const run = runSync();
@@ -279,8 +242,12 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
           status: "unprocessed" as const,
           createdAt: Date.now(),
         };
-        const newEmailId = await db.syncedEmails.add(newEmail);
-        if (newEmailId) addedIds.push(newEmailId);
+        // 存在確認と追加をまとめて行う。読んだ`known`は同期の開始時点のもので、その後に
+        // 別のタブやアカウント統合(src/lib/gmailAccounts.ts)が同じメールを入れている
+        // ことがある — そのまま足すと一覧に同じメールが二重で並ぶ。
+        const newEmailId = await addEmailIfAbsent(newEmail);
+        if (!newEmailId) continue;
+        addedIds.push(newEmailId);
         added++;
 
         // 自動下書き: 送信は行わない。draftReplies を作成するところまでで、
