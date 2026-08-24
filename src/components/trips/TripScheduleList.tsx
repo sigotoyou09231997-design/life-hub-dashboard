@@ -3,7 +3,7 @@ import { formatDisplayDate } from "../../lib/date";
 import { getTripScheduleType } from "../../lib/tripCategories";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
-import { Clock, MapPin, Trash2 } from "lucide-react";
+import { Clock, MapPin, Plus, Trash2 } from "lucide-react";
 
 interface Props {
   dayList: string[];
@@ -11,27 +11,46 @@ interface Props {
   onEdit: (item: TripScheduleItem) => void;
   onDelete: (id: string) => void;
   onLocationTap: (location: string, title: string) => void;
+  /** その日を初期値にして「予定を追加」を開く。 */
+  onAddForDate: (date: string) => void;
 }
 
-export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationTap }: Props) {
+/**
+ * 日程は1日=1枚のカードにする。以前は日付も「予定はまだありません」も、背景の写真の上に
+ * 文字だけで置いていたため、明るい写真の日は文字が沈んでほとんど読めなかった。
+ * 他の一覧(ルート・費用)と同じく面の上に載せて、日付・件数・その日の予定をまとめて見せる。
+ *
+ * 予定が無い日は1行の「予定を追加」に畳む。9日間の旅行だと空の日が縦に積み上がって
+ * 延々スクロールすることになるため、空の日ほど小さく収まるようにしてある。
+ */
+export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationTap, onAddForDate }: Props) {
   if (dayList.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-400">旅行の日程を先に設定してください</p>;
   }
 
   return (
-    <div className="space-y-5">
+    <div className="trip-day-list">
       {dayList.map((date, i) => {
         const dayItems = items
           .filter((it) => it.date === date)
           .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
 
         return (
-          <div key={date}>
-            <p className="label-on-photo mb-2 text-sm font-medium text-slate-600">
-              {i + 1}日目・{formatDisplayDate(date)}
-            </p>
+          <section key={date} className={`trip-day${dayItems.length === 0 ? " trip-day--empty" : ""}`}>
+            <header className="trip-day__head">
+              <span className="trip-day__index" aria-hidden="true">
+                {i + 1}
+              </span>
+              <h3>
+                {i + 1}日目<span>・{formatDisplayDate(date)}</span>
+              </h3>
+              {dayItems.length > 0 && <b>{dayItems.length}件</b>}
+            </header>
             {dayItems.length === 0 ? (
-              <p className="label-on-photo py-4 text-center text-sm text-slate-400">この日の予定はまだありません</p>
+              <button type="button" className="trip-day__add" onClick={() => onAddForDate(date)}>
+                <Plus size={14} />
+                予定を追加
+              </button>
             ) : (
               <div className="space-y-2">
                 {dayItems.map((item) => {
@@ -87,7 +106,7 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
                 })}
               </div>
             )}
-          </div>
+          </section>
         );
       })}
     </div>
