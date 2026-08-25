@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
 import {
+  describePlanImportError,
   isOutsideTrip,
   pickDefaultTripId,
   sortTripsForPicker,
@@ -123,5 +124,29 @@ describe("入れ先ごとの作り分け", () => {
   it("どの入れ先でも、前後の空白は落とす", () => {
     expect(toTaskRecord(row(), 1_000).title).toBe("羽田→福岡");
     expect(toCalendarEventRecord(row(), 1_000).title).toBe("羽田→福岡");
+  });
+});
+
+describe("describePlanImportError", () => {
+  it("関数が見つからない時は、アプリを開き直すよう伝える", () => {
+    // 「extractTripPlan failed (405)」のままでは何をすればよいか分からない。
+    expect(describePlanImportError(Object.assign(new Error("extractTripPlan failed (405)"), { status: 405 }))).toContain(
+      "開き直して",
+    );
+    expect(describePlanImportError(Object.assign(new Error("not found"), { status: 404 }))).toContain("開き直して");
+  });
+
+  it("混み合っている時は、待てば直ると伝える", () => {
+    expect(describePlanImportError(Object.assign(new Error("rate limited"), { status: 429 }))).toContain("少し待って");
+  });
+
+  it("接続情報が無い時は、どの環境変数かまで伝える", () => {
+    expect(describePlanImportError(new Error("サーバーにAIの接続情報(ANTHROPIC_API_KEY)が..."))).toContain(
+      "ANTHROPIC_API_KEY",
+    );
+  });
+
+  it("当てはまるものが無ければ、元のメッセージをそのまま出す", () => {
+    expect(describePlanImportError(new Error("Anthropic API error: 529"))).toBe("Anthropic API error: 529");
   });
 });

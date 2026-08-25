@@ -6,6 +6,7 @@ import type { GmailAccount, SyncedEmail, TripScheduleType } from "../../types";
 import { extractTripPlanFromEmail } from "../../lib/gmail";
 import {
   PLAN_DESTINATIONS,
+  describePlanImportError,
   isOutsideTrip,
   pickDefaultTripId,
   sortTripsForPicker,
@@ -83,7 +84,7 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
       } catch (err) {
         if (!active) return;
         console.error("[mailPlanImport] failed to read a plan from the email:", err);
-        setError(err instanceof Error ? err.message : String(err));
+        setError(describePlanImportError(err));
         setStatus("error");
       }
     })();

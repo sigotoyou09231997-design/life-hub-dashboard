@@ -115,3 +115,23 @@ export function toTaskRecord(row: TripImportRow, now: number): Task {
     createdAt: now,
   };
 }
+
+/** 読み取りの失敗理由を、次にやることまで含めた日本語にする。
+ *
+ * 「extractTripPlan failed (405)」のような素の文言では何をすればよいか分からない。
+ * 405/404 は、端末のアプリだけ先に新しくなって、対応するサーバー側の処理がまだ
+ * 届いていない(または更新前のアプリのまま押した)時に返る。 */
+export function describePlanImportError(err: unknown): string {
+  const status = typeof err === "object" && err !== null ? (err as { status?: number }).status : undefined;
+  if (status === 404 || status === 405) {
+    return "アプリの更新がこの端末にまだ届いていないようです。アプリを一度閉じて開き直してから、もう一度お試しください";
+  }
+  if (status === 429) {
+    return "AIの利用が混み合っています。少し待ってから、もう一度お試しください";
+  }
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/ANTHROPIC_API_KEY/.test(raw)) {
+    return "サーバーにAIの接続情報(ANTHROPIC_API_KEY)が設定されていません";
+  }
+  return raw;
+}
