@@ -1,6 +1,6 @@
 import { LifeHubDB } from "../db/schema";
 import type { CalendarEvent } from "../types";
-import { accountLabel, getActiveAccount, listAccounts } from "./accounts";
+import { BOOT_DB_NAME, accountLabel, listAccounts } from "./accounts";
 import { getDeviceId } from "./deviceId";
 
 /** 予定を入れられる、いま開いていない方のアカウント。 */
@@ -12,11 +12,15 @@ export interface OtherAccount {
 }
 
 /** いま開いているアカウント以外で、この端末に登録済みのもの。1つも無ければ空 —
- * 予定フォームの複製欄は、この結果が空でない時だけ出す。 */
+ * 予定フォームの複製欄は、この結果が空でない時だけ出す。
+ *
+ * 「いま自分がどのアカウントか」は、実際に開いているIndexedDBの名前(BOOT_DB_NAME)で
+ * 判断する。切り替え用のポインタ(lifeHubActiveAccount)は、切り替えの直後や追加ログインの
+ * 途中で、実際に開いているDBと食い違うことがあるため — 食い違うと、自分自身を複製先に
+ * 出したり、逆に相手が1件も出てこなくなったりする。 */
 export function listOtherAccounts(): OtherAccount[] {
-  const activeUserId = getActiveAccount()?.userId;
   return listAccounts()
-    .filter((account) => account.userId !== activeUserId)
+    .filter((account) => account.dbName !== BOOT_DB_NAME)
     .map((account) => ({
       userId: account.userId,
       dbName: account.dbName,
@@ -100,4 +104,16 @@ export async function addEventToAccount(account: OtherAccount, event: CalendarEv
   } finally {
     other.close();
   }
+}
+
+/** 画面に出す診断用の一行。「ほかのアカウントにも入れる」欄が出ない時に、端末側で
+ * 何が起きているのかを本人が読めるようにするためのもの(アカウント画面に表示)。
+ * 原因が分かったら消す。 */
+export function describeAccountState(): string {
+  const accounts = listAccounts();
+  const others = listOtherAccounts();
+  const rows = accounts
+    .map((a) => `${a.userId.slice(0, 6)}/${a.dbName}/slot=${a.slot ?? "既定"}`)
+    .join(" , ");
+  return `登録${accounts.length}件 [${rows}] / 開いているDB=${BOOT_DB_NAME} / 複製先=${others.length}件`;
 }

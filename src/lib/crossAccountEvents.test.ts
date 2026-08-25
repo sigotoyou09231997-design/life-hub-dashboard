@@ -5,6 +5,8 @@ import type { StoredAccount } from "./accounts";
 const mocks = vi.hoisted(() => ({
   accounts: [] as StoredAccount[],
   activeUserId: null as string | null,
+  /** いま開いているIndexedDBの名前。どのアカウントで動いているかの実体。 */
+  bootDbName: "life-hub",
   /** 相手のDBに実際に書かれた内容。openした順に1件ずつ入る。 */
   opened: [] as {
     dbName: string;
@@ -53,6 +55,10 @@ vi.mock("./accounts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./accounts")>()),
   listAccounts: () => mocks.accounts,
   getActiveAccount: () => mocks.accounts.find((a) => a.userId === mocks.activeUserId) ?? null,
+  // 起動時に決まる定数なので、テストごとに差し替えられるようgetterで見せる。
+  get BOOT_DB_NAME() {
+    return mocks.bootDbName;
+  },
 }));
 
 import {
@@ -86,23 +92,44 @@ describe("listOtherAccounts", () => {
   beforeEach(() => {
     mocks.accounts = [];
     mocks.activeUserId = null;
+    mocks.bootDbName = "life-hub";
   });
 
   it("いま開いているアカウントは複製先に出さない", () => {
     mocks.accounts = [storedAccount("me", "自分", "me@example.com"), storedAccount("work", "仕事用", "work@example.com")];
-    mocks.activeUserId = "me";
+    mocks.bootDbName = "life-hub-me";
+    expect(listOtherAccounts().map((a) => a.userId)).toEqual(["work"]);
+  });
+
+  it("1つ目のアカウント(既定のDB)から見ても、あとから足した方が複製先に出る", () => {
+    // 1つ目だけ欄が出なかった不具合の再発防止。1つ目はDB名が既定値("life-hub")、
+    // slotもnullで、2つ目以降と形が違う唯一のアカウント。
+    mocks.accounts = [
+      { ...storedAccount("me", "自分", "me@example.com"), dbName: "life-hub", slot: null },
+      storedAccount("work", "仕事用", "work@example.com"),
+    ];
+    mocks.bootDbName = "life-hub";
+    expect(listOtherAccounts().map((a) => a.userId)).toEqual(["work"]);
+  });
+
+  it("切り替え用のポインタが実際に開いているDBと食い違っていても、DBの方を信じる", () => {
+    // ポインタ(lifeHubActiveAccount)は切り替え直後や追加ログインの途中でずれることが
+    // ある。ずれた側を信じると、自分自身を複製先に出してしまう。
+    mocks.accounts = [storedAccount("me", "自分", "me@example.com"), storedAccount("work", "仕事用", "work@example.com")];
+    mocks.bootDbName = "life-hub-me";
+    mocks.activeUserId = "work";
     expect(listOtherAccounts().map((a) => a.userId)).toEqual(["work"]);
   });
 
   it("アカウントが1つだけなら複製先は無い(欄そのものを出さない)", () => {
     mocks.accounts = [storedAccount("me", "自分", "me@example.com")];
-    mocks.activeUserId = "me";
+    mocks.bootDbName = "life-hub-me";
     expect(listOtherAccounts()).toEqual([]);
   });
 
   it("表示名が無ければメールアドレスを名前に使う", () => {
     mocks.accounts = [storedAccount("me", "自分", null), storedAccount("work", null, "work@example.com")];
-    mocks.activeUserId = "me";
+    mocks.bootDbName = "life-hub-me";
     expect(listOtherAccounts()[0].label).toBe("work@example.com");
   });
 });
