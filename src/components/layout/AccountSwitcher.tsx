@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Check, ChevronRight, UserPlus } from "lucide-react";
-import { listAccounts, type StoredAccount } from "../../lib/accounts";
+import { accountLabel, listAccounts, type StoredAccount } from "../../lib/accounts";
 import { startAddAccount, switchToAccount } from "../../lib/accountSwitch";
 import { avatarColor, avatarInitial } from "../../lib/gmail";
 import { Sheet } from "../ui/Sheet";
@@ -12,9 +12,8 @@ interface Props {
   activeUserId?: string;
 }
 
-export function accountLabel(account: StoredAccount): string {
-  return account.name ?? account.email ?? "アカウント";
-}
+// 名前の決め方は lib 側と揃える(予定の複製先の表示にも同じものを使う)。
+export { accountLabel };
 
 export function AccountAvatar({ account, size = 40 }: { account: StoredAccount; size?: number }) {
   const label = accountLabel(account);

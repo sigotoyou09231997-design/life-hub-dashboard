@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { CalendarDays, Tag } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CalendarDays, Tag, Users } from "lucide-react";
 import { db } from "../../db/schema";
 import type { CalendarEvent, ScheduleCategory } from "../../types";
 import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
@@ -11,6 +11,16 @@ import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
+import { SwitchField } from "../ui/SwitchField";
+import { useToast } from "../ui/ToastProvider";
+import {
+  addEventToAccount,
+  emptyDrafts,
+  followMainTitle,
+  listOtherAccounts,
+  planAccountEvents,
+  type AccountEventDraft,
+} from "../../lib/crossAccountEvents";
 
 interface Props {
   initial?: CalendarEvent;
@@ -44,6 +54,25 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [notify, setNotify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
   const [saving, setSaving] = useState(false);
+  const showToast = useToast();
+
+  // 同じ端末に登録した、いま開いていない方のアカウント(src/lib/accounts.ts)。
+  // 新規作成の時だけ複製先として出す — 既にある予定を編集するたびに、また相手側へ
+  // 増えていくのはさすがにおかしいため。
+  const otherAccounts = useMemo(() => (initial ? [] : listOtherAccounts()), [initial]);
+  const [drafts, setDrafts] = useState<Record<string, AccountEventDraft>>(() =>
+    emptyDrafts(initial ? [] : listOtherAccounts(), initial?.title ?? ""),
+  );
+
+  function handleTitleChange(next: string) {
+    setTitle(next);
+    // まだ個別に書き換えていない行は、上のタイトルに追従させる。
+    setDrafts((current) => followMainTitle(current, next));
+  }
+
+  function updateDraft(userId: string, changes: Partial<AccountEventDraft>) {
+    setDrafts((current) => ({ ...current, [userId]: { ...current[userId], ...changes } }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,6 +100,20 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       await db.calendarEvents.update(initial.id, record);
     } else {
       await db.calendarEvents.add(record);
+      // ほかのアカウントにも入れる分。1つ失敗しても残りは続け、こちらのアカウントに
+      // 入れた予定は必ず残す — 相手側への複製のために本体を巻き添えにしない。
+      const failed: string[] = [];
+      for (const planned of planAccountEvents(otherAccounts, drafts, record.title)) {
+        try {
+          await addEventToAccount(planned.account, { ...record, title: planned.title });
+        } catch (error) {
+          console.error("[crossAccountEvents] failed to add an event to another account:", error);
+          failed.push(planned.account.label);
+        }
+      }
+      if (failed.length > 0) {
+        showToast(`${failed.join("・")}には予定を入れられませんでした`, "error");
+      }
     }
     setSaving(false);
     onSaved();
@@ -82,7 +125,7 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
         <Input
           label="タイトル"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => handleTitleChange(e.target.value)}
           placeholder="例: 歯医者"
           required
           autoFocus
@@ -148,6 +191,29 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
         />
         <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
       </FormPanel>
+
+      {otherAccounts.length > 0 && (
+        <FormPanel caption="ほかのアカウントにも入れる" icon={Users}>
+          {otherAccounts.map((account) => (
+            <div key={account.userId}>
+              <SwitchField
+                label={account.label}
+                hint={account.email ?? undefined}
+                checked={drafts[account.userId]?.checked ?? false}
+                onChange={(checked) => updateDraft(account.userId, { checked })}
+              />
+              {drafts[account.userId]?.checked && (
+                <Input
+                  label="このアカウントでの予定名"
+                  value={drafts[account.userId].title}
+                  onChange={(e) => updateDraft(account.userId, { title: e.target.value, edited: true })}
+                  placeholder={title || "例: 面接"}
+                />
+              )}
+            </div>
+          ))}
+        </FormPanel>
+      )}
 
       <FormActions>
         <Button type="button" variant="secondary" onClick={onCancel}>

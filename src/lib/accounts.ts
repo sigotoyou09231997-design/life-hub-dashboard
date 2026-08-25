@@ -69,6 +69,11 @@ function isAccount(value: unknown): value is StoredAccount {
   );
 }
 
+/** 画面に出すアカウントの名前。表示名 → メール の順に使えるものを採る。 */
+export function accountLabel(account: StoredAccount): string {
+  return account.name ?? account.email ?? "アカウント";
+}
+
 /** この端末に登録済みのアカウント。追加した順に並ぶ。 */
 export function listAccounts(): StoredAccount[] {
   const raw = readRaw(ACCOUNTS_KEY);
