@@ -1,4 +1,12 @@
-import type { CalendarEvent, Task, Trip, TripScheduleItem, TripScheduleType } from "../types";
+import type {
+  CalendarEvent,
+  Task,
+  Trip,
+  TripExpense,
+  TripExpenseCategory,
+  TripScheduleItem,
+  TripScheduleType,
+} from "../types";
 
 /** メールから読み取った日程1件。netlify/functions/extractTripPlan.ts の返す形と揃える。 */
 export interface ExtractedTripItem {
@@ -8,16 +16,21 @@ export interface ExtractedTripItem {
   location?: string;
   memo?: string;
   type: TripScheduleType;
+  /** その項目の代金(円)。メールに書かれていた時だけ。 */
+  amount?: number;
 }
 
 /** 取り込み画面で1行ごとに持つ状態。読み取った内容はそのまま保存せず、必ず本人が
  * 確認して直せるようにする — AIの読み違いをそのまま日程表に入れないため。 */
 export interface TripImportRow extends ExtractedTripItem {
   checked: boolean;
+  /** 旅行の費用にも積むか。金額が読み取れた時だけ既定で入り、外せる。 */
+  withExpense: boolean;
 }
 
 export function toImportRows(items: ExtractedTripItem[]): TripImportRow[] {
-  return items.map((item) => ({ ...item, checked: true }));
+  // 金額が読み取れたものは、費用にも入れる前提にしておく(要らなければ外せる)。
+  return items.map((item) => ({ ...item, checked: true, withExpense: item.amount != null }));
 }
 
 /** どの旅行に入れるかの初期値を決める。
@@ -71,6 +84,28 @@ export const PLAN_DESTINATIONS: { value: PlanDestination; label: string }[] = [
   { value: "event", label: "予定" },
   { value: "task", label: "タスク" },
 ];
+
+/** 旅行の日程の種類を、そのまま費用の分類に読み替える。移動・宿泊・食事・観光は
+ * どちらにも同じ名前であるので一対一で対応し、それ以外は「その他」に寄せる。 */
+export function toExpenseCategory(type: TripScheduleType): TripExpenseCategory {
+  const shared: TripExpenseCategory[] = ["transport", "lodging", "meal", "sightseeing"];
+  return shared.includes(type as TripExpenseCategory) ? (type as TripExpenseCategory) : "other";
+}
+
+/** 旅行の費用1件。予約確認メールの金額は既に支払い済みのことがほとんどなので、
+ * 支払い済みとして置く(旅行画面で後から変えられる)。 */
+export function toTripExpenseRecord(row: TripImportRow, tripId: string, now: number): TripExpense {
+  return {
+    tripId,
+    title: row.title.trim(),
+    amount: row.amount ?? 0,
+    category: toExpenseCategory(row.type),
+    paidDate: row.date,
+    paid: true,
+    memo: row.memo || undefined,
+    createdAt: now,
+  };
+}
 
 /** 旅行の日程1件。 */
 export function toTripScheduleRecord(row: TripImportRow, tripId: string, now: number): TripScheduleItem {

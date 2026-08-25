@@ -13,6 +13,7 @@ import {
   toCalendarEventRecord,
   toImportRows,
   toTaskRecord,
+  toTripExpenseRecord,
   toTripScheduleRecord,
   type PlanDestination,
   type TripImportRow,
@@ -23,6 +24,7 @@ import { Sheet } from "../ui/Sheet";
 import { Tabs } from "../ui/Tabs";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { SwitchField } from "../ui/SwitchField";
 import { DateField } from "../ui/DateField";
 import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
@@ -115,9 +117,15 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
     try {
       const now = Date.now();
       for (const row of checkedRows) {
-        if (destination === "trip") await db.tripSchedule.add(toTripScheduleRecord(row, tripId!, now));
-        else if (destination === "event") await db.calendarEvents.add(toCalendarEventRecord(row, now));
-        else await db.tasks.add(toTaskRecord(row, now));
+        if (destination === "trip") {
+          await db.tripSchedule.add(toTripScheduleRecord(row, tripId!, now));
+          // 費用は旅行にだけあるもの。金額が読み取れていて、外されていない分だけ積む。
+          if (row.withExpense && row.amount) await db.tripExpenses.add(toTripExpenseRecord(row, tripId!, now));
+        } else if (destination === "event") {
+          await db.calendarEvents.add(toCalendarEventRecord(row, now));
+        } else {
+          await db.tasks.add(toTaskRecord(row, now));
+        }
       }
       const label = PLAN_DESTINATIONS.find((d) => d.value === destination)?.label ?? "";
       showToast(`${checkedRows.length}件を${label}に入れました`);
@@ -240,6 +248,31 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
                           value={row.location ?? ""}
                           onChange={(e) => updateRow(index, { location: e.target.value })}
                         />
+                      )}
+                      {/* 費用は旅行の日程に入れる時だけ。新幹線なら交通費、宿なら宿泊費として
+                          同じ旅行に積む(種類がそのまま費用の分類になる)。 */}
+                      {destination === "trip" && (
+                        <>
+                          <SwitchField
+                            label="費用にも入れる"
+                            hint={row.amount ? undefined : "メールから金額を読み取れませんでした"}
+                            checked={row.withExpense}
+                            onChange={(withExpense) => updateRow(index, { withExpense })}
+                          />
+                          {row.withExpense && (
+                            <Input
+                              label="金額"
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              value={row.amount != null ? String(row.amount) : ""}
+                              onChange={(e) =>
+                                updateRow(index, { amount: e.target.value ? Number(e.target.value) : undefined })
+                              }
+                              placeholder="例: 12540"
+                            />
+                          )}
+                        </>
                       )}
                       {row.memo && <p className="px-1 text-xs leading-relaxed text-slate-500">{row.memo}</p>}
                       {outside && (

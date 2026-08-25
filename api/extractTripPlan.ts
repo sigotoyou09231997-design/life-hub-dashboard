@@ -24,6 +24,8 @@ export interface ExtractedTripItem {
   location?: string;
   memo?: string;
   type: ScheduleType;
+  /** その項目の代金(円)。メールに書かれていて、その項目のものだと分かる時だけ。 */
+  amount?: number;
 }
 
 interface ExtractTripPlanBody {
@@ -47,7 +49,7 @@ export const SYSTEM_PROMPT = `あなたは、メールから旅行の日程を�
 並べるべき項目を取り出してください。
 
 必ず次の形のJSONだけを返してください。説明文もコードフェンスも付けないでください。
-{"items":[{"date":"YYYY-MM-DD","startTime":"HH:mm","title":"...","location":"...","type":"transport","memo":"..."}]}
+{"items":[{"date":"YYYY-MM-DD","startTime":"HH:mm","title":"...","location":"...","type":"transport","memo":"...","amount":12540}]}
 
 ルール:
 - date は必ず YYYY-MM-DD 形式。年が書かれていない場合は、基準日以降で最も近い年とみなす。
@@ -57,6 +59,10 @@ export const SYSTEM_PROMPT = `あなたは、メールから旅行の日程を�
 - type は次から選ぶ: transport(飛行機・列車・バス・レンタカーなどの移動), lodging(宿泊・
   チェックイン/アウト), meal(食事の予約), sightseeing(観光・入場・見学の予約), other(その他)
 - memo には予約番号や座席番号など、当日必要になる短い情報だけを入れる。本文の丸写しはしない。
+- amount にはその項目の代金を、円の数字だけで入れる(「12,540円」なら 12540)。新幹線や
+  航空券なら運賃、宿泊なら宿泊費。次の場合は入れない: 金額が書かれていない/旅程全体の
+  合計しか書かれておらず、その項目ぶんが分からない/取消手数料や割引額など代金そのもの
+  ではない金額。往復の合計しか無い場合は、片道に割り付けたりせず省く。
 - 往路と復路、チェックインとチェックアウトは、別々の項目に分ける。
 - 広告・規約・キャンセル規定・配信停止の案内など、当日の行動に関係しない内容は入れない。
 - 旅行の日程が1つも見つからなければ {"items":[]} を返す。`;
@@ -93,7 +99,11 @@ export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
     const type = SCHEDULE_TYPES.includes(row.type as ScheduleType) ? (row.type as ScheduleType) : "other";
     const location = typeof row.location === "string" && row.location.trim() ? row.location.trim() : undefined;
     const memo = typeof row.memo === "string" && row.memo.trim() ? row.memo.trim() : undefined;
-    cleaned.push({ date, title, startTime, location, memo, type });
+    // 金額は、正の数として読めるものだけを通す。文字混じりや0/マイナスは、
+    // 読み違えたまま費用に積むと旅行の予算がずれるので落とす。
+    const rawAmount = typeof row.amount === "number" ? row.amount : Number(row.amount);
+    const amount = Number.isFinite(rawAmount) && rawAmount > 0 ? Math.round(rawAmount) : undefined;
+    cleaned.push({ date, title, startTime, location, memo, type, amount });
   }
   // 日程表と同じ並び(日付→時刻)にして返す。画面側で並べ直さずに済む。
   cleaned.sort((a, b) => (a.date === b.date ? (a.startTime ?? "").localeCompare(b.startTime ?? "") : a.date.localeCompare(b.date)));

@@ -4,6 +4,8 @@ import {
   describePlanImportError,
   isOutsideTrip,
   pickDefaultTripId,
+  toExpenseCategory,
+  toTripExpenseRecord,
   sortTripsForPicker,
   toCalendarEventRecord,
   toImportRows,
@@ -60,6 +62,14 @@ describe("toImportRows", () => {
   it("読み取った分は最初から入れる扱いにする(外したいものだけ外す)", () => {
     expect(toImportRows([item("2026-09-12")])[0].checked).toBe(true);
   });
+
+  it("金額が読み取れたものは、費用にも入れる前提にする", () => {
+    expect(toImportRows([{ ...item("2026-09-12"), amount: 12540 }])[0].withExpense).toBe(true);
+  });
+
+  it("金額が無ければ、費用は入れない", () => {
+    expect(toImportRows([item("2026-09-12")])[0].withExpense).toBe(false);
+  });
 });
 
 describe("sortTripsForPicker", () => {
@@ -79,6 +89,7 @@ describe("sortTripsForPicker", () => {
 
 const row = (over: Partial<import("./mailPlanImport").TripImportRow> = {}) => ({
   checked: true,
+  withExpense: false,
   date: "2026-09-12",
   title: " 羽田→福岡 ",
   type: "transport" as const,
@@ -148,5 +159,30 @@ describe("describePlanImportError", () => {
 
   it("当てはまるものが無ければ、元のメッセージをそのまま出す", () => {
     expect(describePlanImportError(new Error("Anthropic API error: 529"))).toBe("Anthropic API error: 529");
+  });
+});
+
+describe("旅行の費用への積み方", () => {
+  it("金額と日付をそのまま費用にし、支払い済みとして置く", () => {
+    // 予約確認メールに金額が書かれている時点で、たいてい支払いは済んでいる。
+    const record = toTripExpenseRecord(row({ amount: 12540, withExpense: true }), "trip-1", 1_000);
+    expect(record).toEqual({
+      tripId: "trip-1",
+      title: "羽田→福岡",
+      amount: 12540,
+      category: "transport",
+      paidDate: "2026-09-12",
+      paid: true,
+      memo: undefined,
+      createdAt: 1_000,
+    });
+  });
+
+  it("日程の種類を費用の分類に読み替える", () => {
+    expect(toExpenseCategory("transport")).toBe("transport");
+    expect(toExpenseCategory("lodging")).toBe("lodging");
+    expect(toExpenseCategory("meal")).toBe("meal");
+    expect(toExpenseCategory("sightseeing")).toBe("sightseeing");
+    expect(toExpenseCategory("other")).toBe("other");
   });
 });

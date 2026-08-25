@@ -9,13 +9,19 @@ const mocks = vi.hoisted(() => ({
   items: [] as Record<string, unknown>[],
   extractError: null as Error | null,
   trips: [] as Record<string, unknown>[],
-  saved: { tripSchedule: [] as unknown[], calendarEvents: [] as unknown[], tasks: [] as unknown[] },
+  saved: {
+    tripSchedule: [] as unknown[],
+    tripExpenses: [] as unknown[],
+    calendarEvents: [] as unknown[],
+    tasks: [] as unknown[],
+  },
 }));
 
 vi.mock("../../db/schema", () => ({
   db: {
     trips: { toArray: async () => mocks.trips },
     tripSchedule: { add: async (row: unknown) => void mocks.saved.tripSchedule.push(row) },
+    tripExpenses: { add: async (row: unknown) => void mocks.saved.tripExpenses.push(row) },
     calendarEvents: { add: async (row: unknown) => void mocks.saved.calendarEvents.push(row) },
     tasks: { add: async (row: unknown) => void mocks.saved.tasks.push(row) },
   },
@@ -65,7 +71,7 @@ beforeEach(() => {
   mocks.items = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" }];
   mocks.extractError = null;
   mocks.trips = [{ id: "trip-1", name: "福岡旅行", startDate: "2026-09-11", endDate: "2026-09-15" }];
-  mocks.saved = { tripSchedule: [], calendarEvents: [], tasks: [] };
+  mocks.saved = { tripSchedule: [], tripExpenses: [], calendarEvents: [], tasks: [] };
 });
 
 afterEach(cleanup);
@@ -128,5 +134,64 @@ describe("メールから予定を作る画面", () => {
     mocks.items = [];
     renderSheet();
     expect(await screen.findByText(/見つかりませんでした/)).toBeTruthy();
+  });
+});
+
+describe("費用", () => {
+  it("金額が読み取れていれば、日程と一緒に旅行の費用にも積む", async () => {
+    mocks.items = [
+      { date: "2026-09-19", startTime: "10:05", title: "岡山→新横浜 のぞみ124号", type: "transport", amount: 12540 },
+    ];
+    const user = userEvent.setup();
+    renderSheet();
+    const save = await screen.findByRole("button", { name: "1件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await user.click(save);
+
+    expect(mocks.saved.tripSchedule).toHaveLength(1);
+    expect(mocks.saved.tripExpenses).toEqual([
+      expect.objectContaining({ amount: 12540, category: "transport", paidDate: "2026-09-19", paid: true }),
+    ]);
+  });
+
+  it("宿泊なら宿泊費として積む", async () => {
+    mocks.items = [{ date: "2026-09-19", title: "ホテルにチェックイン", type: "lodging", amount: 18000 }];
+    const user = userEvent.setup();
+    renderSheet();
+    const save = await screen.findByRole("button", { name: "1件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await user.click(save);
+    expect(mocks.saved.tripExpenses).toEqual([expect.objectContaining({ category: "lodging", amount: 18000 })]);
+  });
+
+  it("金額が読み取れなければ、費用は積まない", async () => {
+    mocks.items = [{ date: "2026-09-19", title: "岡山→新横浜", type: "transport" }];
+    const user = userEvent.setup();
+    renderSheet();
+    const save = await screen.findByRole("button", { name: "1件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await user.click(save);
+    expect(mocks.saved.tripSchedule).toHaveLength(1);
+    expect(mocks.saved.tripExpenses).toEqual([]);
+  });
+
+  it("「費用にも入れる」を外せば、日程だけ入れる", async () => {
+    mocks.items = [{ date: "2026-09-19", title: "岡山→新横浜", type: "transport", amount: 12540 }];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("switch", { name: /費用にも入れる/ }));
+    const save = screen.getByRole("button", { name: "1件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await user.click(save);
+    expect(mocks.saved.tripSchedule).toHaveLength(1);
+    expect(mocks.saved.tripExpenses).toEqual([]);
+  });
+
+  it("予定・タスクには費用の欄を出さない", async () => {
+    mocks.items = [{ date: "2026-09-19", title: "岡山→新横浜", type: "transport", amount: 12540 }];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "予定" }));
+    expect(screen.queryByRole("switch", { name: /費用にも入れる/ })).toBeNull();
   });
 });

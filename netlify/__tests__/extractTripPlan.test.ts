@@ -80,6 +80,28 @@ describe("parseTripPlanResponse", () => {
   });
 });
 
+describe("金額の読み取り", () => {
+  const parseAmount = (amount: unknown) =>
+    parseTripPlanResponse(JSON.stringify({ items: [{ date: "2026-09-19", title: "のぞみ124号", type: "transport", amount }] }))[0]
+      ?.amount;
+
+  it("数字はそのまま費用として使う", () => {
+    expect(parseAmount(12540)).toBe(12540);
+  });
+
+  it("小数は円に丸める", () => {
+    expect(parseAmount(12540.4)).toBe(12540);
+  });
+
+  it("0・マイナス・数字でないものは捨てる", () => {
+    // 読み違えたまま費用に積むと、旅行の予算がずれる。
+    expect(parseAmount(0)).toBeUndefined();
+    expect(parseAmount(-500)).toBeUndefined();
+    expect(parseAmount("12,540円")).toBeUndefined();
+    expect(parseAmount(undefined)).toBeUndefined();
+  });
+});
+
 describe("buildUserMessage", () => {
   it("基準日を渡す(「来月12日」のような書き方を実際の日付に直せるように)", () => {
     expect(buildUserMessage({ today: "2026-08-25", subject: "予約確認", body: "本文" })).toContain("[基準日] 2026-08-25");
@@ -96,6 +118,8 @@ describe("Netlify版とVercel版のずれ", () => {
   // バンドルに含まれず関数ごと落ちるため。片方だけ直して食い違わないよう突き合わせる。
   const cases = [
     JSON.stringify({ items: [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" }] }),
+    JSON.stringify({ items: [{ date: "2026-09-19", title: "のぞみ124号", type: "transport", amount: 12540 }] }),
+    JSON.stringify({ items: [{ date: "2026-09-19", title: "のぞみ124号", type: "transport", amount: "12,540円" }] }),
     '```json\n{"items":[{"date":"2026-09-12","title":"移動","type":"flight"}]}\n```',
     '{"items":[{"date":"9/12","title":"移動"}]}',
     "読み取れませんでした",
