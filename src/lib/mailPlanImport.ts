@@ -1,4 +1,4 @@
-import type { Trip, TripScheduleType } from "../types";
+import type { CalendarEvent, Task, Trip, TripScheduleItem, TripScheduleType } from "../types";
 
 /** メールから読み取った日程1件。netlify/functions/extractTripPlan.ts の返す形と揃える。 */
 export interface ExtractedTripItem {
@@ -61,4 +61,57 @@ export function isOutsideTrip(trip: Trip | undefined, date: string): boolean {
  * (2026-08-25 の不具合)。他の画面もすべて toArray() で読んでいる。 */
 export function sortTripsForPicker(trips: Trip[]): Trip[] {
   return [...trips].sort((a, b) => b.startDate.localeCompare(a.startDate));
+}
+
+/** 読み取った内容をどこへ入れるか。 */
+export type PlanDestination = "trip" | "event" | "task";
+
+export const PLAN_DESTINATIONS: { value: PlanDestination; label: string }[] = [
+  { value: "trip", label: "旅行の日程" },
+  { value: "event", label: "予定" },
+  { value: "task", label: "タスク" },
+];
+
+/** 旅行の日程1件。 */
+export function toTripScheduleRecord(row: TripImportRow, tripId: string, now: number): TripScheduleItem {
+  return {
+    tripId,
+    date: row.date,
+    startTime: row.startTime || undefined,
+    title: row.title.trim(),
+    location: row.location || undefined,
+    memo: row.memo || undefined,
+    type: row.type,
+    createdAt: now,
+  };
+}
+
+/** カレンダーの予定1件。時刻が読み取れなかったものは終日にする —
+ * 開始時刻が無い予定は通知の起点が無く、時刻ありのまま置くと0:00に見えてしまう。 */
+export function toCalendarEventRecord(row: TripImportRow, now: number): CalendarEvent {
+  const allDay = !row.startTime;
+  return {
+    title: row.title.trim(),
+    date: row.date,
+    allDay,
+    startTime: allDay ? undefined : row.startTime,
+    location: row.location || undefined,
+    memo: row.memo || undefined,
+    category: "other",
+    createdAt: now,
+  };
+}
+
+/** タスク1件。読み取った日付を期限にする。優先度は本人が後で決められるよう「中」で置く。 */
+export function toTaskRecord(row: TripImportRow, now: number): Task {
+  return {
+    title: row.title.trim(),
+    priority: "medium",
+    dueDate: row.date,
+    dueTime: row.startTime || undefined,
+    category: "other",
+    completed: false,
+    repeat: "none",
+    createdAt: now,
+  };
 }

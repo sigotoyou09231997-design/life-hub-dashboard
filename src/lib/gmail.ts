@@ -1,7 +1,7 @@
 import { db } from "../db/schema";
 import type { EmailStatus, GmailAccount, SyncedEmail } from "../types";
 import { toDateStr, todayStr } from "./date";
-import type { ExtractedTripItem } from "./tripImport";
+import type { ExtractedTripItem } from "./mailPlanImport";
 
 const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send openid email";
 const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";

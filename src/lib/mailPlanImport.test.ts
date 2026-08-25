@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
-import { isOutsideTrip, pickDefaultTripId, sortTripsForPicker, toImportRows } from "./tripImport";
+import {
+  isOutsideTrip,
+  pickDefaultTripId,
+  sortTripsForPicker,
+  toCalendarEventRecord,
+  toImportRows,
+  toTaskRecord,
+  toTripScheduleRecord,
+} from "./mailPlanImport";
 
 const trip = (id: string, startDate: string, endDate: string): Trip => ({
   id,
@@ -65,5 +73,55 @@ describe("sortTripsForPicker", () => {
     const trips = [trip("a", "2026-01-01", "2026-01-03"), trip("b", "2026-09-11", "2026-09-15")];
     sortTripsForPicker(trips);
     expect(trips.map((t) => t.id)).toEqual(["a", "b"]);
+  });
+});
+
+const row = (over: Partial<import("./mailPlanImport").TripImportRow> = {}) => ({
+  checked: true,
+  date: "2026-09-12",
+  title: " 羽田→福岡 ",
+  type: "transport" as const,
+  ...over,
+});
+
+describe("入れ先ごとの作り分け", () => {
+  it("旅行の日程は、種類と場所をそのまま持つ", () => {
+    const record = toTripScheduleRecord(row({ startTime: "08:20", location: "羽田空港" }), "trip-1", 1_000);
+    expect(record).toEqual({
+      tripId: "trip-1",
+      date: "2026-09-12",
+      startTime: "08:20",
+      title: "羽田→福岡",
+      location: "羽田空港",
+      memo: undefined,
+      type: "transport",
+      createdAt: 1_000,
+    });
+  });
+
+  it("予定は、時刻が読み取れていれば時刻つきにする", () => {
+    const record = toCalendarEventRecord(row({ startTime: "08:20" }), 1_000);
+    expect(record.allDay).toBe(false);
+    expect(record.startTime).toBe("08:20");
+  });
+
+  it("予定は、時刻が読み取れなければ終日にする", () => {
+    // 時刻なしのまま置くと0:00の予定に見えるうえ、通知の起点も無い。
+    const record = toCalendarEventRecord(row(), 1_000);
+    expect(record.allDay).toBe(true);
+    expect(record.startTime).toBeUndefined();
+  });
+
+  it("タスクは、読み取った日付を期限にする", () => {
+    const record = toTaskRecord(row({ startTime: "08:20" }), 1_000);
+    expect(record.dueDate).toBe("2026-09-12");
+    expect(record.dueTime).toBe("08:20");
+    expect(record.completed).toBe(false);
+    expect(record.priority).toBe("medium");
+  });
+
+  it("どの入れ先でも、前後の空白は落とす", () => {
+    expect(toTaskRecord(row(), 1_000).title).toBe("羽田→福岡");
+    expect(toCalendarEventRecord(row(), 1_000).title).toBe("羽田→福岡");
   });
 });
