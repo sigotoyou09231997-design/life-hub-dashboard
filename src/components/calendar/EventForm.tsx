@@ -25,7 +25,9 @@ import {
 interface Props {
   initial?: CalendarEvent;
   defaultDate: string;
-  onSaved: () => void;
+  /** 既存の予定を更新したのか、新しく1件足したのかを呼び出し側へ伝える。
+   * 「編集したのに新しい予定として増える」不具合を、画面の文言で切り分けられるようにする。 */
+  onSaved: (mode: "created" | "updated") => void;
   onCancel: () => void;
 }
 
@@ -97,6 +99,9 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
+    // 編集で開いたのにidが無い(=更新する先が分からない)場合は、黙って新しい予定を
+    // 足してしまうと、直したつもりが増えていく。何が起きたかは呼び出し側で伝える。
+    const mode = initial?.id ? "updated" : "created";
     if (initial?.id) {
       await db.calendarEvents.update(initial.id, record);
     } else {
@@ -121,7 +126,7 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       showToast(`${failed.join("・")}には予定を入れられませんでした`, "error");
     }
     setSaving(false);
-    onSaved();
+    onSaved(mode);
   }
 
   return (

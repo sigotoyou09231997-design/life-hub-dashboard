@@ -232,3 +232,22 @@ describe("addEventToAccount", () => {
     expect(mocks.opened[0].closed).toBe(true);
   });
 });
+
+describe("addEventToAccount の安全装置", () => {
+  beforeEach(() => {
+    mocks.opened = [];
+    mocks.bootDbName = "life-hub";
+  });
+
+  it("いま開いているDBには書き戻さない", async () => {
+    // ここを許すと、複製したつもりの予定が自分のスケジュールに増える。
+    await expect(
+      addEventToAccount({ userId: "me", dbName: "life-hub", label: "自分", email: null }, {
+        title: "面接",
+        date: "2026-09-01",
+        createdAt: 0,
+      }),
+    ).rejects.toThrow(/いま開いているアカウントと同じ/);
+    expect(mocks.opened).toEqual([]);
+  });
+});

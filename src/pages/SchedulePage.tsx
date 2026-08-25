@@ -197,9 +197,11 @@ export default function SchedulePage() {
           <EventForm
             initial={editingEvent === "new" ? undefined : editingEvent}
             defaultDate={addDefaultDate}
-            onSaved={() => {
+            onSaved={(mode) => {
               setEditingEvent(null);
-              showToast("保存しました");
+              // 編集して開いたのに「新しく追加しました」と出たら、更新先を見失っている
+              // (EventForm参照)。文言を分けておかないとその食い違いに気付けない。
+              showToast(mode === "updated" ? "変更を保存しました" : "新しい予定として追加しました");
             }}
             onCancel={() => setEditingEvent(null)}
           />

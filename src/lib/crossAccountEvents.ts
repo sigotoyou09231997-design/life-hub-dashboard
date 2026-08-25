@@ -86,6 +86,13 @@ export function planAccountEvents(
  * 相手のDBは書いたらすぐ閉じる。開いたままにしておくと、その後スキーマを上げた時に
  * 「別の接続が古いバージョンで掴んでいる」状態になり、更新が止まってしまう。 */
 export async function addEventToAccount(account: OtherAccount, event: CalendarEvent): Promise<void> {
+  // 絶対にやってはいけないこと: いま開いているDBに書き戻す。そうなると、複製したつもりの
+  // 予定が自分のスケジュールに増える(「編集したのに新しい予定が増える」ように見える)。
+  // listOtherAccounts が同じ条件で弾いているので普通は起きないが、ここでも止めておく —
+  // 静かに自分のデータを汚すより、失敗として画面に出す方がよい。
+  if (account.dbName === BOOT_DB_NAME) {
+    throw new Error(`複製先がいま開いているアカウントと同じです (${account.dbName})`);
+  }
   const other = new LifeHubDB(account.dbName);
   try {
     await other.open();
