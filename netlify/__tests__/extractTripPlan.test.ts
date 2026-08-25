@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildUserMessage, parseTripPlanResponse } from "../functions/extractTripPlan";
+import {
+  SYSTEM_PROMPT as VERCEL_SYSTEM_PROMPT,
+  buildUserMessage as vercelBuildUserMessage,
+  parseTripPlanResponse as vercelParseTripPlanResponse,
+} from "../../api/extractTripPlan";
+import { SYSTEM_PROMPT } from "../functions/extractTripPlan";
 
 describe("parseTripPlanResponse", () => {
   it("予約確認から、日付順に並べた日程を取り出す", () => {
@@ -82,5 +88,29 @@ describe("buildUserMessage", () => {
   it("長い本文は頭から一定量だけ渡す(規約やフッターでトークンを使い切らないように)", () => {
     const message = buildUserMessage({ body: "あ".repeat(20_000) });
     expect(message.length).toBeLessThan(13_000);
+  });
+});
+
+describe("Netlify版とVercel版のずれ", () => {
+  // 同じ判断を2か所に書いてあるのは、netlify側から読み込む形にすると Vercel の
+  // バンドルに含まれず関数ごと落ちるため。片方だけ直して食い違わないよう突き合わせる。
+  const cases = [
+    JSON.stringify({ items: [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" }] }),
+    '```json\n{"items":[{"date":"2026-09-12","title":"移動","type":"flight"}]}\n```',
+    '{"items":[{"date":"9/12","title":"移動"}]}',
+    "読み取れませんでした",
+    '{"items":[{"date":"2026-09-12"',
+  ];
+
+  it("応答の読み取りが、どちらも同じ結果になる", () => {
+    for (const text of cases) {
+      expect(vercelParseTripPlanResponse(text)).toEqual(parseTripPlanResponse(text));
+    }
+  });
+
+  it("AIへの指示と、渡す内容の組み立ても同じ", () => {
+    expect(VERCEL_SYSTEM_PROMPT).toBe(SYSTEM_PROMPT);
+    const payload = { today: "2026-08-25", subject: "予約確認", body: "本文" };
+    expect(vercelBuildUserMessage(payload)).toBe(buildUserMessage(payload));
   });
 });

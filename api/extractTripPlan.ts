@@ -1,20 +1,113 @@
-import { VercelRequest, VercelResponse } from "@vercel/node";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 /** Vercel向けの入り口。このリポジトリはNetlifyとVercelの両方に配信されており、
  * サーバー関数は netlify/functions/ と api/ に別々に置く決まり(generateDraft・
- * tokenExchange も同じ)。中身の判断は netlify 側と同じものを使い、二重に書かない —
- * 片方だけ直して食い違うのを避けるため。
+ * tokenExchange も同じ)。
  *
- * 2026-08-25: netlify 側にしか置かなかったせいで、Vercelで開いている端末では
- * /api/extractTripPlan が 405 になっていた。 */
-import {
-  SYSTEM_PROMPT,
-  buildUserMessage,
-  parseTripPlanResponse,
-} from "../netlify/functions/extractTripPlan";
+ * 判断のロジックは netlify/functions/extractTripPlan.ts と同じものを写してある。
+ * netlify側から読み込む形にしたところ、Vercelのバンドルに含まれず
+ * FUNCTION_INVOCATION_FAILED で落ちたため(2026-08-25)。片方だけ直して食い違わない
+ * よう、netlify/__tests__/extractTripPlan.test.ts で両者が同じ結果を返すことを
+ * 突き合わせている。 */
 
 const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-5";
+
+/** 旅行の日程として取り出せる種類(src/types/index.ts の TripScheduleType と揃える)。 */
+const SCHEDULE_TYPES = ["sightseeing", "meal", "transport", "lodging", "other"] as const;
+type ScheduleType = (typeof SCHEDULE_TYPES)[number];
+
+export interface ExtractedTripItem {
+  date: string;
+  startTime?: string;
+  title: string;
+  location?: string;
+  memo?: string;
+  type: ScheduleType;
+}
+
+interface ExtractTripPlanBody {
+  subject?: string;
+  body?: string;
+  /** 「来月12日」のような書き方を実際の日付に直すための基準日(YYYY-MM-DD)。 */
+  today?: string;
+}
+
+/** メール本文をそのまま全部渡すと、長い規約やフッターでトークンを使い切る。
+ * 予約情報は先頭側にあることがほとんどなので、頭から一定量だけ渡す。 */
+const MAX_BODY_CHARS = 12_000;
+
+/** 1回の取り込みで受け付ける件数の上限。往復の便と宿で数件、多くても十数件のはずで、
+ * それを大きく超える応答は読み違えているとみなして切り捨てる。 */
+const MAX_ITEMS = 20;
+
+export const SYSTEM_PROMPT = `あなたは、メールから旅行の日程を取り出す担当です。
+
+渡されたメール(航空券・新幹線・ホテル・レンタカーなどの予約確認や案内)から、旅行の日程表に
+並べるべき項目を取り出してください。
+
+必ず次の形のJSONだけを返してください。説明文もコードフェンスも付けないでください。
+{"items":[{"date":"YYYY-MM-DD","startTime":"HH:mm","title":"...","location":"...","type":"transport","memo":"..."}]}
+
+ルール:
+- date は必ず YYYY-MM-DD 形式。年が書かれていない場合は、基準日以降で最も近い年とみなす。
+- startTime は本文から分かる時だけ入れる。分からなければその項目から省く(推測で埋めない)。
+- title は日程表で一目で分かる短さにする。例:「羽田→福岡 JAL123」「ホテルOOにチェックイン」
+- location は駅・空港・施設の名前が分かる時だけ入れる。
+- type は次から選ぶ: transport(飛行機・列車・バス・レンタカーなどの移動), lodging(宿泊・
+  チェックイン/アウト), meal(食事の予約), sightseeing(観光・入場・見学の予約), other(その他)
+- memo には予約番号や座席番号など、当日必要になる短い情報だけを入れる。本文の丸写しはしない。
+- 往路と復路、チェックインとチェックアウトは、別々の項目に分ける。
+- 広告・規約・キャンセル規定・配信停止の案内など、当日の行動に関係しない内容は入れない。
+- 旅行の日程が1つも見つからなければ {"items":[]} を返す。`;
+
+/** モデルの応答からJSONを取り出して、日程として使える項目だけに絞る。
+ *
+ * 「JSONだけ返せ」と指示していても、前置きやコードフェンスが付いてくることがある。
+ * ここで弾かずに画面へ流すと、日付の無い項目が日程表に入って一覧が壊れるので、
+ * 必要な形が揃っているものだけを通す。 */
+export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return [];
+  }
+  const items = (parsed as { items?: unknown }).items;
+  if (!Array.isArray(items)) return [];
+
+  const cleaned: ExtractedTripItem[] = [];
+  for (const raw of items) {
+    if (typeof raw !== "object" || raw === null) continue;
+    const row = raw as Record<string, unknown>;
+    const date = typeof row.date === "string" ? row.date.trim() : "";
+    const title = typeof row.title === "string" ? row.title.trim() : "";
+    // 日付とタイトルが無い項目は日程表に置きようがない。
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !title) continue;
+    const startTime = typeof row.startTime === "string" && /^\d{2}:\d{2}$/.test(row.startTime.trim())
+      ? row.startTime.trim()
+      : undefined;
+    const type = SCHEDULE_TYPES.includes(row.type as ScheduleType) ? (row.type as ScheduleType) : "other";
+    const location = typeof row.location === "string" && row.location.trim() ? row.location.trim() : undefined;
+    const memo = typeof row.memo === "string" && row.memo.trim() ? row.memo.trim() : undefined;
+    cleaned.push({ date, title, startTime, location, memo, type });
+  }
+  // 日程表と同じ並び(日付→時刻)にして返す。画面側で並べ直さずに済む。
+  cleaned.sort((a, b) => (a.date === b.date ? (a.startTime ?? "").localeCompare(b.startTime ?? "") : a.date.localeCompare(b.date)));
+  return cleaned.slice(0, MAX_ITEMS);
+}
+
+export function buildUserMessage(payload: ExtractTripPlanBody): string {
+  return [
+    `[基準日] ${payload.today ?? "(不明)"}`,
+    `[件名] ${payload.subject ?? "(件名なし)"}`,
+    "[本文]",
+    (payload.body ?? "").slice(0, MAX_BODY_CHARS),
+  ].join("\n");
+}
 
 interface ExtractTripPlanBody {
   subject?: string;
