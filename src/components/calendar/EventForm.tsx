@@ -57,11 +57,12 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   const showToast = useToast();
 
   // 同じ端末に登録した、いま開いていない方のアカウント(src/lib/accounts.ts)。
-  // 新規作成の時だけ複製先として出す — 既にある予定を編集するたびに、また相手側へ
-  // 増えていくのはさすがにおかしいため。
-  const otherAccounts = useMemo(() => (initial ? [] : listOtherAccounts()), [initial]);
+  // 新規作成でも編集でも出す — 作る時に入れ忘れた予定を、後から相手のアカウントへ
+  // 入れられるようにするため。既定はオフなので、編集して保存し直しただけで勝手に
+  // 増えることはない。
+  const otherAccounts = useMemo(() => listOtherAccounts(), []);
   const [drafts, setDrafts] = useState<Record<string, AccountEventDraft>>(() =>
-    emptyDrafts(initial ? [] : listOtherAccounts(), initial?.title ?? ""),
+    emptyDrafts(listOtherAccounts(), initial?.title ?? ""),
   );
 
   function handleTitleChange(next: string) {
@@ -100,20 +101,24 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       await db.calendarEvents.update(initial.id, record);
     } else {
       await db.calendarEvents.add(record);
-      // ほかのアカウントにも入れる分。1つ失敗しても残りは続け、こちらのアカウントに
-      // 入れた予定は必ず残す — 相手側への複製のために本体を巻き添えにしない。
-      const failed: string[] = [];
-      for (const planned of planAccountEvents(otherAccounts, drafts, record.title)) {
-        try {
-          await addEventToAccount(planned.account, { ...record, title: planned.title });
-        } catch (error) {
-          console.error("[crossAccountEvents] failed to add an event to another account:", error);
-          failed.push(planned.account.label);
-        }
+    }
+
+    // ほかのアカウントにも入れる分。編集の時も同じで、チェックが入っていれば相手側へ
+    // 「新しく1件」足す — 予定どうしを結びつける印を持たない作りなので、相手側の
+    // どれがこの予定に当たるのかを知る手立てが無く、更新のしようがないため。
+    // 1つ失敗しても残りは続け、こちらのアカウントの予定は必ず残す — 相手側への
+    // 複製のために本体を巻き添えにしない。
+    const failed: string[] = [];
+    for (const planned of planAccountEvents(otherAccounts, drafts, record.title)) {
+      try {
+        await addEventToAccount(planned.account, { ...record, title: planned.title });
+      } catch (error) {
+        console.error("[crossAccountEvents] failed to add an event to another account:", error);
+        failed.push(planned.account.label);
       }
-      if (failed.length > 0) {
-        showToast(`${failed.join("・")}には予定を入れられませんでした`, "error");
-      }
+    }
+    if (failed.length > 0) {
+      showToast(`${failed.join("・")}には予定を入れられませんでした`, "error");
     }
     setSaving(false);
     onSaved();
@@ -194,6 +199,13 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
 
       {otherAccounts.length > 0 && (
         <FormPanel caption="ほかのアカウントにも入れる" icon={Users}>
+          {initial && (
+            // 編集画面では、これが「相手側の同じ予定を直す」ものだと思われやすい。
+            // 実際には新しく1件足すだけなので、押す前に分かるようにしておく。
+            <p className="px-[0.9rem] py-3 text-xs leading-relaxed text-slate-500">
+              入れて保存すると、そのアカウントに新しく1件追加されます。この予定とは連動しません。
+            </p>
+          )}
           {otherAccounts.map((account) => (
             <div key={account.userId}>
               <SwitchField
