@@ -4,7 +4,13 @@ import { Plane, TriangleAlert } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail, TripScheduleType } from "../../types";
 import { extractTripPlanFromEmail } from "../../lib/gmail";
-import { isOutsideTrip, pickDefaultTripId, toImportRows, type TripImportRow } from "../../lib/tripImport";
+import {
+  isOutsideTrip,
+  pickDefaultTripId,
+  sortTripsForPicker,
+  toImportRows,
+  type TripImportRow,
+} from "../../lib/tripImport";
 import { TRIP_SCHEDULE_TYPES } from "../../lib/tripCategories";
 import { formatShortDate } from "../../lib/date";
 import { Sheet } from "../ui/Sheet";
@@ -30,7 +36,9 @@ interface Props {
  * 必ずここで確認・修正してから入れる。 */
 export function TripPlanImport({ email, account, open, onClose }: Props) {
   const showToast = useToast();
-  const trips = useLiveQuery(() => db.trips.orderBy("startDate").reverse().toArray(), []);
+  // 並べ替えはJS側で行う(src/lib/tripImport.ts の sortTripsForPicker)。tripsの索引は
+  // id だけなので、Dexieに orderBy("startDate") を頼むと例外になる。
+  const trips = useLiveQuery(async () => sortTripsForPicker(await db.trips.toArray()), []);
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [error, setError] = useState("");
   const [rows, setRows] = useState<TripImportRow[]>([]);

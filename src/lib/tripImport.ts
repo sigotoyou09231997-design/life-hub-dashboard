@@ -52,3 +52,13 @@ export function isOutsideTrip(trip: Trip | undefined, date: string): boolean {
   if (!trip) return false;
   return date < trip.startDate || date > trip.endDate;
 }
+
+/** 入れ先を選ぶ一覧の並び。新しい旅行ほど上。
+ *
+ * 並べ替えをここ(JS側)でやるのは、tripsテーブルに索引が id しか無いため
+ * (src/db/schema.ts の TABLE_SCHEMAS)。db.trips.orderBy("startDate") と書くと
+ * Dexieが例外を投げ、useLiveQuery 経由で描画時に飛んでメール画面ごと落ちる
+ * (2026-08-25 の不具合)。他の画面もすべて toArray() で読んでいる。 */
+export function sortTripsForPicker(trips: Trip[]): Trip[] {
+  return [...trips].sort((a, b) => b.startDate.localeCompare(a.startDate));
+}

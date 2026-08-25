@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
-import { isOutsideTrip, pickDefaultTripId, toImportRows } from "./tripImport";
+import { isOutsideTrip, pickDefaultTripId, sortTripsForPicker, toImportRows } from "./tripImport";
 
 const trip = (id: string, startDate: string, endDate: string): Trip => ({
   id,
@@ -50,5 +50,20 @@ describe("isOutsideTrip", () => {
 describe("toImportRows", () => {
   it("読み取った分は最初から入れる扱いにする(外したいものだけ外す)", () => {
     expect(toImportRows([item("2026-09-12")])[0].checked).toBe(true);
+  });
+});
+
+describe("sortTripsForPicker", () => {
+  it("新しい旅行ほど上に並べる", () => {
+    // 並べ替えはDexieに任せず必ずここでやる — tripsの索引は id だけで、
+    // orderBy("startDate") は例外になり、画面ごと落ちる。
+    const trips = [trip("a", "2026-01-01", "2026-01-03"), trip("b", "2026-09-11", "2026-09-15")];
+    expect(sortTripsForPicker(trips).map((t) => t.id)).toEqual(["b", "a"]);
+  });
+
+  it("渡された配列は書き換えない", () => {
+    const trips = [trip("a", "2026-01-01", "2026-01-03"), trip("b", "2026-09-11", "2026-09-15")];
+    sortTripsForPicker(trips);
+    expect(trips.map((t) => t.id)).toEqual(["a", "b"]);
   });
 });
