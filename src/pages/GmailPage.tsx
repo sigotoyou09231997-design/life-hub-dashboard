@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, CheckCircle2, Mail, Plus, RefreshCw, Settings as SettingsIcon, Sparkles } from "lucide-react";
@@ -9,7 +9,7 @@ import { Card } from "../components/ui/Card";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
-import { GmailInbox, type GmailInboxHandle } from "../components/gmail/GmailInbox";
+import { GmailInbox } from "../components/gmail/GmailInbox";
 import { pullBlockedSenders } from "../lib/blockedSenders";
 import {
   consolidateGmailAccounts,
@@ -17,6 +17,7 @@ import {
   rememberSelectedGmailAccountId,
   resolveSelectedGmailAccountId,
 } from "../lib/gmailAccounts";
+import { summarizeGmailSync, syncGmailAccount, type AccountSyncOutcome } from "../lib/gmailSync";
 import { ComposeMail } from "../components/gmail/ComposeMail";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
@@ -30,7 +31,6 @@ export default function GmailPage() {
   const accounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   const showSkeleton = useDelayedFlag(accounts === undefined);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(() => readSelectedGmailAccountId());
-  const inboxRef = useRef<GmailInboxHandle>(null);
   const [syncing, setSyncing] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
 
@@ -78,10 +78,27 @@ export default function GmailPage() {
     showToast(next ? "自動下書きを有効にしました" : "自動下書きを無効にしました");
   }
 
+  /** ヘッダーの「今すぐ同期」。連携している全アカウントを順に同期する — 表示中の
+   * アカウントだけを同期していた頃は、裏のアカウントの新着はこのボタンでは取り込めず、
+   * 2分ごとのバックグラウンド処理を待つしかなかった(2026-08-25 修正)。
+   *
+   * 並列ではなく順番に投げるのは、Gmail APIの1分あたりの上限に当たると同期そのものが
+   * 失敗するため(src/lib/gmailSync.ts の取得件数・同時実行数の絞り込みと同じ理由)。
+   * 見ている一覧が先に新しくなるよう、表示中のアカウントから始める。 */
   async function handleSyncClick() {
+    if (!accounts || accounts.length === 0) return;
+    const ordered = [
+      ...accounts.filter((a) => a.id === selectedAccountId),
+      ...accounts.filter((a) => a.id !== selectedAccountId),
+    ];
     setSyncing(true);
     try {
-      await inboxRef.current?.sync();
+      const outcomes: AccountSyncOutcome[] = [];
+      for (const account of ordered) {
+        outcomes.push({ email: account.email, result: await syncGmailAccount(account) });
+      }
+      const summary = summarizeGmailSync(outcomes);
+      if (summary) showToast(summary.message, summary.tone);
     } finally {
       setSyncing(false);
     }
@@ -212,7 +229,7 @@ export default function GmailPage() {
               // メールは行クリックで /gmail/mail/:id を新規タブで開く(GmailInbox.tsx)ため、
               // ここには一覧ペイン1つだけを幅いっぱいに表示する。
               <div className="mail-inbox-workspace lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
-                <GmailInbox ref={inboxRef} account={selectedAccount} />
+                <GmailInbox account={selectedAccount} />
               </div>
             )}
           </>

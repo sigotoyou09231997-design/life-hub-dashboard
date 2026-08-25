@@ -1,25 +1,13 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Ban, Check, Mail, Search } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
-import {
-  avatarColor,
-  avatarInitial,
-  buildSyncSummary,
-  ensureFreshAccessToken,
-  generateDraftForEmail,
-  getMessageMeta,
-  isUnhandledEmail,
-  listRecentMessageIds,
-  mapWithConcurrency,
-  parseSender,
-  threadHasSentReplyAfter,
-} from "../../lib/gmail";
+import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../../lib/gmail";
+import { summarizeGmailSync, syncGmailAccount } from "../../lib/gmailSync";
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
-import { pullMessageStates, pushPendingMessageStates, updateMessageState } from "../../lib/gmailMessageState";
-import { addEmailIfAbsent, dedupeSyncedEmails } from "../../lib/syncedEmails";
+import { updateMessageState } from "../../lib/gmailMessageState";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
@@ -30,61 +18,6 @@ import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 
 interface Props {
   account: GmailAccount;
-}
-
-/** Lets GmailPage's header "今すぐ同期" button trigger this component's own
- * sync logic (which needs account/blockedSet state that lives here) without
- * lifting that whole fetch flow up a level. */
-export interface GmailInboxHandle {
-  sync: () => void;
-  syncing: boolean;
-}
-
-const SYNC_WINDOW_DAYS = 30;
-
-/** 「Gmail側で直接返信されていないか」の確認を1回の同期で何件まで行うか、
- * そのうち何本まで同時にGmail APIへ投げるか。Gmail APIは1分あたりの利用量に
- * 上限があり、越えると403 RATE_LIMIT_EXCEEDEDで同期全体が失敗する。 */
-const RECONCILE_PER_SYNC = 40;
-const RECONCILE_CONCURRENCY = 4;
-
-/** 1回の同期で新しく取り込むメールの上限。1通ごとに本文以外の情報を取りに行くため、
- * 連携し直した直後のように未取得が数百件ある端末では、ここを絞らないと上限に当たる。 */
-const NEW_EMAILS_PER_SYNC = 120;
-
-/** 何が起きたか分からない「メールの取得に失敗しました」だけだと、端末ごとに一覧が
- * 揃わない時に原因を切り分けられない。よくある失敗(連携切れ)は次にやることまで書き、
- * それ以外は元のメッセージをそのまま出す。
- *
- * 連携切れが起きるのは、Google側でアクセスを取り消した場合のほか、Google Cloudの
- * OAuth同意画面が「テスト中」のままだと更新用トークンが7日で失効するため。 */
-function describeSyncError(err: unknown): string {
-  const raw = err instanceof Error ? err.message : String(err);
-  // 利用量超過は連携切れと同じ403で返ってくるが、対処はまったく違う(待てば直る)。
-  // 連携切れの案内より先に判定する。
-  if (/rateLimitExceeded|userRateLimitExceeded|quotaExceeded|RATE_LIMIT_EXCEEDED|\b429\b/i.test(raw)) {
-    return "Gmailの利用制限に達しました。1分ほど待ってから、もう一度同期してください";
-  }
-  if (/invalid_grant|expired|revoked|\b40[13]\b/i.test(raw)) {
-    return `Gmailの連携が切れています。設定 → Gmail連携 でつなぎ直してください (${raw})`;
-  }
-  return `メールの取得に失敗しました: ${raw}`;
-}
-
-/** Gmailの受信トレイに無くなったメールをこの端末からも消す(AI下書きも一緒に)。
- * `inboxIds` はその期間の受信トレイを最後まで数えきれた場合のみ渡ってくる —
- * 途中までのリストで消すと、まだ受信トレイにあるメールまで消えてしまう。 */
-async function pruneMissingEmails(accountId: string, inboxIds: string[]): Promise<number> {
-  const keep = new Set(inboxIds);
-  const stale = (await db.syncedEmails.where("accountId").equals(accountId).toArray()).filter(
-    (email) => email.id && !keep.has(email.gmailMessageId),
-  );
-  for (const email of stale) {
-    const drafts = await db.draftReplies.where("emailId").equals(email.id!).toArray();
-    for (const draft of drafts) await db.draftReplies.delete(draft.id!);
-    await db.syncedEmails.delete(email.id!);
-  }
-  return stale.length;
 }
 
 const STATUS_LABEL: Record<EmailStatus, string> = {
@@ -105,23 +38,11 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
   skipped: "neutral",
 };
 
-export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbox({ account }, ref) {
+export function GmailInbox({ account }: Props) {
   const showToast = useToast();
-  const [syncing, setSyncing] = useState(false);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "drafted" | "sent" | "read">("all");
   const [manageBlockedOpen, setManageBlockedOpen] = useState(false);
-  // handleSync can be triggered from two independent, uncoordinated places at once —
-  // this component's own on-mount effect and GmailPage's header "今すぐ同期" button
-  // (which isn't disabled while the mount sync is still running, since it tracks its
-  // own separate `syncing` boolean, not this component's). Two concurrent runs would
-  // both read the same pre-sync `existing` snapshot, compute the same "new" message
-  // ids, and each insert their own row for the same gmailMessageId (not a unique
-  // index — see db/schema.ts's syncedEmails), showing the same email twice in the
-  // inbox. A ref (checked synchronously, unlike state) makes a second call join the
-  // in-flight run instead of starting a duplicate one.
-  const syncInFlightRef = useRef<Promise<void> | null>(null);
-
   const emails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
     [account.id],
@@ -151,11 +72,6 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     }
   }, [blockedSenders, account.email]);
 
-  // Separate from any notification/push setting — this only controls whether
-  // handleSync() below also generates an AI draft for each newly-found email.
-  const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
-  const autoDraftEnabled = settings?.autoDraftEnabled ?? false;
-
   const visibleEmails = emails?.filter((email) => !blockedSet.has(parseSender(email.from).email.toLowerCase()));
 
   const statusFilteredEmails = visibleEmails?.filter((email) => {
@@ -181,183 +97,12 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
     );
   });
 
+  /** 画面を開いた時の自動同期。二重実行の見張りは syncGmailAccount 側が持っているので、
+   * ヘッダーの「今すぐ同期」(全アカウントを回る)と重なっても2本は走らない。 */
   async function handleSync() {
-    if (syncInFlightRef.current) return syncInFlightRef.current;
-    const run = runSync();
-    syncInFlightRef.current = run;
-    try {
-      await run;
-    } finally {
-      syncInFlightRef.current = null;
-    }
+    const summary = summarizeGmailSync([{ email: account.email, result: await syncGmailAccount(account) }]);
+    if (summary) showToast(summary.message, summary.tone);
   }
-
-  async function runSync() {
-    if (!account.id) return;
-    setSyncing(true);
-    try {
-      // Merge away any pre-existing duplicates (rows sharing a gmailMessageId) before
-      // reading `existing` below — see dedupeSyncedEmails's own comment for how these
-      // could have been created before the syncInFlightRef guard above existed.
-      await dedupeSyncedEmails(account.id);
-      const fresh = await ensureFreshAccessToken(account);
-      const sinceEpochSec = Math.floor(Date.now() / 1000) - SYNC_WINDOW_DAYS * 24 * 60 * 60;
-      const { ids, complete } = await listRecentMessageIds(fresh.accessToken, sinceEpochSec);
-      const existing = await db.syncedEmails.where("accountId").equals(account.id).toArray();
-      const known = new Set(existing.map((e) => e.gmailMessageId));
-      // 未取得のメールが大量にある(連携し直した直後など)端末で、1回の同期に大量の
-      // リクエストを投げて上限に当たらないよう、新しい方から少しずつ取り込む。
-      // 残りは次の同期で取り込まれる。
-      const pendingIds = ids.filter((id) => !known.has(id));
-      const newIds = pendingIds.slice(0, NEW_EMAILS_PER_SYNC);
-      const deferred = pendingIds.length - newIds.length;
-
-      let added = 0;
-      let failed = 0;
-      // 取り込んだ行のid。既読の取り込み(後述のpullMessageStates)が済んだ時点で
-      // 読み直し、そのうち何件が実際に一覧へ出るのかを数えるために持っておく。
-      const addedIds: string[] = [];
-      for (const id of newIds) {
-        // 1通の取得失敗で同期全体を止めない。止めていた頃は、通信が不安定な端末だけ
-        // 途中までしか取り込めず、PCとスマホで一覧の件数が食い違う原因になっていた。
-        // 取り込めなかった分は保存されないので、次の同期でそのまま再挑戦される。
-        let meta: Awaited<ReturnType<typeof getMessageMeta>>;
-        try {
-          meta = await getMessageMeta(fresh.accessToken, id);
-        } catch {
-          failed++;
-          continue;
-        }
-        // ブロック中の送信者でも保存する。隠すのは表示時(visibleEmails)だけ —
-        // ここで捨てていた頃は、後でブロックを解除しても30日窓/取得上限から外れた
-        // メールがその端末にだけ戻らず、PCとスマホで一覧の中身がずれていた。
-        const newEmail = {
-          accountId: account.id,
-          gmailMessageId: id,
-          threadId: meta.threadId,
-          from: meta.from,
-          subject: meta.subject,
-          snippet: meta.snippet,
-          receivedAt: meta.receivedAt,
-          status: "unprocessed" as const,
-          createdAt: Date.now(),
-        };
-        // 存在確認と追加をまとめて行う。読んだ`known`は同期の開始時点のもので、その後に
-        // 別のタブやアカウント統合(src/lib/gmailAccounts.ts)が同じメールを入れている
-        // ことがある — そのまま足すと一覧に同じメールが二重で並ぶ。
-        const newEmailId = await addEmailIfAbsent(newEmail);
-        if (!newEmailId) continue;
-        addedIds.push(newEmailId);
-        added++;
-
-        // 自動下書き: 送信は行わない。draftReplies を作成するところまでで、
-        // 送信は必ずDraftReview側で本人が「送信する」を押した場合のみ。
-        if (autoDraftEnabled && !blockedSet.has(parseSender(meta.from).email.toLowerCase())) {
-          try {
-            await generateDraftForEmail(account, { ...newEmail, id: newEmailId });
-          } catch {
-            // 同期自体は続行する — 個別メールの下書き生成失敗で全体を止めない。
-          }
-        }
-      }
-      // Gmail側とのズレ防止: このアプリの外(他デバイス・Gmail本体)から直接返信された
-      // 場合、この app には知る手段がないため、まだ未送信扱いのトラッキング中メールは
-      // 毎回スレッドの実際の状態と突き合わせて「送信済み」を確定させる。新規追加分より
-      // 古いメールが対象なので、際限なく増え続けないようsinceEpochSecの範囲に限定する。
-      // 1分あたりの上限に当たらないよう、確認する件数と同時に投げる本数を絞る。
-      // 全件を Promise.all で一斉に投げていた頃は、メールの多い端末で同期のたびに
-      // Gmail APIから 403 RATE_LIMIT_EXCEEDED が返っていた。ここで確認しきれなかった
-      // 分は次回の同期に回る(新しいものから確認する)。
-      const unresolvedExisting = existing
-        .filter((e) => e.status !== "sent" && e.receivedAt >= sinceEpochSec * 1000)
-        .sort((a, b) => b.receivedAt - a.receivedAt)
-        .slice(0, RECONCILE_PER_SYNC);
-      let reconciled = 0;
-      await mapWithConcurrency(unresolvedExisting, RECONCILE_CONCURRENCY, async (e) => {
-        if (!e.id) return;
-        try {
-          const actuallySent = await threadHasSentReplyAfter(fresh.accessToken, e.threadId, e.receivedAt);
-          if (!actuallySent) return;
-          const now = Date.now();
-          const existingDraft = await db.draftReplies.where("emailId").equals(e.id).first();
-          if (existingDraft?.id) {
-            if (!existingDraft.sentAt) await db.draftReplies.update(existingDraft.id, { sentAt: now });
-          } else {
-            // 下書きレコード自体がない(=このアプリ経由で下書きを作らずGmail側で直接
-            // 返信した)場合も作っておく — これがないとDraftReview側で「下書きなし」
-            // 扱いとなり、送信済みなのに再度下書き作成・送信ができてしまう。
-            await db.draftReplies.add({
-              emailId: e.id,
-              accountId: account.id!,
-              body: "(Gmail側で直接返信済み。このアプリの外で送信されたため、本文はここには保存されていません)",
-              subject: e.subject,
-              createdAt: now,
-              updatedAt: now,
-              sentAt: now,
-              });
-            }
-            await db.syncedEmails.update(e.id, { status: "sent" });
-            reconciled++;
-          } catch {
-            // 個別スレッドの確認失敗で同期全体を止めない。
-          }
-      });
-
-      // Gmailの受信トレイ(直近SYNC_WINDOW_DAYS日)に無くなったメールをこの端末からも消す。
-      // これが無いと、アーカイブ/削除された分や、片方の端末にだけ残っている古い分が
-      // 端末ごとに溜まり続け、同じアカウントなのに一覧の面ぶれが揃わない。
-      // completeがfalse(=取得上限まで辿っても数えきれなかった)時は、単に取得しきれて
-      // いないだけのメールを消してしまうので掃除しない。
-      const removed = complete ? await pruneMissingEmails(account.id, ids) : 0;
-
-      // 既読の共有。まだ送っていないこの端末の既読(この機能より前の分を含む)を送ってから、
-      // 他端末の分を取り込む。取り込みはメールを入れた後 — ローカルに行が無い
-      // メッセージの状態は入れる場所が無いため。
-      const pushedStates = await pushPendingMessageStates(account.id, account.email);
-      const pulledStates = await pullMessageStates(account.id, account.email);
-      const stateError = pushedStates.error ?? pulledStates.error;
-
-      // 「新着」として数えるのは、実際にこの一覧へ出るものだけにする。取り込んだ中には
-      // 他の端末で既に読んだもの(既読タブへ入る)や、ブロック中の送信者のもの(どこにも
-      // 出ない)が混ざる。以前はそれも含めて数えていたため、「7件の新着メールしました」と
-      // 出るのに一覧には何も増えない、という食い違いが起きていた(2026-08-24)。
-      // 数え直しは既読の取り込みが済んだ後に行う — 先に数えると、この直後に既読へ
-      // 変わるものまで新着に入ってしまう。
-      const addedRows = addedIds.length > 0 ? await db.syncedEmails.bulkGet(addedIds) : [];
-      let blockedAdded = 0;
-      let handledElsewhere = 0;
-      for (const row of addedRows) {
-        if (!row) continue;
-        if (blockedSet.has(parseSender(row.from).email.toLowerCase())) blockedAdded++;
-        else if (!isUnhandledEmail(row)) handledElsewhere++;
-      }
-      const freshAdded = added - blockedAdded - handledElsewhere;
-
-      await db.gmailAccounts.update(account.id, { lastSyncedAt: Date.now() });
-      // 既読の共有だけ失敗した場合、メール取得自体は成功しているのでそこは伝えつつ、
-      // 黙って揃わないままにならないようエラーも出す(以前はconsoleにしか出ていなかった)。
-      if (stateError) showToast(`既読の同期に失敗しました: ${stateError}`, "error");
-      showToast(
-        buildSyncSummary({
-          freshAdded,
-          handledElsewhere,
-          blockedAdded,
-          reconciled,
-          removed,
-          pushedStates: pushedStates.count,
-          pulledStates: pulledStates.count,
-          failed,
-          deferred,
-        }),
-      );
-    } catch (err) {
-      showToast(describeSyncError(err), "error");
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  useImperativeHandle(ref, () => ({ sync: handleSync, syncing }), [syncing, account, blockedSet]);
 
   // 画面を開いた瞬間に最新化する — ヘッダーの「今すぐ同期」は以降の手動リフレッシュ用として残す。
   useEffect(() => {
@@ -527,4 +272,4 @@ export const GmailInbox = forwardRef<GmailInboxHandle, Props>(function GmailInbo
       </Sheet>
     </div>
   );
-});
+}

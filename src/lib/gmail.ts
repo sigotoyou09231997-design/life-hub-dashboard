@@ -418,6 +418,10 @@ export interface SyncSummaryCounts {
   deferred: number;
 }
 
+/** 何も起きなかった同期の文面。複数アカウントをまとめて同期した時に、これだけが
+ * 並ぶのを1行に畳むため(src/lib/gmailSync.ts)、文字列を共有している。 */
+export const NO_CHANGES_SUMMARY = "新着メールはありませんでした";
+
 export function buildSyncSummary(counts: SyncSummaryCounts): string {
   const parts: string[] = [];
   if (counts.freshAdded > 0) parts.push(`${counts.freshAdded}件の新着メール`);
@@ -432,7 +436,7 @@ export function buildSyncSummary(counts: SyncSummaryCounts): string {
   if (counts.handledElsewhere > 0) notes.push(`${counts.handledElsewhere}件は他の端末で処理済み(既読・送信済みタブ)`);
   if (counts.blockedAdded > 0) notes.push(`${counts.blockedAdded}件はブロック中の送信者`);
 
-  const summary = parts.length > 0 ? `${parts.join("・")}しました` : "新着メールはありませんでした";
+  const summary = parts.length > 0 ? `${parts.join("・")}しました` : NO_CHANGES_SUMMARY;
   return notes.length > 0 ? `${summary}(${notes.join("・")})` : summary;
 }
 
