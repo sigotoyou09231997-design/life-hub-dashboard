@@ -1,6 +1,7 @@
 import { db } from "../db/schema";
 import type { EmailStatus, GmailAccount, SyncedEmail } from "../types";
 import { toDateStr, todayStr } from "./date";
+import type { ExtractedTripItem } from "./tripImport";
 
 const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send openid email";
 const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -131,6 +132,27 @@ export async function exchangeAuthorizationCode(code: string): Promise<Authoriza
     code,
     redirectUri: getRedirectUri(),
   });
+}
+
+/** メールの予約情報(航空券・ホテルなど)から、旅行の日程に並べる項目を読み取る
+ * (netlify/functions/extractTripPlan.ts)。
+ *
+ * 本文はここで取りに行く — 一覧が持っているのは抜粋(snippet)だけで、便名や予約番号、
+ * チェックイン時刻はたいてい本文にしか無いため。読み取った内容はそのまま保存せず、
+ * 必ず画面で確認・修正してから日程表に入れる。 */
+export async function extractTripPlanFromEmail(
+  account: GmailAccount,
+  email: SyncedEmail,
+): Promise<ExtractedTripItem[]> {
+  const fresh = await ensureFreshAccessToken(account);
+  const body = await getMessageBody(fresh.accessToken, email.gmailMessageId);
+  const result = await callFunction<{ items?: ExtractedTripItem[] }>("extractTripPlan", {
+    subject: email.subject,
+    body,
+    // 「来月12日」のような書き方を実際の日付に直すための基準日。
+    today: todayStr(),
+  });
+  return result.items ?? [];
 }
 
 /** Returns an account guaranteed to have a live access token, refreshing (and persisting) it first if needed. */

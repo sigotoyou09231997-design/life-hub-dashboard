@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban, Copy, Mail, MailOpen } from "lucide-react";
+import { Ban, Copy, Mail, MailOpen, Plane } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
@@ -23,6 +23,7 @@ import { Badge } from "../ui/Badge";
 import { Input, Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
+import { TripPlanImport } from "./TripPlanImport";
 import { useToast } from "../ui/ToastProvider";
 import { MonthView } from "../calendar/MonthView";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
@@ -122,6 +123,8 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   // variant="sheet"のみで使う折りたたみ状態(初期表示をコンパクトに保つため)。
   const [originalExpanded, setOriginalExpanded] = useState(false);
   const [replyExpanded, setReplyExpanded] = useState(false);
+  // このメールの予約内容を旅行の日程に入れる画面(TripPlanImport)を開いているか。
+  const [tripImportOpen, setTripImportOpen] = useState(false);
 
   // Shown as dots on the date picker so the user can see at a glance which days
   // already have something booked while choosing a candidate date.
@@ -407,6 +410,15 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         </button>
         <button
           type="button"
+          onClick={() => setTripImportOpen(true)}
+          aria-label="旅行の日程に入れる"
+          title="このメールの予約内容を、旅行の日程に入れる"
+          className="rounded-full p-1.5 text-slate-300 transition-colors active:bg-accent-light active:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          <Plane size={16} />
+        </button>
+        <button
+          type="button"
           onClick={handleToggleBlock}
           aria-label={blockedEntry ? "ブロックを解除" : "送信者をブロック"}
           title={blockedEntry ? "ブロックを解除" : "この送信者をブロック"}
@@ -534,6 +546,10 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     </>
   );
 
+  const tripImportSheet = (
+    <TripPlanImport email={email} account={account} open={tripImportOpen} onClose={() => setTripImportOpen(false)} />
+  );
+
   const candidateSheet = (
     <Sheet open={editingCandidateIndex !== null} onClose={() => setEditingCandidateIndex(null)} title="候補日を変更">
       <div className="space-y-4">
@@ -634,6 +650,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         </div>
 
         {candidateSheet}
+      {tripImportSheet}
       </div>
     );
   }
@@ -701,6 +718,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       </Card>
 
       {candidateSheet}
+      {tripImportSheet}
     </div>
   );
 }
