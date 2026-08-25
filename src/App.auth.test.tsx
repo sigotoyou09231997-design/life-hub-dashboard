@@ -13,7 +13,10 @@ const state = vi.hoisted(() => ({
 
 vi.mock("./lib/supabase", () => ({
   isSupabaseConfigured: true,
-  auth: { getSession: state.getSession, onAuthStateChange: state.onAuthStateChange },
+  auth: { getSession: state.getSession, onAuthStateChange: state.onAuthStateChange, signOut: vi.fn() },
+  authStorageKey: (slot: string | null) => (slot === null ? "sb-test-auth-token" : `sb-test-auth-token-${slot}`),
+  moveStoredSession: vi.fn(),
+  clearStoredSession: vi.fn(),
 }));
 vi.mock("./lib/syncRuntime", () => ({ startSync: state.startSync, stopSync: state.stopSync }));
 vi.mock("./lib/pushNotifications", () => ({ clearShownPushNotifications: vi.fn() }));
@@ -52,5 +55,21 @@ describe("App authentication bootstrap", () => {
     render(<MemoryRouter><App /></MemoryRouter>);
     expect(await screen.findByText("Home page")).toBeTruthy();
     await waitFor(() => expect(state.startSync).toHaveBeenCalledWith("user-1", "token-1"));
+  });
+
+  it("記録の無い端末でログインすると、そのアカウントを端末の一覧に登録する", async () => {
+    localStorage.clear();
+    state.getSession.mockResolvedValue({
+      data: { session: { user: { id: "user-1", email: "a@example.com", user_metadata: {} }, access_token: "token-1" } },
+    });
+    render(<MemoryRouter><App /></MemoryRouter>);
+    await screen.findByText("Home page");
+
+    await waitFor(() => {
+      const accounts = JSON.parse(localStorage.getItem("lifeHubAccounts") ?? "[]");
+      // 1つ目のアカウントは、この機能より前から端末にある既定のDBをそのまま引き継ぐ。
+      expect(accounts).toMatchObject([{ userId: "user-1", email: "a@example.com", slot: null, dbName: "life-hub" }]);
+    });
+    expect(localStorage.getItem("lifeHubActiveAccount")).toBe("user-1");
   });
 });

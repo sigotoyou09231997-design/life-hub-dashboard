@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../lib/supabase";
+import { IS_ADDING_ACCOUNT } from "../lib/accounts";
 import { useToast } from "../components/ui/ToastProvider";
 
 /** Landing page for Supabase's OAuth redirect (/auth/callback). Supabase's client
@@ -15,6 +16,9 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     function handleSession(email: string | undefined) {
+      // 「アカウントを追加」の戻りは、App側が追加処理を終えてから、追加したアカウントで
+      // ページごと開き直す(src/lib/accountSwitch.ts)。ここでは何もしないで待つ。
+      if (IS_ADDING_ACCOUNT) return;
       if (handledRef.current) return;
       handledRef.current = true;
       showToast(`${email ?? "アカウント"}でログインしました`);
@@ -30,7 +34,7 @@ export default function AuthCallbackPage() {
     });
 
     const timeout = window.setTimeout(() => {
-      if (!handledRef.current) {
+      if (!handledRef.current && !IS_ADDING_ACCOUNT) {
         setStatus("error");
         showToast("ログインに失敗しました", "error");
       }

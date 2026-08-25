@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/** Dexieの代わりに、このテストが使う操作(toArray / delete / where().equals().modify())
- * だけを持つ配列ベースの最小テーブル。 */
+/** Dexieの代わりに、このテストが使う操作(toArray / update / delete /
+ * where().equals().toArray|first|count|modify())だけを持つ配列ベースの最小テーブル。 */
 function fakeTable<T extends { id?: string }>(rows: T[]) {
   const table = {
     rows,
     toArray: async () => [...table.rows],
+    update: async (id: string, changes: Partial<T>) => {
+      const row = table.rows.find((r) => r.id === id);
+      if (row) Object.assign(row, changes);
+    },
     delete: async (id: string) => {
       table.rows = table.rows.filter((row) => row.id !== id);
     },
@@ -16,6 +20,7 @@ function fakeTable<T extends { id?: string }>(rows: T[]) {
           return {
             toArray: async () => matching(),
             first: async () => matching()[0],
+            count: async () => matching().length,
             modify: async (changes: Partial<T>) => {
               for (const row of matching()) Object.assign(row, changes);
             },
@@ -34,8 +39,8 @@ import { consolidateGmailAccounts } from "./gmailAccounts";
 
 function setupDb(options: {
   accounts: { id: string; email: string; connectedAt: number }[];
-  emails: { id: string; accountId: string }[];
-  drafts?: { id: string; accountId: string }[];
+  emails: { id: string; accountId: string; gmailMessageId?: string; status?: string; createdAt?: number }[];
+  drafts?: { id: string; accountId: string; emailId?: string }[];
   blocked?: { id: string; accountId: string; email: string }[];
 }) {
   const tables = {
@@ -60,10 +65,10 @@ describe("consolidateGmailAccounts", () => {
         { id: "new", email: "me@example.com", connectedAt: 2_000 },
       ],
       emails: [
-        { id: "mail-1", accountId: "old" },
-        { id: "mail-2", accountId: "new" },
+        { id: "mail-1", accountId: "old", gmailMessageId: "g-1", status: "unprocessed", createdAt: 1 },
+        { id: "mail-2", accountId: "new", gmailMessageId: "g-2", status: "unprocessed", createdAt: 2 },
       ],
-      drafts: [{ id: "draft-1", accountId: "old" }],
+      drafts: [{ id: "draft-1", accountId: "old", emailId: "mail-1" }],
       blocked: [
         { id: "block-1", accountId: "old", email: "spam@example.com" },
         { id: "block-2", accountId: "new", email: "spam@example.com" },
@@ -83,10 +88,10 @@ describe("consolidateGmailAccounts", () => {
     const tables = setupDb({
       accounts: [{ id: "live", email: "me@example.com", connectedAt: 1_000 }],
       emails: [
-        { id: "mail-1", accountId: "live" },
-        { id: "mail-orphan", accountId: "gone" },
+        { id: "mail-1", accountId: "live", gmailMessageId: "g-1", status: "unprocessed", createdAt: 1 },
+        { id: "mail-orphan", accountId: "gone", gmailMessageId: "g-2", status: "unprocessed", createdAt: 2 },
       ],
-      drafts: [{ id: "draft-orphan", accountId: "gone" }],
+      drafts: [{ id: "draft-orphan", accountId: "gone", emailId: "mail-orphan" }],
       blocked: [{ id: "block-orphan", accountId: "gone", email: "spam@example.com" }],
     });
 
@@ -102,11 +107,32 @@ describe("consolidateGmailAccounts", () => {
         { id: "a", email: "me@example.com", connectedAt: 1_000 },
         { id: "b", email: "other@example.com", connectedAt: 2_000 },
       ],
-      emails: [{ id: "mail-1", accountId: "a" }],
+      emails: [{ id: "mail-1", accountId: "a", gmailMessageId: "g-1", status: "unprocessed", createdAt: 1 }],
     });
 
     expect(await consolidateGmailAccounts()).toBe(0);
     expect(tables.gmailAccounts.rows).toHaveLength(2);
     expect(tables.syncedEmails.rows).toHaveLength(1);
+  });
+
+  // 実際に起きた不具合: 連携し直しで2つになったアカウントが、それぞれ同じ受信トレイを
+  // 取り込んでいたため、1つにまとめた時点でまったく同じメールが一覧に二重で並んだ。
+  it("まとめた先で同じメールが2行になったら、1行に畳む", async () => {
+    const tables = setupDb({
+      accounts: [
+        { id: "old", email: "me@example.com", connectedAt: 1_000 },
+        { id: "new", email: "me@example.com", connectedAt: 2_000 },
+      ],
+      emails: [
+        { id: "mail-old", accountId: "old", gmailMessageId: "same", status: "drafted", createdAt: 1 },
+        { id: "mail-new", accountId: "new", gmailMessageId: "same", status: "unprocessed", createdAt: 2 },
+      ],
+      drafts: [{ id: "draft-1", accountId: "old", emailId: "mail-old" }],
+    });
+
+    expect(await consolidateGmailAccounts()).toBe(1);
+    // AI下書きを持っている方(進んでいる方)を残す。
+    expect(tables.syncedEmails.rows.map((e) => e.id)).toEqual(["mail-old"]);
+    expect(tables.draftReplies.rows).toEqual([{ id: "draft-1", accountId: "new", emailId: "mail-old" }]);
   });
 });

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { auth, getRedirectUri } from "../lib/supabase";
+import { cancelAddAccount } from "../lib/accountSwitch";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -7,15 +8,21 @@ import { useToast } from "../components/ui/ToastProvider";
 
 type Mode = "register" | "login";
 
+interface Props {
+  /** 「アカウントを追加」から来た場合。ログイン先が今のアカウントではなく2つ目に
+   * なるので、見出しと戻り口だけ差し替える(認証のやり方そのものは同じ)。 */
+  addingAccount?: boolean;
+}
+
 /** Full-screen, no-header/no-nav gate rendered by App.tsx in place of the whole
  * app when there's no Supabase session — nothing (TOP, data, any route) is
  * reachable until the user registers or logs in. Session persistence itself
  * needs no extra work here: Supabase Auth persists to localStorage and
  * auto-refreshes (see src/lib/supabase.ts), so once past this screen the user
  * stays logged in on this device until they explicitly log out. */
-export default function AuthGatePage() {
+export default function AuthGatePage({ addingAccount = false }: Props) {
   const showToast = useToast();
-  const [mode, setMode] = useState<Mode>("register");
+  const [mode, setMode] = useState<Mode>(addingAccount ? "login" : "register");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -64,7 +71,15 @@ export default function AuthGatePage() {
   }
 
   async function handleGoogleLogin() {
-    await auth.signInWithOAuth({ provider: "google", options: { redirectTo: getRedirectUri() } });
+    await auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: getRedirectUri(),
+        // 追加のときは、Google側で「どのアカウントか」を必ず選ばせる — そうしないと
+        // 今ログインしているのと同じアカウントのまま素通りしてしまう。
+        ...(addingAccount ? { queryParams: { prompt: "select_account" } } : {}),
+      },
+    });
   }
 
   if (confirmationSent) {
@@ -81,9 +96,15 @@ export default function AuthGatePage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-5">
       <Card className="w-full max-w-sm">
-        <p className="mb-1 text-center text-lg font-semibold text-slate-900">LIFE HUB</p>
+        <p className="mb-1 text-center text-lg font-semibold text-slate-900">
+          {addingAccount ? "アカウントを追加" : "LIFE HUB"}
+        </p>
         <p className="mb-5 text-center text-xs text-slate-400">
-          {mode === "register" ? "アカウントを登録してはじめましょう" : "ログインして続ける"}
+          {addingAccount
+            ? "この端末にもう1つアカウントを追加します。今のアカウントはそのまま残り、いつでも切り替えられます。"
+            : mode === "register"
+              ? "アカウントを登録してはじめましょう"
+              : "ログインして続ける"}
         </p>
 
         <div className="mb-5 flex border border-white/45 bg-white/20 p-1">
@@ -153,6 +174,16 @@ export default function AuthGatePage() {
         <Button variant="secondary" className="w-full" onClick={() => void handleGoogleLogin().catch(() => showToast("ログインに失敗しました", "error"))}>
           Googleでログイン
         </Button>
+
+        {addingAccount && (
+          <button
+            type="button"
+            onClick={cancelAddAccount}
+            className="mt-4 w-full text-center text-sm text-slate-500 underline-offset-2 hover:underline"
+          >
+            追加をやめて戻る
+          </button>
+        )}
       </Card>
     </div>
   );
