@@ -3,7 +3,7 @@ import type { SyncedEmail } from "../types";
 import { auth, isSupabaseConfigured } from "./supabase";
 import { getSupabaseDataClient } from "./supabaseData";
 
-/** メールの「既読」「送信済み」だけを端末間で揃える(supabase/sql/011_gmail_message_state.sql)。
+/** メールの「既読」「重要」「送信済み」だけを端末間で揃える(supabase/sql/011_gmail_message_state.sql)。
  *
  * db.syncedEmails は汎用同期エンジン(src/lib/sync.ts)の対象外で、これからも入れない —
  * 行IDも accountId も端末ごとのローカルUUIDで他端末では意味を持たないうえ、件名・
@@ -15,6 +15,7 @@ import { getSupabaseDataClient } from "./supabaseData";
 interface RemoteState {
   gmail_message_id: string;
   read_at: string | null;
+  important_at: string | null;
   sent: boolean;
   updated_at: string;
 }
@@ -42,6 +43,7 @@ function stateRow(userId: string, accountEmail: string, email: SyncedEmail, upda
     account_email: accountEmail,
     gmail_message_id: email.gmailMessageId,
     read_at: email.readAt ? new Date(email.readAt).toISOString() : null,
+    important_at: email.importantAt ? new Date(email.importantAt).toISOString() : null,
     sent: email.status === "sent",
     updated_at: new Date(updatedAt).toISOString(),
   };
@@ -71,7 +73,9 @@ export async function pushPendingMessageStates(accountId: string, accountEmail: 
   const userId = await currentUserId();
   if (!userId) return { count: 0, error: null };
   const local = await db.syncedEmails.where("accountId").equals(accountId).toArray();
-  const pending = local.filter((e) => e.id && e.stateUpdatedAt == null && (e.readAt != null || e.status === "sent"));
+  const pending = local.filter(
+    (e) => e.id && e.stateUpdatedAt == null && (e.readAt != null || e.importantAt != null || e.status === "sent"),
+  );
   if (pending.length === 0) return { count: 0, error: null };
 
   const stamps = new Map(pending.map((e) => [e.id!, e.readAt ?? e.createdAt]));
@@ -92,7 +96,7 @@ export async function pushPendingMessageStates(accountId: string, accountEmail: 
 export async function updateMessageState(
   accountEmail: string,
   email: SyncedEmail,
-  changes: { readAt?: number | undefined; status?: SyncedEmail["status"] },
+  changes: { readAt?: number | undefined; importantAt?: number | undefined; status?: SyncedEmail["status"] },
 ): Promise<void> {
   if (!email.id) return;
   const stateUpdatedAt = Date.now();
@@ -109,7 +113,7 @@ export async function pullMessageStates(accountId: string, accountEmail: string)
   const supabase = await getSupabaseDataClient();
   const { data, error } = await supabase
     .from("gmail_message_state")
-    .select("gmail_message_id, read_at, sent, updated_at")
+    .select("gmail_message_id, read_at, important_at, sent, updated_at")
     .eq("user_id", userId)
     .eq("account_email", accountEmail);
   if (error) {
@@ -130,7 +134,8 @@ export async function pullMessageStates(accountId: string, accountEmail: string)
     if ((email.stateUpdatedAt ?? 0) >= remoteUpdatedAt) continue;
 
     const readAt = remote.read_at ? new Date(remote.read_at).getTime() : undefined;
-    const changes: Partial<SyncedEmail> = { readAt, stateUpdatedAt: remoteUpdatedAt };
+    const importantAt = remote.important_at ? new Date(remote.important_at).getTime() : undefined;
+    const changes: Partial<SyncedEmail> = { readAt, importantAt, stateUpdatedAt: remoteUpdatedAt };
     // 送信済みは「取り消す」方向には動かさない — このアプリから実際に送った履歴
     // (ローカルのdraftReplies.sentAt)が残っている端末で、それと食い違うのを避ける。
     if (remote.sent && email.status !== "sent") changes.status = "sent";

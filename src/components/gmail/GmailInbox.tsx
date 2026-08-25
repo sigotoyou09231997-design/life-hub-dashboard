@@ -41,7 +41,7 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
 export function GmailInbox({ account }: Props) {
   const showToast = useToast();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "drafted" | "sent" | "read">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "important" | "drafted" | "sent" | "read">("all");
   const [manageBlockedOpen, setManageBlockedOpen] = useState(false);
   const emails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
@@ -75,6 +75,9 @@ export function GmailInbox({ account }: Props) {
   const visibleEmails = emails?.filter((email) => !blockedSet.has(parseSender(email.from).email.toLowerCase()));
 
   const statusFilteredEmails = visibleEmails?.filter((email) => {
+    // 重要タブは、既読にしても返信しても残す — 後で見返すために付ける印なので、
+    // 他のタブのように状態が進んだら消える、という扱いにはしない。
+    if (statusFilter === "important") return !!email.importantAt;
     if (statusFilter === "drafted") return email.status === "drafted" || email.status === "edited";
     if (statusFilter === "sent") return email.status === "sent";
     // 既読タブからも返信済みは外す — 返信を送った時点でそのメールは「送信済み」へ移る、
@@ -147,10 +150,12 @@ export function GmailInbox({ account }: Props) {
       )}
 
       {!showSkeleton && emails && emails.length > 0 && (
-        <div className="flex shrink-0 gap-1.5" role="group" aria-label="ステータスフィルター">
+        <div className="flex shrink-0 flex-wrap gap-1.5" role="group" aria-label="ステータスフィルター">
+          {/* 5つ並ぶと狭い画面では1行に収まらないので折り返す(横スクロールにはしない)。 */}
           {(
             [
               ["all", "すべて"],
+              ["important", "重要"],
               ["drafted", "AI下書き"],
               ["sent", "送信済み"],
               ["read", "既読"],

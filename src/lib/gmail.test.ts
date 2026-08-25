@@ -120,6 +120,12 @@ describe("mapWithConcurrency", () => {
 });
 
 describe("isUnhandledEmail", () => {
+  it("重要を付けたものは「すべて」から外す(重要タブへ移す)", () => {
+    // 押しても「すべて」に残っていると、移した実感が無い。
+    expect(isUnhandledEmail({ status: "unprocessed", importantAt: 1_000 })).toBe(false);
+    expect(isUnhandledEmail({ status: "unprocessed", importantAt: undefined })).toBe(true);
+  });
+
   it("未読でまだ返信していないメールは残す", () => {
     expect(isUnhandledEmail({ status: "unprocessed" })).toBe(true);
     expect(isUnhandledEmail({ status: "drafted" })).toBe(true);

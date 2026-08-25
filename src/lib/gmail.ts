@@ -442,8 +442,9 @@ async function getRecentSentBodies(accessToken: string, limit: number): Promise<
  * 2か所で別々に書いていた頃は、TOPだけ既読も返信済みも並べ続けていて、
  * 受信トレイでは片付いているのにTOPにはそのまま残る、という食い違いが出ていた。
  * 条件はここに1本化して、両方から同じ関数を呼ぶ。 */
-export function isUnhandledEmail(email: Pick<SyncedEmail, "readAt" | "status">): boolean {
-  return !email.readAt && email.status !== "sent";
+export function isUnhandledEmail(email: Pick<SyncedEmail, "readAt" | "status" | "importantAt">): boolean {
+  // 「重要」を付けたものも外す — 重要タブへ移す操作なので、両方に残ると押した実感が無い。
+  return !email.readAt && !email.importantAt && email.status !== "sent";
 }
 
 /** 同期し終わった時にトーストへ出す文言。

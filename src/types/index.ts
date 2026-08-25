@@ -279,7 +279,10 @@ export interface SyncedEmail {
    * independent of `status`, which tracks AI-draft/send workflow progress rather than
    * whether a human has actually looked at it. Undefined until read. */
   readAt?: number;
-  /** readAt/status を最後に人が変えた時刻。端末間で既読状態を揃える時の
+  /** 「重要」を付けた時刻。外すと undefined に戻る。タブの絞り込みはJS側で行うので
+   * 索引は要らず、Dexieのバージョンも上げていない。 */
+  importantAt?: number;
+  /** readAt/importantAt/status を最後に人が変えた時刻。端末間で状態を揃える時の
    * last-write-wins の基準(src/lib/gmailMessageState.ts)。索引は不要なので
    * Dexieのバージョンは上げていない。 */
   stateUpdatedAt?: number;
