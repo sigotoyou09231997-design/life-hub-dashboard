@@ -6,6 +6,8 @@ import { auth, isSupabaseConfigured } from "./lib/supabase";
 import { clearShownPushNotifications } from "./lib/pushNotifications";
 import { startSync, stopSync } from "./lib/syncRuntime";
 import { ensureDataOwner } from "./lib/dataOwner";
+import { IS_ADDING_ACCOUNT } from "./lib/accounts";
+import { finishAddAccount, rememberSignedInAccount } from "./lib/accountSwitch";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AmbientBackground } from "./components/layout/AmbientBackground";
@@ -70,12 +72,22 @@ export default function App() {
     const applySession = async (next: Session | null) => {
       const currentTransition = ++transition;
       if (!active) return;
+      // 「アカウントを追加」の最中のログインは、いま開いているアカウントとは別物。
+      // 画面に反映する前に打ち切って、追加したアカウントの側でページごと開き直す —
+      // ここでsetSessionしてしまうと、読み込み直しが始まるまでの一瞬だけ「新しい
+      // アカウントでログイン中なのに、中身は元のアカウントの端末内データ」になる。
+      if (next && IS_ADDING_ACCOUNT) {
+        finishAddAccount(next);
+        return;
+      }
       setSession(next);
       if (!next) {
         stopSync();
         setSyncReady(true);
         return;
       }
+      // この端末に登録済みのアカウント一覧に記録する(ヘッダーの切り替えがここを読む)。
+      rememberSignedInAccount(next);
       setSyncReady(false);
       // 同期を始める前に、この端末のローカルデータが本当にこのユーザーのものか確かめる。
       // 別アカウントでログインし直した場合は空にしてから同期する(src/lib/dataOwner.ts)。
@@ -145,10 +157,12 @@ export default function App() {
   }
 
   if (isSupabaseConfigured && !session && !isAuthCallbackRoute) {
+    // アカウント追加の最中は、同じログイン画面を「追加」用に出す — 追加用の一時領域を
+    // 見ているのでセッションが無く、ここに落ちてくる(src/lib/accountSwitch.ts)。
     return (
       <ToastProvider>
         <AmbientBackground />
-        <AuthGatePage />
+        <AuthGatePage addingAccount={IS_ADDING_ACCOUNT} />
       </ToastProvider>
     );
   }

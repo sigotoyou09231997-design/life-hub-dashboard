@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable, type Transaction as DexieTransaction } from "dexie";
+import { BOOT_DB_NAME, DEFAULT_DB_NAME } from "../lib/accounts";
 import type {
   Transaction,
   FixedCost,
@@ -170,8 +171,10 @@ export class LifeHubDB extends Dexie {
   blockedSenders!: EntityTable<BlockedSender, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
-  constructor() {
-    super("life-hub");
+  /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
+   * 持てるようにするための唯一の仕掛けで、画面側は今まで通り db をそのまま読むだけでよい。 */
+  constructor(dbName: string = DEFAULT_DB_NAME) {
+    super(dbName);
 
     // Note: IndexedDB key paths cannot be boolean, so flags like isFixed/active/
     // completed/pinned are intentionally left un-indexed and filtered in JS.
@@ -301,7 +304,7 @@ export class LifeHubDB extends Dexie {
   }
 }
 
-export const db = new LifeHubDB();
+export const db = new LifeHubDB(BOOT_DB_NAME);
 
 export async function ensureDefaultSettings(): Promise<Settings> {
   const existing = await db.settings.toCollection().first();

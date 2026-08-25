@@ -1,6 +1,7 @@
 import type { EntityTable } from "dexie";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseDataClient } from "./supabaseData";
+import { scopedKey } from "./accounts";
 import { db } from "../db/schema";
 import { getDeviceId } from "./deviceId";
 
@@ -57,7 +58,9 @@ function rowToCamel(row: Record<string, unknown>): Record<string, unknown> {
 }
 
 function lastSyncedKey(tableName: string): string {
-  return `lifeHubLastSynced:${tableName}`;
+  // アカウントごとに別のカーソルにする — 2つ目のアカウントが1つ目の「最後に同期した
+  // 時刻」を引き継いでしまうと、それより古い自分のデータが降りてこない。
+  return scopedKey(`lifeHubLastSynced:${tableName}`);
 }
 
 /** Dexie hook `onsuccess` callbacks still run inside the ambient ("PSD") zone of
