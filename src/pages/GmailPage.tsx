@@ -11,7 +11,12 @@ import { PageFab } from "../components/ui/PageFab";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { GmailInbox, type GmailInboxHandle } from "../components/gmail/GmailInbox";
 import { pullBlockedSenders } from "../lib/blockedSenders";
-import { consolidateGmailAccounts } from "../lib/gmailAccounts";
+import {
+  consolidateGmailAccounts,
+  readSelectedGmailAccountId,
+  rememberSelectedGmailAccountId,
+  resolveSelectedGmailAccountId,
+} from "../lib/gmailAccounts";
 import { ComposeMail } from "../components/gmail/ComposeMail";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
@@ -24,16 +29,24 @@ export default function GmailPage() {
   const showToast = useToast();
   const accounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   const showSkeleton = useDelayedFlag(accounts === undefined);
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(() => readSelectedGmailAccountId());
   const inboxRef = useRef<GmailInboxHandle>(null);
   const [syncing, setSyncing] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
 
+  // 前回開いた時に選んでいたアカウントを、今ある連携アカウントと突き合わせて確定させる
+  // (src/lib/gmailAccounts.ts)。連携解除などで消えていれば1件目に戻る。
   useEffect(() => {
-    if (accounts && accounts.length > 0 && selectedAccountId == null) {
-      setSelectedAccountId(accounts[0].id ?? null);
-    }
+    if (!accounts) return;
+    const resolved = resolveSelectedGmailAccountId(accounts, selectedAccountId);
+    if (resolved !== selectedAccountId) setSelectedAccountId(resolved);
   }, [accounts, selectedAccountId]);
+
+  // 選択が決まったら覚える。タブを押した時だけでなく、上の突き合わせで1件目に戻された
+  // 時も通るので、次にこの画面を開いた時は必ず今見ているアカウントから始まる。
+  useEffect(() => {
+    if (selectedAccountId) rememberSelectedGmailAccountId(selectedAccountId);
+  }, [selectedAccountId]);
 
   // ブロック中の送信者リストは端末ごとのローカル(db.blockedSenders)で、汎用同期エンジンの
   // 対象外。他端末でのブロック/解除をここで取り込む(src/lib/blockedSenders.ts参照) —

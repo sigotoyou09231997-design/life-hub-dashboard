@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /** Dexieの代わりに、このテストが使う操作(toArray / update / delete /
@@ -35,7 +36,12 @@ function fakeTable<T extends { id?: string }>(rows: T[]) {
 const mocks = vi.hoisted(() => ({ db: {} as Record<string, unknown> }));
 vi.mock("../db/schema", () => ({ db: mocks.db }));
 
-import { consolidateGmailAccounts } from "./gmailAccounts";
+import {
+  consolidateGmailAccounts,
+  readSelectedGmailAccountId,
+  rememberSelectedGmailAccountId,
+  resolveSelectedGmailAccountId,
+} from "./gmailAccounts";
 
 function setupDb(options: {
   accounts: { id: string; email: string; connectedAt: number }[];
@@ -134,5 +140,34 @@ describe("consolidateGmailAccounts", () => {
     // AI下書きを持っている方(進んでいる方)を残す。
     expect(tables.syncedEmails.rows.map((e) => e.id)).toEqual(["mail-old"]);
     expect(tables.draftReplies.rows).toEqual([{ id: "draft-1", accountId: "new", emailId: "mail-old" }]);
+  });
+});
+
+describe("選択中のGmailアカウントの記憶", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("覚えたIDをそのまま読み戻せる", () => {
+    expect(readSelectedGmailAccountId()).toBeNull();
+    rememberSelectedGmailAccountId("account-b");
+    expect(readSelectedGmailAccountId()).toBe("account-b");
+  });
+
+  it("覚えていたアカウントがまだあれば、それを選んだままにする", () => {
+    expect(resolveSelectedGmailAccountId([{ id: "account-a" }, { id: "account-b" }], "account-b")).toBe("account-b");
+  });
+
+  it("覚えていたアカウントが無くなっていたら1件目に戻す", () => {
+    // 連携を解除した後や、別のアカウントに切り替えた後の状態。
+    expect(resolveSelectedGmailAccountId([{ id: "account-a" }], "account-gone")).toBe("account-a");
+  });
+
+  it("まだ何も覚えていなければ1件目を選ぶ", () => {
+    expect(resolveSelectedGmailAccountId([{ id: "account-a" }, { id: "account-b" }], null)).toBe("account-a");
+  });
+
+  it("連携アカウントが1件も無ければ何も選ばない", () => {
+    expect(resolveSelectedGmailAccountId([], "account-a")).toBeNull();
   });
 });
