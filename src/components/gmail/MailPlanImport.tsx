@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { CalendarPlus, TriangleAlert } from "lucide-react";
+import { CalendarPlus, Check, TriangleAlert } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail, TripScheduleType } from "../../types";
 import { extractTripPlanFromEmail } from "../../lib/gmail";
 import {
   PLAN_DESTINATIONS,
   describePlanImportError,
+  isAlreadyRegistered,
   isOutsideTrip,
+  planKey,
   pickDefaultTripId,
   sortTripsForPicker,
   toCalendarEventRecord,
@@ -102,8 +104,26 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
     setTripId(pickDefaultTripId(trips, rows));
   }, [status, trips, rows, tripId]);
 
+  // 入れ先に既にある分の「鍵」。日付・時刻・タイトルが一致するものは、同じ内容として
+  // 二重に入れない。入れ先(と旅行)を切り替えるたびに引き直す。
+  const existingKeys = useLiveQuery(async () => {
+    if (destination === "trip") {
+      if (!tripId) return new Set<string>();
+      const items = await db.tripSchedule.where("tripId").equals(tripId).toArray();
+      return new Set(items.map((item) => planKey(item.date, item.startTime, item.title)));
+    }
+    if (destination === "event") {
+      const events = await db.calendarEvents.toArray();
+      return new Set(events.map((event) => planKey(event.date, event.startTime, event.title)));
+    }
+    const tasks = await db.tasks.toArray();
+    return new Set(tasks.map((task) => planKey(task.dueDate ?? "", task.dueTime, task.title)));
+  }, [destination, tripId]);
+
   const selectedTrip = trips?.find((trip) => trip.id === tripId);
-  const checkedRows = rows.filter((row) => row.checked);
+  /** 既に入っている行は、チェックが付いていても入れない。状態そのものは書き換えず、
+   * ここで弾く — 入れ先を切り替えた途端にチェックが消えると、何が起きたか分からないため。 */
+  const checkedRows = rows.filter((row) => row.checked && !isAlreadyRegistered(row, existingKeys));
   // 旅行の日程に入れる時だけ、入れ先の旅行が要る。予定・タスクはそのまま入れられる。
   const missingTrip = destination === "trip" && !tripId;
 
@@ -193,20 +213,29 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
           <div className="space-y-3">
             {rows.map((row, index) => {
               const outside = destination === "trip" && isOutsideTrip(selectedTrip, row.date);
+              const already = isAlreadyRegistered(row, existingKeys);
               return (
-                <div key={index} className="glass-row space-y-2 rounded-xl p-3">
+                <div key={index} className={`glass-row space-y-2 rounded-xl p-3 ${already ? "opacity-70" : ""}`}>
                   <label className="flex items-start gap-2">
                     <input
                       type="checkbox"
-                      checked={row.checked}
+                      checked={row.checked && !already}
+                      disabled={already}
                       onChange={(e) => updateRow(index, { checked: e.target.checked })}
                       aria-label={`${row.title}を入れる`}
-                      className="mt-1 h-4 w-4 shrink-0 accent-[color:var(--hub-accent,#4f6fff)]"
+                      className="mt-1 h-4 w-4 shrink-0 accent-[color:var(--hub-accent,#4f6fff)] disabled:opacity-50"
                     />
                     <span className="min-w-0 flex-1 text-sm font-medium text-slate-900">{row.title}</span>
                   </label>
 
-                  {row.checked && (
+                  {already && (
+                    <p className="flex items-start gap-1.5 px-1 text-xs leading-relaxed text-success">
+                      <Check size={13} className="mt-0.5 shrink-0" />
+                      すでに登録されています
+                    </p>
+                  )}
+
+                  {row.checked && !already && (
                     <div className="space-y-2">
                       <Input
                         label={destination === "task" ? "やること" : "内容"}

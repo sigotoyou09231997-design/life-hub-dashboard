@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   items: [] as Record<string, unknown>[],
   extractError: null as Error | null,
   trips: [] as Record<string, unknown>[],
+  existingTripSchedule: [] as Record<string, unknown>[],
+  existingEvents: [] as Record<string, unknown>[],
+  existingTasks: [] as Record<string, unknown>[],
   saved: {
     tripSchedule: [] as unknown[],
     tripExpenses: [] as unknown[],
@@ -20,10 +23,19 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../db/schema", () => ({
   db: {
     trips: { toArray: async () => mocks.trips },
-    tripSchedule: { add: async (row: unknown) => void mocks.saved.tripSchedule.push(row) },
+    tripSchedule: {
+      add: async (row: unknown) => void mocks.saved.tripSchedule.push(row),
+      where: () => ({ equals: () => ({ toArray: async () => mocks.existingTripSchedule }) }),
+    },
     tripExpenses: { add: async (row: unknown) => void mocks.saved.tripExpenses.push(row) },
-    calendarEvents: { add: async (row: unknown) => void mocks.saved.calendarEvents.push(row) },
-    tasks: { add: async (row: unknown) => void mocks.saved.tasks.push(row) },
+    calendarEvents: {
+      add: async (row: unknown) => void mocks.saved.calendarEvents.push(row),
+      toArray: async () => mocks.existingEvents,
+    },
+    tasks: {
+      add: async (row: unknown) => void mocks.saved.tasks.push(row),
+      toArray: async () => mocks.existingTasks,
+    },
   },
 }));
 // useLiveQuery は本物のDexieテーブルを相手にしないと値を返さない。ここで見たいのは
@@ -31,7 +43,9 @@ vi.mock("../../db/schema", () => ({
 vi.mock("dexie-react-hooks", async () => {
   const { useEffect, useState } = await import("react");
   return {
-    useLiveQuery: (querier: () => unknown) => {
+    // 依存配列も本物と同じように効かせる。無視すると、入れ先や旅行を切り替えた後に
+    // 引き直されず、二重登録の判定が古いままになる。
+    useLiveQuery: (querier: () => unknown, deps: unknown[] = []) => {
       const [value, setValue] = useState<unknown>(undefined);
       useEffect(() => {
         let active = true;
@@ -42,7 +56,7 @@ vi.mock("dexie-react-hooks", async () => {
           active = false;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, []);
+      }, deps);
       return value;
     },
   };
@@ -72,6 +86,9 @@ beforeEach(() => {
   mocks.extractError = null;
   mocks.trips = [{ id: "trip-1", name: "福岡旅行", startDate: "2026-09-11", endDate: "2026-09-15" }];
   mocks.saved = { tripSchedule: [], tripExpenses: [], calendarEvents: [], tasks: [] };
+  mocks.existingTripSchedule = [];
+  mocks.existingEvents = [];
+  mocks.existingTasks = [];
 });
 
 afterEach(cleanup);
@@ -193,5 +210,54 @@ describe("費用", () => {
     renderSheet();
     await user.click(await screen.findByRole("tab", { name: "予定" }));
     expect(screen.queryByRole("switch", { name: /費用にも入れる/ })).toBeNull();
+  });
+});
+
+describe("二重登録を防ぐ", () => {
+  it("すでに旅行の日程に入っている行は、その旨を出して入れられなくする", async () => {
+    mocks.existingTripSchedule = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡" }];
+    renderSheet();
+
+    expect(await screen.findByText("すでに登録されています")).toBeTruthy();
+    const checkbox = screen.getByRole("checkbox", { name: /羽田→福岡/ }) as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true);
+    expect(checkbox.checked).toBe(false);
+    expect((screen.getByRole("button", { name: "0件を入れる" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("入れ先が違えば、同じ内容でも入れられる", async () => {
+    // 旅行の日程に入っていても、予定にはまだ無い。
+    mocks.existingTripSchedule = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡" }];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "予定" }));
+
+    expect(screen.queryByText("すでに登録されています")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+    expect(mocks.saved.calendarEvents).toHaveLength(1);
+  });
+
+  it("すでに予定にある行も、その旨を出す", async () => {
+    mocks.existingEvents = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡" }];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "予定" }));
+    expect(await screen.findByText("すでに登録されています")).toBeTruthy();
+  });
+
+  it("すでにタスクにある行も、その旨を出す", async () => {
+    mocks.existingTasks = [{ dueDate: "2026-09-12", dueTime: "08:20", title: "羽田→福岡" }];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "タスク" }));
+    expect(await screen.findByText("すでに登録されています")).toBeTruthy();
+  });
+
+  it("時刻が違えば、別のものとして入れられる", async () => {
+    mocks.existingTripSchedule = [{ date: "2026-09-12", startTime: "14:00", title: "羽田→福岡" }];
+    renderSheet();
+    const save = await screen.findByRole("button", { name: "1件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.queryByText("すでに登録されています")).toBeNull();
   });
 });

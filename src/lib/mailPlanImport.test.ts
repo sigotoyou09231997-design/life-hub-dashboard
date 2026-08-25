@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
 import {
   describePlanImportError,
+  isAlreadyRegistered,
   isOutsideTrip,
   pickDefaultTripId,
+  planKey,
   toExpenseCategory,
   toTripExpenseRecord,
   sortTripsForPicker,
@@ -198,5 +200,38 @@ describe("旅行の費用への積み方", () => {
     expect(toExpenseCategory("meal")).toBe("meal");
     expect(toExpenseCategory("sightseeing")).toBe("sightseeing");
     expect(toExpenseCategory("other")).toBe("other");
+  });
+});
+
+describe("二重登録の判定", () => {
+  it("日付・時刻・タイトルが揃っていれば同じものとみなす", () => {
+    const keys = new Set([planKey("2026-09-19", "10:05", "のぞみ124号")]);
+    expect(isAlreadyRegistered(row({ date: "2026-09-19", startTime: "10:05", title: "のぞみ124号" }), keys)).toBe(true);
+  });
+
+  it("タイトルの前後の空白は無視する", () => {
+    // 見た目が同じものを、空白1つで別物と判定してしまわないようにする。
+    const keys = new Set([planKey("2026-09-19", "10:05", "のぞみ124号")]);
+    expect(isAlreadyRegistered(row({ date: "2026-09-19", startTime: "10:05", title: " のぞみ124号 " }), keys)).toBe(true);
+  });
+
+  it("時刻が違えば別のものとして扱う", () => {
+    const keys = new Set([planKey("2026-09-19", "10:05", "のぞみ124号")]);
+    expect(isAlreadyRegistered(row({ date: "2026-09-19", startTime: "14:05", title: "のぞみ124号" }), keys)).toBe(false);
+  });
+
+  it("日付が違えば別のものとして扱う", () => {
+    const keys = new Set([planKey("2026-09-19", "10:05", "のぞみ124号")]);
+    expect(isAlreadyRegistered(row({ date: "2026-09-26", startTime: "10:05", title: "のぞみ124号" }), keys)).toBe(false);
+  });
+
+  it("時刻なしどうしも揃う", () => {
+    const keys = new Set([planKey("2026-09-19", undefined, "ホテル泊")]);
+    expect(isAlreadyRegistered(row({ date: "2026-09-19", startTime: undefined, title: "ホテル泊" }), keys)).toBe(true);
+  });
+
+  it("まだ読み込めていない時は、重複扱いにしない", () => {
+    // 判定できないうちに「登録済み」と出すと、入れられるものを入れられなくする。
+    expect(isAlreadyRegistered(row({ title: "のぞみ124号" }), undefined)).toBe(false);
   });
 });

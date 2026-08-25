@@ -175,3 +175,20 @@ export function describePlanImportError(err: unknown): string {
   }
   return raw;
 }
+
+/** 「同じ内容」かどうかを見分けるための鍵。日付・時刻・タイトルが揃っていれば同じものとみなす。
+ *
+ * どのメールから作ったかを行に持たせる方法もあるが、3つのテーブル全部に項目を足すことに
+ * なるうえ、手で入れた同じ予定とは結局重複する。内容で見る方が、取り込み元によらず効く。
+ *
+ * タイトルの前後の空白と時刻の未設定は揃えてから比べる — 見た目が同じものを、空白1つで
+ * 別物と判定してしまわないようにするため。 */
+export function planKey(date: string, time: string | undefined, title: string): string {
+  return `${date}|${time ?? ""}|${title.trim()}`;
+}
+
+/** その行が、入れ先に既にあるか。 */
+export function isAlreadyRegistered(row: TripImportRow, existingKeys: Set<string> | undefined): boolean {
+  if (!existingKeys) return false;
+  return existingKeys.has(planKey(row.date, row.startTime, row.title));
+}
