@@ -9,7 +9,10 @@ const mocks = vi.hoisted(() => ({
   others: [] as { userId: string; dbName: string; label: string; email: string | null }[],
   added: [] as CalendarEvent[],
   updated: [] as CalendarEvent[],
-  copies: [] as { label: string; title: string }[],
+  applied: [] as { label: string; linkId: string; title: string; event: CalendarEvent }[],
+  removed: [] as { label: string; linkId: string }[],
+  /** 相手のアカウントに既に入っている「同じ予定」。linkId をキーにする。 */
+  linked: {} as Record<string, CalendarEvent | undefined>,
 }));
 
 vi.mock("../../db/schema", () => ({
@@ -32,8 +35,12 @@ vi.mock("../../db/schema", () => ({
 vi.mock("../../lib/crossAccountEvents", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/crossAccountEvents")>()),
   listOtherAccounts: () => mocks.others,
-  addEventToAccount: async (account: { label: string }, event: CalendarEvent) => {
-    mocks.copies.push({ label: account.label, title: event.title });
+  findLinkedEvent: async (_account: unknown, linkId: string) => mocks.linked[linkId] ?? null,
+  applyEventToAccount: async (account: { label: string }, event: CalendarEvent, linkId: string, title: string) => {
+    mocks.applied.push({ label: account.label, linkId, title, event });
+  },
+  removeEventFromAccount: async (account: { label: string }, linkId: string) => {
+    mocks.removed.push({ label: account.label, linkId });
   },
 }));
 
@@ -48,6 +55,8 @@ const existingEvent: CalendarEvent = {
   createdAt: 1_000,
 };
 
+const work = { userId: "work", dbName: "life-hub-work", label: "仕事用", email: "work@example.com" };
+
 function renderForm(initial?: CalendarEvent) {
   return render(
     <ToastProvider>
@@ -60,7 +69,9 @@ beforeEach(() => {
   mocks.others = [];
   mocks.added = [];
   mocks.updated = [];
-  mocks.copies = [];
+  mocks.applied = [];
+  mocks.removed = [];
+  mocks.linked = {};
 });
 
 afterEach(cleanup);
@@ -82,34 +93,39 @@ describe("ほかのアカウントにも入れる欄", () => {
     mocks.others = [{ userId: "work", dbName: "life-hub-work", label: "仕事用", email: "work@example.com" }];
     renderForm(existingEvent);
     expect(screen.getByRole("switch", { name: /仕事用/ })).toBeTruthy();
-    // 相手側の同じ予定を直すものだと思われないよう、断り書きを出す。
-    expect(screen.getByText(/新しく1件追加されます/)).toBeTruthy();
+    // 相手側がどうなるのか(連動する・外すと取り下げる)を、押す前に伝える。
+    expect(screen.getByText(/一緒に直ります/)).toBeTruthy();
   });
 
-  it("編集で保存し直しただけでは、相手のアカウントに増やさない", async () => {
-    mocks.others = [{ userId: "work", dbName: "life-hub-work", label: "仕事用", email: "work@example.com" }];
+  it("編集で保存し直しただけでは、相手のアカウントに何もしない", async () => {
+    mocks.others = [work];
     const user = userEvent.setup();
     renderForm(existingEvent);
 
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
 
     expect(mocks.updated).toHaveLength(1);
-    expect(mocks.copies).toEqual([]);
+    expect(mocks.applied).toEqual([]);
+    expect(mocks.removed).toEqual([]);
   });
 
-  it("編集画面でチェックを入れて保存すると、相手のアカウントに1件足す", async () => {
-    mocks.others = [{ userId: "work", dbName: "life-hub-work", label: "仕事用", email: "work@example.com" }];
+  it("編集画面でチェックを入れて保存すると、相手のアカウントに反映する", async () => {
+    mocks.others = [work];
     const user = userEvent.setup();
     renderForm(existingEvent);
 
     await user.click(screen.getByRole("switch", { name: /仕事用/ }));
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
 
-    expect(mocks.copies).toEqual([{ label: "仕事用", title: "面接" }]);
+    expect(mocks.applied).toHaveLength(1);
+    expect(mocks.applied[0].title).toBe("面接");
+    // 印を持たせておかないと、次に直した時に相手側のどれが同じ予定か分からなくなる。
+    expect(mocks.applied[0].linkId).toEqual(expect.any(String));
+    expect(mocks.updated[0].linkId).toBe(mocks.applied[0].linkId);
   });
 
   it("そのアカウントでの予定名だけ書き換えて入れられる", async () => {
-    mocks.others = [{ userId: "work", dbName: "life-hub-work", label: "仕事用", email: "work@example.com" }];
+    mocks.others = [work];
     const user = userEvent.setup();
     renderForm(existingEvent);
 
@@ -121,7 +137,51 @@ describe("ほかのアカウントにも入れる欄", () => {
 
     // こちらの予定名はそのまま、相手側だけ書き換えた名前で入る。
     expect(mocks.updated[0].title).toBe("面接");
-    expect(mocks.copies).toEqual([{ label: "仕事用", title: "○○社 面接" }]);
+    expect(mocks.applied[0].title).toBe("○○社 面接");
+  });
+});
+
+describe("入れた先のアカウントとの連動", () => {
+  const linkedEvent: CalendarEvent = { ...existingEvent, linkId: "link-1" };
+
+  it("既に入っているアカウントは、開いた時点でスイッチが入っていて名前も出る", async () => {
+    mocks.others = [work];
+    mocks.linked["link-1"] = { ...existingEvent, id: "work-row", title: "○○社 面接" };
+    renderForm(linkedEvent);
+
+    // 相手側を見に行くのは非同期なので、反映を待つ。
+    expect(await screen.findByDisplayValue("○○社 面接")).toBeTruthy();
+    expect(screen.getByRole("switch", { name: /仕事用/ }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("そのまま保存すると、相手側は増えずに同じ印で直る", async () => {
+    // 行き来して編集するたびに相手のスケジュールへ積み上がっていた不具合の再発防止。
+    mocks.others = [work];
+    mocks.linked["link-1"] = { ...existingEvent, id: "work-row", title: "○○社 面接" };
+    const user = userEvent.setup();
+    renderForm(linkedEvent);
+    await screen.findByDisplayValue("○○社 面接");
+
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+
+    expect(mocks.applied).toEqual([
+      { label: "仕事用", linkId: "link-1", title: "○○社 面接", event: expect.objectContaining({ linkId: "link-1" }) },
+    ]);
+    expect(mocks.removed).toEqual([]);
+  });
+
+  it("チェックを外して保存すると、そのアカウントから取り下げる", async () => {
+    mocks.others = [work];
+    mocks.linked["link-1"] = { ...existingEvent, id: "work-row", title: "○○社 面接" };
+    const user = userEvent.setup();
+    renderForm(linkedEvent);
+    await screen.findByDisplayValue("○○社 面接");
+
+    await user.click(screen.getByRole("switch", { name: /仕事用/ }));
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+
+    expect(mocks.applied).toEqual([]);
+    expect(mocks.removed).toEqual([{ label: "仕事用", linkId: "link-1" }]);
   });
 });
 

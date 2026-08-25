@@ -88,6 +88,10 @@ export interface CalendarEvent {
   updatedAt?: number;
   deviceId?: string;
   userId?: string;
+  /** 同じ予定を複数のアカウントに入れた時、それらに共通で付ける印。これがあるから
+   * 片方を直した時に、入れた先のアカウントの「同じ予定」を見つけて一緒に直せる
+   * (src/lib/crossAccountEvents.ts)。1つのアカウントにしか無い予定には付かない。 */
+  linkId?: string;
 }
 
 export type Priority = "low" | "medium" | "high";

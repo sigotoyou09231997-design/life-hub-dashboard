@@ -278,6 +278,13 @@ export class LifeHubDB extends Dexie {
       diaryEntries: "id, date",
     });
 
+    // 複数のアカウントに入れた同じ予定を結び付ける印(types/index.ts の CalendarEvent.linkId)。
+    // 相手のアカウントのDBから引くので索引を張る。既存の予定には付かないままでよい —
+    // 印が無い予定は「1つのアカウントにしか無い予定」として今までどおり扱う。
+    this.version(14).stores({
+      calendarEvents: "id, date, linkId",
+    });
+
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに
     // UUIDを補うフックを全テーブルへ登録する(Dexie公式が示すUUID主キーの標準パターン)。
     for (const schema of HOOKED_TABLE_SCHEMAS) {

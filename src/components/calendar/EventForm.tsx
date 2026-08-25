@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Tag, Users } from "lucide-react";
 import { db } from "../../db/schema";
 import type { CalendarEvent, ScheduleCategory } from "../../types";
@@ -14,11 +14,13 @@ import { Button } from "../ui/Button";
 import { SwitchField } from "../ui/SwitchField";
 import { useToast } from "../ui/ToastProvider";
 import {
-  addEventToAccount,
+  applyEventToAccount,
   emptyDrafts,
+  findLinkedEvent,
   followMainTitle,
   listOtherAccounts,
-  planAccountEvents,
+  planAccountChanges,
+  removeEventFromAccount,
   type AccountEventDraft,
 } from "../../lib/crossAccountEvents";
 
@@ -67,6 +69,41 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
     emptyDrafts(listOtherAccounts(), initial?.title ?? ""),
   );
 
+  // 編集で開いた予定が、既にどのアカウントへ入っているかを見に行く。入っていれば
+  // スイッチを入れた状態にし、そのアカウントで付けている予定名をそのまま出す —
+  // ここで拾わないと、保存のたびに相手側へ同じ予定が積み上がる。
+  useEffect(() => {
+    const linkId = initial?.linkId;
+    if (!linkId || otherAccounts.length === 0) return;
+    let active = true;
+    void (async () => {
+      const found = await Promise.all(
+        otherAccounts.map(async (account) => {
+          try {
+            return { account, event: await findLinkedEvent(account, linkId) };
+          } catch (error) {
+            // 相手のDBを開けなくても、この画面は開けたままにする(入っていない扱い)。
+            console.error("[crossAccountEvents] failed to look up a linked event:", error);
+            return { account, event: null };
+          }
+        }),
+      );
+      if (!active) return;
+      setDrafts((current) => {
+        const next = { ...current };
+        for (const { account, event } of found) {
+          if (!event) continue;
+          // 相手側で付けている名前は上のタイトルに追従させない(editedを立てる)。
+          next[account.userId] = { checked: true, title: event.title, edited: true, existed: true };
+        }
+        return next;
+      });
+    })();
+    return () => {
+      active = false;
+    };
+  }, [initial?.linkId, otherAccounts]);
+
   function handleTitleChange(next: string) {
     setTitle(next);
     // まだ個別に書き換えていない行は、上のタイトルに追従させる。
@@ -107,29 +144,44 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
+    const changes = planAccountChanges(otherAccounts, drafts, record.title);
+    // 印(linkId)は、ほかのアカウントに関わる時だけ持たせる。1つのアカウントにしか
+    // 無い予定にまで付けても意味が無いので、既に付いているものはそのまま引き継ぐ。
+    const linkId =
+      initial?.linkId ?? (changes.apply.length > 0 || changes.remove.length > 0 ? crypto.randomUUID() : undefined);
+    const stored: CalendarEvent = { ...record, linkId };
+
     const mode = initial?.id ? "updated" : "created";
     if (initial?.id) {
-      await db.calendarEvents.update(initial.id, record);
+      await db.calendarEvents.update(initial.id, stored);
     } else {
-      await db.calendarEvents.add(record);
+      await db.calendarEvents.add(stored);
     }
 
-    // ほかのアカウントにも入れる分。編集の時も同じで、チェックが入っていれば相手側へ
-    // 「新しく1件」足す — 予定どうしを結びつける印を持たない作りなので、相手側の
-    // どれがこの予定に当たるのかを知る手立てが無く、更新のしようがないため。
-    // 1つ失敗しても残りは続け、こちらのアカウントの予定は必ず残す — 相手側への
-    // 複製のために本体を巻き添えにしない。
+    // ほかのアカウントの分。同じ印の予定が相手側にあればそれを直し、無ければ足す。
+    // チェックを外した分は取り下げる。1つ失敗しても残りは続け、こちらのアカウントの
+    // 予定は必ず残す — 相手側への反映のために本体を巻き添えにしない。
     const failed: string[] = [];
-    for (const planned of planAccountEvents(otherAccounts, drafts, record.title)) {
-      try {
-        await addEventToAccount(planned.account, { ...record, title: planned.title });
-      } catch (error) {
-        console.error("[crossAccountEvents] failed to add an event to another account:", error);
-        failed.push(planned.account.label);
+    if (linkId) {
+      for (const planned of changes.apply) {
+        try {
+          await applyEventToAccount(planned.account, stored, linkId, planned.title);
+        } catch (error) {
+          console.error("[crossAccountEvents] failed to apply an event to another account:", error);
+          failed.push(planned.account.label);
+        }
+      }
+      for (const account of changes.remove) {
+        try {
+          await removeEventFromAccount(account, linkId);
+        } catch (error) {
+          console.error("[crossAccountEvents] failed to remove an event from another account:", error);
+          failed.push(account.label);
+        }
       }
     }
     if (failed.length > 0) {
-      showToast(`${failed.join("・")}には予定を入れられませんでした`, "error");
+      showToast(`${failed.join("・")}には反映できませんでした`, "error");
     }
     setSaving(false);
     onSaved(mode);
@@ -211,10 +263,9 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       {otherAccounts.length > 0 && (
         <FormPanel caption="ほかのアカウントにも入れる" icon={Users}>
           {initial && (
-            // 編集画面では、これが「相手側の同じ予定を直す」ものだと思われやすい。
-            // 実際には新しく1件足すだけなので、押す前に分かるようにしておく。
             <p className="px-[0.9rem] py-3 text-xs leading-relaxed text-slate-500">
-              入れて保存すると、そのアカウントに新しく1件追加されます。この予定とは連動しません。
+              入れたアカウントの予定は、この予定を直すと一緒に直ります（予定名だけはそのまま保たれます）。
+              外して保存すると、そのアカウントから取り下げます。
             </p>
           )}
           {otherAccounts.map((account) => (

@@ -35,12 +35,15 @@ export interface AccountEventDraft {
   title: string;
   /** 本人がこの行のタイトルを個別に書き換えたか。まだなら上のタイトルに追従する。 */
   edited: boolean;
+  /** この予定を開いた時点で、そのアカウントに既に入っていたか。チェックを外して
+   * 保存した時に「取り下げる」のか「元から入っていない」のかを見分けるために持つ。 */
+  existed: boolean;
 }
 
 export function emptyDrafts(accounts: OtherAccount[], title: string): Record<string, AccountEventDraft> {
   // 既定はオフ。ここをオンにすると、片方のアカウントだけに入れたい普段の予定まで
   // 黙って両方に増えてしまう。
-  return Object.fromEntries(accounts.map((a) => [a.userId, { checked: false, title, edited: false }]));
+  return Object.fromEntries(accounts.map((a) => [a.userId, { checked: false, title, edited: false, existed: false }]));
 }
 
 /** 上のタイトルを打ち替えた時に、まだ手を付けていない行だけ追従させる。
@@ -63,59 +66,126 @@ export interface PlannedAccountEvent {
   title: string;
 }
 
-/** 実際に書き込むぶんだけを取り出す。チェックが入っていて、名前が空でないもの
- * (空なら上のタイトルをそのまま使う)。 */
-export function planAccountEvents(
+export interface AccountEventChanges {
+  /** 入れる/直すアカウント。 */
+  apply: PlannedAccountEvent[];
+  /** 取り下げるアカウント(入っていたのにチェックを外した)。 */
+  remove: OtherAccount[];
+}
+
+/** 保存時に相手のアカウントへ何をするかを決める。チェックが入っていれば入れる(既にあれば
+ * 直す)、入っていたのに外されていれば取り下げる。予定名が空の行は上のタイトルを使う。 */
+export function planAccountChanges(
   accounts: OtherAccount[],
   drafts: Record<string, AccountEventDraft>,
   mainTitle: string,
-): PlannedAccountEvent[] {
-  return accounts
-    .filter((account) => drafts[account.userId]?.checked)
-    .map((account) => ({ account, title: drafts[account.userId].title.trim() || mainTitle }));
+): AccountEventChanges {
+  const apply: PlannedAccountEvent[] = [];
+  const remove: OtherAccount[] = [];
+  for (const account of accounts) {
+    const draft = drafts[account.userId];
+    if (!draft) continue;
+    if (draft.checked) apply.push({ account, title: draft.title.trim() || mainTitle });
+    else if (draft.existed) remove.push(account);
+  }
+  return { apply, remove };
 }
 
-/** 別のアカウントのスケジュールに、同じ内容の予定を1件足す。
+/** 相手のアカウントのDBを開いて渡す。書き終わったら必ず閉じる — 開いたままにすると、
+ * その後スキーマを上げた時に「別の接続が古いバージョンで掴んでいる」状態になり、
+ * 更新が止まってしまう。
  *
- * アカウントごとにIndexedDBが分かれている(src/lib/accounts.ts)ので、相手のDBを名前で
- * 開いて直接書く。同期の仕掛け(src/lib/sync.ts の registerSyncedTable)は「いま開いて
- * いるDB」のテーブルにしか付いていないため、userId・deviceId の付与と syncQueue への
- * 積み込みはここで手で行う — これが無いと、相手のアカウントに切り替えた時にその予定が
- * 他の端末へ上がらないまま、この端末の中だけに残る。
- *
- * 相手のDBは書いたらすぐ閉じる。開いたままにしておくと、その後スキーマを上げた時に
- * 「別の接続が古いバージョンで掴んでいる」状態になり、更新が止まってしまう。 */
-export async function addEventToAccount(account: OtherAccount, event: CalendarEvent): Promise<void> {
-  // 絶対にやってはいけないこと: いま開いているDBに書き戻す。そうなると、複製したつもりの
-  // 予定が自分のスケジュールに増える(「編集したのに新しい予定が増える」ように見える)。
-  // listOtherAccounts が同じ条件で弾いているので普通は起きないが、ここでも止めておく —
-  // 静かに自分のデータを汚すより、失敗として画面に出す方がよい。
+ * 絶対にやってはいけないこと: いま開いているDBを相手として扱うこと。そうなると相手側へ
+ * 入れたつもりの予定が自分のスケジュールに現れる。listOtherAccounts が同じ条件で弾いて
+ * いるが、静かに自分のデータを汚すより失敗として画面に出す方がよいのでここでも止める。 */
+async function withAccountDb<T>(account: OtherAccount, run: (db: LifeHubDB) => Promise<T>): Promise<T> {
   if (account.dbName === BOOT_DB_NAME) {
     throw new Error(`複製先がいま開いているアカウントと同じです (${account.dbName})`);
   }
   const other = new LifeHubDB(account.dbName);
   try {
     await other.open();
-    // idはここで振る。こちらの行のidをそのまま持ち込むと、別アカウントの行どうしが
-    // 同じidを名乗ることになる。すぐ下のsyncQueueに積むのにも同じidが要るので、
-    // 相手のDB任せ(schema.tsのcreatingフック)にせず自分で決める。
-    const { id: _localId, ...fields } = event;
-    const rowId = crypto.randomUUID();
-    await other.calendarEvents.add({
-      ...fields,
-      id: rowId,
-      userId: account.userId,
-      deviceId: getDeviceId(),
-    });
-    await other.syncQueue.add({ table: "calendarEvents", rowId, op: "upsert", queuedAt: Date.now() });
+    return await run(other);
   } finally {
     other.close();
   }
 }
 
-/** 画面に出す診断用の一行。「ほかのアカウントにも入れる」欄が出ない時に、端末側で
- * 何が起きているのかを本人が読めるようにするためのもの(アカウント画面に表示)。
- * 原因が分かったら消す。 */
+/** 相手のアカウントに入っている「同じ予定」。無ければ null。 */
+export async function findLinkedEvent(account: OtherAccount, linkId: string): Promise<CalendarEvent | null> {
+  return withAccountDb(account, async (other) => {
+    const found = await other.calendarEvents.where("linkId").equals(linkId).first();
+    return found ?? null;
+  });
+}
+
+/** 相手のアカウントのスケジュールに、この予定を反映する。同じ印(linkId)の予定が既に
+ * あればそれを直し、無ければ新しく足す。
+ *
+ * 予定名だけは相手側の値を使う — 「面接」をこちらには会社名入りで、相手には会社名なしで
+ * 置く、というのがこの機能の目的なので、日時や場所を直しても名前は上書きしない。
+ *
+ * 同期の仕掛け(src/lib/sync.ts の registerSyncedTable)は「いま開いているDB」のテーブルに
+ * しか付いていないため、userId・deviceId の付与と syncQueue への積み込みは手で行う —
+ * これが無いと、相手のアカウントに切り替えた時にその予定が他の端末へ上がらない。 */
+export async function applyEventToAccount(
+  account: OtherAccount,
+  event: CalendarEvent,
+  linkId: string,
+  title: string,
+): Promise<void> {
+  await withAccountDb(account, async (other) => {
+    const { id: _localId, ...fields } = event;
+    const existing = await other.calendarEvents.where("linkId").equals(linkId).first();
+    if (existing?.id) {
+      await other.calendarEvents.update(existing.id, {
+        ...fields,
+        id: existing.id,
+        title,
+        linkId,
+        userId: account.userId,
+        deviceId: getDeviceId(),
+      });
+      await queueForPush(other, existing.id);
+      return;
+    }
+    // idはここで振る。こちらの行のidをそのまま持ち込むと、別アカウントの行どうしが
+    // 同じidを名乗ることになる。すぐ下で同期に積むのにも同じidが要るので、相手のDB任せ
+    // (schema.tsのcreatingフック)にせず自分で決める。
+    const rowId = crypto.randomUUID();
+    await other.calendarEvents.add({
+      ...fields,
+      id: rowId,
+      title,
+      linkId,
+      userId: account.userId,
+      deviceId: getDeviceId(),
+    });
+    await queueForPush(other, rowId);
+  });
+}
+
+/** 相手のアカウントから、この予定を取り下げる(チェックを外して保存した時)。
+ * 相手側に無ければ何もしない。 */
+export async function removeEventFromAccount(account: OtherAccount, linkId: string): Promise<void> {
+  await withAccountDb(account, async (other) => {
+    const existing = await other.calendarEvents.where("linkId").equals(linkId).first();
+    if (!existing?.id) return;
+    await other.calendarEvents.delete(existing.id);
+    await queueForPush(other, existing.id, "delete");
+  });
+}
+
+/** 相手のDBの同期キューに積む。同じ行が既に並んでいたら操作だけ入れ替える
+ * (src/lib/sync.ts の enqueue と同じ考え方)。 */
+async function queueForPush(other: LifeHubDB, rowId: string, op: "upsert" | "delete" = "upsert"): Promise<void> {
+  const existing = await other.syncQueue.where("[table+rowId]").equals(["calendar_events", rowId]).first();
+  if (existing?.id) await other.syncQueue.update(existing.id, { op, queuedAt: Date.now() });
+  else await other.syncQueue.add({ table: "calendar_events", rowId, op, queuedAt: Date.now() });
+}
+
+/** 画面に出す診断用の一行。「ほかのアカウントにも入れる」欄の状態を、端末側で本人が
+ * 読めるようにするためのもの(アカウント画面に表示)。原因が分かったら消す。 */
 export function describeAccountState(): string {
   const accounts = listAccounts();
   const others = listOtherAccounts();
