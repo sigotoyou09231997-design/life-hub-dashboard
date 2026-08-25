@@ -438,12 +438,12 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         <button
           type="button"
           onClick={() => setPlanImportOpen(true)}
-          aria-label="このメールから予定を作る"
+          aria-label="予定に追加する"
           title="このメールの内容から、旅行の日程・予定・タスクを作る"
           className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
         >
           <CalendarPlus size={14} />
-          <span className="hidden sm:inline">予定にする</span>
+          <span className="hidden sm:inline">予定に追加する</span>
         </button>
         <button
           type="button"
