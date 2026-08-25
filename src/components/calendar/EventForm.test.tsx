@@ -205,3 +205,25 @@ describe("編集の保存", () => {
     expect(screen.getByText(/更新先が見つかりませんでした/)).toBeTruthy();
   });
 });
+
+describe("印がまだ無い予定", () => {
+  it("同じ予定を何度編集しても、印が変わらない(相手側に増え続けない)", async () => {
+    // 毎回新しい印を作っていた頃は、編集のたびに相手側へ新しい予定が足されていた。
+    mocks.others = [work];
+    const user = userEvent.setup();
+
+    const { unmount } = renderForm(existingEvent);
+    await user.click(screen.getByRole("switch", { name: /仕事用/ }));
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    unmount();
+
+    renderForm(existingEvent);
+    await user.click(screen.getByRole("switch", { name: /仕事用/ }));
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+
+    expect(mocks.applied).toHaveLength(2);
+    expect(mocks.applied[0].linkId).toBe(mocks.applied[1].linkId);
+    // 印は予定自身のidを使うので、保存し直しても揺れない。
+    expect(mocks.applied[0].linkId).toBe("event-1");
+  });
+});

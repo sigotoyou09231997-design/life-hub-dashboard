@@ -146,9 +146,15 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
 
     const changes = planAccountChanges(otherAccounts, drafts, record.title);
     // 印(linkId)は、ほかのアカウントに関わる時だけ持たせる。1つのアカウントにしか
-    // 無い予定にまで付けても意味が無いので、既に付いているものはそのまま引き継ぐ。
+    // 無い予定にまで付けても意味が無い。
+    //
+    // 印がまだ無い予定には、その予定自身のidを印として使う。ここで毎回新しい印を
+    // 作っていた頃は、同じ予定を編集するたびに別の印になり、相手側の「同じ予定」を
+    // 見つけられず新しく足し続けていた(印が付く前に作った予定で必ず起きる)。
+    // idは変わらないので、何度編集しても同じ印になる。
+    const needsLink = changes.apply.length > 0 || changes.remove.length > 0;
     const linkId =
-      initial?.linkId ?? (changes.apply.length > 0 || changes.remove.length > 0 ? crypto.randomUUID() : undefined);
+      initial?.linkId ?? initial?.id ?? (needsLink ? crypto.randomUUID() : undefined);
     const stored: CalendarEvent = { ...record, linkId };
 
     const mode = initial?.id ? "updated" : "created";
