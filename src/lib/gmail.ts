@@ -100,6 +100,31 @@ export interface AuthorizationCodeResult {
   email: string;
 }
 
+/** 連携の失敗理由を、次にやることまで含めた日本語にする。
+ *
+ * サーバー側(netlify/functions/tokenExchange.ts)は理由を返しているのに、画面は
+ * 「Gmail連携に失敗しました」としか出しておらず、設定を直しようがなかった
+ * (2026-08-25)。同期側の describeSyncError と同じ考え方。 */
+export function describeGmailConnectError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/not configured on the server/i.test(raw)) {
+    return "サーバー側にGoogleの接続情報が設定されていません。Netlifyの環境変数 GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET を確認してください";
+  }
+  if (/redirect_uri_mismatch/i.test(raw)) {
+    return `Googleに登録したリダイレクトURIと、いま開いているアプリのURLが一致していません。Google Cloud Consoleの「クライアント」で ${typeof window !== "undefined" ? getRedirectUri() : "/gmail/callback"} が登録されているか確認してください`;
+  }
+  if (/invalid_grant/i.test(raw)) {
+    return "認証コードが期限切れか、すでに使われています。設定画面からもう一度やり直してください";
+  }
+  if (/invalid_client|unauthorized_client/i.test(raw)) {
+    return `GoogleのクライアントIDかシークレットが合っていません。Netlifyの環境変数とGoogle Cloud Consoleの値を突き合わせてください (${raw})`;
+  }
+  if (/access_denied|403/i.test(raw)) {
+    return `Googleにアクセスを断られました。OAuth同意画面の「テストユーザー」にこのアドレスが入っているか確認してください (${raw})`;
+  }
+  return raw;
+}
+
 export async function exchangeAuthorizationCode(code: string): Promise<AuthorizationCodeResult> {
   return callFunction<AuthorizationCodeResult>("tokenExchange", {
     grantType: "authorization_code",

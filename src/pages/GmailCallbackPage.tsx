@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { db } from "../db/schema";
-import { exchangeAuthorizationCode, GMAIL_OAUTH_STATE_KEY } from "../lib/gmail";
+import { describeGmailConnectError, exchangeAuthorizationCode, GMAIL_OAUTH_STATE_KEY } from "../lib/gmail";
 import { useToast } from "../components/ui/ToastProvider";
 
 /** Landing page for Google's OAuth redirect (/gmail/callback). Exchanges the
@@ -12,6 +12,9 @@ export default function GmailCallbackPage() {
   const showToast = useToast();
   const ranRef = useRef(false);
   const [status, setStatus] = useState<"working" | "error">("working");
+  // 失敗の理由。トーストは数秒で消えてしまい、設定を直す手がかりが残らないので
+  // 画面にも出したままにする。
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     if (ranRef.current) return;
@@ -30,7 +33,13 @@ export default function GmailCallbackPage() {
       }
       if (!code || !state || !expectedState || state !== expectedState) {
         setStatus("error");
-        showToast("認証情報の確認に失敗しました。もう一度お試しください。", "error");
+        // 同じタブで開き直した/別のタブに戻ってきた場合など、行きと帰りで
+        // sessionStorage が繋がっていないと起きる。
+        setReason(
+          !expectedState
+            ? "この画面を開いたタブに、連携を始めた時の情報が残っていません。設定画面から、同じタブでもう一度お試しください"
+            : "認証情報の確認に失敗しました。設定画面からもう一度お試しください",
+        );
         return;
       }
 
@@ -53,9 +62,10 @@ export default function GmailCallbackPage() {
         }
         showToast(`${result.email} と${existing ? "つなぎ直しました" : "連携しました"}`);
         navigate("/settings", { replace: true });
-      } catch {
+      } catch (error) {
+        console.error("[gmail] failed to connect an account:", error);
         setStatus("error");
-        showToast("Gmail連携に失敗しました", "error");
+        setReason(describeGmailConnectError(error));
       }
     }
 
@@ -65,8 +75,20 @@ export default function GmailCallbackPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-5 text-center">
       <p className="text-sm text-slate-500">
-        {status === "working" ? "Gmailと連携しています…" : "連携に失敗しました。設定画面に戻ってやり直してください。"}
+        {status === "working" ? "Gmailと連携しています…" : "連携に失敗しました"}
       </p>
+      {status === "error" && (
+        <>
+          <p className="max-w-md text-xs leading-relaxed text-slate-500">{reason}</p>
+          <button
+            type="button"
+            onClick={() => navigate("/settings", { replace: true })}
+            className="app-button rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          >
+            設定に戻る
+          </button>
+        </>
+      )}
     </div>
   );
 }

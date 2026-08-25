@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   attachmentsTotalBytes,
   buildSyncSummary,
+  describeGmailConnectError,
   base64UrlDecode,
   base64UrlEncode,
   buildRawMessage,
@@ -178,6 +179,35 @@ describe("buildSyncSummary", () => {
   it("取得できなかった分・持ち越した分はこれまでどおり伝える", () => {
     expect(buildSyncSummary({ ...none, freshAdded: 2, failed: 1, deferred: 30 })).toBe(
       "2件の新着メール・1件は取得できず次回に持ち越し・残り30件は次回の同期で取り込みしました",
+    );
+  });
+});
+
+describe("describeGmailConnectError", () => {
+  it("サーバーに接続情報が無い場合は、どの環境変数かまで伝える", () => {
+    expect(describeGmailConnectError(new Error("Google OAuth is not configured on the server"))).toContain(
+      "GOOGLE_CLIENT_ID",
+    );
+  });
+
+  it("リダイレクトURIの不一致は、どこを見ればよいかまで伝える", () => {
+    expect(describeGmailConnectError(new Error("Google token exchange failed: redirect_uri_mismatch"))).toContain(
+      "リダイレクトURI",
+    );
+  });
+
+  it("認証コードの期限切れは、やり直せばよいと伝える", () => {
+    expect(describeGmailConnectError(new Error('{"error":"invalid_grant"}'))).toContain("もう一度やり直して");
+  });
+
+  it("テストユーザー未登録で断られた場合は、その設定を指す", () => {
+    expect(describeGmailConnectError(new Error("access_denied"))).toContain("テストユーザー");
+  });
+
+  it("当てはまるものが無ければ、元のメッセージをそのまま出す", () => {
+    // 知らない失敗を「連携に失敗しました」で潰すと、設定を直しようがなくなる。
+    expect(describeGmailConnectError(new Error("Googleがrefresh_tokenを返しませんでした"))).toBe(
+      "Googleがrefresh_tokenを返しませんでした",
     );
   });
 });
