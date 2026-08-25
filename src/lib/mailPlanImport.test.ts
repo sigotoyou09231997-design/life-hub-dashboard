@@ -112,9 +112,23 @@ describe("入れ先ごとの作り分け", () => {
   });
 
   it("予定は、時刻が読み取れていれば時刻つきにする", () => {
-    const record = toCalendarEventRecord(row({ startTime: "08:20" }), 1_000);
+    const record = toCalendarEventRecord(row({ startTime: "08:20", endTime: "10:15" }), 1_000);
     expect(record.allDay).toBe(false);
     expect(record.startTime).toBe("08:20");
+    expect(record.endTime).toBe("10:15");
+  });
+
+  it("旅行の日程にも終了時刻(到着時刻)を持たせる", () => {
+    const record = toTripScheduleRecord(row({ startTime: "10:05", endTime: "13:20" }), "trip-1", 1_000);
+    expect(record.startTime).toBe("10:05");
+    expect(record.endTime).toBe("13:20");
+  });
+
+  it("終日の予定には終了時刻を残さない", () => {
+    // 時刻の無い予定に「〜13:20」とだけ出ると読めない。
+    const record = toCalendarEventRecord(row({ endTime: "13:20" }), 1_000);
+    expect(record.allDay).toBe(true);
+    expect(record.endTime).toBeUndefined();
   });
 
   it("予定は、時刻が読み取れなければ終日にする", () => {

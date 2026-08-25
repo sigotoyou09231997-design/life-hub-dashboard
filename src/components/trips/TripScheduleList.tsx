@@ -67,9 +67,9 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
                             {item.startTime && (
-                              <span className="flex items-center gap-0.5 text-xs text-slate-400">
+                              <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-xs text-slate-400">
                                 <Clock size={12} />
-                                {item.startTime}
+                                {item.endTime ? `${item.startTime}〜${item.endTime}` : item.startTime}
                               </span>
                             )}
                             <p className="line-clamp-2 text-sm font-medium text-slate-900" title={item.title}>

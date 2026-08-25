@@ -67,6 +67,7 @@ export default function SchedulePage() {
     tripName: tripNameById.get(s.tripId) ?? "旅行",
     date: s.date,
     startTime: s.startTime,
+    endTime: s.endTime,
     title: s.title,
     location: s.location,
   }));

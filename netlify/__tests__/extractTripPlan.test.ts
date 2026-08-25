@@ -80,6 +80,32 @@ describe("parseTripPlanResponse", () => {
   });
 });
 
+describe("終了時刻の読み取り", () => {
+  const parseTimes = (startTime: unknown, endTime: unknown) =>
+    parseTripPlanResponse(
+      JSON.stringify({ items: [{ date: "2026-09-19", title: "のぞみ124号", type: "transport", startTime, endTime }] }),
+    )[0];
+
+  it("到着時刻をそのまま終了時刻にする", () => {
+    expect(parseTimes("10:05", "13:20")).toMatchObject({ startTime: "10:05", endTime: "13:20" });
+  });
+
+  it("形が違う終了時刻は、推測せずに省く", () => {
+    expect(parseTimes("10:05", "夕方")?.endTime).toBeUndefined();
+    expect(parseTimes("10:05", undefined)?.endTime).toBeUndefined();
+  });
+
+  it("開始より前の終了時刻は捨てる(読み違い)", () => {
+    // 日をまたぐ移動は別の項目に分けるようAIに指示しているので、逆転は読み違い。
+    expect(parseTimes("22:00", "06:30")?.endTime).toBeUndefined();
+    expect(parseTimes("22:00", "06:30")?.startTime).toBe("22:00");
+  });
+
+  it("開始時刻が無くても、終了時刻だけは持てる", () => {
+    expect(parseTimes(undefined, "13:20")?.endTime).toBe("13:20");
+  });
+});
+
 describe("金額の読み取り", () => {
   const parseAmount = (amount: unknown) =>
     parseTripPlanResponse(JSON.stringify({ items: [{ date: "2026-09-19", title: "のぞみ124号", type: "transport", amount }] }))[0]
@@ -119,6 +145,12 @@ describe("Netlify版とVercel版のずれ", () => {
   const cases = [
     JSON.stringify({ items: [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" }] }),
     JSON.stringify({ items: [{ date: "2026-09-19", title: "のぞみ124号", type: "transport", amount: 12540 }] }),
+    JSON.stringify({
+      items: [{ date: "2026-09-19", startTime: "10:05", endTime: "13:20", title: "のぞみ124号", type: "transport" }],
+    }),
+    JSON.stringify({
+      items: [{ date: "2026-09-19", startTime: "22:00", endTime: "06:30", title: "夜行バス", type: "transport" }],
+    }),
     JSON.stringify({ items: [{ date: "2026-09-19", title: "のぞみ124号", type: "transport", amount: "12,540円" }] }),
     '```json\n{"items":[{"date":"2026-09-12","title":"移動","type":"flight"}]}\n```',
     '{"items":[{"date":"9/12","title":"移動"}]}',

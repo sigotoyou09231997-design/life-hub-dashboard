@@ -174,6 +174,8 @@ export interface TripScheduleItem {
   tripId: string;
   date: string; // YYYY-MM-DD
   startTime?: string; // HH:mm
+  /** 終了時刻(移動なら到着時刻)。分かる時だけ。予定(CalendarEvent)のendTimeに揃えている。 */
+  endTime?: string; // HH:mm
   title: string;
   location?: string;
   memo?: string;

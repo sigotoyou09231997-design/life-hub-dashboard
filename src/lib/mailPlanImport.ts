@@ -12,6 +12,8 @@ import type {
 export interface ExtractedTripItem {
   date: string;
   startTime?: string;
+  /** 終了時刻(移動なら到着時刻)。メールから読み取れた時だけ。 */
+  endTime?: string;
   title: string;
   location?: string;
   memo?: string;
@@ -113,6 +115,7 @@ export function toTripScheduleRecord(row: TripImportRow, tripId: string, now: nu
     tripId,
     date: row.date,
     startTime: row.startTime || undefined,
+    endTime: row.endTime || undefined,
     title: row.title.trim(),
     location: row.location || undefined,
     memo: row.memo || undefined,
@@ -130,6 +133,8 @@ export function toCalendarEventRecord(row: TripImportRow, now: number): Calendar
     date: row.date,
     allDay,
     startTime: allDay ? undefined : row.startTime,
+    // 終日にした予定に終了時刻だけ残ると、時刻の無い予定に「〜13:20」とだけ出て読めない。
+    endTime: allDay ? undefined : row.endTime || undefined,
     location: row.location || undefined,
     memo: row.memo || undefined,
     category: "other",

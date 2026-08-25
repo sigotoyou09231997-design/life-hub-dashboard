@@ -20,6 +20,7 @@ type ScheduleType = (typeof SCHEDULE_TYPES)[number];
 export interface ExtractedTripItem {
   date: string;
   startTime?: string;
+  endTime?: string;
   title: string;
   location?: string;
   memo?: string;
@@ -49,11 +50,14 @@ export const SYSTEM_PROMPT = `あなたは、メールから旅行の日程を�
 並べるべき項目を取り出してください。
 
 必ず次の形のJSONだけを返してください。説明文もコードフェンスも付けないでください。
-{"items":[{"date":"YYYY-MM-DD","startTime":"HH:mm","title":"...","location":"...","type":"transport","memo":"...","amount":12540}]}
+{"items":[{"date":"YYYY-MM-DD","startTime":"HH:mm","endTime":"HH:mm","title":"...","location":"...","type":"transport","memo":"...","amount":12540}]}
 
 ルール:
 - date は必ず YYYY-MM-DD 形式。年が書かれていない場合は、基準日以降で最も近い年とみなす。
 - startTime は本文から分かる時だけ入れる。分からなければその項目から省く(推測で埋めない)。
+- endTime には終わりの時刻を入れる。移動なら到着時刻、宿泊ならチェックアウト時刻、
+  食事や観光なら終了時刻。書かれていなければ省く(所要時間から計算して埋めたりしない)。
+  日をまたぐ場合は endTime を省き、翌日ぶんを別の項目に分ける。
 - title は日程表で一目で分かる短さにする。例:「羽田→福岡 JAL123」「ホテルOOにチェックイン」
 - location は駅・空港・施設の名前が分かる時だけ入れる。
 - type は次から選ぶ: transport(飛行機・列車・バス・レンタカーなどの移動), lodging(宿泊・
@@ -93,9 +97,12 @@ export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
     const title = typeof row.title === "string" ? row.title.trim() : "";
     // 日付とタイトルが無い項目は日程表に置きようがない。
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !title) continue;
-    const startTime = typeof row.startTime === "string" && /^\d{2}:\d{2}$/.test(row.startTime.trim())
-      ? row.startTime.trim()
-      : undefined;
+    const readTime = (value: unknown) =>
+      typeof value === "string" && /^\d{2}:\d{2}$/.test(value.trim()) ? value.trim() : undefined;
+    const startTime = readTime(row.startTime);
+    // 開始より前の終了時刻は読み違え。日をまたぐ移動は別項目に分けるよう指示している。
+    const endTimeRaw = readTime(row.endTime);
+    const endTime = endTimeRaw && startTime && endTimeRaw < startTime ? undefined : endTimeRaw;
     const type = SCHEDULE_TYPES.includes(row.type as ScheduleType) ? (row.type as ScheduleType) : "other";
     const location = typeof row.location === "string" && row.location.trim() ? row.location.trim() : undefined;
     const memo = typeof row.memo === "string" && row.memo.trim() ? row.memo.trim() : undefined;
@@ -103,7 +110,7 @@ export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
     // 読み違えたまま費用に積むと旅行の予算がずれるので落とす。
     const rawAmount = typeof row.amount === "number" ? row.amount : Number(row.amount);
     const amount = Number.isFinite(rawAmount) && rawAmount > 0 ? Math.round(rawAmount) : undefined;
-    cleaned.push({ date, title, startTime, location, memo, type, amount });
+    cleaned.push({ date, title, startTime, endTime, location, memo, type, amount });
   }
   // 日程表と同じ並び(日付→時刻)にして返す。画面側で並べ直さずに済む。
   cleaned.sort((a, b) => (a.date === b.date ? (a.startTime ?? "").localeCompare(b.startTime ?? "") : a.date.localeCompare(b.date)));

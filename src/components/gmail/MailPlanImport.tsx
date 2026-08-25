@@ -218,14 +218,38 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
                         value={row.date}
                         onChange={(date) => updateRow(index, { date })}
                       />
-                      <Field label="時刻" as="div">
-                        <input
-                          type="time"
-                          aria-label="時刻"
-                          className="field-shell"
-                          value={row.startTime ?? ""}
-                          onChange={(e) => updateRow(index, { startTime: e.target.value })}
-                        />
+                      <Field label={destination === "task" ? "時刻" : "開始 → 終了"} as="div">
+                        {destination === "task" ? (
+                          <input
+                            type="time"
+                            aria-label="時刻"
+                            className="field-shell"
+                            value={row.startTime ?? ""}
+                            onChange={(e) => updateRow(index, { startTime: e.target.value })}
+                          />
+                        ) : (
+                          // 予定フォーム(EventForm)と同じ並び。移動なら「10:05 〜 13:20」と
+                          // 出るので、当日の動きが一目で分かる。
+                          <div className="range-field range-field--time">
+                            <input
+                              type="time"
+                              aria-label="開始時刻"
+                              className="field-shell"
+                              value={row.startTime ?? ""}
+                              onChange={(e) => updateRow(index, { startTime: e.target.value })}
+                            />
+                            <span className="range-field__arrow" aria-hidden="true">
+                              〜
+                            </span>
+                            <input
+                              type="time"
+                              aria-label="終了時刻"
+                              className="field-shell"
+                              value={row.endTime ?? ""}
+                              onChange={(e) => updateRow(index, { endTime: e.target.value })}
+                            />
+                          </div>
+                        )}
                       </Field>
                       {/* 種類は旅行の日程だけが持つ項目。 */}
                       {destination === "trip" && (
