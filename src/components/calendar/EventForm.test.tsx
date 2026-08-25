@@ -124,3 +124,24 @@ describe("ほかのアカウントにも入れる欄", () => {
     expect(mocks.copies).toEqual([{ label: "仕事用", title: "○○社 面接" }]);
   });
 });
+
+describe("編集の保存", () => {
+  it("既存の予定は更新する(新しく足さない)", async () => {
+    const user = userEvent.setup();
+    renderForm(existingEvent);
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.updated).toHaveLength(1);
+    expect(mocks.added).toEqual([]);
+  });
+
+  it("更新先のidが無い予定は、保存せずに止める", async () => {
+    // ここで下の「追加」に落ちると、直したつもりの予定が増えていく。
+    const user = userEvent.setup();
+    const { id: _dropped, ...withoutId } = existingEvent;
+    renderForm(withoutId as CalendarEvent);
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.added).toEqual([]);
+    expect(mocks.updated).toEqual([]);
+    expect(screen.getByText(/更新先が見つかりませんでした/)).toBeTruthy();
+  });
+});

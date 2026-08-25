@@ -81,6 +81,14 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
     e.preventDefault();
     if (!title.trim()) return;
 
+    // 編集で開いたのに更新先のidが無い場合は、何もしないで止める。ここで下の分岐に
+    // 落とすと「追加」になり、直したつもりの予定が増えていく — 保存できない方が、
+    // 気付かないうちに増え続けるよりずっとましなので、はっきり失敗させる。
+    if (initial && !initial.id) {
+      showToast("この予定の更新先が見つかりませんでした。増えてしまうのを防ぐため保存を中止しました", "error");
+      return;
+    }
+
     setSaving(true);
     const record: CalendarEvent = {
       title: title.trim(),
@@ -99,8 +107,6 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
-    // 編集で開いたのにidが無い(=更新する先が分からない)場合は、黙って新しい予定を
-    // 足してしまうと、直したつもりが増えていく。何が起きたかは呼び出し側で伝える。
     const mode = initial?.id ? "updated" : "created";
     if (initial?.id) {
       await db.calendarEvents.update(initial.id, record);
