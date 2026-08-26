@@ -259,6 +259,7 @@ export default function TripDetailPage() {
 
         {tab === "route" && (
           <TripRouteView
+            dayList={dayList}
             tripId={tripId}
             destination={trip.destination}
             places={routePlaces}
@@ -391,6 +392,7 @@ export default function TripDetailPage() {
             tripId={tripId}
             initial={editingRoute === "new" ? undefined : editingRoute}
             nextSortOrder={(routePlaces[routePlaces.length - 1]?.sortOrder ?? 0) + 1}
+            dayList={dayList}
             preset={editingRoute === "new" ? routePreset : undefined}
             onSaved={() => {
               setEditingRoute(null);

@@ -296,7 +296,7 @@ describe("ルートへの起こし方", () => {
       { date: "2026-09-19", title: "ホテルにチェックイン", location: "函館市若松町9-19", type: "lodging" as const },
     ]);
     expect(rows).toEqual([
-      { checked: true, name: "ホテルにチェックイン", address: "函館市若松町9-19", memo: undefined },
+      { checked: true, name: "ホテルにチェックイン", address: "函館市若松町9-19", memo: undefined, date: "2026-09-19" },
     ]);
   });
 
@@ -314,6 +314,8 @@ describe("ルートへの起こし方", () => {
       name: "東京駅",
       address: "東京駅",
       sortOrder: 4,
+      // メールの日程の日付をそのまま持ち越す(ルート画面の日にち切り替えで使う)。
+      date: "2026-09-19",
       memo: "東京→新函館北斗 はやぶさ13号",
       visited: false,
       createdAt: 1_000,
