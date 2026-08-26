@@ -5,18 +5,22 @@ import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail, TripScheduleType } from "../../types";
 import { extractTripPlanFromEmail } from "../../lib/gmail";
 import {
-  PLAN_DESTINATIONS,
   PLAN_GROUPS,
   TRIP_SECTIONS,
+  describeCounts,
   describePlanImportError,
+  describeSaved,
+  destinationLabel,
   isAlreadyRegistered,
   isOutsideTrip,
   isRouteAlreadyRegistered,
   needsTrip,
   nextRouteSortOrder,
+  otherDestinations,
   planKey,
   pickDefaultTripId,
   routeKey,
+  sortDestinations,
   sortTripsForPicker,
   toCalendarEventRecord,
   toDestination,
@@ -26,6 +30,7 @@ import {
   toTripExpenseRecord,
   toTripRoutePlaceRecord,
   toTripScheduleRecord,
+  type PlanDestination,
   type PlanGroup,
   type RouteImportRow,
   type TripImportRow,
@@ -73,6 +78,20 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
   const [group, setGroup] = useState<PlanGroup>("trip");
   const [tripSection, setTripSection] = useState<TripSection>("trip");
   const destination = toDestination(group, tripSection);
+  /** タブの入れ先に加えて、同時に入れる先。「旅行の日程と予定の両方」のように、
+   * 1通のメールを2か所に入れたい時のためのもの。タブを移ると、その入れ先ぶんは外す
+   * (同じ所に二重に入れないため)。 */
+  const [extras, setExtras] = useState<PlanDestination[]>([]);
+
+  function changeGroup(next: PlanGroup) {
+    setGroup(next);
+    setExtras((current) => current.filter((d) => d !== toDestination(next, tripSection)));
+  }
+
+  function changeTripSection(next: TripSection) {
+    setTripSection(next);
+    setExtras((current) => current.filter((d) => d !== next));
+  }
   const [tripId, setTripId] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
@@ -91,6 +110,7 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
       setStatus("idle");
       setRows([]);
       setRouteRows([]);
+      setExtras([]);
       setError("");
       setTripId(undefined);
       return;
@@ -125,43 +145,58 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
     setTripId(pickDefaultTripId(trips, rows));
   }, [status, trips, rows, tripId]);
 
-  // 入れ先に既にある分の「鍵」。日付・時刻・タイトルが一致するものは、同じ内容として
-  // 二重に入れない。入れ先(と旅行)を切り替えるたびに引き直す。
-  const existingKeys = useLiveQuery(async () => {
-    // ルートは日付ではなく場所で見分けるので、下の routePlaces 側で判定する。
-    if (destination === "route") return new Set<string>();
-    if (destination === "trip") {
-      if (!tripId) return new Set<string>();
-      const items = await db.tripSchedule.where("tripId").equals(tripId).toArray();
-      return new Set(items.map((item) => planKey(item.date, item.startTime, item.title)));
-    }
-    if (destination === "event") {
-      const events = await db.calendarEvents.toArray();
-      return new Set(events.map((event) => planKey(event.date, event.startTime, event.title)));
-    }
+  // 入れ先に既にある分の「鍵」。日付・時刻・タイトル(ルートは場所)が一致するものは、
+  // 同じ内容として二重に入れない。まとめて入れられるようになったので、入れ先ごとに
+  // 引くのではなく一度に全部引く — タブを見ていない入れ先でも重複を弾くため。
+  // ルートの場所そのもの(places)は、末尾に足す順番(sortOrder)にも要る。
+  const existing = useLiveQuery(async () => {
+    const schedule = tripId ? await db.tripSchedule.where("tripId").equals(tripId).toArray() : [];
+    const events = await db.calendarEvents.toArray();
     const tasks = await db.tasks.toArray();
-    return new Set(tasks.map((task) => planKey(task.dueDate ?? "", task.dueTime, task.title)));
-  }, [destination, tripId]);
+    const places = tripId ? await db.tripRoutePlaces.where("tripId").equals(tripId).toArray() : [];
+    return {
+      trip: new Set(schedule.map((item) => planKey(item.date, item.startTime, item.title))),
+      event: new Set(events.map((event) => planKey(event.date, event.startTime, event.title))),
+      task: new Set(tasks.map((task) => planKey(task.dueDate ?? "", task.dueTime, task.title))),
+      route: new Set(places.map((place) => routeKey(place.address))),
+      places,
+    };
+  }, [tripId]);
 
-  // ルートに入れる時だけ、その旅行に今入っている場所を読む。重複の判定と、末尾に足す
-  // 順番(sortOrder)の両方に要る。
-  const routePlaces = useLiveQuery(async () => {
-    if (destination !== "route" || !tripId) return [];
-    return db.tripRoutePlaces.where("tripId").equals(tripId).toArray();
-  }, [destination, tripId]);
-  const existingRouteKeys = routePlaces ? new Set(routePlaces.map((place) => routeKey(place.address))) : undefined;
+  /** 日付で見分ける入れ先(日程・予定・タスク)の、既に入っている分の鍵。 */
+  function keysFor(target: Exclude<PlanDestination, "route">): Set<string> | undefined {
+    return existing?.[target];
+  }
 
   const selectedTrip = trips?.find((trip) => trip.id === tripId);
-  /** 既に入っている行は、チェックが付いていても入れない。状態そのものは書き換えず、
-   * ここで弾く — 入れ先を切り替えた途端にチェックが消えると、何が起きたか分からないため。 */
-  const checkedRows = rows.filter((row) => row.checked && !isAlreadyRegistered(row, existingKeys));
+  /** その入れ先に実際に入る行。既に入っている行は、チェックが付いていても入れない。
+   * 状態そのものは書き換えず、ここで弾く — 入れ先を切り替えた途端にチェックが消えると、
+   * 何が起きたか分からないため。同じ内容でも、入れ先ごとに「既にあるか」は違う。 */
+  function rowsFor(target: Exclude<PlanDestination, "route">): TripImportRow[] {
+    return rows.filter((row) => row.checked && !isAlreadyRegistered(row, keysFor(target)));
+  }
   /** 住所が空の場所は地図が迷子になるので入れない(ルート画面の入力欄と同じ決まり)。 */
   const checkedRouteRows = routeRows.filter(
-    (row) => row.checked && row.name.trim() && row.address.trim() && !isRouteAlreadyRegistered(row, existingRouteKeys),
+    (row) => row.checked && row.name.trim() && row.address.trim() && !isRouteAlreadyRegistered(row, existing?.route),
   );
-  const savableCount = destination === "route" ? checkedRouteRows.length : checkedRows.length;
+  /** 今回入れる先。タブの入れ先と、「ほかにも入れる」で入にした先。 */
+  const targets = sortDestinations([destination, ...extras]);
+  const counts = targets.map((target) => ({
+    destination: target,
+    // 旅行が決まっていない入れ先には入れられない(旅行が1つも無い時)。
+    count: needsTrip(target) && !tripId ? 0 : target === "route" ? checkedRouteRows.length : rowsFor(target).length,
+  }));
+  const savableCount = counts.reduce((sum, entry) => sum + entry.count, 0);
   // 旅行の日程・ルートに入れる時だけ、入れ先の旅行が要る。予定・タスクはそのまま入れられる。
   const missingTrip = needsTrip(destination) && !tripId;
+
+  /** 「ほかにも入れる」に並べる入れ先。入れようがないものは出さない —
+   * 旅行が1つも無い時の日程・ルートと、場所が読み取れなかった時のルート。 */
+  const extraOptions = otherDestinations(destination).filter((target) => {
+    if (needsTrip(target) && !tripId) return false;
+    if (target === "route" && routeRows.length === 0) return false;
+    return true;
+  });
 
   function updateRow(index: number, changes: Partial<TripImportRow>) {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...changes } : row)));
@@ -176,28 +211,30 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
     setSaving(true);
     try {
       const now = Date.now();
-      if (destination === "route") {
-        // 回る順は、いま入っている場所の後ろに読み取った順で足す。並べ替えはルート画面でできる。
-        let sortOrder = nextRouteSortOrder(routePlaces ?? []);
-        for (const row of checkedRouteRows) {
-          await db.tripRoutePlaces.add(toTripRoutePlaceRecord(row, tripId!, sortOrder, now));
-          sortOrder += 1;
+      for (const target of targets) {
+        if (needsTrip(target) && !tripId) continue;
+        if (target === "route") {
+          // 回る順は、いま入っている場所の後ろに読み取った順で足す。並べ替えはルート画面でできる。
+          let sortOrder = nextRouteSortOrder(existing?.places ?? []);
+          for (const row of checkedRouteRows) {
+            await db.tripRoutePlaces.add(toTripRoutePlaceRecord(row, tripId!, sortOrder, now));
+            sortOrder += 1;
+          }
+          continue;
         }
-      } else {
-        for (const row of checkedRows) {
-          if (destination === "trip") {
+        for (const row of rowsFor(target)) {
+          if (target === "trip") {
             await db.tripSchedule.add(toTripScheduleRecord(row, tripId!, now));
             // 費用は旅行にだけあるもの。金額が読み取れていて、外されていない分だけ積む。
             if (row.withExpense && row.amount) await db.tripExpenses.add(toTripExpenseRecord(row, tripId!, now));
-          } else if (destination === "event") {
+          } else if (target === "event") {
             await db.calendarEvents.add(toCalendarEventRecord(row, now));
           } else {
             await db.tasks.add(toTaskRecord(row, now));
           }
         }
       }
-      const label = PLAN_DESTINATIONS.find((d) => d.value === destination)?.label ?? "";
-      showToast(`${savableCount}件を${label}に入れました`);
+      showToast(describeSaved(counts));
       onClose();
     } catch (err) {
       console.error("[mailPlanImport] failed to save:", err);
@@ -236,14 +273,14 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
 
       {status === "ready" && rows.length > 0 && (
         <div className="space-y-4">
-          <Tabs options={PLAN_GROUPS} value={group} onChange={(value) => setGroup(value)} />
+          <Tabs options={PLAN_GROUPS} value={group} onChange={changeGroup} />
 
           {/* 旅行計画の中のどこに入れるか。上段と同じ重さで並べないよう、見出し付きの
               小さいタブにする(CSV取り込みの「金額の形式」と同じ形)。 */}
           {group === "trip" && (
             <div>
               <span className="mb-1.5 block text-sm font-medium text-slate-600">旅行計画のどこに入れる</span>
-              <Tabs options={TRIP_SECTIONS} value={tripSection} onChange={(value) => setTripSection(value)} dense />
+              <Tabs options={TRIP_SECTIONS} value={tripSection} onChange={changeTripSection} dense />
             </div>
           )}
 
@@ -278,7 +315,7 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
             ) : (
               <div className="space-y-3">
                 {routeRows.map((row, index) => {
-                  const already = isRouteAlreadyRegistered(row, existingRouteKeys);
+                  const already = isRouteAlreadyRegistered(row, existing?.route);
                   const missingAddress = !row.address.trim();
                   return (
                     <div key={index} className={`glass-row space-y-2 rounded-xl p-3 ${already ? "opacity-70" : ""}`}>
@@ -335,7 +372,7 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
             <div className="space-y-3">
               {rows.map((row, index) => {
                 const outside = destination === "trip" && isOutsideTrip(selectedTrip, row.date);
-                const already = isAlreadyRegistered(row, existingKeys);
+                const already = isAlreadyRegistered(row, keysFor(destination));
                 return (
                   <div key={index} className={`glass-row space-y-2 rounded-xl p-3 ${already ? "opacity-70" : ""}`}>
                     <label className="flex items-start gap-2">
@@ -464,6 +501,29 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
             </div>
           )}
 
+          {/* 1通のメールを2か所に入れたい時のためのもの(旅行の日程と予定、など)。
+              入れ終わってから入れ直さずに済むよう、入れるボタンのすぐ上に置く。 */}
+          {extraOptions.length > 0 && (
+            <div>
+              <span className="mb-1.5 block text-sm font-medium text-slate-600">ほかにも入れる</span>
+              {extraOptions.map((target) => (
+                <SwitchField
+                  key={target}
+                  label={`${destinationLabel(target)}にも入れる`}
+                  checked={extras.includes(target)}
+                  onChange={(on) =>
+                    setExtras((current) => (on ? [...current, target] : current.filter((d) => d !== target)))
+                  }
+                />
+              ))}
+            </div>
+          )}
+
+          {/* 2か所以上に入れる時は、どこに何件入るかを押す前に出す。 */}
+          {targets.length > 1 && savableCount > 0 && (
+            <p className="px-1 text-xs leading-relaxed text-slate-500">{describeCounts(counts)}</p>
+          )}
+
           <div className="flex gap-2">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
               キャンセル
@@ -474,7 +534,7 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
               onClick={handleSave}
               disabled={saving || missingTrip || savableCount === 0}
             >
-              {savableCount}件を入れる
+              {targets.length > 1 ? `合計${savableCount}件を入れる` : `${savableCount}件を入れる`}
             </Button>
           </div>
         </div>
