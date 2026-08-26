@@ -5,6 +5,8 @@ import {
   keyboardInsetFrom,
   opensKeyboard,
   staleViewportGap,
+  sheetMaxHeightPx,
+  SHEET_EDGE_GAP_PX,
 } from "./viewport";
 
 describe("keyboardInsetFrom", () => {
@@ -65,5 +67,28 @@ describe("staleViewportGap", () => {
 
   it("小さい差は0にする(追従ボタンが揺れないように)", () => {
     expect(staleViewportGap(844, 844 + VIEWPORT_GAP_THRESHOLD_PX - 1, 0)).toBe(0);
+  });
+});
+
+describe("sheetMaxHeightPx", () => {
+  it("見えている高さが分からなければ、CSSの既定に任せる", () => {
+    expect(sheetMaxHeightPx(null, 0, false)).toBeNull();
+  });
+
+  it("キーボードが出ている間は、見えている高さに収める", () => {
+    // iOSが見えている領域を120px下へずらした状態(visualViewport.offsetTop=120)。
+    // レイアウト上の780から「キーボードのぶん280」を引いた500に合わせると、その
+    // 120pxぶん器の上側が画面の外に出て、見出しと最初の入力欄に手が届かなくなる。
+    expect(sheetMaxHeightPx(380, 280, false)).toBe(380 - SHEET_EDGE_GAP_PX);
+  });
+
+  it("キーボードが出ていなければ、これまで通り画面の88%まで", () => {
+    expect(sheetMaxHeightPx(844, 0, false)).toBe(743);
+    expect(sheetMaxHeightPx(844, 0, true)).toBe(464);
+  });
+
+  it("画面がとても低い時も、端の隙間より大きくはしない", () => {
+    expect(sheetMaxHeightPx(200, 0, false)).toBe(176);
+    expect(sheetMaxHeightPx(4, 300, false)).toBe(0);
   });
 });

@@ -86,3 +86,32 @@ export function trackViewportGap(): () => void {
     document.removeEventListener("visibilitychange", update);
   };
 }
+
+/** シートの器と画面の端のあいだに残す隙間(px)。 */
+export const SHEET_EDGE_GAP_PX = 8;
+
+/**
+ * シートの器の高さの上限(px)。null を返したら、CSSの既定(88vh等)のままでよい。
+ *
+ * 「キーボードのぶんを下に空けた残り」に合わせるだけでは足りない。iOSはキーボードを
+ * 出す時に、見えている領域そのものを下へずらすことがあり(visualViewport.offsetTop)、
+ * レイアウト上の画面の高さから引いた残りには、そのずれたぶん — 画面の上に隠れて
+ * いて見えない帯 — まで含まれてしまう。シートは画面の下端を基準に置くので、その帯の
+ * ぶんだけ器の上側がはみ出し、つまみ・見出し・最初の入力欄が画面の上に隠れる。器は
+ * position:fixed で、ページのスクロールは止めてあるため、そこへは戻れない
+ * (「予定追加で上までスクロールできない」= 2026-08-26の報告)。
+ *
+ * 実際に見えている高さ(visualViewport.height)に収めれば、器は必ず見えている帯の
+ * 中に入る。キーボードが出ていない時は今まで通り画面の88%(compactは55%)まで。
+ */
+export function sheetMaxHeightPx(
+  visibleHeight: number | null,
+  keyboardInset: number,
+  compact: boolean,
+): number | null {
+  if (!visibleHeight || visibleHeight <= 0) return null;
+  const fits = Math.max(0, visibleHeight - SHEET_EDGE_GAP_PX);
+  // キーボードが出ている間は、残っている見えている高さいっぱいまで使う。
+  if (keyboardInset > 0) return fits;
+  return Math.min(fits, Math.round(visibleHeight * (compact ? 0.55 : 0.88)));
+}
