@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { ArrowDown, Check, ExternalLink, LocateFixed, Map, MoveLeft, MoveRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { db } from "../../db/schema";
 import type { TripRoutePlace } from "../../types";
@@ -13,6 +13,10 @@ import {
 import type { TravelMode } from "../../lib/googleMaps";
 import { TripRouteForm } from "./TripRouteForm";
 import { TripLegModes } from "./TripLegModes";
+
+/** 現在地から1つ目の場所までの区間につける鍵。場所idと混ざらない名前にしてある。 */
+const HERE_LEG = "here";
+const DEFAULT_MODE: TravelMode = "transit";
 
 interface Props {
   tripId: string;
@@ -34,10 +38,21 @@ interface Props {
  *
  * 縦(スマホ)と横(PC)の切り替えは trips.css 側。矢印はCSSで回すので、DOMは
  * どちらでも同じ1本の鎖のまま。
+ *
+ * カード・矢印・区間の経路は、それぞれを鎖の1コマ(li)として並べる。PCでは行の
+ * 幅で折り返すので、コマの途中で切れないようにこの粒度にしてある — ひとかたまり
+ * にしていた頃は、右端のカードが画面の外で半分に切れていた(2026-08-26の指摘)。
  */
 export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved, onEdit, onDelete }: Props) {
   const queries = places.map((p) => p.address);
-  const [mode, setMode] = useState<TravelMode>("transit");
+  /** 区間ごとの移動手段。1つにまとめて持っていた頃は、どこかで「車」に変えると
+   * ほかの地図まで全部つられて変わり、「この区間は電車・ここは車」という見方が
+   * できなかった(2026-08-26の指摘)。鍵は区間の始点の場所id(現在地からの区間は
+   * "here")。触っていない区間は既定の公共交通機関のまま。 */
+  const [legModes, setLegModes] = useState<Record<string, TravelMode>>({});
+  /** 「全地点をGoogleマップで開く」に渡す手段。ここだけは区間ではなくルート全体
+   * なので、最後に選んだものを使う。 */
+  const [lastMode, setLastMode] = useState<TravelMode>(DEFAULT_MODE);
   /** 経路を畳んだ区間の、始点の場所id。最初はどの区間も開いている — 「岡山駅 →
    * 新横浜駅」のような区間こそ、ルートを開いた時にいちばん知りたいところなのに、
    * 矢印を押すまで所要時間も移動手段も出てこなかった(2026-08-26の指摘)。
@@ -77,6 +92,15 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
     setClosedLegs((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
+  function legMode(legKey: string): TravelMode {
+    return legModes[legKey] ?? DEFAULT_MODE;
+  }
+
+  function changeLegMode(legKey: string, next: TravelMode) {
+    setLegModes((prev) => ({ ...prev, [legKey]: next }));
+    setLastMode(next);
+  }
+
   async function swap(a: TripRoutePlace, b: TripRoutePlace) {
     if (!a.id || !b.id) return;
     await Promise.all([
@@ -93,7 +117,7 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
         <div className="trip-route__head">
           <a
             className="trip-route__open"
-            href={buildRouteSearchUrl(queries, mode)}
+            href={buildRouteSearchUrl(queries, lastMode)}
             target="_blank"
             rel="noreferrer"
           >
@@ -128,9 +152,9 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
               {here ? (
                 <div className="trip-route-card__map">
                   <iframe
-                    key={`${here}-${places[0].id}-${mode}`}
+                    key={`${here}-${places[0].id}-${legMode(HERE_LEG)}`}
                     title={`現在地から${places[0].name}までの経路`}
-                    src={buildLegEmbedUrl(here, places[0].address, mode)}
+                    src={buildLegEmbedUrl(here, places[0].address, legMode(HERE_LEG))}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                   />
@@ -144,12 +168,17 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
               )}
 
               {here && (
-                <TripLegModes origin={here} destination={places[0].address} mode={mode} onModeChange={setMode} />
+                <TripLegModes
+                  origin={here}
+                  destination={places[0].address}
+                  mode={legMode(HERE_LEG)}
+                  onModeChange={(next) => changeLegMode(HERE_LEG, next)}
+                />
               )}
 
               <a
                 className="trip-route-leg__open"
-                href={buildFromHereSearchUrl(places[0].address, mode)}
+                href={buildFromHereSearchUrl(places[0].address, legMode(HERE_LEG))}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -157,9 +186,11 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
                 <ExternalLink size={13} />
               </a>
             </article>
+          </li>
 
-            {/* ここは経路がもう地図に出ているので、矢印は向きを示すだけにする。 */}
-            <div className="trip-route-arrow trip-route-arrow--static" aria-hidden="true">
+          {/* ここは経路がもう地図に出ているので、矢印は向きを示すだけにする。 */}
+          <li className="trip-route__node trip-route__node--arrow" aria-hidden="true">
+            <div className="trip-route-arrow trip-route-arrow--static">
               <span className="trip-route-arrow__mark"><ArrowDown size={17} /></span>
             </div>
           </li>
@@ -168,7 +199,8 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
             const next = places[i + 1];
             const legOpen = !!place.id && !closedLegs.includes(place.id);
             return (
-              <li key={place.id} className="trip-route__node">
+              <Fragment key={place.id}>
+              <li className="trip-route__node">
                 <article className="trip-route-card">
                   <header className="trip-route-card__head">
                     <button
@@ -227,8 +259,10 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
                   {place.memo && <p className="trip-route-card__memo">{place.memo}</p>}
 
                 </article>
+              </li>
 
-                {next && (
+              {next && (
+                <li className="trip-route__node trip-route__node--leg">
                   <div className="trip-route-leg">
                     <button
                       type="button"
@@ -249,21 +283,21 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
                         <TripLegModes
                           origin={place.address}
                           destination={next.address}
-                          mode={mode}
-                          onModeChange={setMode}
+                          mode={legMode(place.id ?? "")}
+                          onModeChange={(m) => changeLegMode(place.id ?? "", m)}
                         />
                         <div className="trip-route-leg__map">
                           <iframe
-                            key={`${place.id}-${mode}`}
+                            key={`${place.id}-${legMode(place.id ?? "")}`}
                             title={`${place.name}から${next.name}までの経路`}
-                            src={buildLegEmbedUrl(place.address, next.address, mode)}
+                            src={buildLegEmbedUrl(place.address, next.address, legMode(place.id ?? ""))}
                             loading="lazy"
                             referrerPolicy="no-referrer-when-downgrade"
                           />
                         </div>
                         <a
                           className="trip-route-leg__open"
-                          href={buildLegSearchUrl(place.address, next.address, mode)}
+                          href={buildLegSearchUrl(place.address, next.address, legMode(place.id ?? ""))}
                           target="_blank"
                           rel="noreferrer"
                         >
@@ -273,8 +307,9 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
                       </div>
                     )}
                   </div>
-                )}
-              </li>
+                </li>
+              )}
+              </Fragment>
             );
           })}
 
