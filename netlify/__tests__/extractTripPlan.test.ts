@@ -55,6 +55,37 @@ describe("parseTripPlanResponse", () => {
     expect(items).toHaveLength(1);
   });
 
+  it("移動は、出発地と到着地の両方を持てる", () => {
+    // ルートに「東京駅 → 新函館北斗駅」として起こすのに要る(src/lib/mailPlanImport.ts)。
+    const items = parseTripPlanResponse(
+      JSON.stringify({
+        items: [
+          {
+            date: "2026-09-19",
+            title: "東京→新函館北斗 はやぶさ13号",
+            type: "transport",
+            location: "東京駅",
+            endLocation: "新函館北斗駅",
+          },
+        ],
+      }),
+    );
+    expect(items[0].location).toBe("東京駅");
+    expect(items[0].endLocation).toBe("新函館北斗駅");
+  });
+
+  it("移動以外に付いてきた到着地は落とす", () => {
+    // 宿や観光で location と同じ場所が2度並ぶだけになる。
+    const items = parseTripPlanResponse(
+      JSON.stringify({
+        items: [
+          { date: "2026-09-19", title: "ホテルにチェックイン", type: "lodging", location: "ホテルOO", endLocation: "ホテルOO" },
+        ],
+      }),
+    );
+    expect(items[0].endLocation).toBeUndefined();
+  });
+
   it("知らない種類は「その他」に寄せる", () => {
     const items = parseTripPlanResponse(
       JSON.stringify({ items: [{ date: "2026-09-12", title: "何か", type: "flight" }] }),

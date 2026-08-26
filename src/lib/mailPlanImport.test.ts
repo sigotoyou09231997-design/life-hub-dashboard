@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
 import {
   describePlanImportError,
+  isRouteAlreadyRegistered,
+  needsTrip,
+  nextRouteSortOrder,
+  routeKey,
+  toRouteImportRows,
+  toTripRoutePlaceRecord,
   isAlreadyRegistered,
   isOutsideTrip,
   pickDefaultTripId,
@@ -233,5 +239,114 @@ describe("二重登録の判定", () => {
   it("まだ読み込めていない時は、重複扱いにしない", () => {
     // 判定できないうちに「登録済み」と出すと、入れられるものを入れられなくする。
     expect(isAlreadyRegistered(row({ title: "のぞみ124号" }), undefined)).toBe(false);
+  });
+});
+
+describe("ルートへの起こし方", () => {
+  const shinkansen = {
+    date: "2026-09-19",
+    startTime: "10:05",
+    title: "東京→新函館北斗 はやぶさ13号",
+    location: "東京駅",
+    endLocation: "新函館北斗駅",
+    type: "transport" as const,
+  };
+
+  it("移動は、出発地と到着地の2地点に分ける", () => {
+    // 「東京→新函館北斗 はやぶさ13号」は区間の名前で、地図に置ける場所ではない。
+    const rows = toRouteImportRows([shinkansen]);
+    expect(rows.map((r) => ({ name: r.name, address: r.address }))).toEqual([
+      { name: "東京駅", address: "東京駅" },
+      { name: "新函館北斗駅", address: "新函館北斗駅" },
+    ]);
+    // どの移動から来た場所かが分かるように、区間名はメモに残す。
+    expect(rows[0].memo).toBe("東京→新函館北斗 はやぶさ13号");
+    expect(rows.every((r) => r.checked)).toBe(true);
+  });
+
+  it("往復でも、同じ駅は1件にまとめる", () => {
+    const rows = toRouteImportRows([
+      shinkansen,
+      {
+        date: "2026-09-21",
+        title: "新函館北斗→東京 はやぶさ34号",
+        location: "新函館北斗駅",
+        endLocation: "東京駅",
+        type: "transport" as const,
+      },
+    ]);
+    expect(rows.map((r) => r.address)).toEqual(["東京駅", "新函館北斗駅"]);
+  });
+
+  it("到着地が読み取れない移動は、出発地だけ起こす", () => {
+    // 古いサーバーは endLocation を返さない。
+    const rows = toRouteImportRows([{ ...shinkansen, endLocation: undefined }]);
+    expect(rows.map((r) => r.address)).toEqual(["東京駅"]);
+  });
+
+  it("宿や観光は、日程のタイトルを名前・場所を住所にする", () => {
+    // 日程の場所をつついてルートに起こす時(TripDetailPage)と同じ組み合わせ。
+    const rows = toRouteImportRows([
+      { date: "2026-09-19", title: "ホテルにチェックイン", location: "函館市若松町9-19", type: "lodging" as const },
+    ]);
+    expect(rows).toEqual([
+      { checked: true, name: "ホテルにチェックイン", address: "函館市若松町9-19", memo: undefined },
+    ]);
+  });
+
+  it("場所が読み取れていない項目は、ルートには起こさない", () => {
+    // 住所が空だと地図が行き先ごと迷子になる。
+    expect(toRouteImportRows([{ date: "2026-09-19", title: "何かの予約", type: "other" as const }])).toEqual([]);
+  });
+
+  it("ルートの場所は、いま入っている場所の後ろに順に足す", () => {
+    const rows = toRouteImportRows([shinkansen]);
+    const start = nextRouteSortOrder([{ sortOrder: 1 }, { sortOrder: 3 }]);
+    expect(start).toBe(4);
+    expect(toTripRoutePlaceRecord(rows[0], "trip-1", start, 1_000)).toEqual({
+      tripId: "trip-1",
+      name: "東京駅",
+      address: "東京駅",
+      sortOrder: 4,
+      memo: "東京→新函館北斗 はやぶさ13号",
+      visited: false,
+      createdAt: 1_000,
+    });
+  });
+
+  it("1件も入っていなければ、最初の順番は1", () => {
+    expect(nextRouteSortOrder([])).toBe(1);
+  });
+});
+
+describe("ルートの二重登録の判定", () => {
+  const place = { checked: true, name: "東京駅", address: "東京駅" };
+
+  it("同じ場所が既にルートにあれば、入れられなくする", () => {
+    expect(isRouteAlreadyRegistered(place, new Set([routeKey("東京駅")]))).toBe(true);
+  });
+
+  it("前後の空白は無視する", () => {
+    expect(isRouteAlreadyRegistered({ ...place, address: " 東京駅 " }, new Set([routeKey("東京駅")]))).toBe(true);
+  });
+
+  it("違う場所は入れられる", () => {
+    expect(isRouteAlreadyRegistered(place, new Set([routeKey("新函館北斗駅")]))).toBe(false);
+  });
+
+  it("まだ読み込めていない時は、重複扱いにしない", () => {
+    expect(isRouteAlreadyRegistered(place, undefined)).toBe(false);
+  });
+});
+
+describe("入れ先の旅行が要るか", () => {
+  it("旅行の日程とルートは旅行が要る", () => {
+    expect(needsTrip("trip")).toBe(true);
+    expect(needsTrip("route")).toBe(true);
+  });
+
+  it("予定とタスクは、旅行が無くても入れられる", () => {
+    expect(needsTrip("event")).toBe(false);
+    expect(needsTrip("task")).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import type {
   Trip,
   TripExpense,
   TripExpenseCategory,
+  TripRoutePlace,
   TripScheduleItem,
   TripScheduleType,
 } from "../types";
@@ -16,6 +17,9 @@ export interface ExtractedTripItem {
   endTime?: string;
   title: string;
   location?: string;
+  /** 移動の到着地(駅・空港)。出発地は location に入る。ルートに2地点として起こすのに使う。
+   * 古いサーバーからは返ってこないので、無いことも前提にする。 */
+  endLocation?: string;
   memo?: string;
   type: TripScheduleType;
   /** その項目の代金(円)。メールに書かれていた時だけ。 */
@@ -79,13 +83,89 @@ export function sortTripsForPicker(trips: Trip[]): Trip[] {
 }
 
 /** 読み取った内容をどこへ入れるか。 */
-export type PlanDestination = "trip" | "event" | "task";
+export type PlanDestination = "trip" | "route" | "event" | "task";
 
 export const PLAN_DESTINATIONS: { value: PlanDestination; label: string }[] = [
   { value: "trip", label: "旅行の日程" },
+  { value: "route", label: "旅行のルート" },
   { value: "event", label: "予定" },
   { value: "task", label: "タスク" },
 ];
+
+/** 入れ先の旅行を選ぶ必要があるか。日程とルートは旅行にぶら下がるが、予定とタスクは
+ * 旅行と関係なく入れられる。 */
+export function needsTrip(destination: PlanDestination): boolean {
+  return destination === "trip" || destination === "route";
+}
+
+/** ルートに入れる場所1件。日程と違って日付も時刻も持たず、名前と場所だけで足りる。 */
+export interface RouteImportRow {
+  checked: boolean;
+  name: string;
+  /** 地図に渡す文字列。空では保存できない(TripRoutePlace.address と同じ決まり)。 */
+  address: string;
+  memo?: string;
+}
+
+/** 読み取った日程を、ルートに置ける「場所」に起こす。
+ *
+ * 移動(新幹線・飛行機)は出発地と到着地の2地点に分ける — 「東京→新函館北斗 はやぶさ13号」は
+ * 区間の名前であって地図に置ける場所ではないので、駅名そのものを場所の名前にし、どの移動から
+ * 来たかはメモに残す。宿や観光は、日程のタイトルを名前・場所を住所にする(日程の場所を
+ * つついてルートに起こす時=TripDetailPage の onLocationTap と同じ組み合わせ)。
+ *
+ * 同じ場所は1件にまとめる。往復のメールは「東京→新函館北斗」「新函館北斗→東京」となり、
+ * そのままでは同じ駅が2度ずつ並ぶため。 */
+export function toRouteImportRows(items: ExtractedTripItem[]): RouteImportRow[] {
+  const rows: RouteImportRow[] = [];
+  const seen = new Set<string>();
+  const push = (name: string | undefined, address: string | undefined, memo: string | undefined) => {
+    if (!name?.trim() || !address?.trim()) return;
+    const key = routeKey(address);
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push({ checked: true, name: name.trim(), address: address.trim(), memo: memo?.trim() || undefined });
+  };
+  for (const item of items) {
+    if (item.type === "transport") {
+      push(item.location, item.location, item.title);
+      push(item.endLocation, item.endLocation, item.title);
+      continue;
+    }
+    push(item.title, item.location, item.memo);
+  }
+  return rows;
+}
+
+/** ルートの場所1件。回る順は、いま入っている場所の後ろに、読み取った順で足す。 */
+export function toTripRoutePlaceRecord(row: RouteImportRow, tripId: string, sortOrder: number, now: number): TripRoutePlace {
+  return {
+    tripId,
+    name: row.name.trim(),
+    address: row.address.trim(),
+    sortOrder,
+    memo: row.memo || undefined,
+    visited: false,
+    createdAt: now,
+  };
+}
+
+/** 追加する場所に振る、最初の順番。ルート画面の「追加」と同じ決まり(末尾に足す)。 */
+export function nextRouteSortOrder(places: { sortOrder: number }[]): number {
+  return places.reduce((max, place) => Math.max(max, place.sortOrder), 0) + 1;
+}
+
+/** 場所が「同じ」かどうかを見分ける鍵。地図に渡す文字列(住所)で見る — 名前は
+ * 「東京駅」「東京」と揺れるが、同じ住所を2度ルートに置く意味はほとんど無いため。 */
+export function routeKey(address: string): string {
+  return address.trim().toLowerCase();
+}
+
+/** その場所が、選んだ旅行のルートに既にあるか。 */
+export function isRouteAlreadyRegistered(row: RouteImportRow, existingKeys: Set<string> | undefined): boolean {
+  if (!existingKeys) return false;
+  return existingKeys.has(routeKey(row.address));
+}
 
 /** 旅行の日程の種類を、そのまま費用の分類に読み替える。移動・宿泊・食事・観光は
  * どちらにも同じ名前であるので一対一で対応し、それ以外は「その他」に寄せる。 */
