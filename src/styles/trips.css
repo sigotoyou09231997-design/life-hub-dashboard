@@ -1473,3 +1473,16 @@ a.trip-leg-mode--link {
     transition: none;
   }
 }
+
+/* 一覧の下に置く追加ボタンの並び。「予定を追加」と「まとめて追加」のように2つ
+   並ぶときは半々、1つしか無いときはそのまま幅いっぱいになる。狭い画面で文字が
+   折り返しても、2つのボタンの高さは揃ったままにしたいので grid で置く。 */
+.trip-add-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.trip-add-row > .app-button {
+  width: 100%;
+}
