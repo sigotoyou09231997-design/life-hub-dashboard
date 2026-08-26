@@ -1159,8 +1159,13 @@ a.trip-leg-mode--link {
 }
 
 /* --- PCは横並び ----------------------------------------------------------
-   カードを1列に流し、入りきらなくなったら横スクロールに逃がす。縦に折り返すと
-   「回る順」が読めなくなるので、折り返さずスクロールさせる。 */
+   カード → 矢印 → カードを横に流す。入りきらない分は、右へスクロールさせず
+   次の行へ折り返す。横スクロールにしていた頃は、右端のカードが画面の外で
+   半分に切られたまま見えていて、続きがあることにも気づけなかった
+   (2026-08-26の指摘)。折り返しても番号と矢印で回る順は追える。
+
+   折り返す単位はカード1枚・矢印1つ・区間の経路1つ(それぞれが鎖の1コマ=li)。
+   まとめて1コマにすると、そのかたまりが行に入りきらず、また切れて見える。 */
 @media (min-width: 1024px) {
   /* 列の高さは揃える。中身の量(現在地カードには移動手段の行が付く、メモのある
      場所とない場所がある)でカードの丈がばらばらだと、間の矢印まで1本ずつ違う
@@ -1168,23 +1173,24 @@ a.trip-leg-mode--link {
      余った高さは、下に空白を残さず地図に使う。 */
   .trip-route__chain {
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: stretch;
-    overflow-x: auto;
-    padding-bottom: 0.6rem;
-    scroll-snap-type: x proximity;
+    align-content: flex-start;
+    row-gap: 0.9rem;
   }
 
   .trip-route__node {
     flex: 0 0 auto;
     flex-direction: row;
     align-items: stretch;
-    scroll-snap-align: start;
   }
 
   /* 横並びのカードは、地図の中の文字が読める大きさまで広げる。狭いカードを
      たくさん並べても、1枚ずつが読めないなら意味が無い。 */
   .trip-route-card {
     width: 24rem;
+    /* 行に入りきる幅までは縮める。窓を狭めた時にカードだけはみ出さないように。 */
+    max-width: 100%;
   }
 
   .trip-route-card__map {
@@ -1250,6 +1256,7 @@ a.trip-leg-mode--link {
     display: flex;
     flex-direction: column;
     width: 21rem;
+    max-width: 100%;
     margin-right: 0.7rem;
     margin-bottom: 0;
   }
