@@ -46,6 +46,7 @@ import { SwitchField } from "../ui/SwitchField";
 import { DateField } from "../ui/DateField";
 import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
+import { FormActions } from "../ui/FormActions";
 import { EmptyState } from "../ui/EmptyState";
 import { useToast } from "../ui/ToastProvider";
 
@@ -524,19 +525,16 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
             <p className="px-1 text-xs leading-relaxed text-slate-500">{describeCounts(counts)}</p>
           )}
 
-          <div className="flex gap-2">
-            <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>
+          {/* シートの底に貼りつく操作(他のフォームと同じ FormActions)。読み取った件数が
+              多いと画面に収まらず、最後までスクロールしないと押せなかった。 */}
+          <FormActions>
+            <Button type="button" variant="secondary" onClick={onClose}>
               キャンセル
             </Button>
-            <Button
-              type="button"
-              className="flex-1"
-              onClick={handleSave}
-              disabled={saving || missingTrip || savableCount === 0}
-            >
+            <Button type="button" onClick={handleSave} disabled={saving || missingTrip || savableCount === 0}>
               {targets.length > 1 ? `合計${savableCount}件を入れる` : `${savableCount}件を入れる`}
             </Button>
-          </div>
+          </FormActions>
         </div>
       )}
     </Sheet>
