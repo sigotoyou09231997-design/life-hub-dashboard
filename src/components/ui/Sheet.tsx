@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import { keyboardInsetFrom, opensKeyboard } from "../../lib/viewport";
+import { keyboardInsetFrom, opensKeyboard, sheetMaxHeightPx } from "../../lib/viewport";
 
 interface Props {
   open: boolean;
@@ -137,6 +137,8 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     };
   }, [open]);
 
+  const maxHeightPx = sheetMaxHeightPx(visibleHeight, keyboardInset, compact);
+
   if (!open) return null;
 
   return (
@@ -160,15 +162,15 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
         className={`glass-modal spatial-sheet sheet-panel relative z-10 flex w-full max-w-md flex-col animate-slide-up motion-reduce:animate-none lg:max-w-xl ${
           compact ? "h-[55vh] max-h-[55vh]" : "max-h-[88vh] lg:max-h-[86vh]"
         }`}
-        // キーボードが出ている間は、画面の高さ(88vh等)ではなく「キーボードより上に
-        // 残っている高さ」に合わせる。合わせないと、持ち上げたぶんシートの上側が
-        // 画面外へはみ出してしまう。キーボードが無くても、見えている高さがvhより
-        // 小さい時はそちらに合わせる — はみ出すと下の操作ボタンに手が届かない。
+        // キーボードが出ている間は、画面の高さ(88vh等)ではなく「いま実際に見えて
+        // いる高さ」に合わせる。キーボードが無くても、見えている高さがvhより小さい
+        // 時はそちらに合わせる — はみ出すと下の操作ボタンに手が届かない
+        // (どちらも src/lib/viewport.ts の sheetMaxHeightPx)。
         style={
-          keyboardInset > 0
-            ? { maxHeight: "calc(100% - 0.5rem)" }
-            : visibleHeight
-              ? { maxHeight: `${Math.min(visibleHeight - 8, Math.round(visibleHeight * (compact ? 0.55 : 0.88)))}px` }
+          maxHeightPx !== null
+            ? { maxHeight: `${maxHeightPx}px` }
+            : keyboardInset > 0
+              ? { maxHeight: "calc(100% - 0.5rem)" }
               : undefined
         }
       >

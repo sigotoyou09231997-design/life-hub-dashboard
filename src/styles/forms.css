@@ -455,6 +455,9 @@ textarea.field-shell {
   flex-direction: column;
   gap: 1rem;
   padding: 1rem 1.15rem calc(env(safe-area-inset-bottom) + 1.25rem);
+  /* 端まで来た指の動きを後ろのページへ渡さない。渡すと、シートの上端で下へ引いた時に
+     裏のページが動き、position:fixed のシートごとずれて戻れなくなることがある。 */
+  overscroll-behavior: contain;
 }
 
 /* PCでは下端に貼りつく必要が無い。画面の真ん中に置いて、ダイアログとして扱う。 */
