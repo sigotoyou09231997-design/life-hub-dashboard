@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import { keyboardInsetFrom } from "../../lib/viewport";
+import { keyboardInsetFrom, opensKeyboard } from "../../lib/viewport";
 
 interface Props {
   open: boolean;
@@ -32,8 +32,15 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
   // キーボードで隠れている高さ。その分だけシートを持ち上げて、入力欄が最初から
   // キーボードの上に出ている状態にする(src/lib/viewport.ts)。
   const [keyboardInset, setKeyboardInset] = useState(0);
+  // 実際に見えている高さ。レイアウト上の画面の高さ(vh)より小さいことがあり、
+  // その時はvhに合わせるとシートの下側(操作ボタン)が画面の外に出る。
+  const [visibleHeight, setVisibleHeight] = useState<number | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(false);
+  // シートを開いた時のページのスクロール位置。iOSはキーボードを出す時にページごと
+  // 上へずらすことがあり、閉じても戻らないと position:fixed のシートまでずれたままに
+  // なる。キーボードが引っ込んだら、ここへ戻す。
+  const scrollYRef = useRef(0);
 
   // Capture synchronously during render (before commit) rather than in an effect:
   // an autoFocus field inside the sheet's content steals focus during commit, which
@@ -41,6 +48,7 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
   // input instead of the element that opened it.
   if (open && !wasOpen.current) {
     previouslyFocused.current = document.activeElement as HTMLElement | null;
+    scrollYRef.current = window.scrollY;
   }
   wasOpen.current = open;
 
@@ -93,14 +101,29 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     if (!open) return;
     const visual = window.visualViewport;
     if (!visual) return;
-    const update = () => setKeyboardInset(keyboardInsetFrom(window.innerHeight, visual.height, visual.offsetTop));
+    const update = () => {
+      // 文字を入れる部品に focus が無ければキーボードは出ていない。iOSが閉じたことを
+      // 知らせ損ねた時に、シートが浮いたまま戻らなくなるのを防ぐ(src/lib/viewport.ts)。
+      const typing = opensKeyboard(document.activeElement);
+      const hidden = typing ? keyboardInsetFrom(window.innerHeight, visual.height, visual.offsetTop) : 0;
+      setKeyboardInset(hidden);
+      // 入力が終わっているのにページがずれていたら、開いた時の位置へ戻す。
+      if (!typing && window.scrollY !== scrollYRef.current) window.scrollTo(0, scrollYRef.current);
+      setVisibleHeight(visual.height < window.innerHeight - 1 ? Math.round(visual.height) : null);
+    };
     update();
     visual.addEventListener("resize", update);
     visual.addEventListener("scroll", update);
+    // focus が移った時にも引き直す。キーボードの開け閉めは focus の移動と一緒に起きる。
+    document.addEventListener("focusin", update);
+    document.addEventListener("focusout", update);
     return () => {
       visual.removeEventListener("resize", update);
       visual.removeEventListener("scroll", update);
+      document.removeEventListener("focusin", update);
+      document.removeEventListener("focusout", update);
       setKeyboardInset(0);
+      setVisibleHeight(null);
     };
   }, [open]);
 
@@ -123,8 +146,15 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
         }`}
         // キーボードが出ている間は、画面の高さ(88vh等)ではなく「キーボードより上に
         // 残っている高さ」に合わせる。合わせないと、持ち上げたぶんシートの上側が
-        // 画面外へはみ出してしまう。
-        style={keyboardInset > 0 ? { maxHeight: "calc(100% - 0.5rem)" } : undefined}
+        // 画面外へはみ出してしまう。キーボードが無くても、見えている高さがvhより
+        // 小さい時はそちらに合わせる — はみ出すと下の操作ボタンに手が届かない。
+        style={
+          keyboardInset > 0
+            ? { maxHeight: "calc(100% - 0.5rem)" }
+            : visibleHeight
+              ? { maxHeight: `${visibleHeight - 8}px` }
+              : undefined
+        }
       >
         {/* つまみはスマホだけ。PCではダイアログとして画面の真ん中に置くので、
             下から引き上げる部品の名残を残さない(CSSで隠す)。 */}

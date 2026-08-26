@@ -20,3 +20,15 @@ export function keyboardInsetFrom(layoutHeight: number, visualHeight: number, vi
   if (!Number.isFinite(hidden) || hidden < KEYBOARD_INSET_THRESHOLD_PX) return 0;
   return Math.round(hidden);
 }
+
+/** キーボード(やiOSの選択ホイール)が開くのは、文字を入れる部品に focus がある時だけ。
+ *
+ * iOSは、キーボードを閉じた時の visualViewport の変化を知らせ損ねることがある。その時
+ * 「隠れている高さ」が出たままになり、シートが画面の上の方へ浮いたまま戻らず、下側の
+ * 操作ボタンが画面の外に残る(2026-08-26の不具合)。focus が文字を入れる部品に無ければ
+ * キーボードは出ていないので、隠れている高さも0とみなす。 */
+export function opensKeyboard(element: { tagName?: string; isContentEditable?: boolean } | null | undefined): boolean {
+  if (!element) return false;
+  if (element.isContentEditable) return true;
+  return ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName ?? "");
+}

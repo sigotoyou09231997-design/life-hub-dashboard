@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { KEYBOARD_INSET_THRESHOLD_PX, keyboardInsetFrom } from "./viewport";
+import { KEYBOARD_INSET_THRESHOLD_PX, keyboardInsetFrom, opensKeyboard } from "./viewport";
 
 describe("keyboardInsetFrom", () => {
   it("キーボードが出ていなければ0", () => {
@@ -21,5 +21,22 @@ describe("keyboardInsetFrom", () => {
 
   it("見えている領域の方が大きい場合(拡大時など)も0", () => {
     expect(keyboardInsetFrom(844, 900, 0)).toBe(0);
+  });
+});
+
+describe("opensKeyboard", () => {
+  it("文字を入れる部品ならキーボードが出ているとみなす", () => {
+    expect(opensKeyboard({ tagName: "INPUT" })).toBe(true);
+    expect(opensKeyboard({ tagName: "TEXTAREA" })).toBe(true);
+    // iOSの選択ホイールも同じように画面を狭める。
+    expect(opensKeyboard({ tagName: "SELECT" })).toBe(true);
+    expect(opensKeyboard({ tagName: "DIV", isContentEditable: true })).toBe(true);
+  });
+
+  it("ボタンや何も選ばれていない時は出ていないとみなす", () => {
+    // 閉じるボタンに focus がある状態で浮いたままにならないように。
+    expect(opensKeyboard({ tagName: "BUTTON" })).toBe(false);
+    expect(opensKeyboard({ tagName: "DIV" })).toBe(false);
+    expect(opensKeyboard(null)).toBe(false);
   });
 });
