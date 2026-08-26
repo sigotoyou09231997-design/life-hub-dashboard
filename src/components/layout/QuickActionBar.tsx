@@ -41,7 +41,11 @@ export function QuickActionBar() {
           .glass-nav's backdrop-filter blur) is compositing-heavy — the bar
           visibly detaches and sits wherever the scroll left it until something
           nudges a repaint. Forcing the layer ahead of time avoids that. */}
-      <div className="fixed inset-x-0 bottom-0 z-30 transform-gpu lg:hidden">
+      {/* bottom に引く --viewport-gap は src/lib/viewport.ts。iOSがキーボードを閉じた後に
+          画面の高さを戻し損ねている間、fixed は「短いままの画面」の下端に貼りつき、この
+          バーが画面の途中で止まって見える。その足りない分だけ下へ伸ばして辻褄を合わせる。
+          普段は0pxなので、これまでと同じ位置。 */}
+      <div className="fixed inset-x-0 bottom-[calc(-1*var(--viewport-gap,0px))] z-30 transform-gpu lg:hidden">
         <div className="mx-auto max-w-md px-2 pb-[env(safe-area-inset-bottom)] pt-2">
           <div className="glass-nav">
             <button

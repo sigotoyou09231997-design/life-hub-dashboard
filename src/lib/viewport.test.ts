@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { KEYBOARD_INSET_THRESHOLD_PX, keyboardInsetFrom, opensKeyboard } from "./viewport";
+import {
+  KEYBOARD_INSET_THRESHOLD_PX,
+  VIEWPORT_GAP_THRESHOLD_PX,
+  keyboardInsetFrom,
+  opensKeyboard,
+  staleViewportGap,
+} from "./viewport";
 
 describe("keyboardInsetFrom", () => {
   it("キーボードが出ていなければ0", () => {
@@ -38,5 +44,26 @@ describe("opensKeyboard", () => {
     expect(opensKeyboard({ tagName: "BUTTON" })).toBe(false);
     expect(opensKeyboard({ tagName: "DIV" })).toBe(false);
     expect(opensKeyboard(null)).toBe(false);
+  });
+});
+
+describe("staleViewportGap", () => {
+  it("画面の高さが戻っていれば0(普段は何も動かさない)", () => {
+    expect(staleViewportGap(844, 844, 0)).toBe(0);
+  });
+
+  it("レイアウト上の画面が実際より短いままなら、その差を返す", () => {
+    // iOSがキーボードを閉じた後に高さを戻し損ねた状態。追従ボタンが画面の途中に
+    // 貼りついたままになるので、この差だけ下へずらす。
+    expect(staleViewportGap(508, 844, 0)).toBe(336);
+  });
+
+  it("キーボードが出ている間(見えている方が小さい)は0", () => {
+    // その場合の持ち上げは keyboardInsetFrom の担当。
+    expect(staleViewportGap(844, 508, 0)).toBe(0);
+  });
+
+  it("小さい差は0にする(追従ボタンが揺れないように)", () => {
+    expect(staleViewportGap(844, 844 + VIEWPORT_GAP_THRESHOLD_PX - 1, 0)).toBe(0);
   });
 });

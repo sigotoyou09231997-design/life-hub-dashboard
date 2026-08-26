@@ -33,7 +33,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         role="status"
         // Cleared to sit above QuickActionBar (a fixed bottom bar on every page since
         // the glass redesign), not just the safe-area inset.
-        className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+6rem)] z-[60] flex justify-center px-5 lg:bottom-8"
+        // bottom から引いている --viewport-gap は、追従ボタンと同じ位置直し
+        // (iOSが画面の高さを戻し損ねている間だけ効く。src/lib/viewport.ts)。
+        className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+6rem-var(--viewport-gap,0px))] z-[60] flex justify-center px-5 lg:bottom-8"
       >
         {toast && (
           <div

@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import { markUpdateAvailable, setUpdateApplier } from "./lib/pwaUpdate";
+import { trackViewportGap } from "./lib/viewport";
 import "./index.css";
 import "./styles/hub.css";
 import "./styles/trips.css";
@@ -32,6 +33,10 @@ const updateSW = registerSW({
   },
 });
 setUpdateApplier(updateSW);
+
+// 画面下に貼りつくもの(追従ボタン・シート・知らせ)の位置直し。iOSが画面の高さを
+// 戻し損ねている間だけ、その差を --viewport-gap として配る(src/lib/viewport.ts)。
+trackViewportGap();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

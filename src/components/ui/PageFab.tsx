@@ -34,7 +34,7 @@ export function PageFab({ onClick, label, children }: Props) {
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-5 z-40 flex h-14 w-14 transform-gpu items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_28px_rgba(79,111,255,0.35)] transition-all active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:bottom-8 lg:right-8"
+      className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem-var(--viewport-gap,0px))] right-5 z-40 flex h-14 w-14 transform-gpu items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_28px_rgba(79,111,255,0.35)] transition-all active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:bottom-8 lg:right-8"
     >
       {children}
     </button>
