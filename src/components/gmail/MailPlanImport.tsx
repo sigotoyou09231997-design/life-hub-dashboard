@@ -6,6 +6,8 @@ import type { GmailAccount, SyncedEmail, TripScheduleType } from "../../types";
 import { extractTripPlanFromEmail } from "../../lib/gmail";
 import {
   PLAN_DESTINATIONS,
+  PLAN_GROUPS,
+  TRIP_SECTIONS,
   describePlanImportError,
   isAlreadyRegistered,
   isOutsideTrip,
@@ -17,15 +19,17 @@ import {
   routeKey,
   sortTripsForPicker,
   toCalendarEventRecord,
+  toDestination,
   toImportRows,
   toRouteImportRows,
   toTaskRecord,
   toTripExpenseRecord,
   toTripRoutePlaceRecord,
   toTripScheduleRecord,
-  type PlanDestination,
+  type PlanGroup,
   type RouteImportRow,
   type TripImportRow,
+  type TripSection,
 } from "../../lib/mailPlanImport";
 import { TRIP_SCHEDULE_TYPES } from "../../lib/tripCategories";
 import { formatShortDate } from "../../lib/date";
@@ -63,7 +67,12 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
   /** ルートに入れる時の行。日程とは別に持つ — 1本の移動が出発地と到着地の2地点になるので、
    * 日程の行と1対1にはならない。 */
   const [routeRows, setRouteRows] = useState<RouteImportRow[]>([]);
-  const [destination, setDestination] = useState<PlanDestination>("trip");
+  // 上段のタブ(旅行計画/予定/タスク)と、旅行計画を選んだ時の中身(日程/ルート)。
+  // 実際の入れ先はこの2つから決まる。予定・タスクへ行って戻ってきても、旅行計画の
+  // 中でどちらを見ていたかは覚えておく。
+  const [group, setGroup] = useState<PlanGroup>("trip");
+  const [tripSection, setTripSection] = useState<TripSection>("trip");
+  const destination = toDestination(group, tripSection);
   const [tripId, setTripId] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
@@ -227,14 +236,16 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
 
       {status === "ready" && rows.length > 0 && (
         <div className="space-y-4">
-          {/* 入れ先が4つになったので dense。text-sm のままだと「旅行の日程」が
-              320px幅で折り返す。 */}
-          <Tabs
-            options={PLAN_DESTINATIONS}
-            value={destination}
-            onChange={(value) => setDestination(value)}
-            dense
-          />
+          <Tabs options={PLAN_GROUPS} value={group} onChange={(value) => setGroup(value)} />
+
+          {/* 旅行計画の中のどこに入れるか。上段と同じ重さで並べないよう、見出し付きの
+              小さいタブにする(CSV取り込みの「金額の形式」と同じ形)。 */}
+          {group === "trip" && (
+            <div>
+              <span className="mb-1.5 block text-sm font-medium text-slate-600">旅行計画のどこに入れる</span>
+              <Tabs options={TRIP_SECTIONS} value={tripSection} onChange={(value) => setTripSection(value)} dense />
+            </div>
+          )}
 
           {needsTrip(destination) &&
             (!trips || trips.length === 0 ? (

@@ -123,7 +123,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   // variant="sheet"のみで使う折りたたみ状態(初期表示をコンパクトに保つため)。
   const [originalExpanded, setOriginalExpanded] = useState(false);
   const [replyExpanded, setReplyExpanded] = useState(false);
-  // このメールから旅行の日程・予定・タスクを作る画面(MailPlanImport)を開いているか。
+  // このメールから旅行計画(日程・ルート)・予定・タスクを作る画面(MailPlanImport)を開いているか。
   const [planImportOpen, setPlanImportOpen] = useState(false);
 
   // Shown as dots on the date picker so the user can see at a glance which days
@@ -439,7 +439,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
           type="button"
           onClick={() => setPlanImportOpen(true)}
           aria-label="予定に追加する"
-          title="このメールの内容から、旅行の日程・予定・タスクを作る"
+          title="このメールの内容から、旅行計画(日程・ルート)・予定・タスクを作る"
           className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
         >
           <CalendarPlus size={14} />

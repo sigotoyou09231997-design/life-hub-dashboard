@@ -82,7 +82,7 @@ export function sortTripsForPicker(trips: Trip[]): Trip[] {
   return [...trips].sort((a, b) => b.startDate.localeCompare(a.startDate));
 }
 
-/** 読み取った内容をどこへ入れるか。 */
+/** 読み取った内容をどこへ入れるか。保存の作り分けと、入れ終わった知らせの文言に使う。 */
 export type PlanDestination = "trip" | "route" | "event" | "task";
 
 export const PLAN_DESTINATIONS: { value: PlanDestination; label: string }[] = [
@@ -91,6 +91,30 @@ export const PLAN_DESTINATIONS: { value: PlanDestination; label: string }[] = [
   { value: "event", label: "予定" },
   { value: "task", label: "タスク" },
 ];
+
+/** 画面の上段のタブ。日程とルートは「旅行計画」1つにまとめ、その中で選ばせる —
+ * 4つ横並びだと、旅行に入れるものとそうでないものが同じ重さに見えるため
+ * (アプリの中の呼び名も /trips = 「旅行計画」で揃えている)。 */
+export type PlanGroup = "trip" | "event" | "task";
+
+export const PLAN_GROUPS: { value: PlanGroup; label: string }[] = [
+  { value: "trip", label: "旅行計画" },
+  { value: "event", label: "予定" },
+  { value: "task", label: "タスク" },
+];
+
+/** 「旅行計画」を選んだ時の、その中の入れ先。 */
+export type TripSection = "trip" | "route";
+
+export const TRIP_SECTIONS: { value: TripSection; label: string }[] = [
+  { value: "trip", label: "日程" },
+  { value: "route", label: "ルート" },
+];
+
+/** 上段のタブと、旅行計画の中の選択から、実際の入れ先を決める。 */
+export function toDestination(group: PlanGroup, section: TripSection): PlanDestination {
+  return group === "trip" ? section : group;
+}
 
 /** 入れ先の旅行を選ぶ必要があるか。日程とルートは旅行にぶら下がるが、予定とタスクは
  * 旅行と関係なく入れられる。 */

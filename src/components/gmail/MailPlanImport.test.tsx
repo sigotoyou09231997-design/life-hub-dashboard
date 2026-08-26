@@ -101,14 +101,16 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("メールから予定を作る画面", () => {
-  it("読み取り結果と、入れ先の4択を出す", async () => {
+  it("読み取り結果と、入れ先のタブを出す", async () => {
     // この画面はメール詳細の中に常に描かれる。ここが実行時に落ちると
     // メールが開けなくなる(2026-08-25の不具合)ので、描画そのものを固定する。
     renderSheet();
-    expect(await screen.findByRole("tab", { name: "旅行の日程" })).toBeTruthy();
-    expect(screen.getByRole("tab", { name: "旅行のルート" })).toBeTruthy();
+    expect(await screen.findByRole("tab", { name: "旅行計画" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "予定" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "タスク" })).toBeTruthy();
+    // 旅行計画は日程とルートの2つを束ねる。開いた時は日程。
+    expect(screen.getByRole("tab", { name: "日程" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "ルート" })).toBeTruthy();
     expect(screen.getByDisplayValue("羽田→福岡")).toBeTruthy();
   });
 
@@ -284,7 +286,7 @@ describe("旅行のルートに入れる", () => {
     mocks.items = [shinkansen];
     const user = userEvent.setup();
     renderSheet();
-    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+    await user.click(await screen.findByRole("tab", { name: "ルート" }));
 
     const save = await screen.findByRole("button", { name: "2件を入れる" });
     await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
@@ -304,7 +306,7 @@ describe("旅行のルートに入れる", () => {
     mocks.existingRoutePlaces = [{ id: "p1", address: "五稜郭", sortOrder: 3 }];
     const user = userEvent.setup();
     renderSheet();
-    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+    await user.click(await screen.findByRole("tab", { name: "ルート" }));
     const save = await screen.findByRole("button", { name: "2件を入れる" });
     await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
     await user.click(save);
@@ -316,7 +318,7 @@ describe("旅行のルートに入れる", () => {
     mocks.existingRoutePlaces = [{ id: "p1", address: "東京駅", sortOrder: 1 }];
     const user = userEvent.setup();
     renderSheet();
-    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+    await user.click(await screen.findByRole("tab", { name: "ルート" }));
 
     expect(await screen.findByText("すでにこの旅行のルートに入っています")).toBeTruthy();
     const checkbox = screen.getByRole("checkbox", { name: "東京駅を入れる" }) as HTMLInputElement;
@@ -329,7 +331,7 @@ describe("旅行のルートに入れる", () => {
     mocks.items = [{ date: "2026-09-19", title: "何かの予約", type: "other" }];
     const user = userEvent.setup();
     renderSheet();
-    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+    await user.click(await screen.findByRole("tab", { name: "ルート" }));
     expect(await screen.findByText("ルートに置ける場所は見つかりませんでした")).toBeTruthy();
   });
 
@@ -337,7 +339,7 @@ describe("旅行のルートに入れる", () => {
     mocks.items = [shinkansen];
     const user = userEvent.setup();
     renderSheet();
-    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+    await user.click(await screen.findByRole("tab", { name: "ルート" }));
 
     // ラベルは入力欄ごと label で包まれており、補足文まで読み名に入るので前方一致で引く。
     const address = (await screen.findAllByLabelText(/住所・場所/))[0];

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
 import {
+  PLAN_GROUPS,
   describePlanImportError,
+  toDestination,
   isRouteAlreadyRegistered,
   needsTrip,
   nextRouteSortOrder,
@@ -348,5 +350,22 @@ describe("入れ先の旅行が要るか", () => {
   it("予定とタスクは、旅行が無くても入れられる", () => {
     expect(needsTrip("event")).toBe(false);
     expect(needsTrip("task")).toBe(false);
+  });
+});
+
+describe("上段のタブと入れ先", () => {
+  it("上段は旅行計画・予定・タスクの3つ", () => {
+    expect(PLAN_GROUPS.map((g) => g.label)).toEqual(["旅行計画", "予定", "タスク"]);
+  });
+
+  it("旅行計画は、中で選んだ日程かルートが入れ先になる", () => {
+    expect(toDestination("trip", "trip")).toBe("trip");
+    expect(toDestination("trip", "route")).toBe("route");
+  });
+
+  it("予定・タスクは、中の選択に関わらずそのまま", () => {
+    // 旅行計画の中でルートを見ていた状態から予定へ移っても、予定に入る。
+    expect(toDestination("event", "route")).toBe("event");
+    expect(toDestination("task", "route")).toBe("task");
   });
 });
