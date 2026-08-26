@@ -8,6 +8,7 @@ export interface TripAgendaEntry {
   tripName: string;
   date: string;
   startTime?: string;
+  endTime?: string;
   title: string;
   location?: string;
 }
@@ -40,9 +41,9 @@ export function TripAgendaList({ items }: Props) {
               </p>
               <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
                 {item.startTime && (
-                  <span className="flex shrink-0 items-center gap-0.5">
+                  <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap">
                     <Clock size={11} />
-                    {item.startTime}
+                    {item.endTime ? `${item.startTime}〜${item.endTime}` : item.startTime}
                   </span>
                 )}
                 <span className="truncate">{item.tripName}</span>

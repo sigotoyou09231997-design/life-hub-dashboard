@@ -1,12 +1,16 @@
 import { db } from "../db/schema";
+import { scopedKey } from "./accounts";
 
-/** 端末内(IndexedDB)のデータが「どのログインユーザーのものか」の記録。 */
-const OWNER_KEY = "lifeHubDataOwner";
+/** 端末内(IndexedDB)のデータが「どのログインユーザーのものか」の記録。
+ * 記録もカーソルも、いま開いているアカウントのDB単位(src/lib/accounts.ts の scopedKey)。
+ * アカウントごとにDBが分かれた今、下の入れ替え検知が実際に働くのは、一覧から消えた
+ * アカウントのDB名が別のユーザーに割り当て直された場合だけになった。 */
+const OWNER_KEY = scopedKey("lifeHubDataOwner");
 
 /** src/lib/sync.ts の reconcile が使う差分pullカーソル。持ち主が変わったら消さないと、
  * 新しいユーザーの初回pullが「前の持ち主が最後に同期した時刻以降」の差分だけになり、
  * それより古い自分のデータがサーバーにあっても降りてこない。 */
-const SYNC_CURSOR_PREFIX = "lifeHubLastSynced:";
+const SYNC_CURSOR_PREFIX = scopedKey("lifeHubLastSynced:");
 
 function readOwner(): string | null {
   try {

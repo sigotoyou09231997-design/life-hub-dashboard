@@ -88,6 +88,10 @@ export interface CalendarEvent {
   updatedAt?: number;
   deviceId?: string;
   userId?: string;
+  /** 同じ予定を複数のアカウントに入れた時、それらに共通で付ける印。これがあるから
+   * 片方を直した時に、入れた先のアカウントの「同じ予定」を見つけて一緒に直せる
+   * (src/lib/crossAccountEvents.ts)。1つのアカウントにしか無い予定には付かない。 */
+  linkId?: string;
 }
 
 export type Priority = "low" | "medium" | "high";
@@ -170,6 +174,8 @@ export interface TripScheduleItem {
   tripId: string;
   date: string; // YYYY-MM-DD
   startTime?: string; // HH:mm
+  /** 終了時刻(移動なら到着時刻)。分かる時だけ。予定(CalendarEvent)のendTimeに揃えている。 */
+  endTime?: string; // HH:mm
   title: string;
   location?: string;
   memo?: string;
@@ -275,7 +281,10 @@ export interface SyncedEmail {
    * independent of `status`, which tracks AI-draft/send workflow progress rather than
    * whether a human has actually looked at it. Undefined until read. */
   readAt?: number;
-  /** readAt/status を最後に人が変えた時刻。端末間で既読状態を揃える時の
+  /** 「重要」を付けた時刻。外すと undefined に戻る。タブの絞り込みはJS側で行うので
+   * 索引は要らず、Dexieのバージョンも上げていない。 */
+  importantAt?: number;
+  /** readAt/importantAt/status を最後に人が変えた時刻。端末間で状態を揃える時の
    * last-write-wins の基準(src/lib/gmailMessageState.ts)。索引は不要なので
    * Dexieのバージョンは上げていない。 */
   stateUpdatedAt?: number;

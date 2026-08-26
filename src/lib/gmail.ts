@@ -1,6 +1,7 @@
 import { db } from "../db/schema";
 import type { EmailStatus, GmailAccount, SyncedEmail } from "../types";
 import { toDateStr, todayStr } from "./date";
+import type { ExtractedTripItem } from "./mailPlanImport";
 
 const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send openid email";
 const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
@@ -100,12 +101,58 @@ export interface AuthorizationCodeResult {
   email: string;
 }
 
+/** 連携の失敗理由を、次にやることまで含めた日本語にする。
+ *
+ * サーバー側(netlify/functions/tokenExchange.ts)は理由を返しているのに、画面は
+ * 「Gmail連携に失敗しました」としか出しておらず、設定を直しようがなかった
+ * (2026-08-25)。同期側の describeSyncError と同じ考え方。 */
+export function describeGmailConnectError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/not configured on the server/i.test(raw)) {
+    return "サーバー側にGoogleの接続情報が設定されていません。Netlifyの環境変数 GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET を確認してください";
+  }
+  if (/redirect_uri_mismatch/i.test(raw)) {
+    return `Googleに登録したリダイレクトURIと、いま開いているアプリのURLが一致していません。Google Cloud Consoleの「クライアント」で ${typeof window !== "undefined" ? getRedirectUri() : "/gmail/callback"} が登録されているか確認してください`;
+  }
+  if (/invalid_grant/i.test(raw)) {
+    return "認証コードが期限切れか、すでに使われています。設定画面からもう一度やり直してください";
+  }
+  if (/invalid_client|unauthorized_client/i.test(raw)) {
+    return `GoogleのクライアントIDかシークレットが合っていません。Netlifyの環境変数とGoogle Cloud Consoleの値を突き合わせてください (${raw})`;
+  }
+  if (/access_denied|403/i.test(raw)) {
+    return `Googleにアクセスを断られました。OAuth同意画面の「テストユーザー」にこのアドレスが入っているか確認してください (${raw})`;
+  }
+  return raw;
+}
+
 export async function exchangeAuthorizationCode(code: string): Promise<AuthorizationCodeResult> {
   return callFunction<AuthorizationCodeResult>("tokenExchange", {
     grantType: "authorization_code",
     code,
     redirectUri: getRedirectUri(),
   });
+}
+
+/** メールの予約情報(航空券・ホテルなど)から、旅行の日程に並べる項目を読み取る
+ * (netlify/functions/extractTripPlan.ts)。
+ *
+ * 本文はここで取りに行く — 一覧が持っているのは抜粋(snippet)だけで、便名や予約番号、
+ * チェックイン時刻はたいてい本文にしか無いため。読み取った内容はそのまま保存せず、
+ * 必ず画面で確認・修正してから日程表に入れる。 */
+export async function extractTripPlanFromEmail(
+  account: GmailAccount,
+  email: SyncedEmail,
+): Promise<ExtractedTripItem[]> {
+  const fresh = await ensureFreshAccessToken(account);
+  const body = await getMessageBody(fresh.accessToken, email.gmailMessageId);
+  const result = await callFunction<{ items?: ExtractedTripItem[] }>("extractTripPlan", {
+    subject: email.subject,
+    body,
+    // 「来月12日」のような書き方を実際の日付に直すための基準日。
+    today: todayStr(),
+  });
+  return result.items ?? [];
 }
 
 /** Returns an account guaranteed to have a live access token, refreshing (and persisting) it first if needed. */
@@ -395,8 +442,9 @@ async function getRecentSentBodies(accessToken: string, limit: number): Promise<
  * 2か所で別々に書いていた頃は、TOPだけ既読も返信済みも並べ続けていて、
  * 受信トレイでは片付いているのにTOPにはそのまま残る、という食い違いが出ていた。
  * 条件はここに1本化して、両方から同じ関数を呼ぶ。 */
-export function isUnhandledEmail(email: Pick<SyncedEmail, "readAt" | "status">): boolean {
-  return !email.readAt && email.status !== "sent";
+export function isUnhandledEmail(email: Pick<SyncedEmail, "readAt" | "status" | "importantAt">): boolean {
+  // 「重要」を付けたものも外す — 重要タブへ移す操作なので、両方に残ると押した実感が無い。
+  return !email.readAt && !email.importantAt && email.status !== "sent";
 }
 
 /** 同期し終わった時にトーストへ出す文言。
@@ -418,6 +466,10 @@ export interface SyncSummaryCounts {
   deferred: number;
 }
 
+/** 何も起きなかった同期の文面。複数アカウントをまとめて同期した時に、これだけが
+ * 並ぶのを1行に畳むため(src/lib/gmailSync.ts)、文字列を共有している。 */
+export const NO_CHANGES_SUMMARY = "新着メールはありませんでした";
+
 export function buildSyncSummary(counts: SyncSummaryCounts): string {
   const parts: string[] = [];
   if (counts.freshAdded > 0) parts.push(`${counts.freshAdded}件の新着メール`);
@@ -432,7 +484,7 @@ export function buildSyncSummary(counts: SyncSummaryCounts): string {
   if (counts.handledElsewhere > 0) notes.push(`${counts.handledElsewhere}件は他の端末で処理済み(既読・送信済みタブ)`);
   if (counts.blockedAdded > 0) notes.push(`${counts.blockedAdded}件はブロック中の送信者`);
 
-  const summary = parts.length > 0 ? `${parts.join("・")}しました` : "新着メールはありませんでした";
+  const summary = parts.length > 0 ? `${parts.join("・")}しました` : NO_CHANGES_SUMMARY;
   return notes.length > 0 ? `${summary}(${notes.join("・")})` : summary;
 }
 

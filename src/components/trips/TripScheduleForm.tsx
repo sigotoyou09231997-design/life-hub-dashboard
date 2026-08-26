@@ -21,6 +21,7 @@ interface Props {
 export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCancel }: Props) {
   const [date, setDate] = useState(initial?.date ?? defaultDate);
   const [startTime, setStartTime] = useState(initial?.startTime ?? "");
+  const [endTime, setEndTime] = useState(initial?.endTime ?? "");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [location, setLocation] = useState(initial?.location ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
@@ -36,6 +37,7 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
       tripId,
       date,
       startTime: startTime || undefined,
+      endTime: endTime || undefined,
       title: title.trim(),
       location: location || undefined,
       memo: memo || undefined,
@@ -80,6 +82,14 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
           type="time"
           value={startTime}
           onChange={(e) => setStartTime(e.target.value)}
+        />
+        {/* 移動なら到着時刻。メールから取り込んだ分もここで直せる。 */}
+        <Input
+          label="終了時刻"
+          optional
+          type="time"
+          value={endTime}
+          onChange={(e) => setEndTime(e.target.value)}
         />
         <Input
           label="場所"

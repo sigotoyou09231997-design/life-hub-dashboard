@@ -19,7 +19,15 @@ function localEmails(rows: SyncedEmail[]) {
 }
 
 /** Stands in for supabase.from("gmail_message_state").select(...).eq(...).eq(...). */
-function remoteStates(rows: { gmail_message_id: string; read_at: string | null; sent: boolean; updated_at: string }[]) {
+function remoteStates(
+  rows: {
+    gmail_message_id: string;
+    read_at: string | null;
+    important_at?: string | null;
+    sent: boolean;
+    updated_at: string;
+  }[],
+) {
   const query: Record<string, unknown> = {};
   query.select = vi.fn(() => query);
   query.eq = vi.fn(() => query);
@@ -170,5 +178,68 @@ describe("pushPendingMessageStates", () => {
       error: "relation does not exist",
     });
     expect(mocks.syncedEmails.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("重要の共有", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getSession.mockResolvedValue({ data: { session: { user: { id: "user-1" } } } });
+  });
+
+  it("他の端末で付けた重要を取り込む", async () => {
+    localEmails([email({ stateUpdatedAt: 1_000 })]);
+    remoteStates([
+      {
+        gmail_message_id: "msg-1",
+        read_at: null,
+        important_at: "2026-08-26T00:00:00.000Z",
+        sent: false,
+        updated_at: "2026-08-26T00:00:00.000Z",
+      },
+    ]);
+
+    const result = await pullMessageStates("account-1", "me@example.com");
+    expect(result.count).toBe(1);
+    expect(mocks.syncedEmails.update).toHaveBeenCalledWith(
+      "local-1",
+      expect.objectContaining({ importantAt: Date.parse("2026-08-26T00:00:00.000Z") }),
+    );
+  });
+
+  it("他の端末で外した重要も取り込む(付ける方向だけにしない)", async () => {
+    localEmails([email({ importantAt: 5_000, stateUpdatedAt: 5_000 })]);
+    remoteStates([
+      {
+        gmail_message_id: "msg-1",
+        read_at: null,
+        important_at: null,
+        sent: false,
+        updated_at: "2026-08-26T00:00:00.000Z",
+      },
+    ]);
+
+    await pullMessageStates("account-1", "me@example.com");
+    expect(mocks.syncedEmails.update).toHaveBeenCalledWith("local-1", expect.objectContaining({ importantAt: undefined }));
+  });
+
+  it("重要を付けると、他の端末へも送る", async () => {
+    const query = remoteStates([]);
+    await updateMessageState("me@example.com", email(), { importantAt: 7_000 });
+    expect(mocks.syncedEmails.update).toHaveBeenCalledWith("local-1", expect.objectContaining({ importantAt: 7_000 }));
+
+    // push自体は fire-and-forget (ローカルの操作を待たせない)ので、送られるまで待つ。
+    const upsert = query.upsert as ReturnType<typeof vi.fn>;
+    await vi.waitFor(() => expect(upsert).toHaveBeenCalledTimes(1));
+    expect(upsert.mock.calls[0][0]).toMatchObject({ important_at: new Date(7_000).toISOString() });
+  });
+
+  it("この仕組みより前に付いていた重要も、まとめて送る対象にする", async () => {
+    // stateUpdatedAt が無い行を拾わないと、今ある重要はいつまでも端末ごとにバラバラのまま。
+    localEmails([email({ importantAt: 3_000 })]);
+    const query = remoteStates([]);
+    const result = await pushPendingMessageStates("account-1", "me@example.com");
+    expect(result.count).toBe(1);
+    expect(query.upsert).toHaveBeenCalled();
   });
 });

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { CalendarDays, Tag } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, Tag, Users } from "lucide-react";
 import { db } from "../../db/schema";
 import type { CalendarEvent, ScheduleCategory } from "../../types";
 import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
@@ -11,11 +11,25 @@ import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
+import { SwitchField } from "../ui/SwitchField";
+import { useToast } from "../ui/ToastProvider";
+import {
+  applyEventToAccount,
+  emptyDrafts,
+  findLinkedEvent,
+  followMainTitle,
+  listOtherAccounts,
+  planAccountChanges,
+  removeEventFromAccount,
+  type AccountEventDraft,
+} from "../../lib/crossAccountEvents";
 
 interface Props {
   initial?: CalendarEvent;
   defaultDate: string;
-  onSaved: () => void;
+  /** 既存の予定を更新したのか、新しく1件足したのかを呼び出し側へ伝える。
+   * 「編集したのに新しい予定として増える」不具合を、画面の文言で切り分けられるようにする。 */
+  onSaved: (mode: "created" | "updated") => void;
   onCancel: () => void;
 }
 
@@ -44,10 +58,73 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [notify, setNotify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
   const [saving, setSaving] = useState(false);
+  const showToast = useToast();
+
+  // 同じ端末に登録した、いま開いていない方のアカウント(src/lib/accounts.ts)。
+  // 新規作成でも編集でも出す — 作る時に入れ忘れた予定を、後から相手のアカウントへ
+  // 入れられるようにするため。既定はオフなので、編集して保存し直しただけで勝手に
+  // 増えることはない。
+  const otherAccounts = useMemo(() => listOtherAccounts(), []);
+  const [drafts, setDrafts] = useState<Record<string, AccountEventDraft>>(() =>
+    emptyDrafts(listOtherAccounts(), initial?.title ?? ""),
+  );
+
+  // 編集で開いた予定が、既にどのアカウントへ入っているかを見に行く。入っていれば
+  // スイッチを入れた状態にし、そのアカウントで付けている予定名をそのまま出す —
+  // ここで拾わないと、保存のたびに相手側へ同じ予定が積み上がる。
+  useEffect(() => {
+    const linkId = initial?.linkId;
+    if (!linkId || otherAccounts.length === 0) return;
+    let active = true;
+    void (async () => {
+      const found = await Promise.all(
+        otherAccounts.map(async (account) => {
+          try {
+            return { account, event: await findLinkedEvent(account, linkId) };
+          } catch (error) {
+            // 相手のDBを開けなくても、この画面は開けたままにする(入っていない扱い)。
+            console.error("[crossAccountEvents] failed to look up a linked event:", error);
+            return { account, event: null };
+          }
+        }),
+      );
+      if (!active) return;
+      setDrafts((current) => {
+        const next = { ...current };
+        for (const { account, event } of found) {
+          if (!event) continue;
+          // 相手側で付けている名前は上のタイトルに追従させない(editedを立てる)。
+          next[account.userId] = { checked: true, title: event.title, edited: true, existed: true };
+        }
+        return next;
+      });
+    })();
+    return () => {
+      active = false;
+    };
+  }, [initial?.linkId, otherAccounts]);
+
+  function handleTitleChange(next: string) {
+    setTitle(next);
+    // まだ個別に書き換えていない行は、上のタイトルに追従させる。
+    setDrafts((current) => followMainTitle(current, next));
+  }
+
+  function updateDraft(userId: string, changes: Partial<AccountEventDraft>) {
+    setDrafts((current) => ({ ...current, [userId]: { ...current[userId], ...changes } }));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
+
+    // 編集で開いたのに更新先のidが無い場合は、何もしないで止める。ここで下の分岐に
+    // 落とすと「追加」になり、直したつもりの予定が増えていく — 保存できない方が、
+    // 気付かないうちに増え続けるよりずっとましなので、はっきり失敗させる。
+    if (initial && !initial.id) {
+      showToast("この予定の更新先が見つかりませんでした。増えてしまうのを防ぐため保存を中止しました", "error");
+      return;
+    }
 
     setSaving(true);
     const record: CalendarEvent = {
@@ -67,13 +144,53 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
+    const changes = planAccountChanges(otherAccounts, drafts, record.title);
+    // 印(linkId)は、ほかのアカウントに関わる時だけ持たせる。1つのアカウントにしか
+    // 無い予定にまで付けても意味が無い。
+    //
+    // 印がまだ無い予定には、その予定自身のidを印として使う。ここで毎回新しい印を
+    // 作っていた頃は、同じ予定を編集するたびに別の印になり、相手側の「同じ予定」を
+    // 見つけられず新しく足し続けていた(印が付く前に作った予定で必ず起きる)。
+    // idは変わらないので、何度編集しても同じ印になる。
+    const needsLink = changes.apply.length > 0 || changes.remove.length > 0;
+    const linkId =
+      initial?.linkId ?? initial?.id ?? (needsLink ? crypto.randomUUID() : undefined);
+    const stored: CalendarEvent = { ...record, linkId };
+
+    const mode = initial?.id ? "updated" : "created";
     if (initial?.id) {
-      await db.calendarEvents.update(initial.id, record);
+      await db.calendarEvents.update(initial.id, stored);
     } else {
-      await db.calendarEvents.add(record);
+      await db.calendarEvents.add(stored);
+    }
+
+    // ほかのアカウントの分。同じ印の予定が相手側にあればそれを直し、無ければ足す。
+    // チェックを外した分は取り下げる。1つ失敗しても残りは続け、こちらのアカウントの
+    // 予定は必ず残す — 相手側への反映のために本体を巻き添えにしない。
+    const failed: string[] = [];
+    if (linkId) {
+      for (const planned of changes.apply) {
+        try {
+          await applyEventToAccount(planned.account, stored, linkId, planned.title);
+        } catch (error) {
+          console.error("[crossAccountEvents] failed to apply an event to another account:", error);
+          failed.push(planned.account.label);
+        }
+      }
+      for (const account of changes.remove) {
+        try {
+          await removeEventFromAccount(account, linkId);
+        } catch (error) {
+          console.error("[crossAccountEvents] failed to remove an event from another account:", error);
+          failed.push(account.label);
+        }
+      }
+    }
+    if (failed.length > 0) {
+      showToast(`${failed.join("・")}には反映できませんでした`, "error");
     }
     setSaving(false);
-    onSaved();
+    onSaved(mode);
   }
 
   return (
@@ -82,7 +199,7 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
         <Input
           label="タイトル"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => handleTitleChange(e.target.value)}
           placeholder="例: 歯医者"
           required
           autoFocus
@@ -148,6 +265,35 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
         />
         <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
       </FormPanel>
+
+      {otherAccounts.length > 0 && (
+        <FormPanel caption="ほかのアカウントにも入れる" icon={Users}>
+          {initial && (
+            <p className="px-[0.9rem] py-3 text-xs leading-relaxed text-slate-500">
+              入れたアカウントの予定は、この予定を直すと一緒に直ります（予定名だけはそのまま保たれます）。
+              外して保存すると、そのアカウントから取り下げます。
+            </p>
+          )}
+          {otherAccounts.map((account) => (
+            <div key={account.userId}>
+              <SwitchField
+                label={account.label}
+                hint={account.email ?? undefined}
+                checked={drafts[account.userId]?.checked ?? false}
+                onChange={(checked) => updateDraft(account.userId, { checked })}
+              />
+              {drafts[account.userId]?.checked && (
+                <Input
+                  label="このアカウントでの予定名"
+                  value={drafts[account.userId].title}
+                  onChange={(e) => updateDraft(account.userId, { title: e.target.value, edited: true })}
+                  placeholder={title || "例: 面接"}
+                />
+              )}
+            </div>
+          ))}
+        </FormPanel>
+      )}
 
       <FormActions>
         <Button type="button" variant="secondary" onClick={onCancel}>

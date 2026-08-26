@@ -1,4 +1,6 @@
 import { db } from "../db/schema";
+import { scopedKey } from "./accounts";
+import { dedupeSyncedEmails } from "./syncedEmails";
 
 /** 同じGmailアドレスで連携し直した時に増えてしまった重複アカウント行を1つにまとめ、
  * どのアカウントにも属さなくなった行(メール・AI下書き・ブロックリスト)を片付ける。
@@ -34,6 +36,10 @@ export async function consolidateGmailAccounts(): Promise<number> {
       await db.gmailAccounts.delete(extra.id!);
       merged++;
     }
+    // 付け替えた結果、同じメールが2行(重複していたアカウントぶん)になっていることが
+    // ある — どちらのアカウントも同じ受信トレイを取り込んでいたため。ここで畳まないと、
+    // まったく同じ差出人・件名・時刻の行が一覧に二重で並ぶ(2026-08-24 に発生)。
+    await dedupeSyncedEmails(keeper.id!);
     await dedupeBlockedSenders(keeper.id!);
   }
 
@@ -71,4 +77,43 @@ async function deleteOrphans(): Promise<void> {
   for (const blocked of orphanBlocks) {
     if (blocked.id) await db.blockedSenders.delete(blocked.id);
   }
+}
+
+/** Gmail画面で最後に選んでいたアカウント。以前は画面を開き直すたびに1件目へ戻っていて、
+ * 2件目をよく見る場合は毎回タブを押し直す必要があった(2026-08-25 修正)。
+ *
+ * Dexieではなくlocalstorageに置くのは、これが「この端末での見え方」であって同期する
+ * データではないため — PCとスマホで別々のアカウントを開いたままにしておいてよい。
+ * キーを scopedKey に通すのは、端末内のアカウント(src/lib/accounts.ts)を切り替えた時に
+ * 互いの選択を上書きしないようにするため。 */
+const SELECTED_ACCOUNT_KEY = scopedKey("lifeHubGmailSelectedAccount");
+
+export function readSelectedGmailAccountId(): string | null {
+  try {
+    return localStorage.getItem(SELECTED_ACCOUNT_KEY);
+  } catch {
+    // プライベートモード等で読めなくても、1件目が選ばれるだけで表示は続けられる。
+    return null;
+  }
+}
+
+export function rememberSelectedGmailAccountId(accountId: string): void {
+  try {
+    localStorage.setItem(SELECTED_ACCOUNT_KEY, accountId);
+  } catch {
+    // 同上。覚えられないだけで、その場の選択自体は効いている。
+  }
+}
+
+/** 覚えていた選択を、今ある連携アカウントと突き合わせて実際に表示する1件を決める。
+ *
+ * 連携を解除した後などは、覚えているIDがもう存在しない行を指している。その場合は
+ * 黙って1件目に戻す — null のままにすると、アカウントはあるのに一覧が出ない。 */
+export function resolveSelectedGmailAccountId(
+  accounts: { id?: string }[],
+  remembered: string | null,
+): string | null {
+  if (accounts.length === 0) return null;
+  if (remembered != null && accounts.some((account) => account.id === remembered)) return remembered;
+  return accounts[0].id ?? null;
 }

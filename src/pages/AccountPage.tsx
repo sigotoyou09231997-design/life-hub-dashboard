@@ -2,10 +2,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
-import { RefreshCw, ChevronRight, Cloud, Mail, UserRound } from "lucide-react";
+import { RefreshCw, Check, ChevronRight, Cloud, Mail, UserPlus, UserRound, Users } from "lucide-react";
 import { db } from "../db/schema";
 import { auth, isSupabaseConfigured, getRedirectUri } from "../lib/supabase";
+import { listAccounts } from "../lib/accounts";
+import { describeAccountState } from "../lib/crossAccountEvents";
+import { signOutActiveAccount, startAddAccount, switchToAccount } from "../lib/accountSwitch";
 import { syncNow } from "../lib/syncRuntime";
+import { AccountAvatar, accountLabel } from "../components/layout/AccountSwitcher";
 import { avatarColor, avatarInitial } from "../lib/gmail";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
@@ -21,6 +25,9 @@ export default function AccountPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [syncing, setSyncing] = useState(false);
   const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
+  // 端末に登録済みのアプリのアカウント一覧。切り替えるとページごと開き直すので、
+  // 画面が生きている間に変わることはない。
+  const accounts = listAccounts();
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -34,7 +41,9 @@ export default function AccountPage() {
   }
 
   async function handleLogout() {
-    await auth.signOut();
+    // ログアウトはいま開いているアカウントだけ。他に登録済みのアカウントがあれば
+    // そちらに切り替わって開き直す(src/lib/accountSwitch.ts)。
+    await signOutActiveAccount();
     showToast("ログアウトしました");
   }
 
@@ -94,6 +103,52 @@ export default function AccountPage() {
             )}
           </div>
         </Card>
+
+        {isSupabaseConfigured && accounts.length > 0 && (
+          <Card className="lg:col-span-2">
+            <div className="profile-module__header">
+              <div><h2>この端末のアカウント</h2></div>
+              <Users size={17} />
+            </div>
+            <p className="profile-module__description text-xs text-slate-500">
+              複数のアカウントを登録しておくと、ヘッダーのアイコンからワンタップで切り替えられます。
+              データはアカウントごとに端末内で分かれているので、切り替えても消えません。
+            </p>
+            <div className="mt-3 space-y-2">
+              {accounts.map((account) => {
+                const isActive = account.userId === session?.user.id;
+                return (
+                  <div key={account.userId} className="glass-row flex items-center gap-3 rounded-xl p-3">
+                    <AccountAvatar account={account} size={36} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900">{accountLabel(account)}</p>
+                      <p className="truncate text-xs text-slate-500">{account.email ?? "—"}</p>
+                    </div>
+                    {isActive ? (
+                      <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-success">
+                        <Check size={15} />
+                        使用中
+                      </span>
+                    ) : (
+                      <Button variant="secondary" onClick={() => switchToAccount(account.userId)}>
+                        切り替え
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+              {/* 「ほかのアカウントにも入れる」欄が出ない件の切り分け用。端末側で何が
+                  起きているのかを本人が読めるようにしている。原因が分かったら消す。 */}
+              <p className="break-all rounded-lg bg-slate-900/5 px-3 py-2 font-mono text-[10px] leading-relaxed text-slate-500">
+                {describeAccountState()}
+              </p>
+              <Button variant="secondary" className="w-full" onClick={startAddAccount}>
+                <UserPlus size={16} />
+                アカウントを追加
+              </Button>
+            </div>
+          </Card>
+        )}
 
         <Card className="profile-sync-module">
           <div className="profile-module__header">

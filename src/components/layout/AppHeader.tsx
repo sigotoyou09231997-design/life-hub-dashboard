@@ -8,6 +8,7 @@ import { formatGmailTimestamp } from "../../lib/date";
 import { useNotificationSignals } from "../../lib/notificationSignals";
 import { Sheet } from "../ui/Sheet";
 import { EmptyState } from "../ui/EmptyState";
+import { AccountSwitcher } from "./AccountSwitcher";
 
 /** Persistent, app-wide header (avatar / "LIFE HUB" / bell / settings) — shown
  * above every page's own PageHeader (back arrow + title), which keeps its
@@ -17,6 +18,7 @@ export function AppHeader() {
   const { pathname } = useLocation();
   const [session, setSession] = useState<Session | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const signals = useNotificationSignals();
 
   useEffect(() => {
@@ -42,13 +44,16 @@ export function AppHeader() {
     <>
       <header className={`glass-header app-header ${pathname === "/" ? "app-header--home" : ""}`}>
         <div className="app-header__mobile-left">
-          <Link
-            to="/account"
+          {/* アイコンはアカウント画面へのリンクではなく、切り替えの入口。
+              アカウント画面へはそのシートの中から入る(AccountSwitcher)。 */}
+          <button
+            type="button"
+            onClick={() => setAccountOpen(true)}
             aria-label="アカウント"
             className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             {avatar}
-          </Link>
+          </button>
           <Link
             to="/"
             aria-label="ホーム"
@@ -82,15 +87,18 @@ export function AppHeader() {
           >
             <SettingsIcon size={19} />
           </Link>
-          <Link
-            to="/account"
+          <button
+            type="button"
+            onClick={() => setAccountOpen(true)}
             aria-label="アカウント"
             className="hidden shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:block"
           >
             {avatar}
-          </Link>
+          </button>
         </div>
       </header>
+
+      <AccountSwitcher open={accountOpen} onClose={() => setAccountOpen(false)} activeUserId={session?.user.id} />
 
       <Sheet open={notifOpen} onClose={() => setNotifOpen(false)} title="通知">
         {signals.total === 0 ? (

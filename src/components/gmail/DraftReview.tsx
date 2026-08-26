@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban, Copy, Mail, MailOpen } from "lucide-react";
+import { Ban, CalendarPlus, Copy, Mail, MailOpen, Star } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
@@ -23,6 +23,7 @@ import { Badge } from "../ui/Badge";
 import { Input, Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
+import { MailPlanImport } from "./MailPlanImport";
 import { useToast } from "../ui/ToastProvider";
 import { MonthView } from "../calendar/MonthView";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
@@ -122,6 +123,8 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   // variant="sheet"のみで使う折りたたみ状態(初期表示をコンパクトに保つため)。
   const [originalExpanded, setOriginalExpanded] = useState(false);
   const [replyExpanded, setReplyExpanded] = useState(false);
+  // このメールから旅行の日程・予定・タスクを作る画面(MailPlanImport)を開いているか。
+  const [planImportOpen, setPlanImportOpen] = useState(false);
 
   // Shown as dots on the date picker so the user can see at a glance which days
   // already have something booked while choosing a candidate date.
@@ -368,6 +371,19 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     }
   }
 
+  /** 「重要」の付け外し。既読と同じ仕組み(gmail_message_state)に乗せているので、
+   * 他の端末の一覧にも同じ印が付く。 */
+  async function handleToggleImportant() {
+    if (!email.id) return;
+    if (email.importantAt) {
+      await updateMessageState(account.email, email, { importantAt: undefined });
+      showToast("重要を外しました");
+    } else {
+      await updateMessageState(account.email, email, { importantAt: Date.now() });
+      showToast("重要にしました");
+    }
+  }
+
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(bodyText);
@@ -396,6 +412,17 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         <span className="text-xs text-slate-500">{formatGmailTimestamp(email.receivedAt)}</span>
         <button
           type="button"
+          onClick={handleToggleImportant}
+          aria-label={email.importantAt ? "重要を外す" : "重要にする"}
+          title={email.importantAt ? "重要を外す" : "重要にする(一覧の「重要」タブへ移ります)"}
+          className={`rounded-full p-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/50 ${
+            email.importantAt ? "text-warning active:bg-amber-50" : "text-slate-300 active:bg-amber-50 active:text-warning"
+          }`}
+        >
+          <Star size={16} fill={email.importantAt ? "currentColor" : "none"} />
+        </button>
+        <button
+          type="button"
           onClick={handleToggleRead}
           aria-label={email.readAt ? "未読に戻す" : "既読にする"}
           title={email.readAt ? "未読に戻す" : "既読にする(一覧の「既読」タブへ移ります)"}
@@ -404,6 +431,19 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
           }`}
         >
           {email.readAt ? <MailOpen size={16} /> : <Mail size={16} />}
+        </button>
+        {/* 既読/ブロックはこのメール自体の状態を切り替えるもの、こちらは別の場所に予定を
+            作るもの。同じ見た目のアイコンで並べると押し分けにくいので、塗りのボタンにして
+            はっきり別物に見せる。 */}
+        <button
+          type="button"
+          onClick={() => setPlanImportOpen(true)}
+          aria-label="予定に追加する"
+          title="このメールの内容から、旅行の日程・予定・タスクを作る"
+          className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
+        >
+          <CalendarPlus size={14} />
+          <span className="hidden sm:inline">予定に追加する</span>
         </button>
         <button
           type="button"
@@ -534,6 +574,10 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     </>
   );
 
+  const planImportSheet = (
+    <MailPlanImport email={email} account={account} open={planImportOpen} onClose={() => setPlanImportOpen(false)} />
+  );
+
   const candidateSheet = (
     <Sheet open={editingCandidateIndex !== null} onClose={() => setEditingCandidateIndex(null)} title="候補日を変更">
       <div className="space-y-4">
@@ -634,6 +678,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         </div>
 
         {candidateSheet}
+      {planImportSheet}
       </div>
     );
   }
@@ -701,6 +746,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       </Card>
 
       {candidateSheet}
+      {planImportSheet}
     </div>
   );
 }

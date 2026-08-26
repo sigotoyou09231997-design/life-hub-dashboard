@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable, type Transaction as DexieTransaction } from "dexie";
+import { BOOT_DB_NAME, DEFAULT_DB_NAME } from "../lib/accounts";
 import type {
   Transaction,
   FixedCost,
@@ -170,8 +171,10 @@ export class LifeHubDB extends Dexie {
   blockedSenders!: EntityTable<BlockedSender, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
-  constructor() {
-    super("life-hub");
+  /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
+   * 持てるようにするための唯一の仕掛けで、画面側は今まで通り db をそのまま読むだけでよい。 */
+  constructor(dbName: string = DEFAULT_DB_NAME) {
+    super(dbName);
 
     // Note: IndexedDB key paths cannot be boolean, so flags like isFixed/active/
     // completed/pinned are intentionally left un-indexed and filtered in JS.
@@ -275,6 +278,13 @@ export class LifeHubDB extends Dexie {
       diaryEntries: "id, date",
     });
 
+    // 複数のアカウントに入れた同じ予定を結び付ける印(types/index.ts の CalendarEvent.linkId)。
+    // 相手のアカウントのDBから引くので索引を張る。既存の予定には付かないままでよい —
+    // 印が無い予定は「1つのアカウントにしか無い予定」として今までどおり扱う。
+    this.version(14).stores({
+      calendarEvents: "id, date, linkId",
+    });
+
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに
     // UUIDを補うフックを全テーブルへ登録する(Dexie公式が示すUUID主キーの標準パターン)。
     for (const schema of HOOKED_TABLE_SCHEMAS) {
@@ -301,7 +311,7 @@ export class LifeHubDB extends Dexie {
   }
 }
 
-export const db = new LifeHubDB();
+export const db = new LifeHubDB(BOOT_DB_NAME);
 
 export async function ensureDefaultSettings(): Promise<Settings> {
   const existing = await db.settings.toCollection().first();
