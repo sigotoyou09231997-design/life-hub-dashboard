@@ -41,6 +41,8 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
   // 上へずらすことがあり、閉じても戻らないと position:fixed のシートまでずれたままに
   // なる。キーボードが引っ込んだら、ここへ戻す。
   const scrollYRef = useRef(0);
+  /** キーボードでシートを持ち上げたか。閉じた後に位置を戻すのは、この時だけ。 */
+  const liftedRef = useRef(false);
 
   // Capture synchronously during render (before commit) rather than in an effect:
   // an autoFocus field inside the sheet's content steals focus during commit, which
@@ -106,10 +108,18 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
       // 知らせ損ねた時に、シートが浮いたまま戻らなくなるのを防ぐ(src/lib/viewport.ts)。
       const typing = opensKeyboard(document.activeElement);
       const hidden = typing ? keyboardInsetFrom(window.innerHeight, visual.height, visual.offsetTop) : 0;
+      if (hidden > 0) liftedRef.current = true;
       setKeyboardInset(hidden);
-      // 入力が終わっているのにページがずれていたら、開いた時の位置へ戻す。
-      if (!typing && window.scrollY !== scrollYRef.current) window.scrollTo(0, scrollYRef.current);
-      setVisibleHeight(visual.height < window.innerHeight - 1 ? Math.round(visual.height) : null);
+      // キーボードで持ち上がった後、閉じてもページがずれたままなら開いた時の位置へ戻す。
+      // 持ち上がった後だけにするのは、それ以外で勝手にスクロールさせないため。
+      if (!typing && liftedRef.current) {
+        liftedRef.current = false;
+        if (window.scrollY !== scrollYRef.current) window.scrollTo(0, scrollYRef.current);
+      }
+      // 見えている高さと、レイアウト上の画面の高さが食い違っている時だけ持つ。
+      // 小さい時ははみ出さないように、大きい時(iOSが高さを戻し損ねている時)は
+      // シートが不必要に小さくならないように、どちらもこちらに合わせる。
+      setVisibleHeight(Math.abs(visual.height - window.innerHeight) > 1 ? Math.round(visual.height) : null);
     };
     update();
     visual.addEventListener("resize", update);
@@ -131,9 +141,15 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
 
   return (
     <div
-      className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center lg:items-center lg:p-6 ${reserveBottomBar ? "bottom-[calc(env(safe-area-inset-bottom)+6.5rem)]" : "bottom-0"}`}
-      // キーボードのぶんを下に空けると、items-end のシートはその上まで持ち上がる。
-      style={keyboardInset > 0 ? { paddingBottom: keyboardInset } : undefined}
+      className="fixed inset-x-0 top-0 z-50 flex items-end justify-center lg:items-center lg:p-6"
+      style={{
+        // 下端は inline で持つ。--viewport-gap は、iOSが画面の高さを戻し損ねている
+        // 間の足りない分(src/lib/viewport.ts)。そのぶん下へ伸ばさないと、シートが
+        // 画面の途中で止まる。普段は0pxで、これまでと同じ位置。
+        bottom: `calc(${reserveBottomBar ? "env(safe-area-inset-bottom) + 6.5rem" : "0px"} - var(--viewport-gap, 0px))`,
+        // キーボードのぶんを下に空けると、items-end のシートはその上まで持ち上がる。
+        ...(keyboardInset > 0 ? { paddingBottom: keyboardInset } : null),
+      }}
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -152,7 +168,7 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
           keyboardInset > 0
             ? { maxHeight: "calc(100% - 0.5rem)" }
             : visibleHeight
-              ? { maxHeight: `${visibleHeight - 8}px` }
+              ? { maxHeight: `${Math.min(visibleHeight - 8, Math.round(visibleHeight * (compact ? 0.55 : 0.88)))}px` }
               : undefined
         }
       >
