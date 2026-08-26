@@ -1,12 +1,13 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { NotebookPen, Pencil, Trash2 } from "lucide-react";
+import { NotebookPen, Pencil, Plus, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
 import type { TripScheduleItem, TripExpense, TripPackingItem, TripRoutePlace, TripStatus, DiaryEntry } from "../types";
 import { formatDisplayDate, tripDayList, tripDurationLabel, todayStr } from "../lib/date";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
+import { PageFab } from "../components/ui/PageFab";
 import { Button } from "../components/ui/Button";
 import { Tabs } from "../components/ui/Tabs";
 import { Card } from "../components/ui/Card";
@@ -33,6 +34,9 @@ import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
 type Tab = "schedule" | "expense" | "packing" | "route" | "diary";
 
 const VALID_TABS: Tab[] = ["schedule", "expense", "packing", "route", "diary"];
+
+/** 右下の＋(まとめて追加)を出すタブ。 */
+const QUICK_PLAN_TABS: Tab[] = ["schedule", "expense", "route"];
 
 const STATUS_LABEL: Record<TripStatus, string> = {
   planning: "計画中",
@@ -181,6 +185,16 @@ export default function TripDetailPage() {
         />
       </div>
 
+      {/* 日程・費用・ルートは同じ1つの出来事を3つの表から見ているだけなので、3回
+          打ち直さずに済む入り口を1つ置く。位置は他のページと同じ画面右下
+          (src/components/ui/PageFab.tsx)。持ち物・日記はまとめて入れる相手が無いので
+          出さない — その2つのタブでは、下の全幅ボタンがそのまま追加の入り口。 */}
+      {QUICK_PLAN_TABS.includes(tab) && (
+        <PageFab onClick={() => setQuickPlanOpen(true)} label="日程・費用・ルートをまとめて追加">
+          <Plus size={24} />
+        </PageFab>
+      )}
+
       <div className={`trip-detail-workspace trip-detail-workspace--${tab} px-5 lg:px-8`}>
         {tab === "schedule" && (
           <>
@@ -215,21 +229,15 @@ export default function TripDetailPage() {
               }}
             />
             {dayList.length > 0 && (
-              <div className="trip-add-row mt-4">
-                <Button
-                  onClick={() => {
-                    setScheduleDatePreset(null);
-                    setEditingSchedule("new");
-                  }}
-                >
-                  予定を追加
-                </Button>
-                {/* 日程・費用・ルートは同じ1つの出来事を3つの表から見ているだけなので、
-                    3回打ち直さずに済む入り口を、それぞれのタブの追加ボタンの隣に置く。 */}
-                <Button variant="secondary" onClick={() => setQuickPlanOpen(true)}>
-                  まとめて追加
-                </Button>
-              </div>
+              <Button
+                className="mt-4 w-full"
+                onClick={() => {
+                  setScheduleDatePreset(null);
+                  setEditingSchedule("new");
+                }}
+              >
+                予定を追加
+              </Button>
             )}
           </>
         )}
@@ -245,12 +253,9 @@ export default function TripDetailPage() {
                 showToast("削除しました");
               }}
             />
-            <div className="trip-add-row mt-4">
-              <Button onClick={() => setEditingExpense("new")}>費用を追加</Button>
-              <Button variant="secondary" onClick={() => setQuickPlanOpen(true)}>
-                まとめて追加
-              </Button>
-            </div>
+            <Button className="mt-4 w-full" onClick={() => setEditingExpense("new")}>
+              費用を追加
+            </Button>
           </>
         )}
 
@@ -271,32 +276,25 @@ export default function TripDetailPage() {
         )}
 
         {tab === "route" && (
-          <>
-            <TripRouteView
-              dayList={dayList}
-              tripId={tripId}
-              destination={trip.destination}
-              places={routePlaces}
-              onAdd={() => {
-                setRoutePreset(undefined);
-                setEditingRoute("new");
-              }}
-              onFirstSaved={() => showToast("保存しました")}
-              onEdit={(place) => {
-                setRoutePreset(undefined);
-                setEditingRoute(place);
-              }}
-              onDelete={(id) => {
-                db.tripRoutePlaces.delete(id);
-                showToast("削除しました");
-              }}
-            />
-            <div className="trip-add-row mt-4">
-              <Button variant="secondary" onClick={() => setQuickPlanOpen(true)}>
-                日程・費用とまとめて追加
-              </Button>
-            </div>
-          </>
+          <TripRouteView
+            dayList={dayList}
+            tripId={tripId}
+            destination={trip.destination}
+            places={routePlaces}
+            onAdd={() => {
+              setRoutePreset(undefined);
+              setEditingRoute("new");
+            }}
+            onFirstSaved={() => showToast("保存しました")}
+            onEdit={(place) => {
+              setRoutePreset(undefined);
+              setEditingRoute(place);
+            }}
+            onDelete={(id) => {
+              db.tripRoutePlaces.delete(id);
+              showToast("削除しました");
+            }}
+          />
         )}
 
         {tab === "diary" && (
