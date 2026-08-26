@@ -38,8 +38,11 @@ interface Props {
 export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved, onEdit, onDelete }: Props) {
   const queries = places.map((p) => p.address);
   const [mode, setMode] = useState<TravelMode>("transit");
-  /** 経路を開いている区間の、始点の場所id。同時に開くのは1区間だけ。 */
-  const [openLeg, setOpenLeg] = useState<string | null>(null);
+  /** 経路を畳んだ区間の、始点の場所id。最初はどの区間も開いている — 「岡山駅 →
+   * 新横浜駅」のような区間こそ、ルートを開いた時にいちばん知りたいところなのに、
+   * 矢印を押すまで所要時間も移動手段も出てこなかった(2026-08-26の指摘)。
+   * 邪魔なときだけ畳めるよう、矢印は開閉ボタンのまま残す。 */
+  const [closedLegs, setClosedLegs] = useState<string[]>([]);
   /** 端末から取れた現在地。鎖の先頭に「現在地 → 最初の場所」を出すのに使う。 */
   const [here, setHere] = useState<string | null>(null);
   const [hereState, setHereState] = useState<"asking" | "ready" | "denied">("asking");
@@ -68,6 +71,11 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
       alive = false;
     };
   }, [hasPlaces, here]);
+
+  function toggleLeg(id: string | undefined) {
+    if (!id) return;
+    setClosedLegs((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   async function swap(a: TripRoutePlace, b: TripRoutePlace) {
     if (!a.id || !b.id) return;
@@ -158,6 +166,7 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
 
           {places.map((place, i) => {
             const next = places[i + 1];
+            const legOpen = !!place.id && !closedLegs.includes(place.id);
             return (
               <li key={place.id} className="trip-route__node">
                 <article className="trip-route-card">
@@ -224,15 +233,15 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
                     <button
                       type="button"
                       className="trip-route-arrow"
-                      onClick={() => setOpenLeg(openLeg === place.id ? null : (place.id ?? null))}
-                      aria-expanded={openLeg === place.id}
-                      aria-label={`${place.name}から${next.name}までの経路を${openLeg === place.id ? "閉じる" : "見る"}`}
+                      onClick={() => toggleLeg(place.id)}
+                      aria-expanded={legOpen}
+                      aria-label={`${place.name}から${next.name}までの経路を${legOpen ? "閉じる" : "見る"}`}
                     >
                       <span className="trip-route-arrow__mark"><ArrowDown size={17} /></span>
                       <small>経路</small>
                     </button>
 
-                    {openLeg === place.id && (
+                    {legOpen && (
                       <div className="trip-route-leg__panel">
                         <p className="trip-route-leg__title">
                           {place.name} → {next.name}

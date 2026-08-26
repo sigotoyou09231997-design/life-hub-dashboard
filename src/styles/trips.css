@@ -1162,9 +1162,13 @@ a.trip-leg-mode--link {
    カードを1列に流し、入りきらなくなったら横スクロールに逃がす。縦に折り返すと
    「回る順」が読めなくなるので、折り返さずスクロールさせる。 */
 @media (min-width: 1024px) {
+  /* 列の高さは揃える。中身の量(現在地カードには移動手段の行が付く、メモのある
+     場所とない場所がある)でカードの丈がばらばらだと、間の矢印まで1本ずつ違う
+     高さに来て、横一列の鎖として読めなくなっていた(2026-08-26の指摘)。
+     余った高さは、下に空白を残さず地図に使う。 */
   .trip-route__chain {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: stretch;
     overflow-x: auto;
     padding-bottom: 0.6rem;
     scroll-snap-type: x proximity;
@@ -1173,7 +1177,7 @@ a.trip-leg-mode--link {
   .trip-route__node {
     flex: 0 0 auto;
     flex-direction: row;
-    align-items: center;
+    align-items: stretch;
     scroll-snap-align: start;
   }
 
@@ -1183,11 +1187,18 @@ a.trip-leg-mode--link {
     width: 24rem;
   }
 
+  .trip-route-card__map {
+    display: flex;
+    flex: 1;
+    min-height: 17rem;
+  }
+
   .trip-route-card__map iframe {
-    height: 17rem;
+    height: auto;
   }
 
   .trip-route-card__state {
+    flex: 1;
     min-height: 17rem;
   }
 
@@ -1232,17 +1243,25 @@ a.trip-leg-mode--link {
      (矢印が先、その右に地図 — 縦並びの「矢印の下に地図」と同じ読み順)。 */
   .trip-route-leg {
     flex-direction: row;
-    align-items: center;
+    align-items: stretch;
   }
 
   .trip-route-leg__panel {
+    display: flex;
+    flex-direction: column;
     width: 21rem;
     margin-right: 0.7rem;
     margin-bottom: 0;
   }
 
+  .trip-route-leg__map {
+    display: flex;
+    flex: 1;
+    min-height: 15rem;
+  }
+
   .trip-route-leg__map iframe {
-    height: 15rem;
+    height: auto;
   }
 
   .trip-route__node--add {
