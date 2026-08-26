@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
 import {
   PLAN_GROUPS,
+  describeCounts,
   describePlanImportError,
+  describeSaved,
+  otherDestinations,
+  sortDestinations,
   toDestination,
   isRouteAlreadyRegistered,
   needsTrip,
@@ -367,5 +371,49 @@ describe("上段のタブと入れ先", () => {
     // 旅行計画の中でルートを見ていた状態から予定へ移っても、予定に入る。
     expect(toDestination("event", "route")).toBe("event");
     expect(toDestination("task", "route")).toBe("task");
+  });
+});
+
+describe("まとめて入れる時の並びと文言", () => {
+  it("入れ先の並びは、タブと同じ順に揃える", () => {
+    // 保存の順も画面の内訳もこの順。選んだ順に左右されないようにする。
+    expect(sortDestinations(["task", "route", "trip"])).toEqual(["trip", "route", "task"]);
+  });
+
+  it("「ほかにも入れる」には、いま開いている入れ先を出さない", () => {
+    expect(otherDestinations("trip")).toEqual(["route", "event", "task"]);
+    expect(otherDestinations("event")).toEqual(["trip", "route", "task"]);
+  });
+
+  it("入れる前に、どこに何件入るかを出す", () => {
+    expect(
+      describeCounts([
+        { destination: "trip", count: 2 },
+        { destination: "event", count: 1 },
+      ]),
+    ).toBe("旅行の日程 2件・予定 1件");
+  });
+
+  it("0件の入れ先は内訳に書かない", () => {
+    // 「予定 0件」と出ると、入るのか入らないのか読めない。
+    expect(
+      describeCounts([
+        { destination: "trip", count: 2 },
+        { destination: "event", count: 0 },
+      ]),
+    ).toBe("旅行の日程 2件");
+  });
+
+  it("入れ終わったら、どこに何件入れたかを知らせる", () => {
+    expect(
+      describeSaved([
+        { destination: "trip", count: 2 },
+        { destination: "event", count: 1 },
+      ]),
+    ).toBe("旅行の日程に2件、予定に1件入れました");
+  });
+
+  it("1か所だけなら、そのまま1つぶんの文にする", () => {
+    expect(describeSaved([{ destination: "task", count: 3 }])).toBe("タスクに3件入れました");
   });
 });

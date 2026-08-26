@@ -92,6 +92,43 @@ export const PLAN_DESTINATIONS: { value: PlanDestination; label: string }[] = [
   { value: "task", label: "タスク" },
 ];
 
+/** 入れ先の名前。知らせの文とスイッチの見出しに使う。 */
+export function destinationLabel(destination: PlanDestination): string {
+  return PLAN_DESTINATIONS.find((d) => d.value === destination)?.label ?? "";
+}
+
+/** 入れ先を並べる時の順。まとめて入れる時の保存順・表示順をこれで揃える。 */
+export function sortDestinations(destinations: PlanDestination[]): PlanDestination[] {
+  return PLAN_DESTINATIONS.map((d) => d.value).filter((value) => destinations.includes(value));
+}
+
+/** いま開いているタブ以外の入れ先。「ほかにも入れる」のスイッチに並べる。 */
+export function otherDestinations(main: PlanDestination): PlanDestination[] {
+  return PLAN_DESTINATIONS.map((d) => d.value).filter((value) => value !== main);
+}
+
+/** 入れ先ごとの件数。 */
+export interface DestinationCount {
+  destination: PlanDestination;
+  count: number;
+}
+
+/** 入れる前の内訳(「旅行の日程 2件・予定 1件」)。0件の入れ先は書かない。 */
+export function describeCounts(entries: DestinationCount[]): string {
+  return entries
+    .filter((entry) => entry.count > 0)
+    .map((entry) => `${destinationLabel(entry.destination)} ${entry.count}件`)
+    .join("・");
+}
+
+/** 入れ終わった知らせ(「旅行の日程に2件、予定に1件入れました」)。 */
+export function describeSaved(entries: DestinationCount[]): string {
+  const parts = entries
+    .filter((entry) => entry.count > 0)
+    .map((entry) => `${destinationLabel(entry.destination)}に${entry.count}件`);
+  return `${parts.join("、")}入れました`;
+}
+
 /** 画面の上段のタブ。日程とルートは「旅行計画」1つにまとめ、その中で選ばせる —
  * 4つ横並びだと、旅行に入れるものとそうでないものが同じ重さに見えるため
  * (アプリの中の呼び名も /trips = 「旅行計画」で揃えている)。 */

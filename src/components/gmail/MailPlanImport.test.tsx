@@ -354,3 +354,83 @@ describe("旅行のルートに入れる", () => {
     );
   });
 });
+
+describe("2か所にまとめて入れる", () => {
+  it("旅行の日程と予定の両方に、一度に入れる", async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    // タブは旅行計画(日程)のまま、予定も入れ先に足す。
+    await user.click(await screen.findByRole("switch", { name: /予定にも入れる/ }));
+
+    const save = screen.getByRole("button", { name: "合計2件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    // 押す前に、どこに何件入るかが出る。
+    expect(screen.getByText("旅行の日程 1件・予定 1件")).toBeTruthy();
+    await user.click(save);
+
+    expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ tripId: "trip-1", title: "羽田→福岡" })]);
+    expect(mocks.saved.calendarEvents).toEqual([expect.objectContaining({ date: "2026-09-12", title: "羽田→福岡" })]);
+  });
+
+  it("日程とルートの両方に入れる", async () => {
+    mocks.items = [
+      {
+        date: "2026-09-19",
+        startTime: "10:05",
+        title: "東京→新函館北斗 はやぶさ13号",
+        type: "transport",
+        location: "東京駅",
+        endLocation: "新函館北斗駅",
+      },
+    ];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("switch", { name: /旅行のルートにも入れる/ }));
+
+    const save = screen.getByRole("button", { name: "合計3件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await user.click(save);
+
+    expect(mocks.saved.tripSchedule).toHaveLength(1);
+    expect((mocks.saved.tripRoutePlaces as { name: string }[]).map((p) => p.name)).toEqual(["東京駅", "新函館北斗駅"]);
+  });
+
+  it("すでに入っている分は、入れ先ごとに弾く", async () => {
+    // 旅行の日程にはもう入っていて、予定にはまだ無い。日程には入れず、予定にだけ入れる。
+    mocks.existingTripSchedule = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡" }];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("switch", { name: /予定にも入れる/ }));
+
+    const save = screen.getByRole("button", { name: "合計1件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await user.click(save);
+
+    expect(mocks.saved.tripSchedule).toEqual([]);
+    expect(mocks.saved.calendarEvents).toHaveLength(1);
+  });
+
+  it("そのタブに移ったら、「ほかにも入れる」からは外す", async () => {
+    // 同じ入れ先を二重に持たないため。
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("switch", { name: /予定にも入れる/ }));
+    expect(screen.getByRole("button", { name: "合計2件を入れる" })).toBeTruthy();
+
+    await user.click(screen.getByRole("tab", { name: "予定" }));
+    expect(screen.queryByRole("switch", { name: /予定にも入れる/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+    expect(mocks.saved.calendarEvents).toHaveLength(1);
+    expect(mocks.saved.tripSchedule).toEqual([]);
+  });
+
+  it("旅行が1つも無ければ、旅行の日程・ルートは「ほかにも入れる」に出さない", async () => {
+    mocks.trips = [];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "予定" }));
+    await waitFor(() => expect(screen.getByRole("switch", { name: /タスクにも入れる/ })).toBeTruthy());
+    expect(screen.queryByRole("switch", { name: /旅行の日程にも入れる/ })).toBeNull();
+    expect(screen.queryByRole("switch", { name: /旅行のルートにも入れる/ })).toBeNull();
+  });
+});
