@@ -166,6 +166,9 @@ export interface RouteImportRow {
   /** 地図に渡す文字列。空では保存できない(TripRoutePlace.address と同じ決まり)。 */
   address: string;
   memo?: string;
+  /** 何日目の場所か。メールの日程から持ち越して、ルート画面の日にち切り替えで
+   * すぐ絞れるようにする。 */
+  date?: string;
 }
 
 /** 読み取った日程を、ルートに置ける「場所」に起こす。
@@ -180,20 +183,20 @@ export interface RouteImportRow {
 export function toRouteImportRows(items: ExtractedTripItem[]): RouteImportRow[] {
   const rows: RouteImportRow[] = [];
   const seen = new Set<string>();
-  const push = (name: string | undefined, address: string | undefined, memo: string | undefined) => {
+  const push = (name: string | undefined, address: string | undefined, memo: string | undefined, date: string | undefined) => {
     if (!name?.trim() || !address?.trim()) return;
     const key = routeKey(address);
     if (seen.has(key)) return;
     seen.add(key);
-    rows.push({ checked: true, name: name.trim(), address: address.trim(), memo: memo?.trim() || undefined });
+    rows.push({ checked: true, name: name.trim(), address: address.trim(), memo: memo?.trim() || undefined, date });
   };
   for (const item of items) {
     if (item.type === "transport") {
-      push(item.location, item.location, item.title);
-      push(item.endLocation, item.endLocation, item.title);
+      push(item.location, item.location, item.title, item.date);
+      push(item.endLocation, item.endLocation, item.title, item.date);
       continue;
     }
-    push(item.title, item.location, item.memo);
+    push(item.title, item.location, item.memo, item.date);
   }
   return rows;
 }
@@ -205,6 +208,7 @@ export function toTripRoutePlaceRecord(row: RouteImportRow, tripId: string, sort
     name: row.name.trim(),
     address: row.address.trim(),
     sortOrder,
+    date: row.date || undefined,
     memo: row.memo || undefined,
     visited: false,
     createdAt: now,

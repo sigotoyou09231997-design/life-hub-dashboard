@@ -1,5 +1,18 @@
-import { Fragment, useEffect, useState } from "react";
-import { ArrowDown, Check, ExternalLink, LocateFixed, Map, MoveLeft, MoveRight, Pencil, Plus, Trash2 } from "lucide-react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import {
+  ArrowDown,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  LocateFixed,
+  Map,
+  MoveLeft,
+  MoveRight,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { db } from "../../db/schema";
 import type { TripRoutePlace } from "../../types";
 import {
@@ -11,24 +24,30 @@ import {
   coordsQuery,
 } from "../../lib/googleMaps";
 import type { TravelMode } from "../../lib/googleMaps";
+import { formatShortDate } from "../../lib/date";
 import { TripRouteForm } from "./TripRouteForm";
 import { TripLegModes } from "./TripLegModes";
-
-/** 現在地から1つ目の場所までの区間につける鍵。場所idと混ざらない名前にしてある。 */
-const HERE_LEG = "here";
-const DEFAULT_MODE: TravelMode = "transit";
 
 interface Props {
   tripId: string;
   destination: string;
   /** 並べ替え済み(sortOrder昇順)で渡すこと。 */
   places: TripRoutePlace[];
+  /** 旅行の全日程(YYYY-MM-DD)。日にちの切り替えに使う。 */
+  dayList: string[];
   onAdd: () => void;
   /** 1件目をこの画面の中で保存し終えたとき(空のとき出すフォーム用)。 */
   onFirstSaved: () => void;
   onEdit: (place: TripRoutePlace) => void;
   onDelete: (id: string) => void;
 }
+
+/** 現在地から1つ目の場所までの区間につける鍵。場所idと混ざらない名前にしてある。 */
+const HERE_LEG = "here";
+const DEFAULT_MODE: TravelMode = "transit";
+/** 日にちの切り替えで「全部見る」と「日付を決めていない場所」を表す値。 */
+const ALL_DAYS = "all";
+const NO_DAY = "none";
 
 /**
  * 行きたい場所を「地図 → 矢印 → 地図」の鎖で見せる。1枚の地図に全部のピンを
@@ -39,12 +58,11 @@ interface Props {
  * 縦(スマホ)と横(PC)の切り替えは trips.css 側。矢印はCSSで回すので、DOMは
  * どちらでも同じ1本の鎖のまま。
  *
- * カード・矢印・区間の経路は、それぞれを鎖の1コマ(li)として並べる。PCでは行の
- * 幅で折り返すので、コマの途中で切れないようにこの粒度にしてある — ひとかたまり
- * にしていた頃は、右端のカードが画面の外で半分に切れていた(2026-08-26の指摘)。
+ * PCでは1本の列のまま横へ流し、はみ出すぶんは左右のボタン(と普通の横スクロール)
+ * で送る。折り返して2段にした時は、段ごとに列の高さが変わるのが目についたため
+ * (2026-08-26の指摘)。長い旅行では日にちで絞れば、その日のぶんだけが並ぶ。
  */
-export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved, onEdit, onDelete }: Props) {
-  const queries = places.map((p) => p.address);
+export function TripRouteView({ tripId, destination, places, dayList, onAdd, onFirstSaved, onEdit, onDelete }: Props) {
   /** 区間ごとの移動手段。1つにまとめて持っていた頃は、どこかで「車」に変えると
    * ほかの地図まで全部つられて変わり、「この区間は電車・ここは車」という見方が
    * できなかった(2026-08-26の指摘)。鍵は区間の始点の場所id(現在地からの区間は
@@ -58,9 +76,21 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
    * 矢印を押すまで所要時間も移動手段も出てこなかった(2026-08-26の指摘)。
    * 邪魔なときだけ畳めるよう、矢印は開閉ボタンのまま残す。 */
   const [closedLegs, setClosedLegs] = useState<string[]>([]);
+  /** いま見ている日。既定は「すべて」— 日付を決めていない場所も含めて今まで通り並ぶ。 */
+  const [day, setDay] = useState<string>(ALL_DAYS);
   /** 端末から取れた現在地。鎖の先頭に「現在地 → 最初の場所」を出すのに使う。 */
   const [here, setHere] = useState<string | null>(null);
   const [hereState, setHereState] = useState<"asking" | "ready" | "denied">("asking");
+
+  const shown = places.filter((place) => {
+    if (day === ALL_DAYS) return true;
+    if (day === NO_DAY) return !place.date;
+    return place.date === day;
+  });
+  const queries = shown.map((p) => p.address);
+  const hasUndated = places.some((place) => !place.date);
+  // 1日だけの旅行に切り替えは要らない。
+  const showsDayTabs = dayList.length > 1;
 
   // ボタンを押させずに、ルートを開いた時点で現在地を取りにいく。旅行中に開くのは
   // たいてい「いまここからどう行くか」を見たいときで、毎回押させる意味が薄い。
@@ -87,9 +117,31 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
     };
   }, [hasPlaces, here]);
 
-  function toggleLeg(id: string | undefined) {
-    if (!id) return;
-    setClosedLegs((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  /* --- 横スクロールの送りボタン ------------------------------------------
+     PCでは列が画面より長くなる。スクロールバーは普段隠れていて、続きがあること
+     自体に気づけなかったので、左右に送りボタンを出す(2026-08-26の指摘)。
+     押せるかどうかは、いまの位置から測って決める。 */
+  const chainRef = useRef<HTMLOListElement>(null);
+  const [rail, setRail] = useState({ prev: false, next: false });
+
+  const updateRail = useCallback(() => {
+    const el = chainRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    setRail({ prev: el.scrollLeft > 8, next: el.scrollLeft < max - 8 });
+  }, []);
+
+  useEffect(() => {
+    updateRail();
+    window.addEventListener("resize", updateRail);
+    return () => window.removeEventListener("resize", updateRail);
+    // 並びが変わると長さも変わる(日にちの切り替え・区間の開け閉め・場所の増減)。
+  }, [updateRail, shown.length, closedLegs.length, day]);
+
+  function scrollChain(direction: 1 | -1) {
+    const el = chainRef.current;
+    if (!el?.scrollBy) return;
+    el.scrollBy({ left: direction * Math.round(el.clientWidth * 0.8), behavior: "smooth" });
   }
 
   function legMode(legKey: string): TravelMode {
@@ -99,6 +151,11 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
   function changeLegMode(legKey: string, next: TravelMode) {
     setLegModes((prev) => ({ ...prev, [legKey]: next }));
     setLastMode(next);
+  }
+
+  function toggleLeg(id: string | undefined) {
+    if (!id) return;
+    setClosedLegs((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   async function swap(a: TripRoutePlace, b: TripRoutePlace) {
@@ -113,7 +170,7 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
     <div className="trip-route">
       {/* 1件も無いうちは「地図で開く」を出さない — 開いても行き先の地図が出るだけで、
           この画面でやることは「1件目を入れる」しかない。代わりに入力欄をそのまま出す。 */}
-      {places.length > 0 && (
+      {shown.length > 0 && (
         <div className="trip-route__head">
           <a
             className="trip-route__open"
@@ -122,7 +179,7 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
             rel="noreferrer"
           >
             <Map size={16} />
-            {places.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
+            {shown.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
             <ExternalLink size={14} />
           </a>
         </div>
@@ -135,191 +192,264 @@ export function TripRouteView({ tripId, destination, places, onAdd, onFirstSaved
             <h2>行きたい場所を追加</h2>
             <p>{destination}で行きたい場所を、住所か施設名で入れてください。入れた場所の地図がここに並びます。</p>
           </div>
-          <TripRouteForm tripId={tripId} nextSortOrder={1} inline onSaved={onFirstSaved} onCancel={onFirstSaved} />
+          <TripRouteForm tripId={tripId} nextSortOrder={1} dayList={dayList} inline onSaved={onFirstSaved} onCancel={onFirstSaved} />
         </div>
       ) : (
-        <ol className="trip-route__chain">
-          {/* 鎖の先頭は「いまいる場所」。ここから最初の目的地までをそのまま出す。 */}
-          <li className="trip-route__node trip-route__node--here">
-            <article className="trip-route-card trip-route-card--here">
-              <header className="trip-route-card__head">
-                <span className="trip-route-card__index is-here" aria-hidden="true">
-                  <LocateFixed size={14} />
-                </span>
-                <h3>現在地 → {places[0].name}</h3>
-              </header>
-
-              {here ? (
-                <div className="trip-route-card__map">
-                  <iframe
-                    key={`${here}-${places[0].id}-${legMode(HERE_LEG)}`}
-                    title={`現在地から${places[0].name}までの経路`}
-                    src={buildLegEmbedUrl(here, places[0].address, legMode(HERE_LEG))}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                  />
-                </div>
-              ) : (
-                <p className="trip-route-card__state">
-                  {hereState === "asking"
-                    ? "現在地を確認しています…"
-                    : "現在地を取得できませんでした。下のリンクなら、Googleマップ側が現在地から案内します。"}
-                </p>
-              )}
-
-              {here && (
-                <TripLegModes
-                  origin={here}
-                  destination={places[0].address}
-                  mode={legMode(HERE_LEG)}
-                  onModeChange={(next) => changeLegMode(HERE_LEG, next)}
-                />
-              )}
-
-              <a
-                className="trip-route-leg__open"
-                href={buildFromHereSearchUrl(places[0].address, legMode(HERE_LEG))}
-                target="_blank"
-                rel="noreferrer"
+        <>
+          {/* 日にちの切り替え。長い旅行ほど列が伸びるので、その日に回るぶんだけに
+              絞れるようにする。日付を決めていない場所は「日付なし」に集まる。 */}
+          {showsDayTabs && (
+            <div className="trip-route__days" role="group" aria-label="日にちで絞る">
+              <button
+                type="button"
+                className={`trip-route__day${day === ALL_DAYS ? " is-active" : ""}`}
+                aria-pressed={day === ALL_DAYS}
+                onClick={() => setDay(ALL_DAYS)}
               >
-                現在地からの案内をGoogleマップで開く
-                <ExternalLink size={13} />
-              </a>
-            </article>
-          </li>
-
-          {/* ここは経路がもう地図に出ているので、矢印は向きを示すだけにする。 */}
-          <li className="trip-route__node trip-route__node--arrow" aria-hidden="true">
-            <div className="trip-route-arrow trip-route-arrow--static">
-              <span className="trip-route-arrow__mark"><ArrowDown size={17} /></span>
+                すべて<small>{places.length}</small>
+              </button>
+              {dayList.map((date, i) => {
+                const count = places.filter((place) => place.date === date).length;
+                return (
+                  <button
+                    key={date}
+                    type="button"
+                    className={`trip-route__day${day === date ? " is-active" : ""}`}
+                    aria-pressed={day === date}
+                    onClick={() => setDay(date)}
+                  >
+                    {i + 1}日目 {formatShortDate(date)}
+                    <small>{count}</small>
+                  </button>
+                );
+              })}
+              {hasUndated && (
+                <button
+                  type="button"
+                  className={`trip-route__day${day === NO_DAY ? " is-active" : ""}`}
+                  aria-pressed={day === NO_DAY}
+                  onClick={() => setDay(NO_DAY)}
+                >
+                  日付なし<small>{places.filter((place) => !place.date).length}</small>
+                </button>
+              )}
             </div>
-          </li>
+          )}
 
-          {places.map((place, i) => {
-            const next = places[i + 1];
-            const legOpen = !!place.id && !closedLegs.includes(place.id);
-            return (
-              <Fragment key={place.id}>
-              <li className="trip-route__node">
-                <article className="trip-route-card">
-                  <header className="trip-route-card__head">
-                    <button
-                      type="button"
-                      onClick={() => place.id && db.tripRoutePlaces.update(place.id, { visited: !place.visited })}
-                      aria-label={place.visited ? "「行った」を取り消す" : "行ったことにする"}
-                      aria-pressed={place.visited}
-                      className={`trip-route-card__index${place.visited ? " is-visited" : ""}`}
-                    >
-                      {place.visited ? <Check size={14} strokeWidth={3} /> : i + 1}
-                    </button>
-                    <h3 title={place.name}>{place.name}</h3>
-                    <div className="trip-route-card__tools">
-                      <button
-                        type="button"
-                        onClick={() => i > 0 && swap(place, places[i - 1])}
-                        disabled={i === 0}
-                        aria-label="順番を前へ"
-                      >
-                        <MoveLeft size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => next && swap(place, next)}
-                        disabled={!next}
-                        aria-label="順番を後へ"
-                      >
-                        <MoveRight size={15} />
-                      </button>
-                      <button type="button" onClick={() => onEdit(place)} aria-label={`${place.name}を編集`}>
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (place.id && confirm(`「${place.name}」をルートから削除しますか?`)) onDelete(place.id);
-                        }}
-                        aria-label="削除"
-                        className="trip-route-card__remove"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </header>
+          {shown.length === 0 ? (
+            <div className="trip-route__day-empty">
+              <p>この日に回る場所はまだ入っていません。</p>
+              <button type="button" onClick={onAdd}>
+                <Plus size={16} />
+                場所を追加
+              </button>
+            </div>
+          ) : (
+            <div className="trip-route__rail">
+              <button
+                type="button"
+                className="trip-route__scroll trip-route__scroll--prev"
+                onClick={() => scrollChain(-1)}
+                disabled={!rail.prev}
+                aria-label="前の場所へ"
+              >
+                <ChevronLeft size={20} />
+              </button>
 
-                  <div className="trip-route-card__map">
-                    <iframe
-                      title={`${place.name}の地図`}
-                      src={buildMapEmbedUrl(place.address)}
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                    />
-                  </div>
+              <ol className="trip-route__chain" ref={chainRef} onScroll={updateRail}>
+                {/* 鎖の先頭は「いまいる場所」。ここから最初の目的地までをそのまま出す。 */}
+                <li className="trip-route__node trip-route__node--here">
+                  <article className="trip-route-card trip-route-card--here">
+                    <header className="trip-route-card__head">
+                      <span className="trip-route-card__index is-here" aria-hidden="true">
+                        <LocateFixed size={14} />
+                      </span>
+                      <h3>現在地 → {shown[0].name}</h3>
+                    </header>
 
-                  <p className="trip-route-card__address" title={place.address}>{place.address}</p>
-                  {place.memo && <p className="trip-route-card__memo">{place.memo}</p>}
-
-                </article>
-              </li>
-
-              {next && (
-                <li className="trip-route__node trip-route__node--leg">
-                  <div className="trip-route-leg">
-                    <button
-                      type="button"
-                      className="trip-route-arrow"
-                      onClick={() => toggleLeg(place.id)}
-                      aria-expanded={legOpen}
-                      aria-label={`${place.name}から${next.name}までの経路を${legOpen ? "閉じる" : "見る"}`}
-                    >
-                      <span className="trip-route-arrow__mark"><ArrowDown size={17} /></span>
-                      <small>経路</small>
-                    </button>
-
-                    {legOpen && (
-                      <div className="trip-route-leg__panel">
-                        <p className="trip-route-leg__title">
-                          {place.name} → {next.name}
-                        </p>
-                        <TripLegModes
-                          origin={place.address}
-                          destination={next.address}
-                          mode={legMode(place.id ?? "")}
-                          onModeChange={(m) => changeLegMode(place.id ?? "", m)}
+                    {here ? (
+                      <div className="trip-route-card__map">
+                        <iframe
+                          key={`${here}-${shown[0].id}-${legMode(HERE_LEG)}`}
+                          title={`現在地から${shown[0].name}までの経路`}
+                          src={buildLegEmbedUrl(here, shown[0].address, legMode(HERE_LEG))}
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
                         />
-                        <div className="trip-route-leg__map">
-                          <iframe
-                            key={`${place.id}-${legMode(place.id ?? "")}`}
-                            title={`${place.name}から${next.name}までの経路`}
-                            src={buildLegEmbedUrl(place.address, next.address, legMode(place.id ?? ""))}
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                          />
-                        </div>
-                        <a
-                          className="trip-route-leg__open"
-                          href={buildLegSearchUrl(place.address, next.address, legMode(place.id ?? ""))}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          乗換と所要時間をGoogleマップで見る
-                          <ExternalLink size={13} />
-                        </a>
                       </div>
+                    ) : (
+                      <p className="trip-route-card__state">
+                        {hereState === "asking"
+                          ? "現在地を確認しています…"
+                          : "現在地を取得できませんでした。下のリンクなら、Googleマップ側が現在地から案内します。"}
+                      </p>
                     )}
+
+                    {here && (
+                      <TripLegModes
+                        origin={here}
+                        destination={shown[0].address}
+                        mode={legMode(HERE_LEG)}
+                        onModeChange={(next) => changeLegMode(HERE_LEG, next)}
+                      />
+                    )}
+
+                    <a
+                      className="trip-route-leg__open"
+                      href={buildFromHereSearchUrl(shown[0].address, legMode(HERE_LEG))}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      現在地からの案内をGoogleマップで開く
+                      <ExternalLink size={13} />
+                    </a>
+                  </article>
+                </li>
+
+                {/* ここは経路がもう地図に出ているので、矢印は向きを示すだけにする。 */}
+                <li className="trip-route__node trip-route__node--arrow" aria-hidden="true">
+                  <div className="trip-route-arrow trip-route-arrow--static">
+                    <span className="trip-route-arrow__mark"><ArrowDown size={17} /></span>
                   </div>
                 </li>
-              )}
-              </Fragment>
-            );
-          })}
 
-          <li className="trip-route__node trip-route__node--add">
-            <button type="button" className="trip-route-add" onClick={onAdd}>
-              <span><Plus size={18} /></span>
-              場所を追加
-            </button>
-          </li>
-        </ol>
+                {shown.map((place, i) => {
+                  const next = shown[i + 1];
+                  const legOpen = !!place.id && !closedLegs.includes(place.id);
+                  return (
+                    <Fragment key={place.id}>
+                      <li className="trip-route__node">
+                        <article className="trip-route-card">
+                          <header className="trip-route-card__head">
+                            <button
+                              type="button"
+                              onClick={() => place.id && db.tripRoutePlaces.update(place.id, { visited: !place.visited })}
+                              aria-label={place.visited ? "「行った」を取り消す" : "行ったことにする"}
+                              aria-pressed={place.visited}
+                              className={`trip-route-card__index${place.visited ? " is-visited" : ""}`}
+                            >
+                              {place.visited ? <Check size={14} strokeWidth={3} /> : i + 1}
+                            </button>
+                            <h3 title={place.name}>{place.name}</h3>
+                            <div className="trip-route-card__tools">
+                              <button
+                                type="button"
+                                onClick={() => i > 0 && swap(place, shown[i - 1])}
+                                disabled={i === 0}
+                                aria-label="順番を前へ"
+                              >
+                                <MoveLeft size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => next && swap(place, next)}
+                                disabled={!next}
+                                aria-label="順番を後へ"
+                              >
+                                <MoveRight size={15} />
+                              </button>
+                              <button type="button" onClick={() => onEdit(place)} aria-label={`${place.name}を編集`}>
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (place.id && confirm(`「${place.name}」をルートから削除しますか?`)) onDelete(place.id);
+                                }}
+                                aria-label="削除"
+                                className="trip-route-card__remove"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </header>
+
+                          <div className="trip-route-card__map">
+                            <iframe
+                              title={`${place.name}の地図`}
+                              src={buildMapEmbedUrl(place.address)}
+                              loading="lazy"
+                              referrerPolicy="no-referrer-when-downgrade"
+                            />
+                          </div>
+
+                          <p className="trip-route-card__address" title={place.address}>{place.address}</p>
+                          {place.memo && <p className="trip-route-card__memo">{place.memo}</p>}
+                        </article>
+                      </li>
+
+                      {next && (
+                        <li className="trip-route__node trip-route__node--leg">
+                          <div className="trip-route-leg">
+                            <button
+                              type="button"
+                              className="trip-route-arrow"
+                              onClick={() => toggleLeg(place.id)}
+                              aria-expanded={legOpen}
+                              aria-label={`${place.name}から${next.name}までの経路を${legOpen ? "閉じる" : "見る"}`}
+                            >
+                              <span className="trip-route-arrow__mark"><ArrowDown size={17} /></span>
+                              <small>経路</small>
+                            </button>
+
+                            {legOpen && (
+                              <div className="trip-route-leg__panel">
+                                <p className="trip-route-leg__title">
+                                  {place.name} → {next.name}
+                                </p>
+                                <TripLegModes
+                                  origin={place.address}
+                                  destination={next.address}
+                                  mode={legMode(place.id ?? "")}
+                                  onModeChange={(m) => changeLegMode(place.id ?? "", m)}
+                                />
+                                <div className="trip-route-leg__map">
+                                  <iframe
+                                    key={`${place.id}-${legMode(place.id ?? "")}`}
+                                    title={`${place.name}から${next.name}までの経路`}
+                                    src={buildLegEmbedUrl(place.address, next.address, legMode(place.id ?? ""))}
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer-when-downgrade"
+                                  />
+                                </div>
+                                <a
+                                  className="trip-route-leg__open"
+                                  href={buildLegSearchUrl(place.address, next.address, legMode(place.id ?? ""))}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  乗換と所要時間をGoogleマップで見る
+                                  <ExternalLink size={13} />
+                                </a>
+                              </div>
+                            )}
+                          </div>
+                        </li>
+                      )}
+                    </Fragment>
+                  );
+                })}
+
+                <li className="trip-route__node trip-route__node--add">
+                  <button type="button" className="trip-route-add" onClick={onAdd}>
+                    <span><Plus size={18} /></span>
+                    場所を追加
+                  </button>
+                </li>
+              </ol>
+
+              <button
+                type="button"
+                className="trip-route__scroll trip-route__scroll--next"
+                onClick={() => scrollChain(1)}
+                disabled={!rail.next}
+                aria-label="次の場所へ"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

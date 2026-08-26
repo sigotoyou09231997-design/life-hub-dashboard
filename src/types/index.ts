@@ -226,6 +226,9 @@ export interface TripRoutePlace {
   address: string;
   /** 回る順。1始まりの連番で詰めて持ち、並べ替えのたびに振り直す。 */
   sortOrder: number;
+  /** 何日目に回るか(YYYY-MM-DD)。決めていない場所もあるので任意。ルート画面の
+   * 日にち切り替えはこれで絞る。 */
+  date?: string;
   memo?: string;
   visited: boolean;
   createdAt: number;

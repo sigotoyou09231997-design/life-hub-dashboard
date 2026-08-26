@@ -3,6 +3,7 @@ import { MapPin, StickyNote } from "lucide-react";
 import { db } from "../../db/schema";
 import type { TripRoutePlace } from "../../types";
 import { buildMapEmbedUrl } from "../../lib/googleMaps";
+import { formatShortDate } from "../../lib/date";
 import { Input, Textarea } from "../ui/Input";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
@@ -16,6 +17,9 @@ interface Props {
   /** 日程の場所からルートに起こすときに、入力欄を埋めておく値。名前は予定の
    * タイトル(「朝市」)、住所はその予定の場所(「函館市若松町9-19」)。 */
   preset?: { name: string; address: string };
+  /** 旅行の全日程(YYYY-MM-DD)。「何日目に回るか」の選択肢に使う。1日だけの旅行や
+   * 日程が入っていない旅行では選ばせない。 */
+  dayList: string[];
   /** 1件も無いときにルートタブへ直接置く形。戻る先が無いので「キャンセル」は出さず、
    * 面の見出しも「どこへ行きたいか」ではなく最初の一歩として書き換える。 */
   inline?: boolean;
@@ -27,10 +31,12 @@ interface Props {
  *  読み込みが走って手元が重くなる。 */
 const PREVIEW_DEBOUNCE_MS = 600;
 
-export function TripRouteForm({ tripId, initial, nextSortOrder, preset, inline = false, onSaved, onCancel }: Props) {
+export function TripRouteForm({ tripId, initial, nextSortOrder, preset, dayList, inline = false, onSaved, onCancel }: Props) {
   const [name, setName] = useState(initial?.name ?? preset?.name ?? "");
   const [address, setAddress] = useState(initial?.address ?? preset?.address ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
+  /** 何日目に回るか。決めていない場所も普通にあるので、空(未定)を既定にする。 */
+  const [date, setDate] = useState(initial?.date ?? "");
   const [saving, setSaving] = useState(false);
 
   // 入力が止まってから地図に渡す文字列。初期値ぶんは最初から出しておく
@@ -56,6 +62,7 @@ export function TripRouteForm({ tripId, initial, nextSortOrder, preset, inline =
       name: name.trim(),
       address: address.trim(),
       sortOrder: initial?.sortOrder ?? nextSortOrder,
+      date: date || undefined,
       memo: memo || undefined,
       visited: initial?.visited ?? false,
       createdAt: initial?.createdAt ?? Date.now(),
@@ -105,6 +112,34 @@ export function TripRouteForm({ tripId, initial, nextSortOrder, preset, inline =
       </FormPanel>
 
       <FormPanel caption="そのほか" icon={StickyNote}>
+        {dayList.length > 1 && (
+          <div className="trip-day-pick">
+            <p className="trip-day-pick__label">
+              何日目に回るか<span>任意</span>
+            </p>
+            <div className="trip-day-pick__chips" role="group" aria-label="何日目に回るか">
+              <button
+                type="button"
+                className={`trip-day-pick__chip${date === "" ? " is-active" : ""}`}
+                aria-pressed={date === ""}
+                onClick={() => setDate("")}
+              >
+                決めていない
+              </button>
+              {dayList.map((option, i) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={`trip-day-pick__chip${date === option ? " is-active" : ""}`}
+                  aria-pressed={date === option}
+                  onClick={() => setDate(option)}
+                >
+                  {i + 1}日目 {formatShortDate(option)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <Textarea
           label="メモ"
           optional

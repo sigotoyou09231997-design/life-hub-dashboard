@@ -16,8 +16,8 @@ vi.mock("../../lib/routeInfo", async (importOriginal) => ({
   fetchRouteInfo: async () => ({ configured: false }),
 }));
 
-function place(id: string, name: string, sortOrder: number): TripRoutePlace {
-  return { id, tripId: "t1", name, address: `${name}の住所`, sortOrder, visited: false, createdAt: 1 };
+function place(id: string, name: string, sortOrder: number, date?: string): TripRoutePlace {
+  return { id, tripId: "t1", name, address: `${name}の住所`, sortOrder, date, visited: false, createdAt: 1 };
 }
 
 const places = [place("p1", "岡山駅", 1), place("p2", "新横浜駅", 2), place("p3", "東京駅", 3)];
@@ -28,6 +28,7 @@ function renderView() {
       tripId="t1"
       destination="横浜"
       places={places}
+      dayList={["2026-09-19", "2026-09-20"]}
       onAdd={() => {}}
       onFirstSaved={() => {}}
       onEdit={() => {}}
@@ -65,6 +66,31 @@ describe("旅行のルート", () => {
     expect(leg1().src).toContain("dirflg=d");
     // つられて変わらないことがこのテストの本題。
     expect(leg2().src).toContain("dirflg=r");
+  });
+
+  it("日にちで絞ると、その日の場所だけ並ぶ", async () => {
+    const user = userEvent.setup();
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="横浜"
+        places={[place("p1", "岡山駅", 1, "2026-09-19"), place("p2", "新横浜駅", 2, "2026-09-20")]}
+        dayList={["2026-09-19", "2026-09-20"]}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+
+    // 既定は「すべて」。日付を決めていない場所も含めて今まで通り並ぶ。
+    expect(screen.getByTitle("岡山駅の地図")).toBeTruthy();
+    expect(screen.getByTitle("新横浜駅の地図")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /2日目/ }));
+
+    expect(screen.queryByTitle("岡山駅の地図")).toBeNull();
+    expect(screen.getByTitle("新横浜駅の地図")).toBeTruthy();
   });
 
   it("邪魔なときは畳める", async () => {

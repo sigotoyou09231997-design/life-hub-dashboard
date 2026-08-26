@@ -1048,6 +1048,134 @@ a.trip-leg-mode--link {
   text-decoration: none;
 }
 
+/* --- 日にちの切り替え ------------------------------------------------------
+   長い旅行ほど列が伸びる。その日に回るぶんだけに絞れると、横に送る回数が減る。
+   日付を決めていない場所は「日付なし」に集まるので、決めないままでも使える。 */
+.trip-route__days {
+  display: flex;
+  overflow-x: auto;
+  gap: 0.4rem;
+  padding-bottom: 0.2rem;
+  scrollbar-width: none;
+}
+
+.trip-route__days::-webkit-scrollbar {
+  display: none;
+}
+
+.trip-route__day,
+.trip-day-pick__chip {
+  display: inline-flex;
+  min-height: 2.15rem;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--hub-ink-2);
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 0.18s var(--hub-ease),
+    color 0.18s var(--hub-ease);
+}
+
+.trip-route__day small {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--hub-ink-3);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-route__day.is-active,
+.trip-day-pick__chip.is-active {
+  border-color: transparent;
+  background: var(--accent, var(--hub-blue));
+  color: #fff;
+}
+
+.trip-route__day.is-active small {
+  background: rgba(255, 255, 255, 0.26);
+  color: #fff;
+}
+
+/* その日に1件も入っていないとき。空の列を出すより、足す入り口を置く。 */
+.trip-route__day-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1.4rem 1rem;
+  border: 1px dashed rgba(13, 27, 49, 0.24);
+  border-radius: var(--hub-r-md);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.trip-route__day-empty p {
+  margin: 0;
+  color: var(--hub-ink-2);
+  font-size: 0.88rem;
+}
+
+.trip-route__day-empty button {
+  display: inline-flex;
+  min-height: 2.2rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--accent, var(--hub-blue));
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* --- 入力欄の「何日目に回るか」 ------------------------------------------- */
+.trip-day-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.trip-day-pick__label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  color: var(--hub-ink-2);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.trip-day-pick__label span {
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--hub-ink-3);
+  font-size: 0.7rem;
+}
+
+.trip-day-pick__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* --- 横に送るボタンの置き場 ------------------------------------------------
+   スマホは縦に積むので出さない(PCの指定は下の @media の中)。 */
+.trip-route__rail {
+  position: relative;
+}
+
+.trip-route__scroll {
+  display: none;
+}
+
 /* --- 末尾の追加タイル ----------------------------------------------------- */
 .trip-route-add {
   display: flex;
@@ -1159,13 +1287,10 @@ a.trip-leg-mode--link {
 }
 
 /* --- PCは横並び ----------------------------------------------------------
-   カード → 矢印 → カードを横に流す。入りきらない分は、右へスクロールさせず
-   次の行へ折り返す。横スクロールにしていた頃は、右端のカードが画面の外で
-   半分に切られたまま見えていて、続きがあることにも気づけなかった
-   (2026-08-26の指摘)。折り返しても番号と矢印で回る順は追える。
-
-   折り返す単位はカード1枚・矢印1つ・区間の経路1つ(それぞれが鎖の1コマ=li)。
-   まとめて1コマにすると、そのかたまりが行に入りきらず、また切れて見える。 */
+   カード → 矢印 → カードを1列に流し、入りきらない分は横スクロールに逃がす。
+   折り返して2段にすると、段ごとに列の高さが変わるのが目についたため
+   (2026-08-26の指摘)。続きがあることに気づけるよう、左右の送りボタン
+   (.trip-route__scroll)とスクロールバーを必ず出す。 */
 @media (min-width: 1024px) {
   /* 列の高さは揃える。中身の量(現在地カードには移動手段の行が付く、メモのある
      場所とない場所がある)でカードの丈がばらばらだと、間の矢印まで1本ずつ違う
@@ -1173,16 +1298,72 @@ a.trip-leg-mode--link {
      余った高さは、下に空白を残さず地図に使う。 */
   .trip-route__chain {
     flex-direction: row;
-    flex-wrap: wrap;
     align-items: stretch;
-    align-content: flex-start;
-    row-gap: 0.9rem;
+    overflow-x: auto;
+    padding-bottom: 0.55rem;
+    scroll-snap-type: x proximity;
+    /* Macは普段スクロールバーを隠すので、ここだけは細く出しっぱなしにする。 */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(13, 27, 49, 0.24) transparent;
+  }
+
+  .trip-route__chain::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .trip-route__chain::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgba(13, 27, 49, 0.24);
+  }
+
+  .trip-route__chain::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   .trip-route__node {
     flex: 0 0 auto;
     flex-direction: row;
     align-items: stretch;
+    scroll-snap-align: start;
+  }
+
+  /* 送りボタン。列の上に浮かせて、カードの幅を削らない。端まで来たら消す
+     (押せないボタンが残っていると、そこで詰まったように見える)。 */
+  .trip-route__scroll {
+    position: absolute;
+    top: 50%;
+    z-index: 3;
+    display: flex;
+    width: 2.6rem;
+    height: 2.6rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--hub-edge);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: var(--hub-shadow-inset), 0 10px 26px rgba(10, 24, 46, 0.16);
+    color: var(--hub-ink);
+    transform: translateY(-50%);
+    transition:
+      opacity 0.18s var(--hub-ease),
+      background-color 0.18s var(--hub-ease);
+  }
+
+  .trip-route__scroll--prev {
+    left: -0.7rem;
+  }
+
+  .trip-route__scroll--next {
+    right: -0.7rem;
+  }
+
+  .trip-route__scroll:disabled {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .trip-route__scroll:hover {
+    background: #fff;
   }
 
   /* 横並びのカードは、地図の中の文字が読める大きさまで広げる。狭いカードを
