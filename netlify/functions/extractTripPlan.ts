@@ -13,6 +13,9 @@ export interface ExtractedTripItem {
   endTime?: string;
   title: string;
   location?: string;
+  /** 移動の到着地(駅・空港)。出発地は location に入る。旅行のルートに2地点として
+   * 起こすために使う。移動以外では入らない。 */
+  endLocation?: string;
   memo?: string;
   type: ScheduleType;
   /** その項目の代金(円)。メールに書かれていて、その項目のものだと分かる時だけ。 */
@@ -48,7 +51,7 @@ export const SYSTEM_PROMPT = `あなたは、メールから旅行の日程を�
 並べるべき項目を取り出してください。
 
 必ず次の形のJSONだけを返してください。説明文もコードフェンスも付けないでください。
-{"items":[{"date":"YYYY-MM-DD","startTime":"HH:mm","endTime":"HH:mm","title":"...","location":"...","type":"transport","memo":"...","amount":12540}]}
+{"items":[{"date":"YYYY-MM-DD","startTime":"HH:mm","endTime":"HH:mm","title":"...","location":"...","endLocation":"...","type":"transport","memo":"...","amount":12540}]}
 
 ルール:
 - date は必ず YYYY-MM-DD 形式。年が書かれていない場合は、基準日以降で最も近い年とみなす。
@@ -57,7 +60,10 @@ export const SYSTEM_PROMPT = `あなたは、メールから旅行の日程を�
   食事や観光なら終了時刻。書かれていなければ省く(所要時間から計算して埋めたりしない)。
   日をまたぐ場合は endTime を省き、翌日ぶんを別の項目に分ける。
 - title は日程表で一目で分かる短さにする。例:「羽田→福岡 JAL123」「ホテルOOにチェックイン」
-- location は駅・空港・施設の名前が分かる時だけ入れる。
+- location は駅・空港・施設の名前が分かる時だけ入れる。移動(type: transport)では出発する
+  駅・空港・営業所の名前を入れる。
+- endLocation は移動の到着地(駅・空港)の名前が分かる時だけ入れる。「東京→新函館北斗」なら
+  location は「東京駅」、endLocation は「新函館北斗駅」。移動以外では入れない。
 - type は次から選ぶ: transport(飛行機・列車・バス・レンタカーなどの移動), lodging(宿泊・
   チェックイン/アウト), meal(食事の予約), sightseeing(観光・入場・見学の予約), other(その他)
 - memo には予約番号や座席番号など、当日必要になる短い情報だけを入れる。本文の丸写しはしない。
@@ -102,13 +108,16 @@ export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
     const endTimeRaw = readTime(row.endTime);
     const endTime = endTimeRaw && startTime && endTimeRaw < startTime ? undefined : endTimeRaw;
     const type = SCHEDULE_TYPES.includes(row.type as ScheduleType) ? (row.type as ScheduleType) : "other";
-    const location = typeof row.location === "string" && row.location.trim() ? row.location.trim() : undefined;
+    const readPlace = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : undefined);
+    const location = readPlace(row.location);
+    // 到着地は移動だけのもの。宿や観光に付いてきた分は落とす(同じ場所が2度出るだけになる)。
+    const endLocation = type === "transport" ? readPlace(row.endLocation) : undefined;
     const memo = typeof row.memo === "string" && row.memo.trim() ? row.memo.trim() : undefined;
     // 金額は、正の数として読めるものだけを通す。文字混じりや0/マイナスは、
     // 読み違えたまま費用に積むと旅行の予算がずれるので落とす。
     const rawAmount = typeof row.amount === "number" ? row.amount : Number(row.amount);
     const amount = Number.isFinite(rawAmount) && rawAmount > 0 ? Math.round(rawAmount) : undefined;
-    cleaned.push({ date, title, startTime, endTime, location, memo, type, amount });
+    cleaned.push({ date, title, startTime, endTime, location, endLocation, memo, type, amount });
   }
   // 日程表と同じ並び(日付→時刻)にして返す。画面側で並べ直さずに済む。
   cleaned.sort((a, b) => (a.date === b.date ? (a.startTime ?? "").localeCompare(b.startTime ?? "") : a.date.localeCompare(b.date)));

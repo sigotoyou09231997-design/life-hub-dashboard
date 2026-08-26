@@ -12,11 +12,13 @@ const mocks = vi.hoisted(() => ({
   existingTripSchedule: [] as Record<string, unknown>[],
   existingEvents: [] as Record<string, unknown>[],
   existingTasks: [] as Record<string, unknown>[],
+  existingRoutePlaces: [] as Record<string, unknown>[],
   saved: {
     tripSchedule: [] as unknown[],
     tripExpenses: [] as unknown[],
     calendarEvents: [] as unknown[],
     tasks: [] as unknown[],
+    tripRoutePlaces: [] as unknown[],
   },
 }));
 
@@ -28,6 +30,10 @@ vi.mock("../../db/schema", () => ({
       where: () => ({ equals: () => ({ toArray: async () => mocks.existingTripSchedule }) }),
     },
     tripExpenses: { add: async (row: unknown) => void mocks.saved.tripExpenses.push(row) },
+    tripRoutePlaces: {
+      add: async (row: unknown) => void mocks.saved.tripRoutePlaces.push(row),
+      where: () => ({ equals: () => ({ toArray: async () => mocks.existingRoutePlaces }) }),
+    },
     calendarEvents: {
       add: async (row: unknown) => void mocks.saved.calendarEvents.push(row),
       toArray: async () => mocks.existingEvents,
@@ -85,20 +91,22 @@ beforeEach(() => {
   mocks.items = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" }];
   mocks.extractError = null;
   mocks.trips = [{ id: "trip-1", name: "福岡旅行", startDate: "2026-09-11", endDate: "2026-09-15" }];
-  mocks.saved = { tripSchedule: [], tripExpenses: [], calendarEvents: [], tasks: [] };
+  mocks.saved = { tripSchedule: [], tripExpenses: [], calendarEvents: [], tasks: [], tripRoutePlaces: [] };
   mocks.existingTripSchedule = [];
   mocks.existingEvents = [];
   mocks.existingTasks = [];
+  mocks.existingRoutePlaces = [];
 });
 
 afterEach(cleanup);
 
 describe("メールから予定を作る画面", () => {
-  it("読み取り結果と、入れ先の3択を出す", async () => {
+  it("読み取り結果と、入れ先の4択を出す", async () => {
     // この画面はメール詳細の中に常に描かれる。ここが実行時に落ちると
     // メールが開けなくなる(2026-08-25の不具合)ので、描画そのものを固定する。
     renderSheet();
     expect(await screen.findByRole("tab", { name: "旅行の日程" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "旅行のルート" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "予定" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "タスク" })).toBeTruthy();
     expect(screen.getByDisplayValue("羽田→福岡")).toBeTruthy();
@@ -259,5 +267,88 @@ describe("二重登録を防ぐ", () => {
     const save = await screen.findByRole("button", { name: "1件を入れる" });
     await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
     expect(screen.queryByText("すでに登録されています")).toBeNull();
+  });
+});
+
+describe("旅行のルートに入れる", () => {
+  const shinkansen = {
+    date: "2026-09-19",
+    startTime: "10:05",
+    title: "東京→新函館北斗 はやぶさ13号",
+    type: "transport",
+    location: "東京駅",
+    endLocation: "新函館北斗駅",
+  };
+
+  it("新幹線のメールから、出発地と到着地の2地点をルートに入れる", async () => {
+    mocks.items = [shinkansen];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+
+    const save = await screen.findByRole("button", { name: "2件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await user.click(save);
+
+    expect(mocks.saved.tripRoutePlaces).toEqual([
+      expect.objectContaining({ tripId: "trip-1", name: "東京駅", address: "東京駅", sortOrder: 1, visited: false }),
+      expect.objectContaining({ tripId: "trip-1", name: "新函館北斗駅", sortOrder: 2 }),
+    ]);
+    // ルートに入れた時は、日程や費用には積まない。
+    expect(mocks.saved.tripSchedule).toEqual([]);
+    expect(mocks.saved.tripExpenses).toEqual([]);
+  });
+
+  it("いま入っている場所の後ろに足す", async () => {
+    mocks.items = [shinkansen];
+    mocks.existingRoutePlaces = [{ id: "p1", address: "五稜郭", sortOrder: 3 }];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+    const save = await screen.findByRole("button", { name: "2件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await user.click(save);
+    expect((mocks.saved.tripRoutePlaces as { sortOrder: number }[]).map((p) => p.sortOrder)).toEqual([4, 5]);
+  });
+
+  it("すでにルートにある場所は、その旨を出して入れられなくする", async () => {
+    mocks.items = [shinkansen];
+    mocks.existingRoutePlaces = [{ id: "p1", address: "東京駅", sortOrder: 1 }];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+
+    expect(await screen.findByText("すでにこの旅行のルートに入っています")).toBeTruthy();
+    const checkbox = screen.getByRole("checkbox", { name: "東京駅を入れる" }) as HTMLInputElement;
+    expect(checkbox.disabled).toBe(true);
+    await waitFor(() => expect(screen.getByRole("button", { name: "1件を入れる" })).toBeTruthy());
+  });
+
+  it("場所が読み取れていなければ、その旨を出す", async () => {
+    // 日程には入れられるので、画面ごと畳まずルートのタブだけで伝える。
+    mocks.items = [{ date: "2026-09-19", title: "何かの予約", type: "other" }];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+    expect(await screen.findByText("ルートに置ける場所は見つかりませんでした")).toBeTruthy();
+  });
+
+  it("入れる前に、場所の名前と住所を直せる", async () => {
+    mocks.items = [shinkansen];
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "旅行のルート" }));
+
+    // ラベルは入力欄ごと label で包まれており、補足文まで読み名に入るので前方一致で引く。
+    const address = (await screen.findAllByLabelText(/住所・場所/))[0];
+    await user.clear(address);
+    await user.type(address, "東京都千代田区丸の内1丁目");
+    const save = screen.getByRole("button", { name: "2件を入れる" });
+    await waitFor(() => expect((save as HTMLButtonElement).disabled).toBe(false));
+    await user.click(save);
+
+    expect(mocks.saved.tripRoutePlaces[0]).toEqual(
+      expect.objectContaining({ name: "東京駅", address: "東京都千代田区丸の内1丁目" }),
+    );
   });
 });
