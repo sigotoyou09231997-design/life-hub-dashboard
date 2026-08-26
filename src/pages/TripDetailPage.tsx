@@ -19,6 +19,7 @@ import { TripPackingForm } from "../components/trips/TripPackingForm";
 import { TripPackingList } from "../components/trips/TripPackingList";
 import { TripRouteView } from "../components/trips/TripRouteView";
 import { TripRouteForm } from "../components/trips/TripRouteForm";
+import { TripQuickPlanForm } from "../components/trips/TripQuickPlanForm";
 import { DiaryList } from "../components/diary/DiaryList";
 import { DiaryForm } from "../components/diary/DiaryForm";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -27,6 +28,7 @@ import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
+import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
 
 type Tab = "schedule" | "expense" | "packing" | "route" | "diary";
 
@@ -55,6 +57,8 @@ export default function TripDetailPage() {
   const [editingPacking, setEditingPacking] = useState<TripPackingItem | "new" | null>(null);
   const [editingRoute, setEditingRoute] = useState<TripRoutePlace | "new" | null>(null);
   const [editingDiary, setEditingDiary] = useState<DiaryEntry | "new" | null>(null);
+  /** 日程・費用・ルートをまとめて入れるシートを開いているか。 */
+  const [quickPlanOpen, setQuickPlanOpen] = useState(false);
   // 日程の場所からルートを起こすとき、追加フォームに渡して埋めておく値。
   const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
 
@@ -211,15 +215,21 @@ export default function TripDetailPage() {
               }}
             />
             {dayList.length > 0 && (
-              <Button
-                className="mt-4 w-full"
-                onClick={() => {
-                  setScheduleDatePreset(null);
-                  setEditingSchedule("new");
-                }}
-              >
-                予定を追加
-              </Button>
+              <div className="trip-add-row mt-4">
+                <Button
+                  onClick={() => {
+                    setScheduleDatePreset(null);
+                    setEditingSchedule("new");
+                  }}
+                >
+                  予定を追加
+                </Button>
+                {/* 日程・費用・ルートは同じ1つの出来事を3つの表から見ているだけなので、
+                    3回打ち直さずに済む入り口を、それぞれのタブの追加ボタンの隣に置く。 */}
+                <Button variant="secondary" onClick={() => setQuickPlanOpen(true)}>
+                  まとめて追加
+                </Button>
+              </div>
             )}
           </>
         )}
@@ -235,9 +245,12 @@ export default function TripDetailPage() {
                 showToast("削除しました");
               }}
             />
-            <Button className="mt-4 w-full" onClick={() => setEditingExpense("new")}>
-              費用を追加
-            </Button>
+            <div className="trip-add-row mt-4">
+              <Button onClick={() => setEditingExpense("new")}>費用を追加</Button>
+              <Button variant="secondary" onClick={() => setQuickPlanOpen(true)}>
+                まとめて追加
+              </Button>
+            </div>
           </>
         )}
 
@@ -258,25 +271,32 @@ export default function TripDetailPage() {
         )}
 
         {tab === "route" && (
-          <TripRouteView
-            dayList={dayList}
-            tripId={tripId}
-            destination={trip.destination}
-            places={routePlaces}
-            onAdd={() => {
-              setRoutePreset(undefined);
-              setEditingRoute("new");
-            }}
-            onFirstSaved={() => showToast("保存しました")}
-            onEdit={(place) => {
-              setRoutePreset(undefined);
-              setEditingRoute(place);
-            }}
-            onDelete={(id) => {
-              db.tripRoutePlaces.delete(id);
-              showToast("削除しました");
-            }}
-          />
+          <>
+            <TripRouteView
+              dayList={dayList}
+              tripId={tripId}
+              destination={trip.destination}
+              places={routePlaces}
+              onAdd={() => {
+                setRoutePreset(undefined);
+                setEditingRoute("new");
+              }}
+              onFirstSaved={() => showToast("保存しました")}
+              onEdit={(place) => {
+                setRoutePreset(undefined);
+                setEditingRoute(place);
+              }}
+              onDelete={(id) => {
+                db.tripRoutePlaces.delete(id);
+                showToast("削除しました");
+              }}
+            />
+            <div className="trip-add-row mt-4">
+              <Button variant="secondary" onClick={() => setQuickPlanOpen(true)}>
+                日程・費用とまとめて追加
+              </Button>
+            </div>
+          </>
         )}
 
         {tab === "diary" && (
@@ -403,6 +423,26 @@ export default function TripDetailPage() {
               setEditingRoute(null);
               setRoutePreset(undefined);
             }}
+          />
+        )}
+      </Sheet>
+
+      <Sheet
+        open={quickPlanOpen}
+        onClose={() => setQuickPlanOpen(false)}
+        title="まとめて追加"
+      >
+        {quickPlanOpen && (
+          <TripQuickPlanForm
+            tripId={tripId}
+            defaultDate={scheduleDefaultDate}
+            nextSortOrder={nextRouteSortOrder(routePlaces)}
+            existingRouteKeys={new Set(routePlaces.map((place) => routeKey(place.address)))}
+            onSaved={(message) => {
+              setQuickPlanOpen(false);
+              showToast(message);
+            }}
+            onCancel={() => setQuickPlanOpen(false)}
           />
         )}
       </Sheet>
