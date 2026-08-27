@@ -1587,10 +1587,18 @@ body .text-sm { line-height: 1.5; }
 
 @media (hover: hover) and (pointer: fine) {
   .card-interactive:hover,
-  .is-pressable:hover,
   .note-widget:hover {
     transform: translateY(-3px);
     box-shadow: var(--hub-shadow-inset), var(--hub-shadow-lift);
+  }
+
+  /* 一覧の行(.is-pressable)は、カードよりずっと控えめに反応させる。
+     行は密に並んでいて、普段は影の無い平らな面なので、カードと同じ持ち上げ方
+     (-3px + 大きな影)を当てると、指を乗せた1行だけが別の紙のように飛び出して
+     見えてしまう。触れているのが分かる程度に留める。 */
+  .is-pressable:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(10, 24, 46, 0.07);
   }
 
   .app-button:hover:not(:disabled) {
