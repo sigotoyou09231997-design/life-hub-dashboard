@@ -65,6 +65,11 @@ export interface FixedCost {
   amount: number;
   dueDay: number; // 1-31
   active: boolean;
+  /** 支払日の何日前に通知するか(0=当日)。未設定なら通知しない。 */
+  notifyDaysBefore?: number;
+  /** 直近で通知を送った月(YYYY-MM)。毎月の支払日ごとに1回だけ通知するための印で、
+   * netlify/functions/checkRemindersAndNotify.tsがSupabase側で更新する。 */
+  lastNotifiedMonth?: string;
   updatedAt?: number;
   deviceId?: string;
   userId?: string;

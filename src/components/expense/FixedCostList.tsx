@@ -1,5 +1,5 @@
 import type { FixedCost } from "../../types";
-import { CreditCard, Trash2 } from "lucide-react";
+import { Bell, CreditCard, Trash2 } from "lucide-react";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
@@ -35,8 +35,9 @@ export function FixedCostList({ fixedCosts, onEdit, onDelete }: Props) {
                 </span>
                 {!f.active && <Badge tone="neutral">停止中</Badge>}
               </div>
-              <p className="mt-0.5 text-xs text-slate-400">
+              <p className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
                 {f.category} ・ 毎月{f.dueDay}日
+                {f.notifyDaysBefore != null && <Bell size={11} aria-label="通知あり" />}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-3">
