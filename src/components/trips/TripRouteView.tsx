@@ -11,10 +11,12 @@ import {
   MoveRight,
   Pencil,
   Plus,
+  CalendarPlus,
   Trash2,
 } from "lucide-react";
 import { db } from "../../db/schema";
 import type { TripRoutePlace } from "../../types";
+import type { RouteSuggestion } from "../../lib/tripRouteSuggestions";
 import {
   buildMapEmbedUrl,
   buildLegEmbedUrl,
@@ -35,6 +37,12 @@ interface Props {
   places: TripRoutePlace[];
   /** 旅行の全日程(YYYY-MM-DD)。日にちの切り替えに使う。 */
   dayList: string[];
+  /** 日程には入っているのに、ルートにはまだ無い場所(src/lib/tripRouteSuggestions.ts)。
+   * 日にちの切り替えに合わせて、その日のぶんだけ出す。 */
+  suggestions: RouteSuggestion[];
+  /** 候補をルートに入れる。まとめて入れられるよう配列で渡す(回る順を続き番号で
+   * 振るので、1件ずつ呼ぶと同じ番号が並んでしまう)。 */
+  onAddSuggestions: (suggestions: RouteSuggestion[]) => void;
   onAdd: () => void;
   /** 1件目をこの画面の中で保存し終えたとき(空のとき出すフォーム用)。 */
   onFirstSaved: () => void;
@@ -50,6 +58,59 @@ const ALL_DAYS = "all";
 const NO_DAY = "none";
 
 /**
+ * 日程に入っているのに、ルートにはまだ無い場所を並べる。
+ *
+ * 日程とルートは別の表なので、日程に予定を入れてもルートは空のままだった。
+ * 「1日目に新幹線の予定を入れてあるのに、ルートの1日目が空なのはおかしい」
+ * という指摘(2026-08-27)への答えがここ。勝手にルートへ足さないのは、ルートが
+ * 「回る順」を持つ並びで、日程を丸ごと流し込むと順番の意味が薄れるため。
+ */
+function TripRoutePicks({
+  suggestions,
+  onAdd,
+}: {
+  suggestions: RouteSuggestion[];
+  onAdd: (suggestions: RouteSuggestion[]) => void;
+}) {
+  if (suggestions.length === 0) return null;
+
+  return (
+    <section className="trip-route-picks">
+      <header className="trip-route-picks__head">
+        <span aria-hidden="true"><CalendarPlus size={16} /></span>
+        <h3>日程に入っている場所</h3>
+        <b>{suggestions.length}</b>
+      </header>
+      <p className="trip-route-picks__lead">
+        日程にはあるのに、ルートにはまだ入っていない場所です。入れると地図と経路が並びます。
+      </p>
+      <ul className="trip-route-picks__list">
+        {suggestions.map((suggestion) => (
+          <li key={suggestion.scheduleId}>
+            <div className="trip-route-picks__body">
+              <p className="trip-route-picks__name" title={suggestion.address}>{suggestion.name}</p>
+              <small>
+                {formatShortDate(suggestion.date)}
+                {suggestion.startTime ? ` ${suggestion.startTime}` : ""}・{suggestion.title}
+              </small>
+            </div>
+            <button type="button" onClick={() => onAdd([suggestion])}>
+              <Plus size={15} />
+              入れる
+            </button>
+          </li>
+        ))}
+      </ul>
+      {suggestions.length > 1 && (
+        <button type="button" className="trip-route-picks__all" onClick={() => onAdd(suggestions)}>
+          すべてルートに入れる
+        </button>
+      )}
+    </section>
+  );
+}
+
+/**
  * 行きたい場所を「地図 → 矢印 → 地図」の鎖で見せる。1枚の地図に全部のピンを
  * 落とす方法はAPIキーが要るうえ、どのピンがどの場所かは結局読めない。場所ごとに
  * 地図を立てて回る順で矢印でつなぐと、キー無しの埋め込みのままでも「どこを・
@@ -62,7 +123,18 @@ const NO_DAY = "none";
  * で送る。折り返して2段にした時は、段ごとに列の高さが変わるのが目についたため
  * (2026-08-26の指摘)。長い旅行では日にちで絞れば、その日のぶんだけが並ぶ。
  */
-export function TripRouteView({ tripId, destination, places, dayList, onAdd, onFirstSaved, onEdit, onDelete }: Props) {
+export function TripRouteView({
+  tripId,
+  destination,
+  places,
+  dayList,
+  suggestions,
+  onAddSuggestions,
+  onAdd,
+  onFirstSaved,
+  onEdit,
+  onDelete,
+}: Props) {
   /** 区間ごとの移動手段。1つにまとめて持っていた頃は、どこかで「車」に変えると
    * ほかの地図まで全部つられて変わり、「この区間は電車・ここは車」という見方が
    * できなかった(2026-08-26の指摘)。鍵は区間の始点の場所id(現在地からの区間は
@@ -86,6 +158,13 @@ export function TripRouteView({ tripId, destination, places, dayList, onAdd, onF
     if (day === ALL_DAYS) return true;
     if (day === NO_DAY) return !place.date;
     return place.date === day;
+  });
+  /** いま見ている日の、日程から来た候補。日付なしの場所を見ている時は出さない —
+   * 候補はどれも日程の行なので、必ず日付を持っている。 */
+  const shownSuggestions = suggestions.filter((suggestion) => {
+    if (day === ALL_DAYS) return true;
+    if (day === NO_DAY) return false;
+    return suggestion.date === day;
   });
   const queries = shown.map((p) => p.address);
   const hasUndated = places.some((place) => !place.date);
@@ -192,6 +271,7 @@ export function TripRouteView({ tripId, destination, places, dayList, onAdd, onF
             <h2>行きたい場所を追加</h2>
             <p>{destination}で行きたい場所を、住所か施設名で入れてください。入れた場所の地図がここに並びます。</p>
           </div>
+          <TripRoutePicks suggestions={suggestions} onAdd={onAddSuggestions} />
           <TripRouteForm tripId={tripId} nextSortOrder={1} dayList={dayList} inline onSaved={onFirstSaved} onCancel={onFirstSaved} />
         </div>
       ) : (
@@ -235,6 +315,8 @@ export function TripRouteView({ tripId, destination, places, dayList, onAdd, onF
               )}
             </div>
           )}
+
+          <TripRoutePicks suggestions={shownSuggestions} onAdd={onAddSuggestions} />
 
           {shown.length === 0 ? (
             <div className="trip-route__day-empty">

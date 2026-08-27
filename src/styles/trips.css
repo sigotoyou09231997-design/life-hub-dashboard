@@ -1135,6 +1135,123 @@ a.trip-leg-mode--link {
   font-weight: 600;
 }
 
+/* --- 日程から起こすルートの候補 --------------------------------------------
+   日程に予定があるのにルートが空、という食い違いを画面の中で埋める場所
+   (2026-08-27の指摘)。鎖の上に置いて、押せばそのまま下の並びに入る。 */
+.trip-route-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+  padding: 0.9rem 0.95rem;
+  border: 1px solid rgba(13, 27, 49, 0.1);
+  border-radius: var(--hub-r-md);
+  background: var(--hub-surface);
+}
+
+.trip-route-picks__head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.trip-route-picks__head span {
+  display: inline-flex;
+  color: var(--accent, var(--hub-blue));
+}
+
+.trip-route-picks__head h3 {
+  margin: 0;
+  color: var(--hub-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.trip-route-picks__head b {
+  min-width: 1.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.trip-route-picks__lead {
+  margin: 0;
+  color: var(--hub-ink-2);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.trip-route-picks__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip-route-picks__list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+}
+
+.trip-route-picks__body {
+  min-width: 0;
+}
+
+.trip-route-picks__name {
+  margin: 0;
+  overflow: hidden;
+  color: var(--hub-ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-route-picks__body small {
+  display: block;
+  margin-top: 0.1rem;
+  overflow: hidden;
+  color: var(--hub-ink-2);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-route-picks__list button {
+  display: inline-flex;
+  min-height: 2.1rem;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  background: var(--accent, var(--hub-blue));
+  color: #fff;
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+
+.trip-route-picks__all {
+  align-self: flex-start;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--accent, var(--hub-blue));
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+
 /* --- 入力欄の「何日目に回るか」 ------------------------------------------- */
 .trip-day-pick {
   display: flex;

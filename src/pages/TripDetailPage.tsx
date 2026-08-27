@@ -30,6 +30,8 @@ import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
+import { toRouteSuggestions } from "../lib/tripRouteSuggestions";
+import type { RouteSuggestion } from "../lib/tripRouteSuggestions";
 
 type Tab = "schedule" | "expense" | "packing" | "route" | "diary";
 
@@ -103,6 +105,35 @@ export default function TripDetailPage() {
     [tripResult?.trip?.startDate, tripResult?.trip?.endDate],
   );
   const scheduleDefaultDate = dayList.includes(todayStr()) ? todayStr() : (dayList[0] ?? todayStr());
+
+  // 日程には入っているのに、ルートにはまだ無い場所。ルートのその日が空でも、日程に
+  // 予定があるならそこから起こせるようにする(2026-08-27の指摘)。
+  const routeSuggestions = useMemo(() => toRouteSuggestions(schedule, routePlaces), [schedule, routePlaces]);
+
+  async function addRouteSuggestions(picked: RouteSuggestion[]) {
+    if (picked.length === 0) return;
+    const now = Date.now();
+    let sortOrder = nextRouteSortOrder(routePlaces);
+    const taken = new Set(routePlaces.map((place) => routeKey(place.address)));
+    const rows: TripRoutePlace[] = [];
+    for (const suggestion of picked) {
+      if (taken.has(routeKey(suggestion.address))) continue;
+      taken.add(routeKey(suggestion.address));
+      rows.push({
+        tripId,
+        name: suggestion.name,
+        address: suggestion.address,
+        sortOrder: sortOrder++,
+        date: suggestion.date || undefined,
+        memo: suggestion.memo,
+        visited: false,
+        createdAt: now,
+      });
+    }
+    if (rows.length === 0) return;
+    await db.tripRoutePlaces.bulkAdd(rows);
+    showToast(rows.length > 1 ? `${rows.length}件をルートに入れました` : "ルートに入れました");
+  }
 
   const showSkeleton = useDelayedFlag(tripResult === undefined);
 
@@ -281,6 +312,8 @@ export default function TripDetailPage() {
             tripId={tripId}
             destination={trip.destination}
             places={routePlaces}
+            suggestions={routeSuggestions}
+            onAddSuggestions={addRouteSuggestions}
             onAdd={() => {
               setRoutePreset(undefined);
               setEditingRoute("new");

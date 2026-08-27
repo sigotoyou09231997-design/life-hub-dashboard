@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { TripRoutePlace } from "../../types";
+import type { RouteSuggestion } from "../../lib/tripRouteSuggestions";
 import { TripRouteView } from "./TripRouteView";
 
 vi.mock("../../db/schema", () => ({
@@ -29,6 +30,8 @@ function renderView() {
       destination="横浜"
       places={places}
       dayList={["2026-09-19", "2026-09-20"]}
+      suggestions={[]}
+      onAddSuggestions={() => {}}
       onAdd={() => {}}
       onFirstSaved={() => {}}
       onEdit={() => {}}
@@ -76,6 +79,8 @@ describe("旅行のルート", () => {
         destination="横浜"
         places={[place("p1", "岡山駅", 1, "2026-09-19"), place("p2", "新横浜駅", 2, "2026-09-20")]}
         dayList={["2026-09-19", "2026-09-20"]}
+        suggestions={[]}
+        onAddSuggestions={() => {}}
         onAdd={() => {}}
         onFirstSaved={() => {}}
         onEdit={() => {}}
@@ -91,6 +96,75 @@ describe("旅行のルート", () => {
 
     expect(screen.queryByTitle("岡山駅の地図")).toBeNull();
     expect(screen.getByTitle("新横浜駅の地図")).toBeTruthy();
+  });
+
+  it("その日のルートが空でも、日程に入っている場所を候補に出す", async () => {
+    const user = userEvent.setup();
+    const added: RouteSuggestion[][] = [];
+    const suggestion: RouteSuggestion = {
+      scheduleId: "s1",
+      date: "2026-09-19",
+      startTime: "09:30",
+      name: "岡山駅",
+      address: "岡山駅",
+      memo: "新幹線 岡山→新横浜",
+      title: "新幹線 岡山→新横浜",
+      type: "transport",
+    };
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="横浜"
+        places={[place("p2", "新横浜駅", 1, "2026-09-20")]}
+        dayList={["2026-09-19", "2026-09-20"]}
+        suggestions={[suggestion]}
+        onAddSuggestions={(picked) => added.push(picked)}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /1日目/ }));
+
+    // ルートの1日目は0件でも、日程の新幹線がここに出る。
+    expect(screen.getByText("日程に入っている場所")).toBeTruthy();
+    expect(screen.getByText("岡山駅")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "入れる" }));
+    expect(added).toEqual([[suggestion]]);
+  });
+
+  it("候補はその日のぶんだけ出す", async () => {
+    const user = userEvent.setup();
+    const suggestion = (id: string, name: string, date: string): RouteSuggestion => ({
+      scheduleId: id,
+      date,
+      name,
+      address: name,
+      title: name,
+      type: "sightseeing",
+    });
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="横浜"
+        places={[place("p1", "岡山駅", 1, "2026-09-19")]}
+        dayList={["2026-09-19", "2026-09-20"]}
+        suggestions={[suggestion("s1", "鶴岡八幡宮", "2026-09-19"), suggestion("s2", "江ノ島", "2026-09-20")]}
+        onAddSuggestions={() => {}}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /2日目/ }));
+
+    expect(screen.getByText("江ノ島")).toBeTruthy();
+    expect(screen.queryByText("鶴岡八幡宮")).toBeNull();
   });
 
   it("邪魔なときは畳める", async () => {
