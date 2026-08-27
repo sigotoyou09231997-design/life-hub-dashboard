@@ -227,3 +227,76 @@ describe("印がまだ無い予定", () => {
     expect(mocks.applied[0].linkId).toBe("event-1");
   });
 });
+
+describe("日付(開始日・終了日)", () => {
+  /** 開いているカレンダーの、その月の日を押す。前後の月のはみ出し分(薄い文字)は
+   * 同じ数字を名乗るので、その月の日だけに絞る。 */
+  async function pickDay(user: ReturnType<typeof userEvent.setup>, day: string) {
+    const cells = screen
+      .getAllByRole("button", { name: day })
+      .filter((cell) => !cell.querySelector("span")?.className.includes("text-slate-300"));
+    expect(cells).toHaveLength(1);
+    await user.click(cells[0]);
+  }
+
+  it("終了日は空のまま出て、そのまま保存すれば今までどおり1日で終わる予定になる", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    expect(screen.getByRole("button", { name: "日付の終了日" }).textContent).toContain("同じ日に終わる");
+
+    await user.type(screen.getByLabelText("タイトル"), "歯医者");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+
+    expect(mocks.added).toHaveLength(1);
+    expect(mocks.added[0].date).toBe("2026-09-01");
+    expect(mocks.added[0].endDate).toBeUndefined();
+  });
+
+  it("終了日を選ぶと、その日までまたがる予定として保存される", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByLabelText("タイトル"), "宿泊先");
+    await user.click(screen.getByRole("button", { name: "日付の終了日" }));
+    await pickDay(user, "3");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+
+    expect(mocks.added[0].date).toBe("2026-09-01");
+    expect(mocks.added[0].endDate).toBe("2026-09-03");
+  });
+
+  it("終了日に開始日と同じ日を選んでも、またがる予定にはしない", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByLabelText("タイトル"), "歯医者");
+    await user.click(screen.getByRole("button", { name: "日付の終了日" }));
+    await pickDay(user, "1");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+
+    expect(mocks.added[0].endDate).toBeUndefined();
+  });
+
+  it("開始日を動かすと、終了日も同じ日数ぶん一緒に動く", async () => {
+    const user = userEvent.setup();
+    renderForm();
+
+    await user.type(screen.getByLabelText("タイトル"), "宿泊先");
+    // 9/1〜9/3 の3日間にしてから、開始日だけ9/10へ動かす。
+    await user.click(screen.getByRole("button", { name: "日付の終了日" }));
+    await pickDay(user, "3");
+    await user.click(screen.getByRole("button", { name: "日付の開始日" }));
+    await pickDay(user, "10");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+
+    expect(mocks.added[0].date).toBe("2026-09-10");
+    expect(mocks.added[0].endDate).toBe("2026-09-12");
+  });
+
+  it("またがる予定を開き直すと、終了日が入ったまま出る", () => {
+    renderForm({ ...existingEvent, date: "2026-09-01", endDate: "2026-09-03" });
+    expect(screen.getByRole("button", { name: "日付の終了日" }).textContent).toContain("9/3");
+    expect(screen.getByText(/3日間/)).toBeTruthy();
+  });
+});

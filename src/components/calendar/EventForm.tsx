@@ -6,12 +6,13 @@ import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
 import { Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { SegmentedField } from "../ui/SegmentedField";
-import { DateField } from "../ui/DateField";
+import { DateRangeField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
 import { SwitchField } from "../ui/SwitchField";
+import { isMultiDay, normalizeEndDate, shiftEndDate, spanDays } from "../../lib/eventSpan";
 import { useToast } from "../ui/ToastProvider";
 import {
   applyEventToAccount,
@@ -50,6 +51,8 @@ const SPAN_OPTIONS = [
 export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [date, setDate] = useState(initial?.date ?? defaultDate);
+  // 終了日は「何日かにまたがる予定」だけが持つ。空欄＝その日で終わる(src/lib/eventSpan.ts)。
+  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
   const [allDay, setAllDay] = useState(initial?.allDay ?? false);
   const [startTime, setStartTime] = useState(initial?.startTime ?? "");
   const [endTime, setEndTime] = useState(initial?.endTime ?? "");
@@ -104,6 +107,15 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
     };
   }, [initial?.linkId, otherAccounts]);
 
+  /**
+   * 開始日を動かしたら、終了日も同じ日数ぶん動かす。3泊の宿泊を1日ずらしたいだけなのに
+   * 終了日まで入れ直すのは手間だし、開始日より前に取り残されると期間が消えてしまう。
+   */
+  function handleDateChange(next: string) {
+    setEndDate((current) => shiftEndDate(date, next, current));
+    setDate(next);
+  }
+
   function handleTitleChange(next: string) {
     setTitle(next);
     // まだ個別に書き換えていない行は、上のタイトルに追従させる。
@@ -130,6 +142,7 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
     const record: CalendarEvent = {
       title: title.trim(),
       date,
+      endDate: normalizeEndDate(date, endDate),
       allDay,
       startTime: allDay ? undefined : startTime || undefined,
       endTime: allDay ? undefined : endTime || undefined,
@@ -207,7 +220,20 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       </FormPanel>
 
       <FormPanel caption="いつ">
-        <DateField label="日付" value={date} onChange={setDate} />
+        <DateRangeField
+          label="日付"
+          start={date}
+          end={endDate}
+          onChangeStart={handleDateChange}
+          onChangeEnd={setEndDate}
+          endPlaceholder="同じ日に終わる"
+          advanceToEnd={false}
+          summaryText={
+            isMultiDay({ date, endDate })
+              ? `${spanDays({ date, endDate })}日間・かかっている日すべてに出ます`
+              : ""
+          }
+        />
         <SegmentedField
           label="時間"
           value={allDay ? "allday" : "timed"}

@@ -152,14 +152,32 @@ interface RangeProps {
   error?: ReactNode;
   /** 「3泊4日」のように、選んだ範囲が何日ぶんなのかをその場で返す。 */
   summary?: boolean;
+  /** 旅行の「n泊m日」ではない言い方をしたいときの差し替え(予定は「3日間」)。 */
+  summaryText?: string;
+  /** 終了日が空のときに出す文言。予定のように終了日を省ける場面で使う。 */
+  endPlaceholder?: string;
+  /** 開始日を選んだら、そのまま終了日のカレンダーへ進むか。旅行は必ず両方を選ぶので
+   * 進めた方が早いが、予定はほとんどが1日で終わるため、勝手に開くと余計な操作になる。 */
+  advanceToEnd?: boolean;
 }
 
 /** 開始と終了を1つの項目として見せる。別々の項目として離して置くと、どちらが
  *  期間の話なのか分からなくなる。カレンダーは同時に1つだけ開く。 */
-export function DateRangeField({ label, start, end, onChangeStart, onChangeEnd, error, summary = true }: RangeProps) {
+export function DateRangeField({
+  label,
+  start,
+  end,
+  onChangeStart,
+  onChangeEnd,
+  error,
+  summary = true,
+  summaryText,
+  endPlaceholder,
+  advanceToEnd = true,
+}: RangeProps) {
   const [editing, setEditing] = useState<"start" | "end" | null>(null);
   const ref = useCloseOnOutside(editing !== null, () => setEditing(null));
-  const duration = summary ? tripDurationLabel(start, end) : "";
+  const duration = summaryText ?? (summary ? tripDurationLabel(start, end) : "");
 
   return (
     <Field label={label} error={error} as="div">
@@ -180,20 +198,24 @@ export function DateRangeField({ label, start, end, onChangeStart, onChangeEnd, 
             value={end}
             open={editing === "end"}
             onToggle={() => setEditing((v) => (v === "end" ? null : "end"))}
+            placeholder={endPlaceholder}
             ariaLabel={`${label ?? ""}の終了日`}
           />
         </div>
 
         {editing && (
           <DatePopover
-            value={editing === "start" ? start : end}
+            // 終了日がまだ空のときは、今日ではなく開始日の月を開く。宿泊のように
+            // 先の日付を選んでいる最中に今月へ飛ぶと、そこから何度も送ることになる。
+            value={editing === "start" ? start : end || start}
             minDate={editing === "end" ? start || undefined : undefined}
             onClose={() => setEditing(null)}
             onSelect={(date) => {
               if (editing === "start") onChangeStart(date);
               else onChangeEnd(date);
-              // 開始を選んだら、そのまま終了を選ぶ流れが自然。閉じずに送る。
-              setEditing(editing === "start" ? "end" : null);
+              // 開始を選んだら、そのまま終了を選ぶ流れが自然(旅行)。予定のように
+              // 1日で終わることの方が多い場面では、そこで閉じる。
+              setEditing(editing === "start" && advanceToEnd ? "end" : null);
             }}
           />
         )}
