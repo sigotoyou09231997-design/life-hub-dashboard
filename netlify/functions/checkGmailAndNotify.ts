@@ -18,6 +18,7 @@ interface PushSubscriptionRow {
   endpoint: string;
   p256dh: string;
   auth_key: string;
+  disabled_categories: string[] | null;
 }
 
 interface LatestMessageMeta {
@@ -203,6 +204,7 @@ async function checkAccount(
     console.log(`[checkGmailAndNotify] ${account.email}: found ${subs?.length ?? 0} push subscription(s) for user ${account.user_id}`);
     const payload = buildNotificationPayload(count, latest);
     for (const sub of (subs ?? []) as PushSubscriptionRow[]) {
+      if ((sub.disabled_categories ?? []).includes("gmail")) continue;
       try {
         await sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, payload);
         console.log(`[checkGmailAndNotify] push sent OK to ${sub.endpoint.slice(0, 60)}...`);

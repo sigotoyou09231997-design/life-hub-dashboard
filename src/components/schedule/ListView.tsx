@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { format } from "date-fns";
+import { Search } from "lucide-react";
 import type { CalendarEvent, Task, Priority } from "../../types";
 import { todayStr } from "../../lib/date";
-import { spanEndDate } from "../../lib/eventSpan";
+import { nextOccurrenceOnOrAfter, spanEndDate } from "../../lib/eventSpan";
 import { EventList } from "../calendar/EventList";
 import { TaskList } from "../tasks/TaskList";
 import { Tabs } from "../ui/Tabs";
@@ -24,6 +25,8 @@ type PriorityFilter = "all" | Priority;
 const PRIORITY_LABEL: Record<Priority, string> = { high: "高", medium: "中", low: "低" };
 
 function isUpcomingOrOngoing(event: CalendarEvent, today: string, nowHM: string): boolean {
+  // 繰り返し予定は、最初の回がとっくに終わっていても次の回が控えている限り「今後」扱い。
+  if (event.repeat && event.repeat !== "none" && (!event.repeatUntil || event.repeatUntil >= today)) return true;
   if (event.date > today) return true;
   // 何日かにまたがる予定は、始まった日ではなく終わる日で切る。初日で切っていた頃の
   // ままだと、今まさに泊まっている宿泊が「今後の予定」から消えてしまう。
@@ -39,23 +42,42 @@ function isUpcomingOrOngoing(event: CalendarEvent, today: string, nowHM: string)
 export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent, onEditTask, onAddSubtask }: Props) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
+  const [query, setQuery] = useState("");
 
   const today = todayStr();
   const nowHM = format(new Date(), "HH:mm");
+  const q = query.trim().toLowerCase();
+  const matchesQuery = (...texts: (string | undefined)[]) => !q || texts.some((t) => (t ?? "").toLowerCase().includes(q));
 
+  // 繰り返し予定は元の開始日ではなく、次に来る回の日付で並べる — でないと、ずっと前に
+  // 始まった「毎週」の予定が一覧の一番上に居座ってしまう。
+  const sortKey = (e: CalendarEvent) => nextOccurrenceOnOrAfter(e, today) ?? e.date;
   const upcomingEvents = events
     .filter((e) => isUpcomingOrOngoing(e, today, nowHM))
-    .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+    .filter((e) => matchesQuery(e.title, e.location, e.memo))
+    .sort((a, b) => sortKey(a).localeCompare(sortKey(b)) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
   const upcomingTripAgenda = tripAgenda
     .filter((t) => spanEndDate(t) >= today)
+    .filter((t) => matchesQuery(t.title, t.location, t.tripName))
     .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
 
-  const filteredTasks = priorityFilter === "all" ? tasks : tasks.filter((t) => t.priority === priorityFilter);
-  const taskEmptyMessage =
-    tasks.length > 0 && filteredTasks.length === 0 ? "該当する優先度のタスクはありません" : undefined;
+  const filteredTasks = (priorityFilter === "all" ? tasks : tasks.filter((t) => t.priority === priorityFilter)).filter((t) =>
+    matchesQuery(t.title),
+  );
+  const taskEmptyMessage = tasks.length > 0 && filteredTasks.length === 0 ? "該当するタスクはありません" : undefined;
 
   return (
     <div className="planning-list-workspace space-y-5">
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="予定・タスクを検索"
+          className="field-shell w-full !pl-9"
+        />
+      </div>
+
       <Tabs
         options={[
           { value: "all", label: "すべて" },

@@ -15,12 +15,21 @@ interface Props {
   onCancel: () => void;
 }
 
+const NOTIFY_OPTIONS = [
+  { value: "", label: "通知しない" },
+  { value: "0", label: "当日" },
+  { value: "1", label: "1日前" },
+  { value: "3", label: "3日前" },
+  { value: "7", label: "1週間前" },
+];
+
 export function FixedCostForm({ initial, onSaved, onCancel }: Props) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [category, setCategory] = useState(initial?.category ?? FIXED_COST_CATEGORIES[0]);
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? "");
   const [dueDay, setDueDay] = useState(initial?.dueDay?.toString() ?? "1");
   const [active, setActive] = useState(initial?.active ?? true);
+  const [notify, setNotify] = useState(initial?.notifyDaysBefore?.toString() ?? "");
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -35,6 +44,10 @@ export function FixedCostForm({ initial, onSaved, onCancel }: Props) {
       amount: numericAmount,
       dueDay: Math.min(31, Math.max(1, Number(dueDay) || 1)),
       active,
+      notifyDaysBefore: notify ? Number(notify) : undefined,
+      // 通知済みの印はこのフォームでは触らない — 無関係な項目を直しただけで、今月
+      // 分の通知が二重に飛ぶ・逆に飛ばなくなるのを避ける。
+      lastNotifiedMonth: initial?.lastNotifiedMonth,
     };
 
     if (initial?.id) {
@@ -91,6 +104,18 @@ export function FixedCostForm({ initial, onSaved, onCancel }: Props) {
           checked={active}
           onChange={setActive}
         />
+        <Select
+          label="通知"
+          hint="設定でバックグラウンド通知を有効にしている端末に届きます。"
+          value={notify}
+          onChange={(e) => setNotify(e.target.value)}
+        >
+          {NOTIFY_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </Select>
       </FormPanel>
 
       <FormActions>

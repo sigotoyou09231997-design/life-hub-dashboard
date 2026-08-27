@@ -65,6 +65,11 @@ export interface FixedCost {
   amount: number;
   dueDay: number; // 1-31
   active: boolean;
+  /** 支払日の何日前に通知するか(0=当日)。未設定なら通知しない。 */
+  notifyDaysBefore?: number;
+  /** 直近で通知を送った月(YYYY-MM)。毎月の支払日ごとに1回だけ通知するための印で、
+   * netlify/functions/checkRemindersAndNotify.tsがSupabase側で更新する。 */
+  lastNotifiedMonth?: string;
   updatedAt?: number;
   deviceId?: string;
   userId?: string;
@@ -88,6 +93,13 @@ export interface CalendarEvent {
   category?: ScheduleCategory;
   notifyMinutesBefore?: number;
   notifiedAt?: number;
+  /** 繰り返し(Taskのrepeatと同じ選択肢)。"none"・未設定は繰り返さない単発の予定。
+   * 繰り返す予定は、この行を書き換えずに将来の回をその都度計算で出す
+   * (src/lib/eventSpan.ts の occursOn/spanDayIndex)。 */
+  repeat?: RepeatRule;
+  /** 繰り返しの最終日(その日を含む、YYYY-MM-DD)。空なら約2年先までを上限として
+   * 続ける(src/lib/eventSpan.ts)。 */
+  repeatUntil?: string;
   createdAt: number;
   updatedAt?: number;
   deviceId?: string;

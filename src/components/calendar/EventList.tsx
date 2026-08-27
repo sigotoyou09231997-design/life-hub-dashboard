@@ -65,6 +65,7 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
                     </span>
                   )}
                   <Badge tone={category.tone}>{category.label}</Badge>
+                  {ev.repeat && ev.repeat !== "none" && <Badge tone="accent">繰り返し</Badge>}
                 </div>
               </div>
               <button

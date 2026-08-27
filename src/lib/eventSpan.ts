@@ -1,5 +1,6 @@
-import { addDays, differenceInCalendarDays, isValid, parseISO } from "date-fns";
+import { addDays, addMonths, differenceInCalendarDays, isValid, parseISO } from "date-fns";
 import { formatShortDate, toDateStr, tripDayList } from "./date";
+import type { RepeatRule } from "../types";
 
 /**
  * 「開始日〜終了日」にまたがる予定のための、日付だけの共通部分。
@@ -18,6 +19,10 @@ export interface DateSpan {
   date: string;
   /** 終了日(その日を含む)。1日で終わるものには無い。YYYY-MM-DD。 */
   endDate?: string;
+  /** 繰り返し(CalendarEventだけが持つ)。持たない型はundefinedのまま単発として扱われる。 */
+  repeat?: RepeatRule;
+  /** 繰り返しの最終日(その日を含む)。空なら下のMAX_REPEAT_DAYSまでを上限にする。 */
+  repeatUntil?: string;
 }
 
 function valid(dateStr: string | undefined): boolean {
@@ -51,9 +56,85 @@ export function isMultiDay(span: DateSpan): boolean {
   return spanDays(span) > 1;
 }
 
-/** その日にかかっているか(初日・最終日を含む)。 */
-export function occursOn(span: DateSpan, date: string): boolean {
+/** その日が元の期間(繰り返し前)にかかっているか。occursOn/occurrenceStartOnの土台。 */
+function baseOccursOn(span: DateSpan, date: string): boolean {
   return date >= span.date && date <= spanEndDate(span);
+}
+
+/** repeatUntilが無い繰り返しをどこまで続けるか(約2年)。無期限に将来の日付すべてを
+ * 「かかっている」ことにはしない。 */
+const MAX_REPEAT_DAYS = 730;
+
+function repeatHorizon(span: DateSpan): string {
+  if (span.repeatUntil && valid(span.repeatUntil) && span.repeatUntil > span.date) return span.repeatUntil;
+  return toDateStr(addDays(parseISO(span.date), MAX_REPEAT_DAYS));
+}
+
+/**
+ * dateがかかっている「回」の開始日。繰り返し予定なら、元の開始日そのものとは限らない
+ * (毎週・毎月の先の回の開始日になる)。かかっていなければundefined。
+ *
+ * occursOn・spanDayIndexは両方ともこれを土台にする — 「その日にかかっているか」と
+ * 「その回の中で何日目か」は同じ計算(どの回にあたるか)から素直に出るはずで、別々に
+ * 判定すると繰り返しの追加を片方だけ直し漏れる。
+ */
+export function occurrenceStartOn(span: DateSpan, date: string): string | undefined {
+  if (baseOccursOn(span, date)) return span.date;
+  if (!span.repeat || span.repeat === "none" || !valid(span.date) || !valid(date)) return undefined;
+
+  const horizon = repeatHorizon(span);
+  if (date > horizon) return undefined;
+
+  const start = parseISO(span.date);
+  const duration = spanDays(span);
+  const daysSinceStart = differenceInCalendarDays(parseISO(date), start);
+  if (daysSinceStart <= 0) return undefined; // 開始日より前は繰り返しでは埋めない
+
+  if (span.repeat === "daily") {
+    // 毎日ちょうど1回ずつ始まるので、開始日より後はすべて繰り返しの範囲に入る
+    // (何日かにまたがる予定を毎日繰り返す、という組み合わせはここでは考慮しない —
+    // 単発の日として扱う)。
+    return date;
+  }
+
+  if (span.repeat === "weekly") {
+    const offsetInWeek = daysSinceStart % 7;
+    return offsetInWeek < duration ? toDateStr(addDays(start, daysSinceStart - offsetInWeek)) : undefined;
+  }
+
+  // monthly: 月の同じ日(短い月は月末に寄る、date-fnsのaddMonthsの挙動)を基準に、
+  // dateが収まる回を先頭から順に探す。上限までの月数は多くても数十回なので軽い。
+  const maxMonths = Math.ceil(differenceInCalendarDays(parseISO(horizon), start) / 28) + 2;
+  for (let n = 1; n <= maxMonths; n++) {
+    const occurrenceStart = toDateStr(addMonths(start, n));
+    if (occurrenceStart > horizon) break;
+    const occurrenceEnd = toDateStr(addDays(addMonths(start, n), duration - 1));
+    if (date >= occurrenceStart && date <= occurrenceEnd) return occurrenceStart;
+  }
+  return undefined;
+}
+
+/** その日にかかっているか(初日・最終日を含む)。繰り返し予定は将来の回もここで拾う。 */
+export function occursOn(span: DateSpan, date: string): boolean {
+  return occurrenceStartOn(span, date) !== undefined;
+}
+
+/**
+ * fromDate以降で最初にかかる日(繰り返しの次の回を含む)。一覧を「次に来る順」に
+ * 並べるためのもの — 繰り返し予定は元の開始日がとっくに過去でも、次の回の日付で
+ * 並べたい。見つからなければundefined(その繰り返しはもう終わっている)。
+ */
+export function nextOccurrenceOnOrAfter(span: DateSpan, fromDate: string): string | undefined {
+  if (occursOn(span, fromDate)) return fromDate;
+  if (span.date > fromDate) return span.date;
+  if (!span.repeat || span.repeat === "none" || !valid(fromDate)) return undefined;
+  const horizon = repeatHorizon(span);
+  let cursor = fromDate;
+  while (cursor <= horizon) {
+    if (occursOn(span, cursor)) return cursor;
+    cursor = toDateStr(addDays(parseISO(cursor), 1));
+  }
+  return undefined;
 }
 
 /** またがっている日付を全部(初日から最終日まで)。 */
@@ -62,10 +143,11 @@ export function spanDates(span: DateSpan): string[] {
   return dates.length > 0 ? dates : [span.date];
 }
 
-/** その日が何日目か(初日が1)。かかっていない日は0。 */
+/** その日が(繰り返しならその回の中で)何日目か(初日が1)。かかっていない日は0。 */
 export function spanDayIndex(span: DateSpan, date: string): number {
-  if (!occursOn(span, date) || !valid(span.date) || !valid(date)) return 0;
-  return differenceInCalendarDays(parseISO(date), parseISO(span.date)) + 1;
+  const occurrenceStart = occurrenceStartOn(span, date);
+  if (!occurrenceStart || !valid(date)) return 0;
+  return differenceInCalendarDays(parseISO(date), parseISO(occurrenceStart)) + 1;
 }
 
 /**
@@ -100,6 +182,23 @@ export function collectSpanDates(items: DateSpan[]): Set<string> {
   const dates = new Set<string>();
   for (const item of items) {
     for (const date of spanDates(item)) dates.add(date);
+  }
+  return dates;
+}
+
+/**
+ * カレンダーの点を打つ日付、繰り返しの将来の回も含めて。無期限に将来を洗い出すのは
+ * 無駄なので、表示中の月の枠(だいたい6週間ぶん)だけに区切って展開する。
+ */
+export function collectSpanDatesInRange(items: DateSpan[], rangeStart: string, rangeEnd: string): Set<string> {
+  const dates = new Set<string>();
+  for (const item of items) {
+    if (!valid(item.date)) continue;
+    let cursor = rangeStart > item.date ? rangeStart : item.date;
+    while (cursor <= rangeEnd) {
+      if (occursOn(item, cursor)) dates.add(cursor);
+      cursor = toDateStr(addDays(parseISO(cursor), 1));
+    }
   }
   return dates;
 }

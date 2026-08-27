@@ -12,6 +12,7 @@ import {
   Pencil,
   Plus,
   CalendarPlus,
+  Search,
   Trash2,
 } from "lucide-react";
 import { db } from "../../db/schema";
@@ -150,6 +151,9 @@ export function TripRouteView({
   const [closedLegs, setClosedLegs] = useState<string[]>([]);
   /** いま見ている日。既定は「すべて」— 日付を決めていない場所も含めて今まで通り並ぶ。 */
   const [day, setDay] = useState<string>(ALL_DAYS);
+  /** 検索は絞り込まず、一致した場所を鎖の中で光らせるだけにする(src/styles/trips.css
+   * の.trip-route-card--match) — 間を抜くと区間(誰から誰まで)の意味が崩れるため。 */
+  const [query, setQuery] = useState("");
   /** 端末から取れた現在地。鎖の先頭に「現在地 → 最初の場所」を出すのに使う。 */
   const [here, setHere] = useState<string | null>(null);
   const [hereState, setHereState] = useState<"asking" | "ready" | "denied">("asking");
@@ -168,6 +172,13 @@ export function TripRouteView({
   });
   const queries = shown.map((p) => p.address);
   const hasUndated = places.some((place) => !place.date);
+  const trimmedQuery = query.trim().toLowerCase();
+  const matchedIds = new Set(
+    trimmedQuery
+      ? shown.filter((p) => p.name.toLowerCase().includes(trimmedQuery) || p.address.toLowerCase().includes(trimmedQuery)).map((p) => p.id)
+      : [],
+  );
+  const noMatch = trimmedQuery.length > 0 && matchedIds.size === 0;
   // 1日だけの旅行に切り替えは要らない。
   const showsDayTabs = dayList.length > 1;
 
@@ -261,6 +272,18 @@ export function TripRouteView({
             {shown.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
             <ExternalLink size={14} />
           </a>
+          {places.length > 1 && (
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="行きたい場所を検索(鎖の中で光ります)"
+                className="field-shell w-full !pl-9"
+              />
+              {noMatch && <p className="mt-1.5 text-xs text-slate-400">一致する場所が見つかりません(日にちの絞り込みも確認してください)。</p>}
+            </div>
+          )}
         </div>
       )}
 
@@ -401,7 +424,7 @@ export function TripRouteView({
                   return (
                     <Fragment key={place.id}>
                       <li className="trip-route__node">
-                        <article className="trip-route-card">
+                        <article className={`trip-route-card${place.id && matchedIds.has(place.id) ? " trip-route-card--match" : ""}`}>
                           <header className="trip-route-card__head">
                             <button
                               type="button"

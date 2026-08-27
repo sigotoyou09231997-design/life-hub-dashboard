@@ -1,18 +1,28 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
-import { Database, Mail } from "lucide-react";
+import { Bell, Database, Mail } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { GmailAccount } from "../types";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
 import { auth, isSupabaseConfigured } from "../lib/supabase";
 import { getSupabaseDataClient } from "../lib/supabaseData";
-import { isPushConfigured, getPushSubscription, subscribeToPush, unsubscribeFromPush } from "../lib/pushNotifications";
+import {
+  isPushConfigured,
+  getPushSubscription,
+  subscribeToPush,
+  unsubscribeFromPush,
+  getDisabledCategories,
+  setDisabledCategories,
+  NOTIFICATION_CATEGORIES,
+  type NotificationCategory,
+} from "../lib/pushNotifications";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
 import { Button } from "../components/ui/Button";
+import { SwitchField } from "../components/ui/SwitchField";
 import { useToast } from "../components/ui/ToastProvider";
 
 export default function SettingsPage() {
@@ -36,18 +46,22 @@ export default function SettingsPage() {
 
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
+  const [disabledCategories, setDisabledCategoriesState] = useState<Set<NotificationCategory>>(new Set());
 
   useEffect(() => {
     if (!isPushConfigured) return;
-    getPushSubscription().then((sub) => setPushEnabled(Boolean(sub)));
+    getPushSubscription().then((sub) => {
+      setPushEnabled(Boolean(sub));
+      if (sub) getDisabledCategories().then(setDisabledCategoriesState);
+    });
   }, []);
 
   async function handleTogglePush(next: boolean) {
-    if (!session || !gmailAccounts || gmailAccounts.length === 0 || pushBusy) return;
+    if (!session || pushBusy) return;
     setPushBusy(true);
     try {
       if (next) {
-        await subscribeToPush(gmailAccounts, session.user.id);
+        await subscribeToPush(gmailAccounts ?? [], session.user.id);
         setPushEnabled(true);
         showToast("バックグラウンド通知を有効にしました");
       } else {
@@ -59,6 +73,18 @@ export default function SettingsPage() {
       showToast("通知の設定に失敗しました", "error");
     } finally {
       setPushBusy(false);
+    }
+  }
+
+  async function handleToggleCategory(category: NotificationCategory, enabled: boolean) {
+    const next = new Set(disabledCategories);
+    if (enabled) next.delete(category);
+    else next.add(category);
+    setDisabledCategoriesState(next);
+    try {
+      await setDisabledCategories([...next]);
+    } catch {
+      showToast("通知の設定に失敗しました", "error");
     }
   }
 
@@ -187,15 +213,19 @@ export default function SettingsPage() {
               {gmailAccounts && gmailAccounts.length > 0 ? "+ アカウントを追加" : "連携する"}
             </Button>
           </div>
+        </Card>
 
-          {isSupabaseConfigured && isPushConfigured && session && gmailAccounts && gmailAccounts.length > 0 && (
+        {isSupabaseConfigured && isPushConfigured && session && (
+          <Card className="system-section system-section--notify lg:col-span-2">
+            <div className="system-section__header">
+              <div className="system-section__identity"><span><Bell size={17} /></span><div><h2>バックグラウンド通知</h2></div></div>
+              <div className={`system-status ${pushEnabled ? "is-online" : ""}`}><i />{pushEnabled ? "有効" : "無効"}</div>
+            </div>
+            <p className="system-section__description text-xs text-slate-500">
+              アプリを閉じていても、この端末に通知を届けます(refresh tokenなどをサーバーにも保存します)。
+            </p>
             <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/40 pt-3">
-              <div>
-                <p className="text-sm text-slate-700">バックグラウンド通知</p>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  アプリを閉じていても新着メールを通知します(refresh tokenをサーバーにも保存します)
-                </p>
-              </div>
+              <span className="text-sm text-slate-700">この端末で通知を受け取る</span>
               <button
                 onClick={() => handleTogglePush(!pushEnabled)}
                 aria-pressed={pushEnabled}
@@ -212,8 +242,20 @@ export default function SettingsPage() {
                 />
               </button>
             </div>
-          )}
-        </Card>
+            {pushEnabled && (
+              <div className="mt-1 space-y-1 border-t border-white/40 pt-1">
+                {NOTIFICATION_CATEGORIES.map((category) => (
+                  <SwitchField
+                    key={category.key}
+                    label={category.label}
+                    checked={!disabledCategories.has(category.key)}
+                    onChange={(checked) => handleToggleCategory(category.key, checked)}
+                  />
+                ))}
+              </div>
+            )}
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -755,6 +755,14 @@ a.trip-leg-mode--link {
   -webkit-backdrop-filter: var(--hub-blur);
 }
 
+/* 検索に一致した場所を、鎖の中で見つけやすくする(絞り込みはしない — 経路の
+   順番と抜けている区間の意味が崩れるため)。 */
+.trip-route-card--match {
+  border-color: var(--accent, var(--hub-blue));
+  outline: 2px solid var(--accent, var(--hub-blue));
+  outline-offset: 1px;
+}
+
 .trip-route-card__head {
   display: flex;
   align-items: center;
