@@ -1,6 +1,7 @@
 import { db } from "../db/schema";
-import type { EmailStatus, GmailAccount, SyncedEmail } from "../types";
+import type { CalendarEvent, EmailStatus, GmailAccount, SyncedEmail } from "../types";
 import { toDateStr, todayStr } from "./date";
+import { overlapsRange, spanDates, spanDayIndex, spanDays } from "./eventSpan";
 import type { ExtractedTripItem } from "./mailPlanImport";
 
 const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send openid email";
@@ -240,8 +241,29 @@ export function formatCandidateLabel(slot: { date: string; startTime?: string; e
 async function getUpcomingBusySlots(): Promise<BusySlot[]> {
   const start = todayStr();
   const end = toDateStr(new Date(Date.now() + SCHEDULE_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000));
-  const events = await db.calendarEvents.where("date").between(start, end, true, true).sortBy("date");
-  return events.map((e) => ({ date: e.date, startTime: e.startTime, endTime: e.endTime, allDay: e.allDay }));
+  // 索引(date)は開始日しか持たないので、範囲で引くと「先週から泊まっていて今週まで
+  // 続く」ような予定が丸ごと漏れる。かかっているかどうかで絞り、またがる予定は
+  // 1日ずつに開いて渡す(空いている日を提案させるので、日ごとに見えている必要がある)。
+  const events = await db.calendarEvents.filter((event) => overlapsRange(event, start, end)).toArray();
+  return events
+    .flatMap((event) => busySlotsFor(event, start, end))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** またがる予定を、その期間に入っている日ぶんの「埋まっている枠」に開く。
+ * 開始時刻は初日、終了時刻は最終日にしか意味がないので、間の日は丸一日とする。 */
+function busySlotsFor(event: CalendarEvent, start: string, end: string): BusySlot[] {
+  const total = spanDays(event);
+  return spanDates(event)
+    .filter((date) => date >= start && date <= end)
+    .map((date) => {
+      if (total === 1) return { date, startTime: event.startTime, endTime: event.endTime, allDay: event.allDay };
+      if (event.allDay) return { date, allDay: true };
+      const index = spanDayIndex(event, date);
+      if (index === 1) return { date, startTime: event.startTime, allDay: !event.startTime };
+      if (index === total) return { date, endTime: event.endTime, allDay: !event.endTime };
+      return { date, allDay: true };
+    });
 }
 
 /** Fetches the email body, asks the AI to draft a reply, and upserts it into

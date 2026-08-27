@@ -1,5 +1,6 @@
 import type { CalendarEvent, Task } from "../../types";
 import { formatDisplayDate } from "../../lib/date";
+import { collectSpanDates, occurringOn } from "../../lib/eventSpan";
 import { getHolidayMapForYear } from "../../lib/holidays";
 import { MonthView } from "../calendar/MonthView";
 import { EventList } from "../calendar/EventList";
@@ -35,13 +36,15 @@ export function CalendarView({
   onEditTask,
   onAddSubtask,
 }: Props) {
-  const eventDates = new Set(events.map((e) => e.date));
+  // 点は「かかっている日すべて」に打つ。初日にしか打たないと、宿泊の2日目は
+  // カレンダー上では空いている日に見えてしまう。
+  const eventDates = collectSpanDates(events);
   const taskDates = new Set(tasks.filter((t) => !t.completed && t.dueDate).map((t) => t.dueDate!));
-  const tripDates = new Set(tripAgenda.map((t) => t.date));
+  const tripDates = collectSpanDates(tripAgenda);
 
-  const dayEvents = events.filter((e) => e.date === selectedDate);
+  const dayEvents = occurringOn(events, selectedDate);
   const dayTasks = tasks.filter((t) => t.dueDate === selectedDate && !t.parentTaskId);
-  const dayTripAgenda = tripAgenda.filter((t) => t.date === selectedDate);
+  const dayTripAgenda = occurringOn(tripAgenda, selectedDate);
   const selectedHoliday = getHolidayMapForYear(Number(selectedDate.slice(0, 4))).get(selectedDate);
 
   return (
@@ -68,13 +71,13 @@ export function CalendarView({
               </span>
             )}
           </div>
-          <EventList events={dayEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} />
+          <EventList events={dayEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} onDate={selectedDate} />
         </div>
 
         {dayTripAgenda.length > 0 && (
           <div>
             <p className="mb-2 text-sm font-medium text-slate-600">{formatDisplayDate(selectedDate)}の旅行の予定</p>
-            <TripAgendaList items={dayTripAgenda} />
+            <TripAgendaList items={dayTripAgenda} onDate={selectedDate} />
           </div>
         )}
 

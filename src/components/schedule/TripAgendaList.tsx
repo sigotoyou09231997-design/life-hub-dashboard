@@ -1,12 +1,15 @@
 import { Link } from "react-router-dom";
-import { Plane, Clock } from "lucide-react";
+import { Plane, Clock, CalendarRange } from "lucide-react";
 import { ListRow } from "../ui/ListRow";
+import { spanLabel, spanTimeText } from "../../lib/eventSpan";
 
 export interface TripAgendaEntry {
   id: string;
   tripId: string;
   tripName: string;
   date: string;
+  /** 終了日(その日を含む)。宿泊のように何日かにまたがる日程にだけ入る。 */
+  endDate?: string;
   startTime?: string;
   endTime?: string;
   title: string;
@@ -15,11 +18,13 @@ export interface TripAgendaEntry {
 
 interface Props {
   items: TripAgendaEntry[];
+  /** 「その日」を見ている一覧では、その日付。またがる日程に「2日目/3日」と出せる。 */
+  onDate?: string;
 }
 
 /** Read-only agenda rows for trip schedule items surfaced on the main Schedule page —
  * editing still happens on the trip's own 日程 tab, so these just link there. */
-export function TripAgendaList({ items }: Props) {
+export function TripAgendaList({ items, onDate }: Props) {
   if (items.length === 0) return null;
   const sorted = [...items].sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
 
@@ -40,10 +45,16 @@ export function TripAgendaList({ items }: Props) {
                 {item.title}
               </p>
               <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
-                {item.startTime && (
+                {(item.startTime || item.endDate) && (
                   <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap">
                     <Clock size={11} />
-                    {item.endTime ? `${item.startTime}〜${item.endTime}` : item.startTime}
+                    {spanTimeText(item, onDate)}
+                  </span>
+                )}
+                {spanLabel(item, onDate) && (
+                  <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap font-medium text-slate-500">
+                    <CalendarRange size={11} />
+                    {spanLabel(item, onDate)}
                   </span>
                 )}
                 <span className="truncate">{item.tripName}</span>

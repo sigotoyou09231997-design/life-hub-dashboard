@@ -4,6 +4,7 @@ import { ja } from "date-fns/locale";
 import { CalendarDays, CheckSquare, Plus } from "lucide-react";
 import type { CalendarEvent, Task } from "../../types";
 import { todayStr, isOverdue } from "../../lib/date";
+import { occurringOn } from "../../lib/eventSpan";
 import { EventList } from "../calendar/EventList";
 import { TaskItem } from "../tasks/TaskItem";
 import { toggleTaskCompletion, deleteTaskCascade } from "../tasks/TaskList";
@@ -24,8 +25,9 @@ interface Props {
 
 export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent, onEditTask, onAddSubtask, onAddEvent, onAddTask }: Props) {
   const today = todayStr();
-  const todayEvents = events.filter((e) => e.date === today);
-  const todayTripAgenda = tripAgenda.filter((t) => t.date === today);
+  // またがる予定(宿泊など)は、初日だけでなくかかっている日すべてに出す。
+  const todayEvents = occurringOn(events, today);
+  const todayTripAgenda = occurringOn(tripAgenda, today);
   const incompleteTopLevel = tasks.filter((t) => !t.completed && !t.parentTaskId);
   const overdueTasks = incompleteTopLevel.filter((t) => isOverdue(t.dueDate, t.dueTime));
   const dueTodayTasks = incompleteTopLevel.filter((t) => t.dueDate === today && !isOverdue(t.dueDate, t.dueTime));
@@ -50,7 +52,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
             </div>
             <div className="planning-timeline-content">
               {todayEvents.length > 0 ? (
-                <EventList events={todayEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} />
+                <EventList events={todayEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} onDate={today} />
               ) : (
                 <div className="planning-empty-control planning-empty-control--timeline">
                   <div className="planning-compact-empty"><span className="planning-date-glyph">{format(now, "d")}</span><div><strong>静かな一日です</strong><p>次の予定はまだありません</p></div></div>
@@ -85,7 +87,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
       </div>
 
       {todayTripAgenda.length > 0 && (
-        <section className="planning-secondary-module"><p><CalendarDays size={14} />今日の旅行予定</p><TripAgendaList items={todayTripAgenda} /></section>
+        <section className="planning-secondary-module"><p><CalendarDays size={14} />今日の旅行予定</p><TripAgendaList items={todayTripAgenda} onDate={today} /></section>
       )}
 
       {overdueTasks.length > 0 && (

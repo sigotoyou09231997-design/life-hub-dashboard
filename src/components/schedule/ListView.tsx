@@ -2,6 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import type { CalendarEvent, Task, Priority } from "../../types";
 import { todayStr } from "../../lib/date";
+import { spanEndDate } from "../../lib/eventSpan";
 import { EventList } from "../calendar/EventList";
 import { TaskList } from "../tasks/TaskList";
 import { Tabs } from "../ui/Tabs";
@@ -24,7 +25,11 @@ const PRIORITY_LABEL: Record<Priority, string> = { high: "高", medium: "中", l
 
 function isUpcomingOrOngoing(event: CalendarEvent, today: string, nowHM: string): boolean {
   if (event.date > today) return true;
-  if (event.date < today) return false;
+  // 何日かにまたがる予定は、始まった日ではなく終わる日で切る。初日で切っていた頃の
+  // ままだと、今まさに泊まっている宿泊が「今後の予定」から消えてしまう。
+  const lastDay = spanEndDate(event);
+  if (lastDay < today) return false;
+  if (lastDay > today) return true;
   if (event.allDay) return true;
   const endRef = event.endTime ?? event.startTime;
   if (!endRef) return true;
@@ -42,7 +47,7 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
     .filter((e) => isUpcomingOrOngoing(e, today, nowHM))
     .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
   const upcomingTripAgenda = tripAgenda
-    .filter((t) => t.date >= today)
+    .filter((t) => spanEndDate(t) >= today)
     .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
 
   const filteredTasks = priorityFilter === "all" ? tasks : tasks.filter((t) => t.priority === priorityFilter);

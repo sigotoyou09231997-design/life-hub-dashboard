@@ -17,7 +17,9 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { db } from "../db/schema";
+import type { CalendarEvent } from "../types";
 import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
+import { occursOn, spanDayIndex, spanTimeText } from "../lib/eventSpan";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
 import { pullBlockedSenders } from "../lib/blockedSenders";
 import { NOTE_TYPE_DEFS, getNoteType } from "../lib/noteTypes";
@@ -86,11 +88,24 @@ export default function TopPage() {
   const motionRef = useHubMotion<HTMLDivElement>();
 
   const today = todayStr();
-  const eventsResult = useLiveQuery(() => db.calendarEvents.where("date").equals(today).toArray(), [today]);
-  const allTodayEvents = [...(eventsResult ?? [])].sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+  // 何日かにまたがる予定(宿泊など)は初日の date しか索引に載らないので、date の索引で
+  // 今日ぶんだけを引くと2日目以降がTOPから消える。全部見てから絞る(src/lib/eventSpan.ts)。
+  const eventsResult = useLiveQuery(
+    () => db.calendarEvents.filter((event) => occursOn(event, today)).toArray(),
+    [today],
+  );
+  // 何日かにまたがる予定の開始時刻は、初日にしか意味がない。2日目以降も同じ時刻で
+  // 扱うと、泊まっている最中の宿泊が「10:00に始まる次の予定」として毎朝出てくる。
+  const startsToday = (event: CalendarEvent) => spanDayIndex(event, today) === 1;
+  const timeToday = (event: CalendarEvent) => (event.allDay || !startsToday(event) ? undefined : event.startTime);
+  const allTodayEvents = [...(eventsResult ?? [])].sort((a, b) =>
+    (timeToday(a) ?? "").localeCompare(timeToday(b) ?? ""),
+  );
   const previewEvents = allTodayEvents.slice(0, EVENT_PREVIEW_LIMIT);
-  const nextEvent = allTodayEvents.find((event) => !event.startTime || minutesUntil(event.startTime, now) !== null);
-  const nextEventMinutes = nextEvent && !nextEvent.allDay ? minutesUntil(nextEvent.startTime, now) : null;
+  const nextEvent = allTodayEvents.find(
+    (event) => !timeToday(event) || minutesUntil(timeToday(event), now) !== null,
+  );
+  const nextEventMinutes = nextEvent ? minutesUntil(timeToday(nextEvent), now) : null;
 
   const tasksResult = useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]);
   const todayTasks = (tasksResult ?? []).filter((task) => !task.parentTaskId);
@@ -164,9 +179,7 @@ export default function TopPage() {
     ? {
         kicker: "次の予定",
         title: nextEvent.title,
-        when: nextEvent.allDay
-          ? "終日"
-          : `${nextEvent.startTime ?? "終日"}${nextEvent.endTime ? ` – ${nextEvent.endTime}` : ""}`,
+        when: spanTimeText(nextEvent, today),
         countdown: nextEventMinutes === null ? null : formatCountdown(nextEventMinutes),
         to: "/schedule?view=calendar",
         icon: CalendarDays,
@@ -241,10 +254,10 @@ export default function TopPage() {
             <div className="hub-events">
               {previewEvents.map((event) => {
                 const category = getScheduleCategory(event.category);
-                const past = !event.allDay && minutesUntil(event.startTime, now) === null;
+                const past = !event.allDay && Boolean(timeToday(event)) && minutesUntil(timeToday(event), now) === null;
                 return (
                   <Link key={event.id} to="/schedule?view=calendar" className={`hub-events__row ${past ? "is-past" : ""}`}>
-                    <time>{event.allDay ? "終日" : event.startTime ?? "終日"}</time>
+                    <time>{spanTimeText(event, today)}</time>
                     <i className={`hub-dot hub-dot--${category.tone}`} aria-hidden="true" />
                     <strong>{event.title}</strong>
                     <small>{category.label}</small>
@@ -276,7 +289,7 @@ export default function TopPage() {
             </div>
             <i className="hub-rail__now" style={{ left: `${dayProgress}%` }} />
             {previewEvents.map((event) => {
-              const left = railPosition(event.startTime);
+              const left = railPosition(timeToday(event));
               return left === null ? null : <i key={event.id} className="hub-rail__event" style={{ left: `${left}%` }} />;
             })}
           </div>
