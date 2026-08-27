@@ -13,6 +13,9 @@
     },
     "api/extractTripPlan.ts": {
       "maxDuration": 60
+    },
+    "api/extractReceipt.ts": {
+      "maxDuration": 60
     }
   }
 }

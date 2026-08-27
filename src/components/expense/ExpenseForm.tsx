@@ -16,13 +16,18 @@ import { Button } from "../ui/Button";
 interface Props {
   initial?: Transaction;
   defaultType?: TransactionType;
+  /** 保存ボタンの文言。レシート読み取りからの確認画面など、initialはあっても
+   * 「新規追加」扱いにしたい呼び出し元向け(既定はinitialの有無で決める今までどおり)。 */
+  submitLabel?: string;
   onSaved: () => void;
   onCancel: () => void;
 }
 
-export function ExpenseForm({ initial, defaultType = "expense", onSaved, onCancel }: Props) {
+export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onSaved, onCancel }: Props) {
   const [type, setType] = useState<TransactionType>(initial?.type ?? defaultType);
-  const [amount, setAmount] = useState(initial?.amount?.toString() ?? "");
+  // amount: 0(レシート読み取りで金額が読めなかった時の仮値)は未入力と同じ扱いにする —
+  // 「0」が入ったまま出すより、空欄で金額の入力を促す方がよい。
+  const [amount, setAmount] = useState(initial?.amount ? initial.amount.toString() : "");
   const [category, setCategory] = useState(
     initial?.category ?? (type === "expense" ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0]),
   );
@@ -132,7 +137,7 @@ export function ExpenseForm({ initial, defaultType = "expense", onSaved, onCance
           キャンセル
         </Button>
         <Button type="submit" disabled={saving}>
-          {initial ? "変更を保存" : "記録する"}
+          {submitLabel ?? (initial ? "変更を保存" : "記録する")}
         </Button>
       </FormActions>
     </form>

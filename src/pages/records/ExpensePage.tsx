@@ -2,7 +2,9 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction, FixedCost, SalaryEntry } from "../../types";
-import { monthRange } from "../../lib/date";
+import { monthRange, todayStr } from "../../lib/date";
+import { EXPENSE_CATEGORIES } from "../../lib/categories";
+import type { ExtractedReceipt } from "../../lib/receiptScan";
 import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Sheet } from "../../components/ui/Sheet";
@@ -11,6 +13,7 @@ import { Tabs } from "../../components/ui/Tabs";
 import { ExpenseSummary } from "../../components/expense/ExpenseSummary";
 import { ExpenseList } from "../../components/expense/ExpenseList";
 import { ExpenseForm } from "../../components/expense/ExpenseForm";
+import { ReceiptScanForm } from "../../components/expense/ReceiptScanForm";
 import { FixedCostList } from "../../components/expense/FixedCostList";
 import { FixedCostForm } from "../../components/expense/FixedCostForm";
 import { SalaryList } from "../../components/expense/SalaryList";
@@ -23,6 +26,22 @@ import { useToast } from "../../components/ui/ToastProvider";
 import { ListSkeleton } from "../../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 
+/** レシート読み取り結果を、支出フォームへの下書きにする。idを持たせないので、
+ * ExpenseFormは「新規追加」として保存する(既存の編集判定はinitial?.idを見ている)。 */
+function receiptToDraftTransaction(receipt: ExtractedReceipt): Transaction {
+  return {
+    type: "expense",
+    amount: receipt.amount ?? 0,
+    category: receipt.category ?? EXPENSE_CATEGORIES[0],
+    method: receipt.paymentMethod,
+    store: receipt.storeName,
+    memo: receipt.memo,
+    date: receipt.date ?? todayStr(),
+    isFixed: false,
+    createdAt: Date.now(),
+  };
+}
+
 type Tab = "summary" | "salary" | "fixed" | "history" | "paypay";
 
 export default function ExpensePage() {
@@ -33,6 +52,9 @@ export default function ExpensePage() {
   const [editingSalary, setEditingSalary] = useState<SalaryEntry | "new" | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [salaryCsvImportOpen, setSalaryCsvImportOpen] = useState(false);
+  const [receiptScanOpen, setReceiptScanOpen] = useState(false);
+  // レシート読み取りからの下書きは、idを持たないオブジェクトとして開く(新規追加)。
+  const isTransactionDraft = typeof editingTransaction === "object" && editingTransaction !== null && !editingTransaction.id;
 
   const { start, end } = monthRange();
   const transactions = useLiveQuery(
@@ -111,9 +133,12 @@ export default function ExpensePage() {
                 }}
               />
             )}
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Button className="flex-1" onClick={() => setEditingTransaction("new")}>
                 収支を追加
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setReceiptScanOpen(true)}>
+                レシートから追加
               </Button>
               <Button variant="secondary" className="flex-1" onClick={() => setCsvImportOpen(true)}>
                 CSVから取込
@@ -148,16 +173,29 @@ export default function ExpensePage() {
       <Sheet
         open={editingTransaction !== null}
         onClose={() => setEditingTransaction(null)}
-        title={editingTransaction === "new" ? "収支を追加" : "収支を編集"}
+        title={isTransactionDraft ? "レシートの内容を確認" : editingTransaction === "new" ? "収支を追加" : "収支を編集"}
       >
         {editingTransaction && (
           <ExpenseForm
             initial={editingTransaction === "new" ? undefined : editingTransaction}
+            submitLabel={isTransactionDraft ? "この内容で記録する" : undefined}
             onSaved={() => {
               setEditingTransaction(null);
               showToast("保存しました");
             }}
             onCancel={() => setEditingTransaction(null)}
+          />
+        )}
+      </Sheet>
+
+      <Sheet open={receiptScanOpen} onClose={() => setReceiptScanOpen(false)} title="レシートから追加">
+        {receiptScanOpen && (
+          <ReceiptScanForm
+            onExtracted={(receipt) => {
+              setReceiptScanOpen(false);
+              setEditingTransaction(receiptToDraftTransaction(receipt));
+            }}
+            onCancel={() => setReceiptScanOpen(false)}
           />
         )}
       </Sheet>
