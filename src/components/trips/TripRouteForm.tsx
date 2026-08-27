@@ -5,6 +5,7 @@ import type { TripRoutePlace } from "../../types";
 import { buildMapEmbedUrl } from "../../lib/googleMaps";
 import { formatShortDate } from "../../lib/date";
 import { Input, Textarea } from "../ui/Input";
+import { Field } from "../ui/Field";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
@@ -113,10 +114,9 @@ export function TripRouteForm({ tripId, initial, nextSortOrder, preset, dayList,
 
       <FormPanel caption="そのほか" icon={StickyNote}>
         {dayList.length > 1 && (
-          <div className="trip-day-pick">
-            <p className="trip-day-pick__label">
-              何日目に回るか<span>任意</span>
-            </p>
+          // 見出しと余白は、下の「メモ」など他の項目と同じ Field に任せる。ここだけ
+          // 素の div で組んでいたため、面の左上に文字が貼り付いていた。
+          <Field label="何日目に回るか" optional as="div">
             <div className="trip-day-pick__chips" role="group" aria-label="何日目に回るか">
               <button
                 type="button"
@@ -138,7 +138,7 @@ export function TripRouteForm({ tripId, initial, nextSortOrder, preset, dayList,
                 </button>
               ))}
             </div>
-          </div>
+          </Field>
         )}
         <Textarea
           label="メモ"
