@@ -2,7 +2,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import type { CalendarEvent, Task, Priority } from "../../types";
 import { todayStr } from "../../lib/date";
-import { spanEndDate } from "../../lib/eventSpan";
+import { nextOccurrenceOnOrAfter, spanEndDate } from "../../lib/eventSpan";
 import { EventList } from "../calendar/EventList";
 import { TaskList } from "../tasks/TaskList";
 import { Tabs } from "../ui/Tabs";
@@ -24,6 +24,8 @@ type PriorityFilter = "all" | Priority;
 const PRIORITY_LABEL: Record<Priority, string> = { high: "高", medium: "中", low: "低" };
 
 function isUpcomingOrOngoing(event: CalendarEvent, today: string, nowHM: string): boolean {
+  // 繰り返し予定は、最初の回がとっくに終わっていても次の回が控えている限り「今後」扱い。
+  if (event.repeat && event.repeat !== "none" && (!event.repeatUntil || event.repeatUntil >= today)) return true;
   if (event.date > today) return true;
   // 何日かにまたがる予定は、始まった日ではなく終わる日で切る。初日で切っていた頃の
   // ままだと、今まさに泊まっている宿泊が「今後の予定」から消えてしまう。
@@ -43,9 +45,12 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
   const today = todayStr();
   const nowHM = format(new Date(), "HH:mm");
 
+  // 繰り返し予定は元の開始日ではなく、次に来る回の日付で並べる — でないと、ずっと前に
+  // 始まった「毎週」の予定が一覧の一番上に居座ってしまう。
+  const sortKey = (e: CalendarEvent) => nextOccurrenceOnOrAfter(e, today) ?? e.date;
   const upcomingEvents = events
     .filter((e) => isUpcomingOrOngoing(e, today, nowHM))
-    .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+    .sort((a, b) => sortKey(a).localeCompare(sortKey(b)) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
   const upcomingTripAgenda = tripAgenda
     .filter((t) => spanEndDate(t) >= today)
     .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));

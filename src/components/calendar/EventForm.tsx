@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Tag, Users } from "lucide-react";
 import { db } from "../../db/schema";
-import type { CalendarEvent, ScheduleCategory } from "../../types";
+import type { CalendarEvent, RepeatRule, ScheduleCategory } from "../../types";
 import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
 import { Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { SegmentedField } from "../ui/SegmentedField";
-import { DateRangeField } from "../ui/DateField";
+import { DateField, DateRangeField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Field } from "../ui/Field";
@@ -48,6 +48,13 @@ const SPAN_OPTIONS = [
   { value: "allday", label: "終日" },
 ];
 
+const REPEAT_OPTIONS = [
+  { value: "none" as RepeatRule, label: "しない" },
+  { value: "daily" as RepeatRule, label: "毎日" },
+  { value: "weekly" as RepeatRule, label: "毎週" },
+  { value: "monthly" as RepeatRule, label: "毎月" },
+];
+
 export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [date, setDate] = useState(initial?.date ?? defaultDate);
@@ -60,6 +67,8 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   const [location, setLocation] = useState(initial?.location ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [notify, setNotify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
+  const [repeat, setRepeat] = useState<RepeatRule>(initial?.repeat ?? "none");
+  const [repeatUntil, setRepeatUntil] = useState(initial?.repeatUntil ?? "");
   const [saving, setSaving] = useState(false);
   const showToast = useToast();
 
@@ -154,6 +163,8 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       // rather than storing a value that silently does nothing.
       notifyMinutesBefore: allDay || !notify ? undefined : Number(notify),
       notifiedAt: undefined,
+      repeat,
+      repeatUntil: repeat === "none" ? undefined : repeatUntil || undefined,
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
@@ -234,6 +245,17 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
               : ""
           }
         />
+        <SegmentedField label="繰り返し" value={repeat} options={REPEAT_OPTIONS} onChange={setRepeat} />
+        {repeat !== "none" && (
+          <DateField
+            label="繰り返しの終了日"
+            optional
+            value={repeatUntil}
+            onChange={setRepeatUntil}
+            minDate={date}
+            placeholder="指定しなければ約2年間続きます"
+          />
+        )}
         <SegmentedField
           label="時間"
           value={allDay ? "allday" : "timed"}

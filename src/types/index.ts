@@ -88,6 +88,13 @@ export interface CalendarEvent {
   category?: ScheduleCategory;
   notifyMinutesBefore?: number;
   notifiedAt?: number;
+  /** 繰り返し(Taskのrepeatと同じ選択肢)。"none"・未設定は繰り返さない単発の予定。
+   * 繰り返す予定は、この行を書き換えずに将来の回をその都度計算で出す
+   * (src/lib/eventSpan.ts の occursOn/spanDayIndex)。 */
+  repeat?: RepeatRule;
+  /** 繰り返しの最終日(その日を含む、YYYY-MM-DD)。空なら約2年先までを上限として
+   * 続ける(src/lib/eventSpan.ts)。 */
+  repeatUntil?: string;
   createdAt: number;
   updatedAt?: number;
   deviceId?: string;

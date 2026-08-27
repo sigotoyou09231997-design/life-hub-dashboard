@@ -1,6 +1,7 @@
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import type { CalendarEvent, Task } from "../../types";
-import { formatDisplayDate } from "../../lib/date";
-import { collectSpanDates, occurringOn } from "../../lib/eventSpan";
+import { formatDisplayDate, toDateStr } from "../../lib/date";
+import { collectSpanDates, collectSpanDatesInRange, occurringOn } from "../../lib/eventSpan";
 import { getHolidayMapForYear } from "../../lib/holidays";
 import { MonthView } from "../calendar/MonthView";
 import { EventList } from "../calendar/EventList";
@@ -37,8 +38,11 @@ export function CalendarView({
   onAddSubtask,
 }: Props) {
   // 点は「かかっている日すべて」に打つ。初日にしか打たないと、宿泊の2日目は
-  // カレンダー上では空いている日に見えてしまう。
-  const eventDates = collectSpanDates(events);
+  // カレンダー上では空いている日に見えてしまう。繰り返し予定は、表示中の月の枠
+  // (MonthViewが描く週の並びと同じ範囲)ぶんだけ将来の回も展開する。
+  const gridStart = toDateStr(startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 }));
+  const gridEnd = toDateStr(endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 }));
+  const eventDates = collectSpanDatesInRange(events, gridStart, gridEnd);
   const taskDates = new Set(tasks.filter((t) => !t.completed && t.dueDate).map((t) => t.dueDate!));
   const tripDates = collectSpanDates(tripAgenda);
 

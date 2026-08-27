@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   collectSpanDates,
+  collectSpanDatesInRange,
   isMultiDay,
+  nextOccurrenceOnOrAfter,
   normalizeEndDate,
   occurringOn,
   occursOn,
@@ -158,5 +160,79 @@ describe("spanTimeText", () => {
 
   it("時刻の無いまたがる予定は、時刻未設定ではなく終日", () => {
     expect(spanTimeText({ date: "2026-09-27", endDate: "2026-09-29" })).toBe("終日");
+  });
+});
+
+describe("occursOn / spanDayIndex — 繰り返し", () => {
+  it("毎日: 開始日より後はずっとかかっている", () => {
+    const event = { date: "2026-09-27", repeat: "daily" as const };
+    expect(occursOn(event, "2026-09-28")).toBe(true);
+    expect(occursOn(event, "2026-10-15")).toBe(true);
+    expect(occursOn(event, "2026-09-26")).toBe(false);
+  });
+
+  it("毎週: 7日おきの同じ曜日だけかかっている", () => {
+    const event = { date: "2026-09-27", repeat: "weekly" as const };
+    expect(occursOn(event, "2026-10-04")).toBe(true);
+    expect(occursOn(event, "2026-10-11")).toBe(true);
+    expect(occursOn(event, "2026-10-01")).toBe(false);
+    expect(occursOn(event, "2026-10-05")).toBe(false);
+  });
+
+  it("毎週・複数日にまたがる予定は、各回とも同じ日数ぶんかかる", () => {
+    const event = { date: "2026-09-27", endDate: "2026-09-28", repeat: "weekly" as const };
+    expect(occursOn(event, "2026-10-04")).toBe(true);
+    expect(occursOn(event, "2026-10-05")).toBe(true);
+    expect(occursOn(event, "2026-10-06")).toBe(false);
+    expect(spanDayIndex(event, "2026-10-05")).toBe(2);
+  });
+
+  it("毎月: 同じ日(短い月は月末に寄る)で繰り返す", () => {
+    const event = { date: "2026-01-31", repeat: "monthly" as const };
+    expect(occursOn(event, "2026-02-28")).toBe(true); // 2月は31日が無いので月末
+    expect(occursOn(event, "2026-03-31")).toBe(true);
+    expect(occursOn(event, "2026-02-27")).toBe(false);
+  });
+
+  it("繰り返しの回では、その回の開始日を基準に何日目かを数え直す", () => {
+    const event = { date: "2026-09-27", repeat: "weekly" as const };
+    expect(spanDayIndex(event, "2026-10-04")).toBe(1);
+  });
+
+  it("repeatUntilを過ぎたら繰り返さない", () => {
+    const event = { date: "2026-09-27", repeat: "weekly" as const, repeatUntil: "2026-10-04" };
+    expect(occursOn(event, "2026-10-04")).toBe(true);
+    expect(occursOn(event, "2026-10-11")).toBe(false);
+  });
+
+  it("repeatが無い・noneなら今までどおり繰り返さない", () => {
+    expect(occursOn({ date: "2026-09-27", repeat: "none" as const }, "2026-10-04")).toBe(false);
+    expect(occursOn(oneDay, "2026-10-04")).toBe(false);
+  });
+});
+
+describe("nextOccurrenceOnOrAfter", () => {
+  it("繰り返しの元の開始日がとっくに過ぎていても、次の回の日付を返す", () => {
+    const event = { date: "2026-01-05", repeat: "weekly" as const };
+    expect(nextOccurrenceOnOrAfter(event, "2026-09-27")).toBe("2026-09-28");
+  });
+
+  it("いま丁度かかっていればその日をそのまま返す", () => {
+    expect(nextOccurrenceOnOrAfter(stay, "2026-09-28")).toBe("2026-09-28");
+  });
+
+  it("繰り返しでない予定が既に終わっていれば見つからない", () => {
+    expect(nextOccurrenceOnOrAfter(oneDay, "2026-10-01")).toBeUndefined();
+  });
+});
+
+describe("collectSpanDatesInRange", () => {
+  it("範囲内に収まる繰り返しの回だけ点を打つ", () => {
+    const event = { date: "2026-09-27", repeat: "weekly" as const };
+    const dates = collectSpanDatesInRange([event], "2026-09-01", "2026-09-30");
+    expect(dates).toEqual(new Set(["2026-09-27"]));
+
+    const nextMonth = collectSpanDatesInRange([event], "2026-10-01", "2026-10-31");
+    expect(nextMonth).toEqual(new Set(["2026-10-04", "2026-10-11", "2026-10-18", "2026-10-25"]));
   });
 });
