@@ -75,7 +75,11 @@ export type ScheduleCategory = "work" | "private" | "important" | "other";
 export interface CalendarEvent {
   id?: string;
   title: string;
+  /** 開始日。1日で終わる予定はこれだけを持つ。 */
   date: string; // YYYY-MM-DD
+  /** 終了日(その日を含む)。宿泊や出張のように何日かにまたがる予定にだけ付く。
+   * 無い＝1日で終わる、という読み方(src/lib/eventSpan.ts)。 */
+  endDate?: string; // YYYY-MM-DD
   startTime?: string; // HH:mm
   endTime?: string; // HH:mm
   allDay?: boolean;
@@ -172,7 +176,11 @@ export type TripScheduleType = "sightseeing" | "meal" | "transport" | "lodging" 
 export interface TripScheduleItem {
   id?: string;
   tripId: string;
+  /** 開始日。1日で終わる日程はこれだけを持つ。 */
   date: string; // YYYY-MM-DD
+  /** 終了日(その日を含む)。宿泊のように何日かにまたがる日程にだけ付く。
+   * 予定(CalendarEvent)の endDate に揃えている(src/lib/eventSpan.ts)。 */
+  endDate?: string; // YYYY-MM-DD
   startTime?: string; // HH:mm
   /** 終了時刻(移動なら到着時刻)。分かる時だけ。予定(CalendarEvent)のendTimeに揃えている。 */
   endTime?: string; // HH:mm
