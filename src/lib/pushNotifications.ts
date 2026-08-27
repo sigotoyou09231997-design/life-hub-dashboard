@@ -105,3 +105,37 @@ export async function unsubscribeFromPush(): Promise<void> {
   await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
   await subscription.unsubscribe();
 }
+
+/** バックグラウンド通知の種類。checkGmailAndNotify.ts/checkAppUpdate.ts/
+ * checkRemindersAndNotify.tsが、この端末の購読(push_subscriptions.disabled_categories)
+ * に含まれる種類だけ送信を飛ばす。 */
+export const NOTIFICATION_CATEGORIES = [
+  { key: "gmail", label: "Gmailの新着" },
+  { key: "app_update", label: "アプリの更新" },
+  { key: "events", label: "予定" },
+  { key: "tasks", label: "タスクの期限" },
+  { key: "fixed_costs", label: "固定費の支払日" },
+] as const;
+
+export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number]["key"];
+
+/** この端末の購読で止めているカテゴリ。まだ購読していなければ空(=すべて有効)を返す。 */
+export async function getDisabledCategories(): Promise<Set<NotificationCategory>> {
+  const subscription = await getPushSubscription();
+  if (!subscription) return new Set();
+  const supabase = await getSupabaseDataClient();
+  const { data } = await supabase
+    .from("push_subscriptions")
+    .select("disabled_categories")
+    .eq("endpoint", subscription.endpoint)
+    .maybeSingle();
+  return new Set(((data as { disabled_categories: string[] | null } | null)?.disabled_categories ?? []) as NotificationCategory[]);
+}
+
+/** この端末で止めるカテゴリを丸ごと置き換える。 */
+export async function setDisabledCategories(categories: NotificationCategory[]): Promise<void> {
+  const subscription = await getPushSubscription();
+  if (!subscription) return;
+  const supabase = await getSupabaseDataClient();
+  await supabase.from("push_subscriptions").update({ disabled_categories: categories }).eq("endpoint", subscription.endpoint);
+}
