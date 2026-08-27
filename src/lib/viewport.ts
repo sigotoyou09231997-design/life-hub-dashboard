@@ -78,12 +78,19 @@ export function trackViewportGap(): () => void {
   window.addEventListener("orientationchange", update);
   // アプリに戻ってきた時。iOSは裏に回っている間に高さを変えても知らせてこない。
   document.addEventListener("visibilitychange", update);
+  // キーボードを閉じた直後。iOSはこの時に window.innerHeight を戻し損ねることが
+  // あり、visualViewport 側の resize/scroll がその失敗まで知らせてくれるとは限らない
+  // (シート個別のキーボード対応 — Sheet.tsx — は同じ理由でここに focusout を使っている。
+  // 追従ボタン・追従ナビゲーションはシートの外で常に浮いているので、シートの中の
+  // 対応だけでは直らない。ここにも同じ引き金を持たせる)。
+  document.addEventListener("focusout", update);
   return () => {
     visual.removeEventListener("resize", update);
     visual.removeEventListener("scroll", update);
     window.removeEventListener("resize", update);
     window.removeEventListener("orientationchange", update);
     document.removeEventListener("visibilitychange", update);
+    document.removeEventListener("focusout", update);
   };
 }
 
