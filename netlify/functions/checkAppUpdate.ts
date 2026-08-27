@@ -10,6 +10,7 @@ interface PushSubscriptionRow {
   endpoint: string;
   p256dh: string;
   auth_key: string;
+  disabled_categories: string[] | null;
 }
 
 /** Same payload shape as checkGmailAndNotify.ts's buildNotificationPayload (both are
@@ -107,6 +108,7 @@ const handlerImpl: Handler = async () => {
 
   const payload = buildUpdateNotificationPayload();
   for (const sub of (subs ?? []) as PushSubscriptionRow[]) {
+    if ((sub.disabled_categories ?? []).includes("app_update")) continue;
     try {
       await sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, payload);
     } catch (err) {
