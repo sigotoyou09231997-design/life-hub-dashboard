@@ -5,10 +5,11 @@ import { TRIP_SCHEDULE_TYPES } from "../../lib/tripCategories";
 import { MapPinned } from "lucide-react";
 import { Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
-import { DateField } from "../ui/DateField";
+import { DateRangeField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
+import { isMultiDay, normalizeEndDate, shiftEndDate, spanDays } from "../../lib/eventSpan";
 
 interface Props {
   tripId: string;
@@ -20,6 +21,8 @@ interface Props {
 
 export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCancel }: Props) {
   const [date, setDate] = useState(initial?.date ?? defaultDate);
+  /** 終了日。宿泊のように何日かにまたがるものだけ入れる(空＝その日で終わる)。 */
+  const [endDate, setEndDate] = useState(initial?.endDate ?? "");
   const [startTime, setStartTime] = useState(initial?.startTime ?? "");
   const [endTime, setEndTime] = useState(initial?.endTime ?? "");
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -27,6 +30,12 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [type, setType] = useState<TripScheduleType>(initial?.type ?? "sightseeing");
   const [saving, setSaving] = useState(false);
+
+  /** 開始日を動かしたら、終了日も同じ日数ぶん一緒に動かす(src/lib/eventSpan.ts)。 */
+  function changeDate(next: string) {
+    setEndDate((current) => shiftEndDate(date, next, current));
+    setDate(next);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -36,6 +45,7 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
     const record: TripScheduleItem = {
       tripId,
       date,
+      endDate: normalizeEndDate(date, endDate),
       startTime: startTime || undefined,
       endTime: endTime || undefined,
       title: title.trim(),
@@ -75,7 +85,20 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
       </FormPanel>
 
       <FormPanel caption="いつ・どこで">
-        <DateField label="日付" value={date} onChange={setDate} />
+        <DateRangeField
+          label="日付"
+          start={date}
+          end={endDate}
+          onChangeStart={changeDate}
+          onChangeEnd={setEndDate}
+          endPlaceholder="同じ日に終わる"
+          advanceToEnd={false}
+          summaryText={
+            isMultiDay({ date, endDate })
+              ? `${spanDays({ date, endDate })}日間・その間の日すべての日程に出ます`
+              : ""
+          }
+        />
         <Input
           label="開始時刻"
           optional

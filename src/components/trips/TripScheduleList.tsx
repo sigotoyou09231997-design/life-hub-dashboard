@@ -1,9 +1,10 @@
 import type { TripScheduleItem } from "../../types";
 import { formatDisplayDate } from "../../lib/date";
+import { occurringOn, spanLabel, spanTimeText } from "../../lib/eventSpan";
 import { getTripScheduleType } from "../../lib/tripCategories";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
-import { Clock, MapPin, Plus, Trash2 } from "lucide-react";
+import { CalendarRange, Clock, MapPin, Plus, Trash2 } from "lucide-react";
 
 interface Props {
   dayList: string[];
@@ -31,9 +32,10 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
   return (
     <div className="trip-day-list">
       {dayList.map((date, i) => {
-        const dayItems = items
-          .filter((it) => it.date === date)
-          .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? ""));
+        // またがる日程(2泊の宿泊など)は、初日だけでなくその間の日すべてに出す。
+        const dayItems = occurringOn(items, date).sort((a, b) =>
+          (a.startTime ?? "").localeCompare(b.startTime ?? ""),
+        );
 
         return (
           <section key={date} className={`trip-day${dayItems.length === 0 ? " trip-day--empty" : ""}`}>
@@ -66,10 +68,10 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
                       <div className="pointer-events-none relative z-10 flex items-start justify-between gap-3 p-3.5">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5">
-                            {item.startTime && (
+                            {(item.startTime || item.endDate) && (
                               <span className="flex shrink-0 items-center gap-0.5 whitespace-nowrap text-xs text-slate-400">
                                 <Clock size={12} />
-                                {item.endTime ? `${item.startTime}〜${item.endTime}` : item.startTime}
+                                {spanTimeText(item, date)}
                               </span>
                             )}
                             <p className="line-clamp-2 text-sm font-medium text-slate-900" title={item.title}>
@@ -86,8 +88,14 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
                               {item.location}
                             </button>
                           )}
-                          <div className="mt-1.5">
+                          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                             <Badge tone={typeDef.tone}>{typeDef.label}</Badge>
+                            {spanLabel(item, date) && (
+                              <span className="flex items-center gap-0.5 whitespace-nowrap text-xs font-medium text-slate-500">
+                                <CalendarRange size={12} />
+                                {spanLabel(item, date)}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <button

@@ -13,11 +13,12 @@ import {
 } from "../../lib/tripQuickPlan";
 import { Input, Textarea, AmountInput } from "../ui/Input";
 import { Select } from "../ui/Select";
-import { DateField } from "../ui/DateField";
+import { DateRangeField } from "../ui/DateField";
 import { SwitchField } from "../ui/SwitchField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
+import { isMultiDay, shiftEndDate, spanDays } from "../../lib/eventSpan";
 
 interface Props {
   tripId: string;
@@ -45,6 +46,8 @@ interface Props {
  */
 export function TripQuickPlanForm({ tripId, defaultDate, nextSortOrder, existingRouteKeys, onSaved, onCancel }: Props) {
   const [date, setDate] = useState(defaultDate);
+  /** 終了日。宿泊のように何日かにまたがるものだけ入れる(空＝その日で終わる)。 */
+  const [endDate, setEndDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [title, setTitle] = useState("");
@@ -71,6 +74,7 @@ export function TripQuickPlanForm({ tripId, defaultDate, nextSortOrder, existing
 
   const input: TripQuickPlanInput = {
     date,
+    endDate,
     startTime,
     endTime,
     title,
@@ -86,6 +90,12 @@ export function TripQuickPlanForm({ tripId, defaultDate, nextSortOrder, existing
     routeAddress,
   };
   const errors = submitted ? validateTripQuickPlan(input) : {};
+
+  /** 開始日を動かしたら、終了日も同じ日数ぶん一緒に動かす(src/lib/eventSpan.ts)。 */
+  function changeDate(next: string) {
+    setEndDate((current) => shiftEndDate(date, next, current));
+    setDate(next);
+  }
 
   function changeType(next: TripScheduleType) {
     setType(next);
@@ -129,7 +139,20 @@ export function TripQuickPlanForm({ tripId, defaultDate, nextSortOrder, existing
             </option>
           ))}
         </Select>
-        <DateField label="日付" value={date} onChange={setDate} />
+        <DateRangeField
+          label="日付"
+          start={date}
+          end={endDate}
+          onChangeStart={changeDate}
+          onChangeEnd={setEndDate}
+          endPlaceholder="同じ日に終わる"
+          advanceToEnd={false}
+          summaryText={
+            isMultiDay({ date, endDate })
+              ? `${spanDays({ date, endDate })}日間・その間の日すべての日程に出ます`
+              : ""
+          }
+        />
         <Input label="開始時刻" optional type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
         <Input label="終了時刻" optional type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
         <Input

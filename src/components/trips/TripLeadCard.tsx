@@ -5,6 +5,7 @@ import { db } from "../../db/schema";
 import type { Trip } from "../../types";
 import { formatDisplayDate, todayStr, tripCountdownLabel, tripDurationLabel } from "../../lib/date";
 import { tripCoverImage } from "../../lib/tripCovers";
+import { occurringOn } from "../../lib/eventSpan";
 import { TripRemoveButton } from "./TripRemoveButton";
 
 interface Props {
@@ -35,7 +36,7 @@ export function TripLeadCard({ trip, onDelete }: Props) {
     ]);
     return {
       // 旅行中は「今日ぶんが何件あるか」が知りたい情報で、出発前は旅程全体の厚み。
-      plans: ongoing ? schedule.filter((item) => item.date === today).length : schedule.length,
+      plans: ongoing ? occurringOn(schedule, today).length : schedule.length,
       spent: expenses.reduce((sum, expense) => sum + expense.amount, 0),
       packed: packing.filter((item) => item.checked).length,
       packing: packing.length,

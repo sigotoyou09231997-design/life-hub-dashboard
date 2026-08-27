@@ -135,3 +135,37 @@ describe("旅行のまとめて入力", () => {
     expect(describeTripQuickPlanSaved(buildTripQuickPlanRecords(input(), ctx))).toBe("日程に入れました");
   });
 });
+
+describe("何日かにまたがる日程", () => {
+  it("終了日を入れると、日程がその日まで続く1件になる", () => {
+    const records = buildTripQuickPlanRecords(
+      input({ title: "宿泊先", type: "lodging", endDate: "2026-09-21" }),
+      ctx,
+    );
+    expect(records.schedule.date).toBe("2026-09-19");
+    expect(records.schedule.endDate).toBe("2026-09-21");
+  });
+
+  it("終了日が同じ日・前の日・空欄なら、今までどおり1日で終わる日程になる", () => {
+    expect(buildTripQuickPlanRecords(input({ endDate: "2026-09-19" }), ctx).schedule.endDate).toBeUndefined();
+    expect(buildTripQuickPlanRecords(input({ endDate: "2026-09-18" }), ctx).schedule.endDate).toBeUndefined();
+    expect(buildTripQuickPlanRecords(input({ endDate: "" }), ctx).schedule.endDate).toBeUndefined();
+    expect(buildTripQuickPlanRecords(input(), ctx).schedule.endDate).toBeUndefined();
+  });
+
+  it("費用とルートは開始日の1件だけ(泊まった日数ぶんは増やさない)", () => {
+    const records = buildTripQuickPlanRecords(
+      input({
+        title: "ホテル",
+        type: "lodging",
+        endDate: "2026-09-21",
+        withExpense: true,
+        amount: 24_000,
+        withRoute: true,
+      }),
+      ctx,
+    );
+    expect(records.expense?.paidDate).toBe("2026-09-19");
+    expect(records.route?.date).toBe("2026-09-19");
+  });
+});

@@ -6,6 +6,7 @@ import type {
   TripScheduleType,
 } from "../types";
 import { routeKey, toExpenseCategory } from "./mailPlanImport";
+import { normalizeEndDate } from "./eventSpan";
 
 /**
  * 「まとめて入力」1件ぶんの入力。
@@ -17,6 +18,8 @@ import { routeKey, toExpenseCategory } from "./mailPlanImport";
  */
 export interface TripQuickPlanInput {
   date: string; // YYYY-MM-DD
+  /** 終了日。宿泊のように何日かにまたがるときだけ。空・開始日以下なら1日で終わる扱い。 */
+  endDate?: string; // YYYY-MM-DD
   startTime?: string; // HH:mm
   endTime?: string; // HH:mm
   title: string;
@@ -93,6 +96,8 @@ export function hasTripQuickPlanError(errors: TripQuickPlanErrors): boolean {
  *
  * 費用の支払日と、ルートの「何日目に回るか」は日程の日付をそのまま引き継ぐ —
  * まとめて入れる意味は、同じ日付・同じ場所を3回打たなくて済むところにあるため。
+ * 何日かにまたがる日程(2泊の宿泊など)でも、費用とルートは開始日の1件だけを起こす。
+ * 支払いも地図に置く場所も1つで、日数ぶん並べても数え直す手間が増えるだけのため。
  */
 export function buildTripQuickPlanRecords(
   input: TripQuickPlanInput,
@@ -105,6 +110,7 @@ export function buildTripQuickPlanRecords(
   const schedule: TripScheduleItem = {
     tripId: ctx.tripId,
     date: input.date,
+    endDate: normalizeEndDate(input.date, input.endDate),
     startTime: input.startTime || undefined,
     endTime: input.endTime || undefined,
     title,
