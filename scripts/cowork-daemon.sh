@@ -23,6 +23,10 @@ STATE_DIR="$ROOT/.cowork"
 LOG="$STATE_DIR/daemon.log"
 PIDFILE="$STATE_DIR/daemon.pid"
 SESSFILE="$STATE_DIR/sessions.tsv"
+# 「最後にヘッドレス実行を完了させた時点」の docs/requests のハッシュ。常駐の再起動を
+# またいで残るので、前回の常駐が処理し切る前に落ちていた場合でも、次の起動時に
+# 「処理済みでない変更がまだ残っている」と判定できる(下のLAST_HASH_FILE参照)。
+LAST_HASH_FILE="$STATE_DIR/last_hash"
 
 # ---- 調整できる値 -------------------------------------------------------
 # ヘッドレス実行の権限モード。
@@ -176,12 +180,31 @@ run_check() {
   tail_out="$(cat "$STATE_DIR/headless-out.txt" "$STATE_DIR/headless-err.txt" 2>/dev/null | tail -c 2000)"
   [ -n "$tail_out" ] && log "ヘッドレス実行の出力（末尾）: $tail_out"
   log "ヘッドレス実行が終了しました（exit=${exit_code}）"
+
+  # ここまで来た(=途中で常駐ごと落ちなかった)ということは、今回のdocs/requestsの状態は
+  # 一通りcowork-checkに処理させたということ。次に常駐が落ちて再起動しても、この時点の
+  # 状態までは「処理済み」として扱うために書き残す。
+  printf '%s' "$LAST_HASH" > "$LAST_HASH_FILE"
 }
 
 # ---- 本体 ---------------------------------------------------------------
 LAST_HASH="$(tree_hash)"
 PENDING=0
 LAST_CHANGE=0
+# 前回ヘッドレス実行を完了させた時点のハッシュと、いまの docs/requests を比べる。
+# ファイルが無い(=一度もヘッドレス実行を完了させたことが無い)場合は「未処理」扱いにする。
+# 違っていれば「前の常駐が処理し切る前に落ちた」等で未処理分が残っているということなので、
+# 新しい変化を待たずに起動直後からチェックを走らせる(デバウンス後に1回発火する)。
+if [ -f "$LAST_HASH_FILE" ]; then
+  PROCESSED_HASH="$(cat "$LAST_HASH_FILE" 2>/dev/null || true)"
+else
+  PROCESSED_HASH=""
+fi
+if [ "$PROCESSED_HASH" != "$LAST_HASH" ]; then
+  PENDING=1
+  LAST_CHANGE="$(date +%s)"
+  log "起動時点で docs/requests に前回処理後からの未処理分が残っている → 起動直後にチェックする"
+fi
 LAST_RUN=$(( $(date +%s) - COOLDOWN_SEC ))
 RUN_TIMES=""
 NO_WINDOW_SINCE=0
