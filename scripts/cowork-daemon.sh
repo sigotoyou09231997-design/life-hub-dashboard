@@ -99,12 +99,12 @@ run_check() {
   count=0
   for t in $RUN_TIMES; do count=$((count + 1)); done
   if [ "$count" -ge "$MAX_RUNS_PER_HOUR" ]; then
-    log "1時間あたりの上限 $MAX_RUNS_PER_HOUR 回に達したので今回は起動しない（$paths_note）"
+    log "1時間あたりの上限 $MAX_RUNS_PER_HOUR 回に達したので今回は起動しない（${paths_note}）"
     return
   fi
   RUN_TIMES="$RUN_TIMES $now"
 
-  log "検知 → claude -p '/cowork-check' を起動（$paths_note）"
+  log "検知 → claude -p '/cowork-check' を起動（${paths_note}）"
 
   # ヘッドレス実行は「開いているウィンドウ」ではない。フック側が登録／解除しないよう目印を渡す
   # （これが無いと、実行が終わった瞬間に「最後の1枚が閉じた」と誤判定して常駐が自滅する）
@@ -117,7 +117,7 @@ run_check() {
 
   tail_out="$(cat "$STATE_DIR/headless-out.txt" "$STATE_DIR/headless-err.txt" 2>/dev/null | tail -c 2000)"
   [ -n "$tail_out" ] && log "ヘッドレス実行の出力（末尾）: $tail_out"
-  log "ヘッドレス実行が終了しました（exit=$exit_code）"
+  log "ヘッドレス実行が終了しました（exit=${exit_code}）"
 }
 
 # ---- 本体 ---------------------------------------------------------------
