@@ -6,7 +6,17 @@ dist-ssr
 .env
 .env.local
 .claude/settings.local.json
-.claude/
 artifacts/
 img/
 .netlify
+
+# Cowork連携の生成物（state.tsv と waiting.txt は共有したいのでコミットする）
+.cowork/report.md
+.cowork/daemon.log
+.cowork/daemon.pid
+.cowork/sessions.tsv
+.cowork/headless-out.txt
+.cowork/headless-err.txt
+
+# Cowork側のサンドボックスが .git/index.lock を削除できず退避した残骸（手動で消してOK）
+_to_delete/
