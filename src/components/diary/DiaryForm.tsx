@@ -13,8 +13,9 @@ import { Button } from "../ui/Button";
 
 interface Props {
   initial?: DiaryEntry;
-  /** どの旅行の日か。日記は旅行の中からしか書かないので、常に決まっている。 */
-  tripId: string;
+  /** どの旅行の日か。旅行の詳細から書くときだけ決まっていて、
+   * 旅行に紐付かない日記(メモ・リストの日記タブ)では渡さない。 */
+  tripId?: string;
   /** 既定日(旅行の期間内)。 */
   defaultDate?: string;
   onSaved: () => void;
@@ -77,7 +78,9 @@ export function DiaryForm({ initial, tripId, defaultDate, onSaved, onCancel }: P
     setSaving(true);
     const record: DiaryEntry = {
       date,
-      tripId,
+      // 旅行から書いたものだけ旅行に紐付ける。編集時は元の紐付きをそのまま残す —
+      // 旅行の日記を旅行外の一覧から開いて直しても、旅行から外れないようにする。
+      tripId: tripId ?? initial?.tripId,
       body: body.trim(),
       mood,
       latitude: spot?.latitude,

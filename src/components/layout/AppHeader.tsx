@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Bell, Home, Settings as SettingsIcon } from "lucide-react";
+import { Bell, Home, Search, Settings as SettingsIcon } from "lucide-react";
 import type { Session } from "@supabase/auth-js";
 import { auth, isSupabaseConfigured } from "../../lib/supabase";
 import { avatarColor, avatarInitial, parseSender } from "../../lib/gmail";
@@ -9,6 +9,7 @@ import { useNotificationSignals } from "../../lib/notificationSignals";
 import { Sheet } from "../ui/Sheet";
 import { EmptyState } from "../ui/EmptyState";
 import { AccountSwitcher } from "./AccountSwitcher";
+import { GlobalSearch } from "./GlobalSearch";
 
 /** Persistent, app-wide header (avatar / "LIFE HUB" / bell / settings) — shown
  * above every page's own PageHeader (back arrow + title), which keeps its
@@ -18,6 +19,7 @@ export function AppHeader() {
   const { pathname } = useLocation();
   const [session, setSession] = useState<Session | null>(null);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const signals = useNotificationSignals();
 
@@ -71,6 +73,14 @@ export function AppHeader() {
         <div className="app-header__actions">
           <button
             type="button"
+            onClick={() => setSearchOpen(true)}
+            aria-label="まとめて検索"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors active:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          >
+            <Search size={19} />
+          </button>
+          <button
+            type="button"
             onClick={() => setNotifOpen(true)}
             aria-label="通知"
             className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors active:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
@@ -99,6 +109,8 @@ export function AppHeader() {
       </header>
 
       <AccountSwitcher open={accountOpen} onClose={() => setAccountOpen(false)} activeUserId={session?.user.id} />
+
+      <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       <Sheet open={notifOpen} onClose={() => setNotifOpen(false)} title="通知">
         {signals.total === 0 ? (

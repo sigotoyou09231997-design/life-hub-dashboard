@@ -22,6 +22,7 @@ import { SalaryDeductionBreakdown } from "../../components/expense/SalaryDeducti
 import { SalaryCsvImport } from "../../components/expense/SalaryCsvImport";
 import { PayPayImport } from "../../components/expense/PayPayImport";
 import { GenericCsvImport } from "../../components/expense/GenericCsvImport";
+import { TransactionCsvExport } from "../../components/expense/TransactionCsvExport";
 import { useToast } from "../../components/ui/ToastProvider";
 import { ListSkeleton } from "../../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
@@ -51,6 +52,7 @@ export default function ExpensePage() {
   const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | "new" | null>(null);
   const [editingSalary, setEditingSalary] = useState<SalaryEntry | "new" | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [csvExportOpen, setCsvExportOpen] = useState(false);
   const [salaryCsvImportOpen, setSalaryCsvImportOpen] = useState(false);
   const [receiptScanOpen, setReceiptScanOpen] = useState(false);
   // レシート読み取りからの下書きは、idを持たないオブジェクトとして開く(新規追加)。
@@ -142,6 +144,9 @@ export default function ExpensePage() {
               </Button>
               <Button variant="secondary" className="flex-1" onClick={() => setCsvImportOpen(true)}>
                 CSVから取込
+              </Button>
+              <Button variant="secondary" className="flex-1" onClick={() => setCsvExportOpen(true)}>
+                CSVで書き出す
               </Button>
             </div>
           </div>
@@ -236,6 +241,10 @@ export default function ExpensePage() {
 
       <Sheet open={csvImportOpen} onClose={() => setCsvImportOpen(false)} title="CSVから取込">
         {csvImportOpen && <GenericCsvImport onClose={() => setCsvImportOpen(false)} />}
+      </Sheet>
+
+      <Sheet open={csvExportOpen} onClose={() => setCsvExportOpen(false)} title="CSVで書き出す">
+        {csvExportOpen && <TransactionCsvExport onClose={() => setCsvExportOpen(false)} />}
       </Sheet>
 
       <Sheet open={salaryCsvImportOpen} onClose={() => setSalaryCsvImportOpen(false)} title="給与明細CSVから取込">
