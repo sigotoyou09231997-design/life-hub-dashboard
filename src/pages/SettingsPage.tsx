@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
-import { Bell, Database, Mail } from "lucide-react";
+import { Bell, Database, Mail, PiggyBank } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { GmailAccount } from "../types";
 import { exportBackup, importBackup } from "../lib/backup";
@@ -22,6 +22,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
 import { Button } from "../components/ui/Button";
+import { AmountInput } from "../components/ui/Input";
 import { SwitchField } from "../components/ui/SwitchField";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -43,6 +44,23 @@ export default function SettingsPage() {
 
   const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
+  // 入力中だけ自分の状態を持ち(null = まだ触っていない)、保存したら保存済みの値へ戻す。
+  // 読み込みが終わる前に空文字で初期化してしまうと、既存の目標額が消えて見えるため。
+  const [savingsGoalInput, setSavingsGoalInput] = useState<string | null>(null);
+  const savedSavingsGoal = settings?.savingsGoalMonthly ?? 0;
+  const savingsGoalValue = savingsGoalInput ?? (savedSavingsGoal > 0 ? String(savedSavingsGoal) : "");
+  const savingsGoalDirty = savingsGoalInput !== null && Number(savingsGoalInput || 0) !== savedSavingsGoal;
+
+  async function handleSaveSavingsGoal() {
+    const current = settings ?? (await ensureDefaultSettings());
+    if (!current.id) return;
+    const next = Math.max(0, Math.round(Number(savingsGoalInput ?? "") || 0));
+    await db.settings.update(current.id, { savingsGoalMonthly: next });
+    setSavingsGoalInput(null);
+    showToast(next > 0 ? "貯金目標を保存しました" : "貯金目標を解除しました");
+  }
 
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
@@ -177,6 +195,31 @@ export default function SettingsPage() {
               onChange={handleImport}
               className="hidden"
             />
+          </div>
+        </Card>
+
+        <Card className="system-section system-section--savings">
+          <div className="system-section__header">
+            <div className="system-section__identity"><span><PiggyBank size={17} /></span><div><h2>貯金目標</h2></div></div>
+            <div className={`system-status ${savedSavingsGoal > 0 ? "is-online" : ""}`}><i />{savedSavingsGoal > 0 ? "設定中" : "未設定"}</div>
+          </div>
+          <p className="system-section__description text-xs text-slate-500">
+            毎月これだけ残したい、という金額です。お金管理のサマリーに、今期の残額が目標に届きそうかを出します。
+          </p>
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <AmountInput
+                label="毎月の目標額"
+                hint="0にすると目標を出しません。"
+                value={savingsGoalValue}
+                onChange={(e) => setSavingsGoalInput(e.target.value)}
+                min={0}
+                placeholder="0"
+              />
+            </div>
+            <Button variant="secondary" className="mb-1 shrink-0" onClick={handleSaveSavingsGoal} disabled={!savingsGoalDirty}>
+              保存
+            </Button>
           </div>
         </Card>
 
