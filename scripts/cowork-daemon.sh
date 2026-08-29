@@ -37,8 +37,40 @@ IDLE_EXIT_MIN=60    # ウィンドウが1枚も無い状態がこれだけ続い
 # ------------------------------------------------------------------------
 
 mkdir -p "$STATE_DIR" "$WATCH_DIR"
+cd "$ROOT" || exit 1
 
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG"; }
+
+# ---- ヘッドレス実行の排他ロック（プロセスをまたぐ） ----------------------
+# 常駐が万一2つ生き残っても、claude が同時に2本走らないようにする保険。
+# mkdir は「既にあれば失敗する」ので、これだけで取り合いが成立する。
+LOCKDIR="$STATE_DIR/run.lock"
+LASTHASHFILE="$STATE_DIR/last-run.hash"
+
+acquire_lock() {
+  if mkdir "$LOCKDIR" 2>/dev/null; then
+    printf '%s\n' "$$" > "$LOCKDIR/pid"
+    return 0
+  fi
+  # 持ち主が死んでいたら、取り残されたロックとして片付ける
+  lpid="$(cat "$LOCKDIR/pid" 2>/dev/null || true)"
+  if [ -z "${lpid:-}" ] || ! kill -0 "$lpid" 2>/dev/null; then
+    log "取り残されたロック（PID ${lpid:-不明}）を片付けました"
+    rm -rf "$LOCKDIR"
+    if mkdir "$LOCKDIR" 2>/dev/null; then
+      printf '%s\n' "$$" > "$LOCKDIR/pid"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+release_lock() {
+  [ -d "$LOCKDIR" ] || return 0
+  if [ "$(cat "$LOCKDIR/pid" 2>/dev/null || true)" = "$$" ]; then
+    rm -rf "$LOCKDIR"
+  fi
+}
 
 # ---- 多重起動の防止 -----------------------------------------------------
 # 常駐はマシンに1つだけ。生きている PID が居たら何もせず降りる。
@@ -52,13 +84,23 @@ if [ -f "$PIDFILE" ]; then
 fi
 printf '%s\t%s\t%s\n' "$$" "$OWNER" "$(date '+%Y-%m-%dT%H:%M:%S%z')" > "$PIDFILE"
 
+# 注意: TERM/INT のハンドラは必ず自分で exit すること。
+# ハンドラが普通に return すると bash は中断した場所から実行を再開する。
+# つまり kill しても死なない常駐が残り、次の起動で2つ目が立ち上がって
+# 同じ依頼を二重に処理してしまう（2026-08-29 に実際に起きた）。
+CLEANED=0
 cleanup() {
+  [ "$CLEANED" = 1 ] && return 0
+  CLEANED=1
+  release_lock
   log "停止しました（PID $$）"
-  if [ -f "$PIDFILE" ] && [ "$(head -1 "$PIDFILE" | cut -f1)" = "$$" ]; then
+  if [ -f "$PIDFILE" ] && [ "$(head -1 "$PIDFILE" 2>/dev/null | cut -f1)" = "$$" ]; then
     rm -f "$PIDFILE"
   fi
 }
-trap cleanup EXIT INT TERM
+on_signal() { cleanup; exit 143; }
+trap cleanup EXIT
+trap on_signal INT TERM
 
 log "起動しました（PID $$ / owner=$OWNER / 権限モード=$PERMISSION_MODE / 監視=docs/requests）"
 
@@ -102,18 +144,34 @@ run_check() {
     log "1時間あたりの上限 $MAX_RUNS_PER_HOUR 回に達したので今回は起動しない（${paths_note}）"
     return
   fi
+  # 他の常駐が走っている最中なら見送る
+  if ! acquire_lock; then
+    log "他の常駐がヘッドレス実行中のため、今回は起動しない（${paths_note}）"
+    return
+  fi
+
+  # 同じ中身を続けて処理しない。ロックを待たされた2つ目は、ここで必ず弾かれる
+  cur_hash="$(tree_hash)"
+  prev_hash="$(cat "$LASTHASHFILE" 2>/dev/null || true)"
+  if [ -n "${prev_hash:-}" ] && [ "$cur_hash" = "$prev_hash" ]; then
+    log "直前に同じ内容を処理済みのため、今回は起動しない（${paths_note}）"
+    release_lock
+    return
+  fi
+  printf '%s\n' "$cur_hash" > "$LASTHASHFILE"
+
   RUN_TIMES="$RUN_TIMES $now"
 
   log "検知 → claude -p '/cowork-check' を起動（${paths_note}）"
 
   # ヘッドレス実行は「開いているウィンドウ」ではない。フック側が登録／解除しないよう目印を渡す
   # （これが無いと、実行が終わった瞬間に「最後の1枚が閉じた」と誤判定して常駐が自滅する）
-  (
-    cd "$ROOT" || exit 1
-    COWORK_HEADLESS=1 claude -p "/cowork-check" --permission-mode "$PERMISSION_MODE" \
-      < /dev/null > "$STATE_DIR/headless-out.txt" 2> "$STATE_DIR/headless-err.txt"
-  )
+  # サブシェルで囲まない: ps 上の見た目が常駐と同じになり、取り残しの掃除で巻き添えにしてしまう
+  COWORK_HEADLESS=1 claude -p "/cowork-check" --permission-mode "$PERMISSION_MODE" \
+    < /dev/null > "$STATE_DIR/headless-out.txt" 2> "$STATE_DIR/headless-err.txt"
   exit_code=$?
+
+  release_lock
 
   tail_out="$(cat "$STATE_DIR/headless-out.txt" "$STATE_DIR/headless-err.txt" 2>/dev/null | tail -c 2000)"
   [ -n "$tail_out" ] && log "ヘッドレス実行の出力（末尾）: $tail_out"
@@ -139,6 +197,14 @@ while true; do
     LAST_HASH="$h"
     PENDING=1
     LAST_CHANGE="$now"
+  fi
+
+  # daemon.pid の持ち主でなくなっていたら引退する
+  # （別の常駐が引き継いだ／停止処理で消された。放っておくと2つ動いてしまう）
+  owner_pid="$(head -1 "$PIDFILE" 2>/dev/null | cut -f1)"
+  if [ "${owner_pid:-}" != "$$" ]; then
+    log "daemon.pid の持ち主が ${owner_pid:-なし} に変わったため、この常駐（PID $$）は終了します"
+    break
   fi
 
   # 1時間ごとに生存を書き残す（黙って落ちたのを後から見つけられるように）

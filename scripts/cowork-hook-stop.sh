@@ -27,14 +27,42 @@ SESSFILE="$STATE_DIR/sessions.tsv"
 
 mkdir -p "$STATE_DIR"
 
+dlog() {
+  printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$STATE_DIR/daemon.log"
+}
+
+# daemon.pid に載っていない取り残しの常駐を片付ける。
+# 常駐はサブシェルを作らないので、この名前で引っかかるのは常駐そのものだけ。
+sweep_strays() {
+  for p in $(pgrep -f "$ROOT/scripts/cowork-daemon.sh" 2>/dev/null); do
+    kill -9 "$p" 2>/dev/null || true
+    dlog "取り残された常駐（PID ${p}）を片付けました"
+  done
+}
+
 stop_daemon() {
-  [ -f "$PIDFILE" ] || return 0
-  dpid="$(head -1 "$PIDFILE" 2>/dev/null | cut -f1)"
+  dpid=""
+  [ -f "$PIDFILE" ] && dpid="$(head -1 "$PIDFILE" 2>/dev/null | cut -f1)"
+
   if [ -n "${dpid:-}" ] && kill -0 "$dpid" 2>/dev/null; then
     kill "$dpid" 2>/dev/null || true
-    printf '%s Cowork監視を停止しました（PID %s）\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$dpid" \
-      >> "$STATE_DIR/daemon.log"
+    dlog "Cowork監視を停止しました（PID ${dpid}）"
+
+    # 本当に消えるまで見届ける。常駐は sleep 中に受け取るので数秒かかる。
+    # ここで待たずに daemon.pid を消すと、まだ生きている常駐を残したまま
+    # 次の起動が2つ目を立ち上げてしまう。
+    i=0
+    while [ "$i" -lt 15 ] && kill -0 "$dpid" 2>/dev/null; do
+      sleep 1
+      i=$((i + 1))
+    done
+    if kill -0 "$dpid" 2>/dev/null; then
+      kill -9 "$dpid" 2>/dev/null || true
+      dlog "PID $dpid が終了しなかったので強制終了しました"
+    fi
   fi
+
+  sweep_strays
   rm -f "$PIDFILE"
 }
 

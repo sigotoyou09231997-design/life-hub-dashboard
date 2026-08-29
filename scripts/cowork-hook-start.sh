@@ -78,6 +78,14 @@ if [ -f "$PIDFILE" ]; then
   fi
 fi
 
+# daemon.pid に載っていないのに生きている常駐は、停止しきれなかった取り残し。
+# そのまま起動すると2つ動いて同じ依頼を二重に処理するので、先に片付ける。
+for stray in $(pgrep -f "$ROOT/scripts/cowork-daemon.sh" 2>/dev/null); do
+  kill -9 "$stray" 2>/dev/null || true
+  printf '%s 取り残された常駐（PID %s）を片付けてから起動します\n' \
+    "$(date '+%Y-%m-%d %H:%M:%S')" "$stray" >> "$STATE_DIR/daemon.log"
+done
+
 # 親（＝フック）が終わっても生き残るように切り離して起動する
 nohup bash "$DAEMON" "$SESSION_ID" >/dev/null 2>&1 &
 disown 2>/dev/null || true
