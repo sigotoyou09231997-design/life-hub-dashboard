@@ -66,6 +66,8 @@ export default function TripDetailPage() {
   const [editingDiary, setEditingDiary] = useState<DiaryEntry | "new" | null>(null);
   /** 日程・費用・ルートをまとめて入れるシートを開いているか。 */
   const [quickPlanOpen, setQuickPlanOpen] = useState(false);
+  /** 「＋」で開いたシートの中身。手で打つ(form)か、写真・文章から読み取る(scan)か。 */
+  const [quickPlanMode, setQuickPlanMode] = useState<"form" | "scan">("form");
   const [scanOpen, setScanOpen] = useState(false);
   // 日程の場所からルートを起こすとき、追加フォームに渡して埋めておく値。
   const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
@@ -223,7 +225,14 @@ export default function TripDetailPage() {
           (src/components/ui/PageFab.tsx)。持ち物・日記はまとめて入れる相手が無いので
           出さない — その2つのタブでは、下の全幅ボタンがそのまま追加の入り口。 */}
       {QUICK_PLAN_TABS.includes(tab) && (
-        <PageFab onClick={() => setQuickPlanOpen(true)} label="日程・費用・ルートをまとめて追加">
+        <PageFab
+          onClick={() => {
+            // 開き直したら手入力から。前回読み取りで閉じたことを引きずらない。
+            setQuickPlanMode("form");
+            setQuickPlanOpen(true);
+          }}
+          label="日程・費用・ルートをまとめて追加"
+        >
           <Plus size={24} />
         </PageFab>
       )}
@@ -471,19 +480,39 @@ export default function TripDetailPage() {
       <Sheet
         open={quickPlanOpen}
         onClose={() => setQuickPlanOpen(false)}
-        title="まとめて追加"
+        title={quickPlanMode === "scan" ? "写真・文章から読み取る" : "まとめて追加"}
       >
-        {quickPlanOpen && (
-          <TripQuickPlanForm
+        {quickPlanOpen && quickPlanMode === "form" && (
+          <div className="space-y-3">
+            {/* 手で打つ前に、しおり・チケットがあるならそのまま読ませられる入り口。
+                「＋」から1回押すだけで着けるよう、フォームの上に置く。 */}
+            <Button variant="secondary" className="w-full" onClick={() => setQuickPlanMode("scan")}>
+              <Sparkles size={17} />
+              写真・文章から読み取る
+            </Button>
+            <TripQuickPlanForm
+              tripId={tripId}
+              defaultDate={scheduleDefaultDate}
+              nextSortOrder={nextRouteSortOrder(routePlaces)}
+              existingRouteKeys={new Set(routePlaces.map((place) => routeKey(place.address)))}
+              onSaved={(message) => {
+                setQuickPlanOpen(false);
+                showToast(message);
+              }}
+              onCancel={() => setQuickPlanOpen(false)}
+            />
+          </div>
+        )}
+        {quickPlanOpen && quickPlanMode === "scan" && (
+          <TripPlanScanForm
             tripId={tripId}
-            defaultDate={scheduleDefaultDate}
-            nextSortOrder={nextRouteSortOrder(routePlaces)}
-            existingRouteKeys={new Set(routePlaces.map((place) => routeKey(place.address)))}
+            trip={trip}
             onSaved={(message) => {
               setQuickPlanOpen(false);
               showToast(message);
             }}
-            onCancel={() => setQuickPlanOpen(false)}
+            // 押し間違えても戻れるように、ここのキャンセルは手入力に戻す(閉じない)。
+            onCancel={() => setQuickPlanMode("form")}
           />
         )}
       </Sheet>
