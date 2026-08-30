@@ -21,6 +21,7 @@ import type {
   DraftReply,
   BlockedSender,
   SavingsGoal,
+  JobApplication,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -111,6 +112,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "tripRoutePlaces", indexes: "tripId", fks: [], hasUpdatedAt: true },
   { name: "diaryEntries", indexes: "date", fks: [], hasUpdatedAt: true },
   { name: "savingsGoals", indexes: "", fks: [], hasUpdatedAt: true },
+  { name: "jobApplications", indexes: "nextDate", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -173,6 +175,7 @@ export class LifeHubDB extends Dexie {
   draftReplies!: EntityTable<DraftReply, "id">;
   blockedSenders!: EntityTable<BlockedSender, "id">;
   savingsGoals!: EntityTable<SavingsGoal, "id">;
+  jobApplications!: EntityTable<JobApplication, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -302,6 +305,12 @@ export class LifeHubDB extends Dexie {
         // 移行の中なので、UUIDのフックには頼らず id を明示的に入れる。
         await tx.table("savingsGoals").add({ id: crypto.randomUUID(), ...legacy });
       });
+
+    // 就活の応募先。v10のblockedSendersと同じくTABLE_SCHEMASには加えず、ここで作って
+    // POST_MIGRATION_TABLE_SCHEMAS側からフックを張る。既存のデータには触らない。
+    this.version(16).stores({
+      jobApplications: "id, nextDate",
+    });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに
     // UUIDを補うフックを全テーブルへ登録する(Dexie公式が示すUUID主キーの標準パターン)。

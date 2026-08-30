@@ -339,6 +339,38 @@ export interface BlockedSender {
   pushedAt?: number;
 }
 
+/** 就活の応募先が今どの段階にいるか。 */
+export type JobApplicationStage =
+  | "applied"
+  | "document"
+  | "interview1"
+  | "interview2"
+  | "final"
+  | "offer"
+  | "rejected"
+  | "declined";
+
+/** 就活の応募先1件。端末内のみ — 同期の対象にはしていない(src/lib/syncRuntime.ts)。 */
+export interface JobApplication {
+  id?: string;
+  companyName: string;
+  /** 職種・ポジション。書かなくてよい。 */
+  role?: string;
+  stage: JobApplicationStage;
+  /** 次の面接などの日。YYYY-MM-DD。 */
+  nextDate?: string;
+  /** 次の予定の時刻。HH:mm。 */
+  nextTime?: string;
+  memo?: string;
+  /** 「予定に入れる」で作ったカレンダー予定のid。予定の側を消しても
+   * ここは残る(開くときに実物があるか確かめる)。 */
+  linkedEventId?: string;
+  createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
+}
+
 /** 名前を付けて複数持てる貯金目標(「旅行用」「生活防衛費用」など)。
  * 端末内のみ — 同期の対象にはしていない(src/lib/syncRuntime.ts)。 */
 export interface SavingsGoal {

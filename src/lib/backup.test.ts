@@ -23,6 +23,7 @@ const BACKUP_TABLE_NAMES = [
   "diaryEntries",
   "paypayTransactions",
   "savingsGoals",
+  "jobApplications",
 ] as const;
 
 // Dexieの実体(IndexedDB)はテストでは開けないので、使う操作(toArray/clear/bulkAdd)だけを
@@ -45,6 +46,7 @@ const mocks = vi.hoisted(() => {
     "diaryEntries",
     "paypayTransactions",
     "savingsGoals",
+    "jobApplications",
   ]) {
     stores.set(name, []);
   }
@@ -81,7 +83,7 @@ describe("バックアップの書き出し", () => {
     vi.restoreAllMocks();
   });
 
-  it("15テーブルすべてを書き出す", async () => {
+  it("16テーブルすべてを書き出す", async () => {
     mocks.stores.set("trips", [{ id: "trip-1", name: "沖縄" }]);
     mocks.stores.set("diaryEntries", [{ id: "diary-1", date: "2026-08-01", body: "楽しかった" }]);
 
@@ -121,7 +123,7 @@ describe("バックアップの復元", () => {
     for (const name of mocks.stores.keys()) mocks.stores.set(name, []);
   });
 
-  it("15テーブルすべてを、書き出したファイルの内容で置き換える", async () => {
+  it("16テーブルすべてを、書き出したファイルの内容で置き換える", async () => {
     mocks.stores.set("transactions", [{ id: "old" }]);
 
     const file = fakeFile(

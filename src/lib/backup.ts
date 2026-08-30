@@ -20,6 +20,7 @@ const BACKUP_TABLES = [
   "diaryEntries",
   "paypayTransactions",
   "savingsGoals",
+  "jobApplications",
 ] as const;
 
 export async function exportBackup(): Promise<void> {
