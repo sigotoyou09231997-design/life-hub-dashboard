@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
-import { Bell, Database, Mail, PiggyBank } from "lucide-react";
+import { Bell, CalendarArrowUp, Database, Mail, PiggyBank } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
+import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
 import { auth, isSupabaseConfigured } from "../lib/supabase";
@@ -44,6 +45,7 @@ export default function SettingsPage() {
   }, []);
 
   const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
+  const calendarEvents = useLiveQuery(() => db.calendarEvents.toArray(), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 貯金目標は「毎月の目標額1つ」から、名前つきで複数持てるテーブルへ移した
@@ -122,6 +124,20 @@ export default function SettingsPage() {
     try {
       await exportBackup();
       showToast("バックアップを書き出しました");
+    } catch {
+      showToast("書き出しに失敗しました", "error");
+    }
+  }
+
+  function handleExportIcs() {
+    const events = calendarEvents ?? [];
+    if (events.length === 0) {
+      showToast("書き出す予定がありません", "error");
+      return;
+    }
+    try {
+      downloadIcs(buildCalendarIcs(events), calendarIcsFilename());
+      showToast(`${events.length}件の予定を書き出しました`);
     } catch {
       showToast("書き出しに失敗しました", "error");
     }
@@ -207,6 +223,26 @@ export default function SettingsPage() {
               onChange={handleImport}
               className="hidden"
             />
+          </div>
+        </Card>
+
+        <Card className="system-section system-section--calendar">
+          <div className="system-section__header">
+            <div className="system-section__identity"><span><CalendarArrowUp size={17} /></span><div><h2>カレンダーへ書き出す</h2></div></div>
+            <div className={`system-status ${(calendarEvents ?? []).length > 0 ? "is-online" : ""}`}><i />{calendarEvents === undefined ? "確認中" : `${calendarEvents.length} 件`}</div>
+          </div>
+          <p className="system-section__description text-xs text-slate-500">
+            予定をまとめて .ics ファイルにします。iPhoneの標準カレンダーやGoogleカレンダーに取り込めます。
+            書き出した時点の写しなので、あとでこのアプリ側を直しても取り込んだ先には反映されません。
+          </p>
+          <div className="system-state-control">
+            <div><span>書き出す対象</span><strong>予定 {(calendarEvents ?? []).length} 件</strong></div>
+            <small>タスクは含みません</small>
+          </div>
+          <div className="system-section__actions">
+            <Button variant="secondary" className="w-full" onClick={handleExportIcs} disabled={calendarEvents === undefined}>
+              .icsで書き出す
+            </Button>
           </div>
         </Card>
 
