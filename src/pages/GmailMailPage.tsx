@@ -3,6 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useParams } from "react-router-dom";
 import { Mail } from "lucide-react";
 import { db } from "../db/schema";
+import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { PageHeader } from "../components/ui/PageHeader";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -43,7 +44,7 @@ export default function GmailMailPage() {
   }, [data?.account.id, data?.account.email]);
 
   return (
-    <div className="mx-auto max-w-[1240px] pb-10 lg:pb-8">
+    <div className="mx-auto max-w-[1240px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.gmail}>
       <PageHeader title="メール" onBack={() => window.close()} />
       <div className="px-5 lg:px-8">
         {data === undefined ? (
