@@ -28,6 +28,7 @@ import { useToast } from "../ui/ToastProvider";
 import { MonthView } from "../calendar/MonthView";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { updateMessageState } from "../../lib/gmailMessageState";
+import { isPlanSuggestion, planSuggestionHint } from "../../lib/mailPlanSuggestion";
 import { AttachmentPicker } from "./AttachmentPicker";
 
 const EMPTY_DATE_SET = new Set<string>();
@@ -125,6 +126,11 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   const [replyExpanded, setReplyExpanded] = useState(false);
   // このメールから旅行計画(日程・ルート)・予定・タスクを作る画面(MailPlanImport)を開いているか。
   const [planImportOpen, setPlanImportOpen] = useState(false);
+
+  async function handleDismissPlanSuggestion() {
+    if (!email.id) return;
+    await db.syncedEmails.update(email.id, { planSuggestionDismissedAt: Date.now() });
+  }
 
   // Shown as dots on the date picker so the user can see at a glance which days
   // already have something booked while choosing a candidate date.
@@ -578,6 +584,39 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     <MailPlanImport email={email} account={account} open={planImportOpen} onClose={() => setPlanImportOpen(false)} />
   );
 
+  /** 日時が書かれていそうなメールに出す提案。読み取り(AI)はここでは走らせず、
+   * 「予定を追加」を押して初めて MailPlanImport が1通ぶんだけ読む。
+   * 「あとで」を押すと、このメールにはもう出さない。 */
+  const planSuggestionBanner = isPlanSuggestion(email) && (
+    <div className="glass-row flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-4 py-3">
+      <span className="flex min-w-0 flex-1 items-center gap-2 text-sm text-slate-700">
+        <CalendarPlus size={16} className="shrink-0 text-accent" />
+        <span className="min-w-0">
+          日時が書かれているようです。予定を追加しますか?
+          {planSuggestionHint(email) && (
+            <em className="ml-1.5 not-italic text-xs text-slate-500">({planSuggestionHint(email)})</em>
+          )}
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={handleDismissPlanSuggestion}
+          className="rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          あとで
+        </button>
+        <button
+          type="button"
+          onClick={() => setPlanImportOpen(true)}
+          className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          予定を追加
+        </button>
+      </span>
+    </div>
+  );
+
   const candidateSheet = (
     <Sheet open={editingCandidateIndex !== null} onClose={() => setEditingCandidateIndex(null)} title="候補日を変更">
       <div className="space-y-4">
@@ -611,6 +650,8 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         </div>
 
         {senderRow}
+
+        {planSuggestionBanner}
 
         {/* 元メール本文: 初期は折りたたみ、タップで全文表示 */}
         <div>
@@ -740,6 +781,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
           {hasDraft && <Badge tone="accent">AI下書き</Badge>}
         </div>
         <div className="mt-3 shrink-0">{senderRow}</div>
+        {planSuggestionBanner && <div className="mt-3 shrink-0">{planSuggestionBanner}</div>}
         <div className="my-4 shrink-0 border-t border-white/40" />
         {originalBodyNote}
         <div className="whitespace-pre-wrap break-words text-sm text-slate-700">{originalBodyText}</div>

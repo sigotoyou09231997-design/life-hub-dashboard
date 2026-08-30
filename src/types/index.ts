@@ -307,6 +307,10 @@ export interface SyncedEmail {
   /** 「重要」を付けた時刻。外すと undefined に戻る。タブの絞り込みはJS側で行うので
    * 索引は要らず、Dexieのバージョンも上げていない。 */
   importantAt?: number;
+  /** 「予定を追加しますか?」の提案に対して「あとで」を押した時刻。以後そのメールは
+   * 提案として出さない。この端末だけの覚え書きで、索引も要らないため
+   * Dexieのバージョンは上げていない(importantAtと同じ扱い)。 */
+  planSuggestionDismissedAt?: number;
   /** readAt/importantAt/status を最後に人が変えた時刻。端末間で状態を揃える時の
    * last-write-wins の基準(src/lib/gmailMessageState.ts)。索引は不要なので
    * Dexieのバージョンは上げていない。 */
@@ -339,9 +343,56 @@ export interface BlockedSender {
   pushedAt?: number;
 }
 
+/** 就活の応募先が今どの段階にいるか。 */
+export type JobApplicationStage =
+  | "applied"
+  | "document"
+  | "interview1"
+  | "interview2"
+  | "final"
+  | "offer"
+  | "rejected"
+  | "declined";
+
+/** 就活の応募先1件。端末内のみ — 同期の対象にはしていない(src/lib/syncRuntime.ts)。 */
+export interface JobApplication {
+  id?: string;
+  companyName: string;
+  /** 職種・ポジション。書かなくてよい。 */
+  role?: string;
+  stage: JobApplicationStage;
+  /** 次の面接などの日。YYYY-MM-DD。 */
+  nextDate?: string;
+  /** 次の予定の時刻。HH:mm。 */
+  nextTime?: string;
+  memo?: string;
+  /** 「予定に入れる」で作ったカレンダー予定のid。予定の側を消しても
+   * ここは残る(開くときに実物があるか確かめる)。 */
+  linkedEventId?: string;
+  createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
+}
+
+/** 名前を付けて複数持てる貯金目標(「旅行用」「生活防衛費用」など)。
+ * 端末内のみ — 同期の対象にはしていない(src/lib/syncRuntime.ts)。 */
+export interface SavingsGoal {
+  id?: string;
+  name: string;
+  /** 毎月これだけ残したい金額(円)。 */
+  monthlyAmount: number;
+  createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
+}
+
 export interface Settings {
   id?: string;
   monthlyIncome: number;
+  /** @deprecated 貯金目標は savingsGoals テーブルへ移した(schema.ts の v15)。
+   * 移行元としてだけ残してある — 画面はもう読まない。 */
   savingsGoalMonthly: number;
   /** Manually-confirmed PayPay balance, anchored at paypayBalanceUpdatedAt. */
   paypayBalance: number;

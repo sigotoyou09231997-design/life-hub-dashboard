@@ -3,7 +3,8 @@ import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
 import { Bell, Database, Mail, PiggyBank } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
-import type { GmailAccount } from "../types";
+import type { GmailAccount, SavingsGoal } from "../types";
+import { sortSavingsGoals } from "../lib/savingsGoal";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
 import { auth, isSupabaseConfigured } from "../lib/supabase";
@@ -22,7 +23,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
 import { Button } from "../components/ui/Button";
-import { AmountInput } from "../components/ui/Input";
+import { AmountInput, Input } from "../components/ui/Input";
 import { SwitchField } from "../components/ui/SwitchField";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -45,21 +46,32 @@ export default function SettingsPage() {
   const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
-  // 入力中だけ自分の状態を持ち(null = まだ触っていない)、保存したら保存済みの値へ戻す。
-  // 読み込みが終わる前に空文字で初期化してしまうと、既存の目標額が消えて見えるため。
-  const [savingsGoalInput, setSavingsGoalInput] = useState<string | null>(null);
-  const savedSavingsGoal = settings?.savingsGoalMonthly ?? 0;
-  const savingsGoalValue = savingsGoalInput ?? (savedSavingsGoal > 0 ? String(savedSavingsGoal) : "");
-  const savingsGoalDirty = savingsGoalInput !== null && Number(savingsGoalInput || 0) !== savedSavingsGoal;
+  // 貯金目標は「毎月の目標額1つ」から、名前つきで複数持てるテーブルへ移した
+  // (db/schema.ts の v15)。並びは追加した順で、上の目標から順に埋まっていく。
+  const savingsGoals = useLiveQuery(async () => sortSavingsGoals(await db.savingsGoals.toArray()), []);
+  const [goalDraft, setGoalDraft] = useState<{ id?: string; name: string; amount: string } | null>(null);
+  const goalTotal = (savingsGoals ?? []).reduce((sum, goal) => sum + goal.monthlyAmount, 0);
+  const goalDraftAmount = Math.max(0, Math.round(Number(goalDraft?.amount ?? "") || 0));
+  const goalDraftValid = Boolean(goalDraft && goalDraft.name.trim() && goalDraftAmount > 0);
 
-  async function handleSaveSavingsGoal() {
-    const current = settings ?? (await ensureDefaultSettings());
-    if (!current.id) return;
-    const next = Math.max(0, Math.round(Number(savingsGoalInput ?? "") || 0));
-    await db.settings.update(current.id, { savingsGoalMonthly: next });
-    setSavingsGoalInput(null);
-    showToast(next > 0 ? "貯金目標を保存しました" : "貯金目標を解除しました");
+  async function handleSaveGoal() {
+    if (!goalDraft || !goalDraftValid) return;
+    const name = goalDraft.name.trim();
+    if (goalDraft.id) {
+      await db.savingsGoals.update(goalDraft.id, { name, monthlyAmount: goalDraftAmount });
+    } else {
+      await db.savingsGoals.add({ name, monthlyAmount: goalDraftAmount, createdAt: Date.now() });
+    }
+    setGoalDraft(null);
+    showToast(goalDraft.id ? "貯金目標を保存しました" : "貯金目標を追加しました");
+  }
+
+  async function handleDeleteGoal(goal: SavingsGoal) {
+    if (!goal.id) return;
+    if (!confirm(`「${goal.name}」を削除します。よろしいですか?`)) return;
+    await db.savingsGoals.delete(goal.id);
+    if (goalDraft?.id === goal.id) setGoalDraft(null);
+    showToast("貯金目標を削除しました");
   }
 
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -201,26 +213,77 @@ export default function SettingsPage() {
         <Card className="system-section system-section--savings">
           <div className="system-section__header">
             <div className="system-section__identity"><span><PiggyBank size={17} /></span><div><h2>貯金目標</h2></div></div>
-            <div className={`system-status ${savedSavingsGoal > 0 ? "is-online" : ""}`}><i />{savedSavingsGoal > 0 ? "設定中" : "未設定"}</div>
+            <div className={`system-status ${goalTotal > 0 ? "is-online" : ""}`}><i />{goalTotal > 0 ? `${(savingsGoals ?? []).length} 件` : "未設定"}</div>
           </div>
           <p className="system-section__description text-xs text-slate-500">
-            毎月これだけ残したい、という金額です。お金管理のサマリーに、今期の残額が目標に届きそうかを出します。
+            「旅行用」「生活防衛費用」のように名前を付けて、いくつでも持てます。毎月これだけ残したい、という金額です。
+            お金管理のサマリーに、今期の残額が目標に届きそうかを目標ごとに出します(上から順に埋まっていきます)。
           </p>
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
+          <div className="system-state-control">
+            <div><span>目標の合計</span><strong>¥{goalTotal.toLocaleString()} / 月</strong></div>
+            <small>{goalTotal > 0 ? "サマリーに表示中" : "未設定"}</small>
+          </div>
+
+          {(savingsGoals ?? []).length > 0 && (
+            <div className="system-account-list space-y-2">
+              {(savingsGoals ?? []).map((goal) => (
+                <ListRow key={goal.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-slate-700">{goal.name}</p>
+                    <p className="text-[11px] tabular-nums text-slate-500">¥{goal.monthlyAmount.toLocaleString()} / 月</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button
+                      onClick={() => setGoalDraft({ id: goal.id, name: goal.name, amount: String(goal.monthlyAmount) })}
+                      className="text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                    >
+                      編集
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGoal(goal)}
+                      className="text-xs font-medium text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+                    >
+                      削除
+                    </button>
+                  </div>
+                </ListRow>
+              ))}
+            </div>
+          )}
+
+          {goalDraft ? (
+            <div className="mt-3 space-y-3 border-t border-white/40 pt-3">
+              <Input
+                label="名前"
+                value={goalDraft.name}
+                onChange={(e) => setGoalDraft({ ...goalDraft, name: e.target.value })}
+                placeholder="旅行用"
+                maxLength={30}
+              />
               <AmountInput
                 label="毎月の目標額"
-                hint="0にすると目標を出しません。"
-                value={savingsGoalValue}
-                onChange={(e) => setSavingsGoalInput(e.target.value)}
+                hint="1円以上で登録できます。"
+                value={goalDraft.amount}
+                onChange={(e) => setGoalDraft({ ...goalDraft, amount: e.target.value })}
                 min={0}
                 placeholder="0"
               />
+              <div className="flex gap-3">
+                <Button variant="secondary" className="flex-1" onClick={() => setGoalDraft(null)}>
+                  やめる
+                </Button>
+                <Button className="flex-1" onClick={handleSaveGoal} disabled={!goalDraftValid}>
+                  {goalDraft.id ? "保存" : "追加"}
+                </Button>
+              </div>
             </div>
-            <Button variant="secondary" className="mb-1 shrink-0" onClick={handleSaveSavingsGoal} disabled={!savingsGoalDirty}>
-              保存
-            </Button>
-          </div>
+          ) : (
+            <div className="system-section__actions">
+              <Button variant="secondary" className="w-full" onClick={() => setGoalDraft({ name: "", amount: "" })}>
+                {(savingsGoals ?? []).length > 0 ? "+ 目標を追加" : "貯金目標を作る"}
+              </Button>
+            </div>
+          )}
         </Card>
 
         <Card className="system-section system-section--gmail">
@@ -229,7 +292,8 @@ export default function SettingsPage() {
             <div className={`system-status ${gmailAccounts && gmailAccounts.length > 0 ? "is-online" : ""}`}><i />{gmailAccounts === undefined ? "確認中" : gmailAccounts.length > 0 ? "連携中" : "未連携"}</div>
           </div>
           <p className="system-section__description text-xs text-slate-500">
-            受信メールにAIが返信案を作成します。
+            受信メールにAIが返信案を作成します。日時が書かれているメールには「予定を追加しますか?」と提案します
+            (提案するかどうかの判断は端末の中だけで行い、押したときだけ内容を読み取ります)。
             {!pushEnabled && "連携情報はこの端末にのみ保存されます。"}
           </p>
           <div className="system-state-control">

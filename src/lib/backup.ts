@@ -1,4 +1,5 @@
 import { db } from "../db/schema";
+import { legacySavingsGoalFrom } from "./savingsGoal";
 
 // バックアップに含めるテーブル。Gmail連携(gmailAccounts/syncedEmails/draftReplies)と
 // blockedSendersは意図的に除外する — refresh tokenやメール本文などの秘密情報・個人データを
@@ -18,6 +19,8 @@ const BACKUP_TABLES = [
   "tripRoutePlaces",
   "diaryEntries",
   "paypayTransactions",
+  "savingsGoals",
+  "jobApplications",
 ] as const;
 
 export async function exportBackup(): Promise<void> {
@@ -55,5 +58,18 @@ export async function importBackup(file: File): Promise<void> {
   await db.transaction("rw", BACKUP_TABLES.map((table) => db.table(table)), async () => {
     await Promise.all(BACKUP_TABLES.map((table) => db.table(table).clear()));
     await Promise.all(BACKUP_TABLES.map((table) => db.table(table).bulkAdd(d[table] ?? [])));
+    await restoreLegacySavingsGoal(d);
   });
+}
+
+/**
+ * 貯金目標を複数持てるようにする前に書き出したファイルには savingsGoals が無く、
+ * 目標額は settings.savingsGoalMonthly の側に入っている。そのまま復元すると
+ * 目標が1件も無い状態になってサマリーから消えてしまうので、DBの移行
+ * (db/schema.ts の v15)と同じ引き継ぎをここでもする。
+ */
+async function restoreLegacySavingsGoal(data: Record<string, unknown[]>): Promise<void> {
+  if (Array.isArray(data.savingsGoals) && data.savingsGoals.length > 0) return;
+  const legacy = legacySavingsGoalFrom((data.settings ?? []) as { savingsGoalMonthly?: number }[], Date.now());
+  if (legacy) await db.savingsGoals.add(legacy);
 }

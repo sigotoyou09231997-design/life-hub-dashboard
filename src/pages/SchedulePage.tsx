@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Plus, Calendar as CalendarIcon, CheckSquare } from "lucide-react";
 import { db } from "../db/schema";
-import type { CalendarEvent, Task } from "../types";
+import type { CalendarEvent, JobApplication, Task } from "../types";
 import { todayStr } from "../lib/date";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -15,13 +15,16 @@ import { TaskForm } from "../components/tasks/TaskForm";
 import { TodayView } from "../components/schedule/TodayView";
 import { CalendarView } from "../components/schedule/CalendarView";
 import { ListView } from "../components/schedule/ListView";
+import { JobApplicationList } from "../components/jobs/JobApplicationList";
+import { JobApplicationForm } from "../components/jobs/JobApplicationForm";
 import type { TripAgendaEntry } from "../components/schedule/TripAgendaList";
 import { useToast } from "../components/ui/ToastProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 
-type Tab = "today" | "calendar" | "list";
+type Tab = "today" | "calendar" | "list" | "jobs";
 type EditingEvent = CalendarEvent | "new" | null;
+type EditingJob = JobApplication | "new" | null;
 type EditingTask =
   | { mode: "new" }
   | { mode: "edit"; task: Task }
@@ -31,6 +34,7 @@ type EditingTask =
 function tabFromView(view: string | null): Tab {
   if (view === "calendar") return "calendar";
   if (view === "list") return "list";
+  if (view === "jobs") return "jobs";
   return "today";
 }
 
@@ -51,7 +55,9 @@ export default function SchedulePage() {
   const [addTypeOpen, setAddTypeOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EditingEvent>(null);
   const [editingTask, setEditingTask] = useState<EditingTask>(null);
+  const [editingJob, setEditingJob] = useState<EditingJob>(null);
 
+  const jobsResult = useLiveQuery(() => db.jobApplications.toArray(), []);
   const eventsResult = useLiveQuery(() => db.calendarEvents.toArray(), []);
   const tasksResult = useLiveQuery(() => db.tasks.toArray(), []);
   const tripScheduleResult = useLiveQuery(() => db.tripSchedule.toArray(), []);
@@ -85,6 +91,14 @@ export default function SchedulePage() {
     db.calendarEvents.delete(id);
     showToast("削除しました");
   }
+  function handleDeleteJob(application: JobApplication) {
+    if (!application.id) return;
+    if (!confirm(`「${application.companyName}」を削除します。よろしいですか?`)) return;
+    // カレンダーへ入れた予定は消さない — 応募先の記録をやめても、その日に
+    // 面接があった事実は予定表に残しておきたい(消したいなら予定の側で消せる)。
+    db.jobApplications.delete(application.id);
+    showToast("削除しました");
+  }
 
   return (
     <div className="spatial-page planning-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.schedule}>
@@ -96,9 +110,12 @@ export default function SchedulePage() {
             { value: "today", label: "今日" },
             { value: "calendar", label: "カレンダー" },
             { value: "list", label: "一覧" },
+            { value: "jobs", label: "就活" },
           ]}
           value={tab}
           onChange={setTab}
+          // 4つ並ぶと「カレンダー」が狭い画面で折り返すので、小さい文字にする。
+          dense
         />
       </div>
 
@@ -148,11 +165,25 @@ export default function SchedulePage() {
             onAddSubtask={handleAddSubtask}
           />
         )}
+
+        {tab === "jobs" && (
+          <JobApplicationList
+            applications={jobsResult ?? []}
+            onEdit={(application) => setEditingJob(application)}
+            onDelete={handleDeleteJob}
+            onAdd={() => setEditingJob("new")}
+          />
+        )}
           </div>
         )}
       </div>
 
-      <PageFab onClick={() => setAddTypeOpen(true)} label="予定・タスクを追加">
+      {/* 就活タブにいるときは、選ばせずに応募先の入力へ直行する。「予定・タスク・応募先」の
+          3択にすると、予定を足したいだけのときに毎回1つ余分に選ぶことになる。 */}
+      <PageFab
+        onClick={() => (tab === "jobs" ? setEditingJob("new") : setAddTypeOpen(true))}
+        label={tab === "jobs" ? "応募先を追加" : "予定・タスクを追加"}
+      >
         <Plus size={24} />
       </PageFab>
 
@@ -226,6 +257,23 @@ export default function SchedulePage() {
               showToast("保存しました");
             }}
             onCancel={() => setEditingTask(null)}
+          />
+        )}
+      </Sheet>
+
+      <Sheet
+        open={editingJob !== null}
+        onClose={() => setEditingJob(null)}
+        title={editingJob === "new" ? "応募先を追加" : "応募先を編集"}
+      >
+        {editingJob && (
+          <JobApplicationForm
+            initial={editingJob === "new" ? undefined : editingJob}
+            onSaved={() => {
+              setEditingJob(null);
+              showToast("保存しました");
+            }}
+            onCancel={() => setEditingJob(null)}
           />
         )}
       </Sheet>

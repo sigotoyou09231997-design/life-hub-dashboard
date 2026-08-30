@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban, Check, Mail, Search } from "lucide-react";
+import { Ban, CalendarPlus, Check, Mail, Search } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../../lib/gmail";
@@ -8,6 +8,7 @@ import { summarizeGmailSync, syncGmailAccount } from "../../lib/gmailSync";
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { updateMessageState } from "../../lib/gmailMessageState";
+import { pickPlanSuggestions, planSuggestionHint } from "../../lib/mailPlanSuggestion";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
@@ -41,7 +42,7 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
 export function GmailInbox({ account }: Props) {
   const showToast = useToast();
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "important" | "drafted" | "sent" | "read">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "plan" | "important" | "drafted" | "sent" | "read">("all");
   const [manageBlockedOpen, setManageBlockedOpen] = useState(false);
   const emails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
@@ -74,7 +75,13 @@ export function GmailInbox({ account }: Props) {
 
   const visibleEmails = emails?.filter((email) => !blockedSet.has(parseSender(email.from).email.toLowerCase()));
 
+  // 日時が書かれていそうなメール(端末の中の文字合わせだけで見る。AIは呼ばない —
+  // src/lib/mailPlanSuggestion.ts)。件数が0のときは絞り込みのボタンごと出さない。
+  const planSuggestions = visibleEmails ? pickPlanSuggestions(visibleEmails) : undefined;
+  const planSuggestionIds = new Set((planSuggestions ?? []).map((email) => email.id));
+
   const statusFilteredEmails = visibleEmails?.filter((email) => {
+    if (statusFilter === "plan") return planSuggestionIds.has(email.id);
     // 重要タブは、既読にしても返信しても残す — 後で見返すために付ける印なので、
     // 他のタブのように状態が進んだら消える、という扱いにはしない。
     if (statusFilter === "important") return !!email.importantAt;
@@ -151,10 +158,14 @@ export function GmailInbox({ account }: Props) {
 
       {!showSkeleton && emails && emails.length > 0 && (
         <div className="flex shrink-0 flex-wrap gap-1.5" role="group" aria-label="ステータスフィルター">
-          {/* 5つ並ぶと狭い画面では1行に収まらないので折り返す(横スクロールにはしない)。 */}
+          {/* 5つ並ぶと狭い画面では1行に収まらないので折り返す(横スクロールにはしない)。
+              「予定候補」は該当が1件も無いときは出さない — 押しても空の一覧しか出ないため。 */}
           {(
             [
               ["all", "すべて"],
+              ...(planSuggestions && planSuggestions.length > 0
+                ? ([["plan", `予定候補 ${planSuggestions.length}`]] as const)
+                : []),
               ["important", "重要"],
               ["drafted", "AI下書き"],
               ["sent", "送信済み"],
@@ -227,9 +238,17 @@ export function GmailInbox({ account }: Props) {
                       {email.subject}
                     </p>
                     <p className="mt-0.5 truncate text-xs text-slate-500">{email.snippet}</p>
-                    {email.status !== "unprocessed" && (
-                      <div className="mt-1.5">
-                        <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
+                    {(email.status !== "unprocessed" || planSuggestionIds.has(email.id)) && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {email.status !== "unprocessed" && (
+                          <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
+                        )}
+                        {planSuggestionIds.has(email.id) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-accent-light px-2 py-0.5 text-xs font-medium text-accent">
+                            <CalendarPlus size={12} />
+                            {planSuggestionHint(email) || "予定候補"}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
