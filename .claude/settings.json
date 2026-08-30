@@ -37,7 +37,11 @@
       "Bash(git diff *)",
       "Bash(git fetch *)",
       "Bash(git pull *)",
-      "Bash(bash ../scripts/cowork-watch.sh:*)"
+      "Bash(bash ../scripts/cowork-watch.sh:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull --rebase:*)",
+      "Bash(git rev-list:*)",
+      "Bash(git status:*)"
     ]
   }
 }
