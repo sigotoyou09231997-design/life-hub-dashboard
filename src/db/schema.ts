@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable, type Transaction as DexieTransaction } from "dexie";
 import { BOOT_DB_NAME, DEFAULT_DB_NAME } from "../lib/accounts";
+import { legacySavingsGoalFrom } from "../lib/savingsGoal";
 import type {
   Transaction,
   FixedCost,
@@ -19,6 +20,7 @@ import type {
   SyncedEmail,
   DraftReply,
   BlockedSender,
+  SavingsGoal,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -108,6 +110,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "blockedSenders", indexes: "accountId, email, [accountId+email]", fks: [], hasUpdatedAt: false },
   { name: "tripRoutePlaces", indexes: "tripId", fks: [], hasUpdatedAt: true },
   { name: "diaryEntries", indexes: "date", fks: [], hasUpdatedAt: true },
+  { name: "savingsGoals", indexes: "", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -169,6 +172,7 @@ export class LifeHubDB extends Dexie {
   syncedEmails!: EntityTable<SyncedEmail, "id">;
   draftReplies!: EntityTable<DraftReply, "id">;
   blockedSenders!: EntityTable<BlockedSender, "id">;
+  savingsGoals!: EntityTable<SavingsGoal, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -284,6 +288,20 @@ export class LifeHubDB extends Dexie {
     this.version(14).stores({
       calendarEvents: "id, date, linkId",
     });
+
+    // 貯金目標を「毎月の目標額1つ」(settings.savingsGoalMonthly)から、名前つきで
+    // 複数持てるテーブルへ移す。v10のblockedSendersと同じくTABLE_SCHEMASには加えず、
+    // ここで作ってPOST_MIGRATION_TABLE_SCHEMAS側からフックを張る。
+    // すでに入っている目標額は消さず、「貯金目標」という名前の1件目として引き継ぐ。
+    this.version(15)
+      .stores({ savingsGoals: "id" })
+      .upgrade(async (tx) => {
+        const settingsRows: { savingsGoalMonthly?: number }[] = await tx.table("settings").toArray();
+        const legacy = legacySavingsGoalFrom(settingsRows, Date.now());
+        if (!legacy) return;
+        // 移行の中なので、UUIDのフックには頼らず id を明示的に入れる。
+        await tx.table("savingsGoals").add({ id: crypto.randomUUID(), ...legacy });
+      });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに
     // UUIDを補うフックを全テーブルへ登録する(Dexie公式が示すUUID主キーの標準パターン)。

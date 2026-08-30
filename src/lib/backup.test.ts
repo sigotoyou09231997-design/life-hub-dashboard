@@ -22,6 +22,7 @@ const BACKUP_TABLE_NAMES = [
   "tripRoutePlaces",
   "diaryEntries",
   "paypayTransactions",
+  "savingsGoals",
 ] as const;
 
 // Dexieの実体(IndexedDB)はテストでは開けないので、使う操作(toArray/clear/bulkAdd)だけを
@@ -43,6 +44,7 @@ const mocks = vi.hoisted(() => {
     "tripRoutePlaces",
     "diaryEntries",
     "paypayTransactions",
+    "savingsGoals",
   ]) {
     stores.set(name, []);
   }
@@ -59,11 +61,15 @@ vi.mock("../db/schema", () => {
       bulkAdd: async (rows: Record<string, unknown>[]) => {
         mocks.stores.get(name)!.push(...rows);
       },
+      add: async (row: Record<string, unknown>) => {
+        mocks.stores.get(name)!.push(row);
+      },
     };
   }
   return {
     db: {
       table: (name: string) => fakeTable(name),
+      savingsGoals: fakeTable("savingsGoals"),
       transaction: async (_mode: string, _tables: unknown[], callback: () => Promise<void>) => callback(),
     },
   };
@@ -75,7 +81,7 @@ describe("バックアップの書き出し", () => {
     vi.restoreAllMocks();
   });
 
-  it("14テーブルすべてを書き出す", async () => {
+  it("15テーブルすべてを書き出す", async () => {
     mocks.stores.set("trips", [{ id: "trip-1", name: "沖縄" }]);
     mocks.stores.set("diaryEntries", [{ id: "diary-1", date: "2026-08-01", body: "楽しかった" }]);
 
@@ -115,7 +121,7 @@ describe("バックアップの復元", () => {
     for (const name of mocks.stores.keys()) mocks.stores.set(name, []);
   });
 
-  it("14テーブルすべてを、書き出したファイルの内容で置き換える", async () => {
+  it("15テーブルすべてを、書き出したファイルの内容で置き換える", async () => {
     mocks.stores.set("transactions", [{ id: "old" }]);
 
     const file = fakeFile(
@@ -165,5 +171,48 @@ describe("バックアップの復元", () => {
     expect(mocks.stores.get("settings")).toEqual([{ monthlyIncome: 300000 }]);
     // 旧ファイルに無かったtripsは、既存の端末内データごと空になる(書き出し時点に無かった扱い)。
     expect(mocks.stores.get("trips")).toEqual([]);
+  });
+
+  it("貯金目標が1つだった頃のファイルは、設定の目標額を1件目の目標として引き継ぐ", async () => {
+    const file = fakeFile(
+      JSON.stringify({
+        version: 2,
+        data: { settings: [{ monthlyIncome: 300000, savingsGoalMonthly: 40000 }] },
+      }),
+    );
+
+    const { importBackup } = await import("./backup");
+    await importBackup(file);
+
+    expect(mocks.stores.get("savingsGoals")).toHaveLength(1);
+    expect(mocks.stores.get("savingsGoals")![0]).toMatchObject({ name: "貯金目標", monthlyAmount: 40000 });
+  });
+
+  it("目標額が未設定(0)なら、引き継ぎで空の目標を作らない", async () => {
+    const file = fakeFile(
+      JSON.stringify({ version: 2, data: { settings: [{ monthlyIncome: 300000, savingsGoalMonthly: 0 }] } }),
+    );
+
+    const { importBackup } = await import("./backup");
+    await importBackup(file);
+
+    expect(mocks.stores.get("savingsGoals")).toEqual([]);
+  });
+
+  it("新しい形式(savingsGoals入り)のファイルでは、設定の古い目標額を引き継がない", async () => {
+    const file = fakeFile(
+      JSON.stringify({
+        version: 2,
+        data: {
+          settings: [{ savingsGoalMonthly: 40000 }],
+          savingsGoals: [{ id: "g1", name: "旅行用", monthlyAmount: 30000, createdAt: 1 }],
+        },
+      }),
+    );
+
+    const { importBackup } = await import("./backup");
+    await importBackup(file);
+
+    expect(mocks.stores.get("savingsGoals")).toEqual([{ id: "g1", name: "旅行用", monthlyAmount: 30000, createdAt: 1 }]);
   });
 });

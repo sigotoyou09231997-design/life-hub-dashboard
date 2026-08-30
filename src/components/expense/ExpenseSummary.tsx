@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction } from "../../types";
 import { formatDisplayDate, toDateStr, todayStr } from "../../lib/date";
-import { calculateSavingsGoalProgress } from "../../lib/savingsGoal";
+import { planSavingsGoals } from "../../lib/savingsGoal";
 import { usePayPeriodBudget } from "../../hooks/usePayPeriodBudget";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 import { Card } from "../ui/Card";
@@ -48,7 +48,7 @@ interface Props {
 export function ExpenseSummary({ onAddSalary }: Props) {
   const { data, loading } = usePayPeriodBudget();
   const periodStartStr = data ? toDateStr(data.period.periodStart) : null;
-  const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
+  const savingsGoals = useLiveQuery(() => db.savingsGoals.toArray(), []);
 
   const periodTransactions = useLiveQuery<Transaction[]>(
     () =>
@@ -92,8 +92,8 @@ export function ExpenseSummary({ onAddSalary }: Props) {
 
   const { period, totalFixedCosts, actualSpending, remaining, perDayUsable } = data;
 
-  // 目標が未設定(0)なら null が返り、この節ごと出さない — 貯金を強制しない。
-  const savingsGoal = calculateSavingsGoalProgress(settings?.savingsGoalMonthly ?? 0, remaining);
+  // 目標が1件も無ければ null が返り、この節ごと出さない — 貯金を強制しない。
+  const savingsPlan = planSavingsGoals(savingsGoals ?? [], remaining);
 
   const recentTransactions = [...(periodTransactions ?? [])].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
@@ -132,21 +132,48 @@ export function ExpenseSummary({ onAddSalary }: Props) {
         </div>
       </Card>
 
-      {savingsGoal && (
+      {savingsPlan && (
         <Card className="finance-savings-module col-span-2 p-5 lg:col-span-12 lg:p-6">
           <div className="flex items-baseline justify-between gap-3">
             <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">貯金目標</p>
-            <span className="text-xs text-slate-500">目標 {yen(savingsGoal.goal)} / 月</span>
+            <span className="text-xs text-slate-500">
+              {savingsPlan.allocations.length > 1 && `${savingsPlan.allocations.length}件 · `}
+              目標 {yen(savingsPlan.totalTarget)} / 月
+            </span>
           </div>
           <p className="mt-3 mb-3 text-2xl font-medium tabular-nums tracking-[-0.03em] text-slate-800 lg:text-3xl">
-            {yen(savingsGoal.projected)}
+            {yen(savingsPlan.overall.projected)}
           </p>
-          <ProgressBar value={savingsGoal.ratio} colorClass={savingsGoal.onTrack ? "bg-success" : "bg-accent"} />
+          <ProgressBar value={savingsPlan.overall.ratio} colorClass={savingsPlan.overall.onTrack ? "bg-success" : "bg-accent"} />
           <p className="mt-2 text-xs text-slate-500">
-            {savingsGoal.onTrack
-              ? `このままなら目標より ${yen(savingsGoal.surplus)} 多く残せそうです`
-              : `目標まであと ${yen(savingsGoal.shortfall)}`}
+            {savingsPlan.overall.onTrack
+              ? `このままなら目標より ${yen(savingsPlan.overall.surplus)} 多く残せそうです`
+              : `目標まであと ${yen(savingsPlan.overall.shortfall)}`}
           </p>
+
+          {/* 目標が2つ以上あるときだけ内訳を出す。1つのときは上の合計と同じ内容なので、
+              同じ棒が2本並ぶことになってかえって読みにくい。 */}
+          {savingsPlan.allocations.length > 1 && (
+            <div className="mt-4 space-y-3 border-t border-white/35 pt-4">
+              {savingsPlan.allocations.map(({ goal, allocated, ratio, shortfall, covered }) => (
+                <div key={goal.id}>
+                  <div className="mb-1.5 flex items-baseline justify-between gap-3 text-xs">
+                    <span className="min-w-0 truncate text-slate-600">{goal.name}</span>
+                    <span className="shrink-0 tabular-nums text-slate-500">
+                      <span className="font-semibold text-slate-800">{yen(allocated)}</span> / {yen(goal.monthlyAmount)}
+                    </span>
+                  </div>
+                  <ProgressBar value={ratio} colorClass={covered ? "bg-success" : "bg-accent"} />
+                  {!covered && <p className="mt-1 text-[11px] text-slate-400">あと {yen(shortfall)}</p>}
+                </div>
+              ))}
+              <p className="text-[11px] text-slate-400">
+                {savingsPlan.leftover > 0
+                  ? `すべて満たしたうえで ${yen(savingsPlan.leftover)} 余りそうです`
+                  : "上の目標から順に埋めた場合の内訳です"}
+              </p>
+            </div>
+          )}
         </Card>
       )}
 

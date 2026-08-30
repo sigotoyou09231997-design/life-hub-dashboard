@@ -339,9 +339,24 @@ export interface BlockedSender {
   pushedAt?: number;
 }
 
+/** 名前を付けて複数持てる貯金目標(「旅行用」「生活防衛費用」など)。
+ * 端末内のみ — 同期の対象にはしていない(src/lib/syncRuntime.ts)。 */
+export interface SavingsGoal {
+  id?: string;
+  name: string;
+  /** 毎月これだけ残したい金額(円)。 */
+  monthlyAmount: number;
+  createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
+}
+
 export interface Settings {
   id?: string;
   monthlyIncome: number;
+  /** @deprecated 貯金目標は savingsGoals テーブルへ移した(schema.ts の v15)。
+   * 移行元としてだけ残してある — 画面はもう読まない。 */
   savingsGoalMonthly: number;
   /** Manually-confirmed PayPay balance, anchored at paypayBalanceUpdatedAt. */
   paypayBalance: number;
