@@ -292,7 +292,8 @@ export default function SettingsPage() {
             <div className={`system-status ${gmailAccounts && gmailAccounts.length > 0 ? "is-online" : ""}`}><i />{gmailAccounts === undefined ? "確認中" : gmailAccounts.length > 0 ? "連携中" : "未連携"}</div>
           </div>
           <p className="system-section__description text-xs text-slate-500">
-            受信メールにAIが返信案を作成します。
+            受信メールにAIが返信案を作成します。日時が書かれているメールには「予定を追加しますか?」と提案します
+            (提案するかどうかの判断は端末の中だけで行い、押したときだけ内容を読み取ります)。
             {!pushEnabled && "連携情報はこの端末にのみ保存されます。"}
           </p>
           <div className="system-state-control">
