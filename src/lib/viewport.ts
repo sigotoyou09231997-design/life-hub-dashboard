@@ -53,10 +53,24 @@ export function staleViewportGap(layoutHeight: number, visualHeight: number, vis
   return Math.round(gap);
 }
 
+/** 見えている領域が動いている最中は測った差を書き込まず、止まるのを待つ時間(ms)。
+ *
+ * スクロールしている間、iOSは visualViewport の高さ・位置を細かく動かす — 端での
+ * ラバーバンド(引っぱると画面ごと数十px動く)や、ツールバーの出入りがその途中経過まで
+ * scroll/resize で流れてくる。その瞬間の値をそのまま書き込むと、指を動かしている間
+ * だけ追従ボタンと追従ナビが数十px下へずれ、指を離すと戻る(2026-08-31 再発の報告)。
+ *
+ * この変数が直したいのは「キーボードを閉じたあと、画面の高さが戻らないまま止まって
+ * いる」状態で、それは動きが止まったあとも残り続けるもの。動いている最中の値を
+ * 見送っても直せる。 */
+export const VIEWPORT_GAP_SETTLE_MS = 250;
+
 /** 上の差を CSS 変数 --viewport-gap として置き、画面下に貼りつくもの(追従ボタン・
  * シート・知らせ)がそれを見て自分の位置を直せるようにする。値を書き込むこと自体が
  * 描き直しのきっかけにもなる — iOSのfixedは「何かのきっかけで描き直されるまで」
  * ずれた場所に残るため。
+ *
+ * 測るのは「動きが止まってから」— 途中経過に反応しない(VIEWPORT_GAP_SETTLE_MS)。
  *
  * 返り値は後始末の関数。 */
 export function trackViewportGap(): () => void {
@@ -64,14 +78,25 @@ export function trackViewportGap(): () => void {
   if (!visual) return () => {};
 
   let applied = -1;
-  const update = () => {
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** 今の状態を測って書く。呼ぶのは「止まっている」と分かっている時だけ。 */
+  const write = () => {
+    settleTimer = undefined;
     const gap = staleViewportGap(window.innerHeight, visual.height, visual.offsetTop);
     if (gap === applied) return;
     applied = gap;
     document.documentElement.style.setProperty("--viewport-gap", `${gap}px`);
   };
 
-  update();
+  // 動いている間に届いた分は、そのつど先送りする。最後の1回だけが実際に測る。
+  const update = () => {
+    if (settleTimer !== undefined) clearTimeout(settleTimer);
+    settleTimer = setTimeout(write, VIEWPORT_GAP_SETTLE_MS);
+  };
+
+  // 起動時は止まっているので、待たずにそのまま測る。
+  write();
   visual.addEventListener("resize", update);
   visual.addEventListener("scroll", update);
   window.addEventListener("resize", update);
@@ -85,6 +110,7 @@ export function trackViewportGap(): () => void {
   // 対応だけでは直らない。ここにも同じ引き金を持たせる)。
   document.addEventListener("focusout", update);
   return () => {
+    if (settleTimer !== undefined) clearTimeout(settleTimer);
     visual.removeEventListener("resize", update);
     visual.removeEventListener("scroll", update);
     window.removeEventListener("resize", update);
