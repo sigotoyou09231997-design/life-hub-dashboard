@@ -69,6 +69,12 @@ export default function ExpensePage() {
   const showHistorySkeleton = useDelayedFlag(transactions === undefined);
   const showFixedSkeleton = useDelayedFlag(fixedCosts === undefined);
 
+  // 0件のときだけ、作業面を画面の下まで伸ばす(.is-empty-fill、index.css)。読み込み中
+  // (undefined)は伸ばさない — 中身が入るかどうかがまだ分からないため。
+  const noSalaries = salaries?.length === 0;
+  const noTransactions = transactions?.length === 0;
+  const noFixedCosts = fixedCosts?.length === 0;
+
   return (
     <div className="spatial-page finance-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.money}>
       <PageHeader title="お金管理" subtitle="収支と固定費を管理" backTo="/" />
@@ -92,7 +98,7 @@ export default function ExpensePage() {
         {tab === "summary" && <ExpenseSummary onAddSalary={() => setEditingSalary("new")} />}
 
         {tab === "salary" && (
-          <div className="finance-ledger-workspace">
+          <div className={`finance-ledger-workspace ${noSalaries ? "is-empty-fill" : ""}`}>
             {showSalarySkeleton ? (
               <ListSkeleton />
             ) : (
@@ -122,7 +128,7 @@ export default function ExpensePage() {
         )}
 
         {tab === "history" && (
-          <div className="finance-ledger-workspace">
+          <div className={`finance-ledger-workspace ${noTransactions ? "is-empty-fill" : ""}`}>
             {showHistorySkeleton ? (
               <ListSkeleton />
             ) : (
@@ -153,7 +159,7 @@ export default function ExpensePage() {
         )}
 
         {tab === "fixed" && (
-          <div className="finance-ledger-workspace">
+          <div className={`finance-ledger-workspace ${noFixedCosts ? "is-empty-fill" : ""}`}>
             {showFixedSkeleton ? (
               <ListSkeleton />
             ) : (

@@ -27,6 +27,7 @@ export function PayPayImport() {
   const [error, setError] = useState<string | null>(null);
 
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
+  const importedCount = useLiveQuery(() => db.paypayTransactions.count(), []);
   const balanceInfo = useLiveQuery(async () => {
     const s = await db.settings.toCollection().first();
     const baseline = s?.paypayBalance ?? 0;
@@ -120,8 +121,13 @@ export function PayPayImport() {
     showToast("残高を更新しました");
   }
 
+  // 残高もまだ入れておらず、取り込みも1件も無いときは、カード2枚で画面の半分ほどしか
+  // 埋まらず、下に背景写真だけの帯が残る。読み込みカードを画面の下まで伸ばして、
+  // 空くぶんを取込結果が出る場所に渡す(.is-empty-fill、index.css)。
+  const nothingYet = importedCount === 0 && !balanceInfo?.anchor;
+
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 ${nothingYet ? "is-empty-fill" : ""}`}>
       <Card>
         <p className="text-sm text-slate-400">PayPay残高(推定)</p>
         <p className="mt-1 text-3xl font-bold text-slate-900">

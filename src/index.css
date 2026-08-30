@@ -2219,3 +2219,27 @@ body .text-sm { line-height: 1.5; }
 .is-empty-fill > .notes-empty-control > .notes-empty-control__action { margin-top: auto; }
 /* こちらはgrid。既定のstretchのままだと、背が高くなったぶん行が上下に散る。 */
 .destination-empty-control.is-empty-fill-self { align-content: center; }
+
+/* お金管理の給与・固定費・履歴タブ(2026-08-30)。
+   0件のときは、案内ひとつと下の操作ボタンだけで作業面が終わり、その下に背景写真
+   だけの帯が残っていた(1440x900で約400px)。作業面を画面の下まで伸ばし、伸びたぶんは
+   案内の入っている上の区画 —— これから給与・固定費・収支の行が並ぶ場所 —— に渡す。
+   操作ボタンの行は元の高さのまま、作業面の下端に置く(既定の :last-child は打ち消す)。
+   案内そのものは、サマリータブの残高カードと同じく縦の中央に置く。 */
+.finance-ledger-workspace.is-empty-fill > :last-child { flex: 0 0 auto; }
+
+.finance-ledger-workspace.is-empty-fill > :first-child {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.finance-ledger-workspace.is-empty-fill .empty-state {
+  flex: 1;
+  justify-content: center;
+}
+
+/* 日記0件(メモ・リストの「日記」タブ)。カード1枚だけなので、そのカードを下まで
+   伸ばし(既定の :last-child)、中の案内を縦の中央に置く。 */
+.is-empty-fill > .glass-card { display: flex; flex-direction: column; }
+.is-empty-fill > .glass-card > .empty-state { flex: 1; justify-content: center; }
