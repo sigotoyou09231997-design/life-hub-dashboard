@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Building2, CalendarClock, StickyNote } from "lucide-react";
+import { Building2, CalendarClock, CheckSquare, StickyNote } from "lucide-react";
 import { db } from "../../db/schema";
 import type { JobApplication, JobApplicationStage } from "../../types";
-import { JOB_STAGES, jobEventTitle } from "../../lib/jobApplications";
+import { JOB_STAGES, jobEventTitle, jobPreparationTask } from "../../lib/jobApplications";
 import { Button } from "../ui/Button";
 import { DateField } from "../ui/DateField";
 import { Field } from "../ui/Field";
@@ -34,9 +34,20 @@ export function JobApplicationForm({ initial, onSaved, onCancel }: Props) {
   const [memo, setMemo] = useState(initial?.memo ?? "");
   // すでに予定へ入れてあるものは、既定で入れ直さない(同じ予定が増えるのを防ぐ)。
   const [addToCalendar, setAddToCalendar] = useState(false);
+  // 応募先を新しく足したときだけ、関連するタスクも一緒に作る(既定で入)。編集では
+  // 出さない — 保存するたびに同じタスクが増えていくため。
+  const [addTask, setAddTask] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const alreadyLinked = Boolean(initial?.linkedEventId);
+  const isNew = !initial;
+  // 会社名を打ち終える前から出しておきたいので、空のうちは仮の名前で組み立てる
+  // (保存するときは record から作り直すので、この仮の名前は記録に入らない)。
+  const preparationPreview = jobPreparationTask({
+    companyName: companyName.trim() || "(会社名)",
+    stage,
+    nextDate: nextDate || undefined,
+  });
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -76,6 +87,21 @@ export function JobApplicationForm({ initial, onSaved, onCancel }: Props) {
 
     if (initial?.id) await db.jobApplications.update(initial.id, record);
     else await db.jobApplications.add(record);
+
+    // 応募先を足したときに、やることを1件だけタスクにしておく。作った後は普通の
+    // タスクで、応募先とは結びつけない(応募先を消してもタスクは残る — 予定と同じ扱い)。
+    const preparation = isNew && addTask ? jobPreparationTask(record) : undefined;
+    if (preparation) {
+      await db.tasks.add({
+        title: preparation.title,
+        priority: "high",
+        dueDate: preparation.dueDate,
+        category: "important",
+        completed: false,
+        repeat: "none",
+        createdAt: Date.now(),
+      });
+    }
 
     setSaving(false);
     onSaved();
@@ -140,6 +166,21 @@ export function JobApplicationForm({ initial, onSaved, onCancel }: Props) {
           />
         )}
       </FormPanel>
+
+      {/* 応募先を足したときだけ出す。編集で出すと、保存のたびに同じタスクが増える。
+          内定・お見送り・辞退は、これから準備することが無いので出ない。 */}
+      {isNew && preparationPreview && (
+        <FormPanel caption="やること" icon={CheckSquare}>
+          <SwitchField
+            label="関連するタスクも作る"
+            hint={`「${preparationPreview.title}」を${
+              preparationPreview.dueDate ? `${preparationPreview.dueDate}期限の` : "期限なしの"
+            }タスクとして追加します。作った後は普通のタスクとして直せます。`}
+            checked={addTask}
+            onChange={setAddTask}
+          />
+        </FormPanel>
+      )}
 
       <FormPanel caption="メモ" icon={StickyNote}>
         <Textarea

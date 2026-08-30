@@ -16,8 +16,11 @@ import { db } from "../db/schema";
 import { todayStr } from "../lib/date";
 import {
   compareToPrevious,
+  monthlyExpenseTrend,
   resolveReviewPeriod,
   summarizeReview,
+  TREND_MONTHS,
+  type MonthlyAmount,
   type ReviewInput,
   type ReviewSpan,
   type ReviewSummary,
@@ -75,6 +78,56 @@ function DailyBars({ summary }: { summary: ReviewSummary }) {
   );
 }
 
+/** YYYY-MM を「2026年3月」に。ReviewPeriod.label(見ている月)と同じ書き方に揃える。 */
+function monthTitle(month: string): string {
+  const [year, index] = month.split("-");
+  return `${year}年${Number(index)}月`;
+}
+
+/** 棒の上に添える金額。6本並ぶので、万を超えたら「8.2万」に丸めて桁を詰める。 */
+function compactYen(n: number): string {
+  if (n <= 0) return "—";
+  if (n >= 10000) return `${(n / 10000).toFixed(n >= 100000 ? 0 : 1)}万`;
+  return n.toLocaleString();
+}
+
+/** 月ごとの支出を並べた棒グラフ。見ている月だけ色を付けて、残りは
+ * 比べる相手として薄く置く。目盛りは付けず、棒の上の金額で読ませる。 */
+function MonthlyTrendBars({ trend, currentMonth }: { trend: MonthlyAmount[]; currentMonth: string }) {
+  const max = Math.max(...trend.map((month) => month.amount), 1);
+  return (
+    <div className="review-trend flex items-stretch gap-2" style={{ height: 148 }}>
+      {trend.map((month) => {
+        const isCurrent = month.month === currentMonth;
+        return (
+          <div key={month.month} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+            <span
+              className={`text-[10px] leading-none tabular-nums ${isCurrent ? "font-semibold text-slate-700" : "text-slate-400"}`}
+            >
+              {compactYen(month.amount)}
+            </span>
+            {/* 棒の高さは%で出すので、入れ物側の高さが決まっている必要がある(flex-1で決まる)。 */}
+            <div className="flex w-full min-h-0 flex-1 items-end">
+              <div
+                // 色に bg-accent/70 のような不透明度は付けない。--color-accent はCSS変数なので、
+                // Tailwindが不透明度を混ぜられず background-color が透明になり、棒が消える。
+                className={`w-full rounded-t-[4px] ${
+                  month.amount === 0 ? "bg-white/45" : isCurrent ? "bg-accent" : "bg-slate-400/45"
+                }`}
+                style={{ height: `${month.amount > 0 ? Math.max(4, (month.amount / max) * 100) : 3}%` }}
+                title={`${month.month} ${yen(month.amount)}`}
+              />
+            </div>
+            <span className={`text-[10px] leading-none ${isCurrent ? "font-semibold text-slate-600" : "text-slate-400"}`}>
+              {month.label}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ReviewPage() {
   const [span, setSpan] = useState<ReviewSpan>("week");
   // 期間ごとに別々に覚える — 週で3つ戻ってから月に切り替えたとき、3か月前に
@@ -105,6 +158,10 @@ export default function ReviewPage() {
   const previous = dataResult ? summarizeReview(dataResult, previousPeriod) : null;
   const expenseDelta = summary && previous ? compareToPrevious(summary.expenseTotal, previous.expenseTotal) : null;
   const dayCount = summary?.dailyExpenses.length ?? 0;
+
+  // 月ごと表示のときだけ、直近数か月の支出を並べて増減の流れを見せる。
+  // 週ごとは上の日別の棒で足りるので出さない。
+  const trend = span === "month" && dataResult ? monthlyExpenseTrend(dataResult.transactions, period) : null;
 
   const spanWord = span === "week" ? "週" : "月";
 
@@ -209,6 +266,18 @@ export default function ReviewPage() {
                 ))}
               </div>
             </Card>
+
+            {trend && (
+              <Card className="review-trend-module col-span-2 p-5 lg:col-span-12 lg:p-6">
+                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <p className="text-sm font-semibold text-slate-700">月ごとの支出の推移</p>
+                  <p className="text-[11px] text-slate-500">
+                    直近{TREND_MONTHS}か月 ({monthTitle(trend[0].month)} 〜 {period.label})
+                  </p>
+                </div>
+                <MonthlyTrendBars trend={trend} currentMonth={period.start.slice(0, 7)} />
+              </Card>
+            )}
 
             <MetricCard
               icon={CheckSquare}

@@ -27,6 +27,9 @@ export async function toggleTaskCompletion(task: Task) {
       priority: task.priority,
       dueDate: advanceByRepeat(task.dueDate, task.repeat),
       dueTime: task.dueTime,
+      // カテゴリも引き継ぐ。ここが抜けていると、繰り返すたびに「その他」へ
+      // 戻ってしまい、分類で絞り込んでいる画面から次の回が消える。
+      category: task.category,
       notifyMinutesBefore: task.notifyMinutesBefore,
       completed: false,
       parentTaskId: task.parentTaskId,

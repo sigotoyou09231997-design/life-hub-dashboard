@@ -5,6 +5,7 @@ import {
   groupJobApplications,
   isNextDatePast,
   jobEventTitle,
+  jobPreparationTask,
   sortJobApplications,
   stageOrder,
 } from "./jobApplications";
@@ -134,5 +135,37 @@ describe("isNextDatePast", () => {
 
   it("予定が無ければ印は出さない", () => {
     expect(isNextDatePast(application("A"), "2026-08-30")).toBe(false);
+  });
+});
+
+describe("jobPreparationTask", () => {
+  it("段階ごとに、やることの分かるタイトルを付ける", () => {
+    expect(jobPreparationTask(application("株式会社ABC"))?.title).toBe("株式会社ABC 応募書類を準備する");
+    expect(jobPreparationTask(application("ABC", { stage: "interview1" }))?.title).toBe("ABC 一次面接の準備をする");
+    expect(jobPreparationTask(application("ABC", { stage: "interview2" }))?.title).toBe("ABC 二次面接の準備をする");
+    expect(jobPreparationTask(application("ABC", { stage: "final" }))?.title).toBe("ABC 最終面接の準備をする");
+  });
+
+  it("期限は次の予定日の前日にする", () => {
+    expect(jobPreparationTask(application("A", { nextDate: "2026-09-10" }))?.dueDate).toBe("2026-09-09");
+  });
+
+  it("月初や年をまたぐ前日も出せる", () => {
+    expect(jobPreparationTask(application("A", { nextDate: "2026-09-01" }))?.dueDate).toBe("2026-08-31");
+    expect(jobPreparationTask(application("A", { nextDate: "2026-01-01" }))?.dueDate).toBe("2025-12-31");
+  });
+
+  it("次の予定日が無ければ期限も付けない", () => {
+    expect(jobPreparationTask(application("A"))?.dueDate).toBeUndefined();
+  });
+
+  it("結果が出た段階と内定では作らない", () => {
+    for (const stage of ["offer", "rejected", "declined"] as JobApplicationStage[]) {
+      expect(jobPreparationTask(application("A", { stage }))).toBeUndefined();
+    }
+  });
+
+  it("会社名が空なら作らない", () => {
+    expect(jobPreparationTask(application("   "))).toBeUndefined();
   });
 });
