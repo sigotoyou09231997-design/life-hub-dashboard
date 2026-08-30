@@ -10,10 +10,13 @@
 
 .warm-home {
   --warm-gap: 0.9rem;
+  /* 左右の余白。ヒーローだけはこのぶん外へ広げて画面の端まで届かせる（下の
+     「スマホでは一番上をカードにしない」を参照）ので、数値ではなく変数で持つ。 */
+  --warm-pad: 1rem;
   display: flex;
   flex-direction: column;
   gap: var(--warm-gap);
-  padding: 0.5rem 1rem 1.5rem;
+  padding: 0.5rem var(--warm-pad) 1.5rem;
   color: var(--warm-ink);
 }
 
@@ -120,7 +123,11 @@ a.warm-card {
   color: var(--warm-ink-2);
 }
 
-/* ---- ヒーロー（時刻＋写真） -------------------------------------------- */
+/* ---- ヒーロー（時刻＋写真） --------------------------------------------
+
+   スマホでは、この一番上だけカードにしない（2026-08-31、参考画像に合わせて）。
+   写真が画面の左右の端まで届き、角丸・縁・影を持たない形。幅が広い時（768px 以上）は
+   今までどおりカードのまま。実際の規則はこのファイルの下の方にある。 */
 
 .warm-hero {
   position: relative;
@@ -527,6 +534,17 @@ a.warm-card {
 
    ---- 広い画面 ---------------------------------------------------------- */
 
+/* スマホでは一番上のヒーローをカードにしない（参考画像と同じ、写真が端まで届く形）。
+   ホームの左右の余白ぶん外へ広げて、角丸・縁・影を外す。 */
+@media (max-width: 767px) {
+  .warm-hero {
+    margin-inline: calc(var(--warm-pad) * -1);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
 @media (min-width: 768px) {
   .warm-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -534,7 +552,8 @@ a.warm-card {
 @media (min-width: 1024px) {
   .warm-home {
     --warm-gap: 1.1rem;
-    padding: 0.75rem 2rem 2.5rem;
+    --warm-pad: 2rem;
+    padding: 0.75rem var(--warm-pad) 2.5rem;
   }
 
   .warm-greet__hello { font-size: 1.6rem; }
