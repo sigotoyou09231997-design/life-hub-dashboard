@@ -134,6 +134,47 @@ describe("写真・文章から日程を読み取る画面", () => {
     expect((screen.getByRole("button", { name: "0件を入れる" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("同じ日に似た予定があれば、外した状態で並べて断りを出す", async () => {
+    // しおりを読み直すたびに同じ予定が積み上がるのを、押す前に止める。
+    // 完全一致と違って入れられる(重ねたい時もある)ので、チェックだけ外しておく。
+    mocks.existingTripSchedule = [{ date: "2026-09-19", title: "鎌倉散歩" }];
+    mocks.items = [{ date: "2026-09-19", title: "お迎え・買い出し・鎌倉散歩", type: "sightseeing" }];
+    const user = userEvent.setup();
+    renderForm();
+    await readFromText(user);
+    expect(screen.getByText(/同じ日に「鎌倉散歩」があります/)).toBeTruthy();
+    const save = screen.getByRole("button", { name: "0件を入れる" }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    // 重ねて入れたい時は、自分でチェックすれば入る。
+    await user.click(screen.getByRole("checkbox", { name: "お迎え・買い出し・鎌倉散歩を入れる" }));
+    await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+    expect(mocks.saved.tripSchedule).toHaveLength(1);
+  });
+
+  it("しおり1枚ぶん(時刻の無い8日分)をまとめて入れる", async () => {
+    // 時刻の書かれていない旅程表がいちばん多い形。日付だけで入れられること、
+    // 1日に複数の予定が並んでも別々の行になることを固定する。
+    mocks.items = [
+      { date: "2026-09-19", title: "鎌倉散歩", location: "鎌倉", type: "sightseeing" },
+      { date: "2026-09-20", title: "初心者船釣り", location: "腰越", type: "sightseeing" },
+      { date: "2026-09-21", title: "海沿いドライブ", location: "葉山・三浦半島", type: "transport" },
+      { date: "2026-09-22", title: "えのすい", location: "江の島", type: "sightseeing" },
+      { date: "2026-09-22", title: "江の島灯籠", location: "江の島", type: "sightseeing" },
+      { date: "2026-09-23", title: "トイ・ストーリー5", location: "辻堂", type: "other" },
+      { date: "2026-09-24", title: "みなとみらい・中華街", location: "横浜", type: "sightseeing" },
+      { date: "2026-09-25", title: "大涌谷・芦ノ湖・温泉", location: "箱根", type: "sightseeing" },
+    ];
+    const saved = vi.fn();
+    const user = userEvent.setup();
+    renderForm(saved);
+    await readFromText(user);
+    await user.click(screen.getByRole("button", { name: "8件を入れる" }));
+    expect(mocks.saved.tripSchedule).toHaveLength(8);
+    // 金額が読み取れていない分は、費用には積まない。
+    expect(mocks.saved.tripExpenses).toEqual([]);
+    expect(saved).toHaveBeenCalledWith("日程に8件入れました");
+  });
+
   it("旅行の期間から外れた日付には印を出す", async () => {
     // 入れられるが日程表には出てこないので、気付けるようにする。
     mocks.items = [{ date: "2026-10-01", title: "五稜郭", type: "sightseeing" }];

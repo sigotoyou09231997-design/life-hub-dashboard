@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
 import {
   PLAN_GROUPS,
+  findSimilarPlan,
+  normalizePlanTitle,
   describeCounts,
   describePlanImportError,
   describeSaved,
@@ -417,5 +419,41 @@ describe("まとめて入れる時の並びと文言", () => {
 
   it("1か所だけなら、そのまま1つぶんの文にする", () => {
     expect(describeSaved([{ destination: "task", count: 3 }])).toBe("タスクに3件入れました");
+  });
+});
+
+
+describe("同じ日の似た予定を見つける", () => {
+  // しおりのような時刻の無い文章は、読み取るたびに書き方が少し変わる。日付・時刻・
+  // タイトルが揃った時だけ弾く planKey では、同じ予定が二重に並んでしまう。
+  const existing = [
+    { date: "2026-09-19", title: "鎌倉散歩" },
+    { date: "2026-09-20", title: "🎣 初心者船釣り", startTime: "07:00" },
+    { date: "2026-09-24", title: "移動" },
+  ];
+
+  it("絵文字・記号・空白のゆれは同じものとみなす", () => {
+    expect(normalizePlanTitle("🎣 初心者船釣り")).toBe(normalizePlanTitle("初心者船釣り"));
+    expect(normalizePlanTitle("えのすい・江の島灯籠")).toBe(normalizePlanTitle("えのすい 江の島灯籠"));
+    expect(findSimilarPlan({ date: "2026-09-20", title: "初心者船釣り" }, existing)).toBe("🎣 初心者船釣り");
+  });
+
+  it("片方がもう片方を含む書き方も、同じ予定とみなす", () => {
+    expect(findSimilarPlan({ date: "2026-09-19", title: "お迎え・買い出し・鎌倉散歩" }, existing)).toBe("鎌倉散歩");
+  });
+
+  it("日が違えば別の予定", () => {
+    // 同じ場所へ2日続けて行くこともある。
+    expect(findSimilarPlan({ date: "2026-09-26", title: "鎌倉散歩" }, existing)).toBeUndefined();
+  });
+
+  it("短い言葉は、含むだけでは同じとみなさない", () => {
+    // 「移動」はどの予定にも出てくる。ここで弾くと、入れたい予定まで外れてしまう。
+    expect(findSimilarPlan({ date: "2026-09-24", title: "横浜へ移動して中華街" }, existing)).toBeUndefined();
+    expect(findSimilarPlan({ date: "2026-09-24", title: "移動" }, existing)).toBe("移動");
+  });
+
+  it("いま入っている日程がまだ読めていない時は、何も言わない", () => {
+    expect(findSimilarPlan({ date: "2026-09-19", title: "鎌倉散歩" }, undefined)).toBeUndefined();
   });
 });
