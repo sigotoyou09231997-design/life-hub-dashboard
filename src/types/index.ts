@@ -392,6 +392,22 @@ export interface SavingsGoal {
   userId?: string;
 }
 
+/** カテゴリごとの使いすぎの目安(「食費は月3万円まで」)。全体の予算(給与 - 固定費)は
+ * 今までどおり給与から計算するもので、これはそれとは別に持つ追加の上限。
+ * 端末内のみ — 同期の対象にはしていない(src/lib/syncRuntime.ts)。 */
+export interface CategoryBudget {
+  id?: string;
+  /** 支出のカテゴリ名(src/lib/categories.ts の EXPENSE_CATEGORIES と同じ文字列)。 */
+  category: string;
+  /** 1か月あたりの上限(円)。集計は給料日から次の給料日までの1期で見る
+   * (src/lib/categoryBudget.ts)。 */
+  monthlyAmount: number;
+  createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
+}
+
 export interface Settings {
   id?: string;
   monthlyIncome: number;

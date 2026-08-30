@@ -1,7 +1,9 @@
+import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction } from "../../types";
 import { formatDisplayDate, toDateStr, todayStr } from "../../lib/date";
+import { overBudgetCategories, spendingByCategory, summarizeCategoryBudgets } from "../../lib/categoryBudget";
 import { planSavingsGoals } from "../../lib/savingsGoal";
 import { usePayPeriodBudget } from "../../hooks/usePayPeriodBudget";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
@@ -49,6 +51,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
   const { data, loading } = usePayPeriodBudget();
   const periodStartStr = data ? toDateStr(data.period.periodStart) : null;
   const savingsGoals = useLiveQuery(() => db.savingsGoals.toArray(), []);
+  const categoryBudgets = useLiveQuery(() => db.categoryBudgets.toArray(), []);
 
   const periodTransactions = useLiveQuery<Transaction[]>(
     () =>
@@ -64,11 +67,17 @@ export function ExpenseSummary({ onAddSalary }: Props) {
     .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const byCategory = new Map<string, number>();
-  for (const t of expenses) {
-    byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + t.amount);
-  }
+  const byCategory = spendingByCategory(expenses);
   const categoryBreakdown = [...byCategory.entries()].sort((a, b) => b[1] - a[1]);
+
+  // カテゴリ別の予算(設定画面で決める)。設定していなければ今までどおり、
+  // 支出の内訳だけを出す。
+  const budgetStatuses = summarizeCategoryBudgets(categoryBudgets ?? [], byCategory);
+  const budgetedCategories = new Set(budgetStatuses.map((s) => s.category));
+  const overBudget = overBudgetCategories(budgetStatuses);
+  // 予算を付けたカテゴリは全部出し、残りは今までと同じく多い順に。上の予算ぶんだけ
+  // 行が増えるので、下の内訳は6件のまま据え置く。
+  const unbudgetedBreakdown = categoryBreakdown.filter(([category]) => !budgetedCategories.has(category)).slice(0, 6);
 
   const showSkeleton = useDelayedFlag(loading);
   if (loading) return showSkeleton ? <ListSkeleton rows={2} /> : null;
@@ -195,12 +204,48 @@ export function ExpenseSummary({ onAddSalary }: Props) {
       </Card>
 
       <Card className="finance-breakdown-module col-span-2 p-5 lg:col-span-6 lg:p-6">
-        <p className="mb-4 text-sm font-semibold text-slate-700">カテゴリ別支出</p>
-        {categoryBreakdown.length === 0 ? (
+        <div className="mb-4 flex items-baseline justify-between gap-3">
+          <p className="text-sm font-semibold text-slate-700">カテゴリ別支出</p>
+          <Link to="/settings" className="shrink-0 text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+            予算を設定
+          </Link>
+        </div>
+
+        {overBudget.length > 0 && (
+          <p className="mb-3 text-xs font-medium text-danger">
+            {overBudget.map((s) => s.category).join("・")} が予算を超えています
+          </p>
+        )}
+
+        {categoryBreakdown.length === 0 && budgetStatuses.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500">今期の支出記録はありません</p>
         ) : (
           <div className="space-y-3">
-            {categoryBreakdown.slice(0, 6).map(([category, amount]) => (
+            {/* 予算を決めたカテゴリは、全体に占める割合ではなく上限に対する使い具合で見せる。
+                どれくらい使ったかより「あと何円使えるか」が知りたい行なので、棒の意味を変える。 */}
+            {budgetStatuses.map((status) => (
+              <div key={status.category}>
+                <div className="mb-1.5 flex items-baseline justify-between gap-3 text-xs">
+                  <span className="min-w-0 truncate text-slate-600">{status.category}</span>
+                  <span className="shrink-0 tabular-nums text-slate-500">
+                    <span className={`font-semibold ${status.over ? "text-danger" : "text-slate-800"}`}>{yen(status.spent)}</span> / {yen(status.budget)}
+                  </span>
+                </div>
+                <ProgressBar
+                  value={status.ratio}
+                  colorClass={status.over ? "bg-danger" : status.nearLimit ? "bg-warning" : "bg-success"}
+                />
+                <p className={`mt-1 text-[11px] ${status.over ? "text-danger" : "text-slate-400"}`}>
+                  {status.over ? `${yen(-status.remaining)} 超過` : `あと ${yen(status.remaining)}`}
+                </p>
+              </div>
+            ))}
+
+            {budgetStatuses.length > 0 && unbudgetedBreakdown.length > 0 && (
+              <p className="border-t border-white/35 pt-3 text-[11px] text-slate-400">予算を決めていないカテゴリ</p>
+            )}
+
+            {unbudgetedBreakdown.map(([category, amount]) => (
               <div key={category}>
                 <div className="mb-1.5 flex justify-between text-xs"><span className="text-slate-600">{category}</span><span className="font-semibold tabular-nums text-slate-800">{yen(amount)}</span></div>
                 <ProgressBar value={totalExpense > 0 ? (amount / totalExpense) * 100 : 0} />

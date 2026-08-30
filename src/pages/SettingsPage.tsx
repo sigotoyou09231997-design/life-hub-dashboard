@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
-import { Bell, CalendarArrowUp, Database, Mail, PiggyBank } from "lucide-react";
+import { Bell, CalendarArrowUp, Database, Mail, PiggyBank, Wallet } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
-import type { GmailAccount, SavingsGoal } from "../types";
+import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
+import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
@@ -25,6 +26,7 @@ import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
 import { Button } from "../components/ui/Button";
 import { AmountInput, Input } from "../components/ui/Input";
+import { Select } from "../components/ui/Select";
 import { SwitchField } from "../components/ui/SwitchField";
 import { useToast } from "../components/ui/ToastProvider";
 
@@ -74,6 +76,44 @@ export default function SettingsPage() {
     await db.savingsGoals.delete(goal.id);
     if (goalDraft?.id === goal.id) setGoalDraft(null);
     showToast("貯金目標を削除しました");
+  }
+
+  // カテゴリ別の予算。全体の予算(給与 - 固定費)とは別に持つ、カテゴリごとの上限。
+  const categoryBudgets = useLiveQuery(async () => sortCategoryBudgets(await db.categoryBudgets.toArray()), []);
+  const [budgetDraft, setBudgetDraft] = useState<{ id?: string; category: string; amount: string } | null>(null);
+  const budgetTotal = totalCategoryBudget(categoryBudgets ?? []);
+  const budgetDraftAmount = Math.max(0, Math.round(Number(budgetDraft?.amount ?? "") || 0));
+  const budgetDraftValid = Boolean(budgetDraft && budgetDraft.category && budgetDraftAmount > 0);
+  // 追加のときだけ「まだ予算の無いカテゴリ」に絞る。編集中は自分のカテゴリも選べないと、
+  // 金額だけ直したいときに選択肢が空になる。
+  const budgetCategoryOptions = budgetDraft?.id
+    ? [budgetDraft.category, ...unbudgetedCategories(categoryBudgets ?? [])]
+    : unbudgetedCategories(categoryBudgets ?? []);
+
+  async function handleSaveBudget() {
+    if (!budgetDraft || !budgetDraftValid) return;
+    if (budgetDraft.id) {
+      await db.categoryBudgets.update(budgetDraft.id, {
+        category: budgetDraft.category,
+        monthlyAmount: budgetDraftAmount,
+      });
+    } else {
+      await db.categoryBudgets.add({
+        category: budgetDraft.category,
+        monthlyAmount: budgetDraftAmount,
+        createdAt: Date.now(),
+      });
+    }
+    setBudgetDraft(null);
+    showToast(budgetDraft.id ? "予算を保存しました" : "予算を追加しました");
+  }
+
+  async function handleDeleteBudget(budget: CategoryBudget) {
+    if (!budget.id) return;
+    if (!confirm(`「${budget.category}」の予算を削除します。よろしいですか?`)) return;
+    await db.categoryBudgets.delete(budget.id);
+    if (budgetDraft?.id === budget.id) setBudgetDraft(null);
+    showToast("予算を削除しました");
   }
 
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -317,6 +357,98 @@ export default function SettingsPage() {
             <div className="system-section__actions">
               <Button variant="secondary" className="w-full" onClick={() => setGoalDraft({ name: "", amount: "" })}>
                 {(savingsGoals ?? []).length > 0 ? "+ 目標を追加" : "貯金目標を作る"}
+              </Button>
+            </div>
+          )}
+        </Card>
+
+        <Card className="system-section system-section--budget">
+          <div className="system-section__header">
+            <div className="system-section__identity"><span><Wallet size={17} /></span><div><h2>カテゴリ別の予算</h2></div></div>
+            <div className={`system-status ${budgetTotal > 0 ? "is-online" : ""}`}><i />{budgetTotal > 0 ? `${(categoryBudgets ?? []).length} 件` : "未設定"}</div>
+          </div>
+          <p className="system-section__description text-xs text-slate-500">
+            「食費は月3万円まで」のように、カテゴリごとの上限を決められます。
+            お金管理のサマリーに、今期どのカテゴリで使いすぎているかを出します
+            (集計は全体の残額と同じく、給料日から次の給料日までの1期ぶんです)。
+          </p>
+          <div className="system-state-control">
+            <div><span>上限の合計</span><strong>¥{budgetTotal.toLocaleString()} / 月</strong></div>
+            <small>{budgetTotal > 0 ? "サマリーに表示中" : "未設定"}</small>
+          </div>
+
+          {(categoryBudgets ?? []).length > 0 && (
+            <div className="system-account-list space-y-2">
+              {(categoryBudgets ?? []).map((budget) => (
+                <ListRow key={budget.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-slate-700">{budget.category}</p>
+                    <p className="text-[11px] tabular-nums text-slate-500">¥{budget.monthlyAmount.toLocaleString()} / 月</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button
+                      onClick={() =>
+                        setBudgetDraft({ id: budget.id, category: budget.category, amount: String(budget.monthlyAmount) })
+                      }
+                      className="text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                    >
+                      編集
+                    </button>
+                    <button
+                      onClick={() => handleDeleteBudget(budget)}
+                      className="text-xs font-medium text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+                    >
+                      削除
+                    </button>
+                  </div>
+                </ListRow>
+              ))}
+            </div>
+          )}
+
+          {budgetDraft ? (
+            <div className="mt-3 space-y-3 border-t border-white/40 pt-3">
+              <Select
+                label="カテゴリ"
+                value={budgetDraft.category}
+                onChange={(e) => setBudgetDraft({ ...budgetDraft, category: e.target.value })}
+              >
+                {budgetCategoryOptions.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </Select>
+              <AmountInput
+                label="1か月あたりの上限"
+                hint="1円以上で登録できます。"
+                value={budgetDraft.amount}
+                onChange={(e) => setBudgetDraft({ ...budgetDraft, amount: e.target.value })}
+                min={0}
+                placeholder="0"
+              />
+              <div className="flex gap-3">
+                <Button variant="secondary" className="flex-1" onClick={() => setBudgetDraft(null)}>
+                  やめる
+                </Button>
+                <Button className="flex-1" onClick={handleSaveBudget} disabled={!budgetDraftValid}>
+                  {budgetDraft.id ? "保存" : "追加"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="system-section__actions">
+              <Button
+                variant="secondary"
+                className="w-full"
+                disabled={budgetCategoryOptions.length === 0}
+                onClick={() => setBudgetDraft({ category: budgetCategoryOptions[0], amount: "" })}
+              >
+                {budgetCategoryOptions.length === 0
+                  ? "すべてのカテゴリに設定済み"
+                  : (categoryBudgets ?? []).length > 0
+                    ? "+ カテゴリを追加"
+                    : "カテゴリ別の予算を作る"}
               </Button>
             </div>
           )}
