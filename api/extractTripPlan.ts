@@ -28,36 +28,68 @@ export interface ExtractedTripItem {
   endLocation?: string;
   memo?: string;
   type: ScheduleType;
-  /** その項目の代金(円)。メールに書かれていて、その項目のものだと分かる時だけ。 */
+  /** その項目の代金(円)。資料に書かれていて、その項目のものだと分かる時だけ。 */
   amount?: number;
 }
 
-interface ExtractTripPlanBody {
+/** 読み取りのもとになるもの。
+ *
+ * subject/body はGmailの取り込み(src/components/gmail/MailPlanImport.tsx)から、
+ * text/images は旅行計画の「写真・文章から読み取る」(src/components/trips/TripPlanScanForm.tsx)
+ * から渡ってくる。どれか1つでもあれば読み取りを試みる。 */
+export interface ExtractTripPlanBody {
   subject?: string;
   body?: string;
   /** 「来月12日」のような書き方を実際の日付に直すための基準日(YYYY-MM-DD)。 */
   today?: string;
+  /** 貼り付けられた文章(旅行会社のしおり、案内のメッセージ、ブログの抜粋など)。 */
+  text?: string;
+  /** 写真(チケット・パンフレット・画面の写しなど)。base64はデータURLの接頭辞を含めない。 */
+  images?: { base64?: string; mediaType?: string }[];
+  /** 入れ先の旅行の期間。「1日目」「2日目」のような書き方を実際の日付に直すのに使う。 */
+  tripStart?: string;
+  tripEnd?: string;
 }
 
 /** メール本文をそのまま全部渡すと、長い規約やフッターでトークンを使い切る。
  * 予約情報は先頭側にあることがほとんどなので、頭から一定量だけ渡す。 */
 const MAX_BODY_CHARS = 12_000;
 
+/** 貼り付けられた文章の上限。しおり1枚ぶんを丸ごと貼れる程度には取る。 */
+const MAX_TEXT_CHARS = 20_000;
+
 /** 1回の取り込みで受け付ける件数の上限。往復の便と宿で数件、多くても十数件のはずで、
  * それを大きく超える応答は読み違えているとみなして切り捨てる。 */
 const MAX_ITEMS = 20;
 
-export const SYSTEM_PROMPT = `あなたは、メールから旅行の日程を取り出す担当です。
+/** 一度に渡せる写真の枚数。しおりの見開きや往復のチケットで数枚を想定している。
+ * これ以上は読み取りが長くなるうえ、確認する側も追えなくなる。 */
+const MAX_IMAGES = 4;
 
-渡されたメール(航空券・新幹線・ホテル・レンタカーなどの予約確認や案内)から、旅行の日程表に
-並べるべき項目を取り出してください。
+/** 写真1枚あたりのbase64の長さ。Anthropicの画像1枚の上限に収める。画面側で
+ * 長辺1600pxに縮めてから送る(src/lib/imageDownscale.ts)ので、通常はここに当たらない。 */
+const MAX_IMAGE_BASE64_CHARS = 5_000_000;
+
+/** Anthropicが受け取れる画像の形式(extractReceipt.ts と同じ)。 */
+const ALLOWED_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+export const SYSTEM_PROMPT = `あなたは、渡された資料から旅行の日程を取り出す担当です。
+
+資料は次のいずれか、または組み合わせです。
+- メール(航空券・新幹線・ホテル・レンタカーなどの予約確認や案内)
+- 貼り付けられた文章(旅行会社のしおり、案内のメッセージ、下調べのメモなど)
+- 写真(チケット、予約票、パンフレット、旅程表、画面の写し、手書きのメモなど)
+
+そこから、旅行の日程表に並べるべき項目を取り出してください。
 
 必ず次の形のJSONだけを返してください。説明文もコードフェンスも付けないでください。
 {"items":[{"date":"YYYY-MM-DD","startTime":"HH:mm","endTime":"HH:mm","title":"...","location":"...","endLocation":"...","type":"transport","memo":"...","amount":12540}]}
 
 ルール:
 - date は必ず YYYY-MM-DD 形式。年が書かれていない場合は、基準日以降で最も近い年とみなす。
-- startTime は本文から分かる時だけ入れる。分からなければその項目から省く(推測で埋めない)。
+- 「1日目」「2日目」「初日」「最終日」のような書き方は、[旅行の期間]が渡されていれば
+  その開始日から数えて実際の日付に直す。[旅行の期間]が無く、日付も読み取れない項目は入れない。
+- startTime は資料から分かる時だけ入れる。分からなければその項目から省く(推測で埋めない)。
 - endTime には終わりの時刻を入れる。移動なら到着時刻、宿泊ならチェックアウト時刻、
   食事や観光なら終了時刻。書かれていなければ省く(所要時間から計算して埋めたりしない)。
   日をまたぐ場合は endTime を省き、翌日ぶんを別の項目に分ける。
@@ -68,13 +100,16 @@ export const SYSTEM_PROMPT = `あなたは、メールから旅行の日程を�
   location は「東京駅」、endLocation は「新函館北斗駅」。移動以外では入れない。
 - type は次から選ぶ: transport(飛行機・列車・バス・レンタカーなどの移動), lodging(宿泊・
   チェックイン/アウト), meal(食事の予約), sightseeing(観光・入場・見学の予約), other(その他)
-- memo には予約番号や座席番号など、当日必要になる短い情報だけを入れる。本文の丸写しはしない。
+- memo には予約番号や座席番号など、当日必要になる短い情報だけを入れる。資料の丸写しはしない。
 - amount にはその項目の代金を、円の数字だけで入れる(「12,540円」なら 12540)。新幹線や
   航空券なら運賃、宿泊なら宿泊費。次の場合は入れない: 金額が書かれていない/旅程全体の
   合計しか書かれておらず、その項目ぶんが分からない/取消手数料や割引額など代金そのもの
   ではない金額。往復の合計しか無い場合は、片道に割り付けたりせず省く。
 - 往路と復路、チェックインとチェックアウトは、別々の項目に分ける。
 - 広告・規約・キャンセル規定・配信停止の案内など、当日の行動に関係しない内容は入れない。
+- 写真では、はっきり読み取れる文字だけを使う。かすれ・手ぶれ・見切れで読めない部分は
+  推測で埋めず、その項目ごと省く。
+- 資料に無い日程を補ったり、一般的なおすすめの観光地を足したりしない。
 - 旅行の日程が1つも見つからなければ {"items":[]} を返す。`;
 
 /** モデルの応答からJSONを取り出して、日程として使える項目だけに絞る。
@@ -126,19 +161,69 @@ export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
   return cleaned.slice(0, MAX_ITEMS);
 }
 
-export function buildUserMessage(payload: ExtractTripPlanBody): string {
-  return [
-    `[基準日] ${payload.today ?? "(不明)"}`,
-    `[件名] ${payload.subject ?? "(件名なし)"}`,
-    "[本文]",
-    (payload.body ?? "").slice(0, MAX_BODY_CHARS),
-  ].join("\n");
+/** 受け取った写真のうち、そのままAnthropicへ渡せるものだけを返す。
+ *
+ * 弾いたものを黙って捨てないのが要点 — 4枚選んだのに3枚ぶんしか読まれていない、
+ * という状態に本人が気付けないため、1枚でも駄目なら理由を返して読み取り自体を止める。 */
+export function readImages(payload: ExtractTripPlanBody): {
+  images: { base64: string; mediaType: string }[];
+  error?: string;
+} {
+  const raw = payload.images;
+  if (!Array.isArray(raw) || raw.length === 0) return { images: [] };
+  if (raw.length > MAX_IMAGES) {
+    return { images: [], error: `写真は一度に${MAX_IMAGES}枚までです` };
+  }
+  const images: { base64: string; mediaType: string }[] = [];
+  for (const item of raw) {
+    const base64 = typeof item?.base64 === "string" ? item.base64.trim() : "";
+    const mediaType = typeof item?.mediaType === "string" ? item.mediaType.trim() : "";
+    if (!base64) return { images: [], error: "写真を読み込めませんでした。選び直してお試しください" };
+    if (!ALLOWED_MEDIA_TYPES.includes(mediaType)) {
+      return { images: [], error: "対応していない画像形式が含まれています。写真(JPEG・PNG・WebP)を選んでください" };
+    }
+    if (base64.length > MAX_IMAGE_BASE64_CHARS) {
+      return { images: [], error: "写真が大きすぎます。もう少し小さい写真でお試しください" };
+    }
+    images.push({ base64, mediaType });
+  }
+  return { images };
 }
 
-interface ExtractTripPlanBody {
-  subject?: string;
-  body?: string;
-  today?: string;
+export function buildUserMessage(payload: ExtractTripPlanBody): string {
+  const lines = [`[基準日] ${payload.today ?? "(不明)"}`];
+  // 旅行の期間が分かっていれば、「2日目」のような書き方を実際の日付に直せる。
+  if (payload.tripStart && payload.tripEnd) {
+    lines.push(`[旅行の期間] ${payload.tripStart} 〜 ${payload.tripEnd}`);
+  }
+  // メール由来のときだけ件名・本文を出す。文章や写真から読むときに空の
+  // 「[件名] (件名なし)」を見せると、メールを読み違えたと受け取られかねない。
+  if (payload.subject != null || payload.body != null) {
+    lines.push(`[件名] ${payload.subject ?? "(件名なし)"}`, "[本文]", (payload.body ?? "").slice(0, MAX_BODY_CHARS));
+  }
+  if (payload.text?.trim()) {
+    lines.push("[貼り付けられた文章]", payload.text.slice(0, MAX_TEXT_CHARS));
+  }
+  const imageCount = readImages(payload).images.length;
+  if (imageCount > 0) {
+    lines.push(`[写真] ${imageCount}枚。上の画像に写っている内容から読み取ってください。`);
+  }
+  return lines.join("\n");
+}
+
+/** Anthropicへ渡す中身。画像を先、文章を後ろに置く(そう並べた方が写真を読み違えにくい)。 */
+export function buildContent(payload: ExtractTripPlanBody): unknown[] {
+  const blocks: unknown[] = readImages(payload).images.map((image) => ({
+    type: "image",
+    source: { type: "base64", media_type: image.mediaType, data: image.base64 },
+  }));
+  blocks.push({ type: "text", text: buildUserMessage(payload) });
+  return blocks;
+}
+
+/** 読み取るもとが1つも渡されていないか。 */
+export function hasNoSource(payload: ExtractTripPlanBody, imageCount: number): boolean {
+  return !payload.body?.trim() && !payload.subject?.trim() && !payload.text?.trim() && imageCount === 0;
 }
 
 function jsonResponse(res: VercelResponse, statusCode: number, body: unknown) {
@@ -162,8 +247,13 @@ export default async (req: VercelRequest, res: VercelResponse) => {
   } catch {
     return jsonResponse(res, 400, { error: "Invalid JSON body" });
   }
-  if (!payload.body && !payload.subject) {
-    return jsonResponse(res, 400, { error: "メールの件名か本文が必要です" });
+
+  const { images, error: imageError } = readImages(payload);
+  if (imageError) {
+    return jsonResponse(res, 400, { error: imageError });
+  }
+  if (hasNoSource(payload, images.length)) {
+    return jsonResponse(res, 400, { error: "読み取るもとになる文章か写真が必要です" });
   }
 
   const anthropicRes = await fetch(ANTHROPIC_ENDPOINT, {
@@ -177,7 +267,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       model: MODEL,
       max_tokens: 2048,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: buildUserMessage(payload) }],
+      messages: [{ role: "user", content: buildContent(payload) }],
     }),
   });
 
@@ -192,7 +282,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     return jsonResponse(res, 502, { error: "AIから日程を取得できませんでした。もう一度お試しください" });
   }
   if (data.stop_reason === "max_tokens") {
-    return jsonResponse(res, 502, { error: "メールが長すぎて読み取りきれませんでした。もう一度お試しください" });
+    return jsonResponse(res, 502, { error: "内容が多すぎて読み取りきれませんでした。分けてもう一度お試しください" });
   }
 
   return jsonResponse(res, 200, { items: parseTripPlanResponse(text) });

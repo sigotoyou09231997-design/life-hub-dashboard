@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildUserMessage, parseTripPlanResponse } from "../functions/extractTripPlan";
+import { buildContent, buildUserMessage, hasNoSource, parseTripPlanResponse, readImages } from "../functions/extractTripPlan";
 import {
   SYSTEM_PROMPT as VERCEL_SYSTEM_PROMPT,
+  buildContent as vercelBuildContent,
   buildUserMessage as vercelBuildUserMessage,
+  hasNoSource as vercelHasNoSource,
   parseTripPlanResponse as vercelParseTripPlanResponse,
+  readImages as vercelReadImages,
 } from "../../api/extractTripPlan";
 import { SYSTEM_PROMPT } from "../functions/extractTripPlan";
 
@@ -168,6 +171,82 @@ describe("buildUserMessage", () => {
     const message = buildUserMessage({ body: "あ".repeat(20_000) });
     expect(message.length).toBeLessThan(13_000);
   });
+
+  it("旅行の期間を渡す(「2日目」を実際の日付に直せるように)", () => {
+    const message = buildUserMessage({ today: "2026-08-30", text: "2日目 10:00 五稜郭", tripStart: "2026-09-12", tripEnd: "2026-09-14" });
+    expect(message).toContain("[旅行の期間] 2026-09-12 〜 2026-09-14");
+    expect(message).toContain("[貼り付けられた文章]");
+  });
+
+  it("メールでない時は、空の件名欄を作らない", () => {
+    // 「[件名] (件名なし)」だけが並ぶと、メールを読み違えたと受け取られかねない。
+    expect(buildUserMessage({ today: "2026-08-30", text: "しおり" })).not.toContain("[件名]");
+    expect(buildUserMessage({ today: "2026-08-30", subject: "予約確認" })).toContain("[件名] 予約確認");
+  });
+
+  it("写真の枚数を伝える", () => {
+    const message = buildUserMessage({
+      today: "2026-08-30",
+      images: [
+        { base64: "AAAA", mediaType: "image/jpeg" },
+        { base64: "BBBB", mediaType: "image/png" },
+      ],
+    });
+    expect(message).toContain("[写真] 2枚");
+  });
+
+  it("長い貼り付け文章も頭から一定量だけ渡す", () => {
+    expect(buildUserMessage({ text: "あ".repeat(40_000) }).length).toBeLessThan(21_000);
+  });
+});
+
+describe("写真の受け取り", () => {
+  it("そのまま渡せる写真だけを通す", () => {
+    const { images, error } = readImages({ images: [{ base64: "AAAA", mediaType: "image/jpeg" }] });
+    expect(error).toBeUndefined();
+    expect(images).toEqual([{ base64: "AAAA", mediaType: "image/jpeg" }]);
+  });
+
+  it("写真が無い時は空で返す", () => {
+    expect(readImages({}).images).toEqual([]);
+    expect(readImages({ images: [] }).images).toEqual([]);
+  });
+
+  it("駄目な写真が1枚でもあれば、黙って捨てずに理由を返す", () => {
+    // 4枚選んだのに3枚ぶんしか読まれていない状態に、本人が気付けないため。
+    expect(readImages({ images: [{ base64: "AAAA", mediaType: "image/heic" }] }).error).toContain("対応していない");
+    expect(readImages({ images: [{ base64: "", mediaType: "image/jpeg" }] }).error).toContain("読み込めませんでした");
+    expect(readImages({ images: [{ base64: "A".repeat(5_000_001), mediaType: "image/jpeg" }] }).error).toContain("大きすぎます");
+  });
+
+  it("枚数が上限を超えたら受け取らない", () => {
+    const images = Array.from({ length: 5 }, () => ({ base64: "AAAA", mediaType: "image/jpeg" }));
+    expect(readImages({ images }).error).toContain("4枚まで");
+  });
+});
+
+describe("buildContent", () => {
+  it("写真を先、文章を後ろに置く", () => {
+    const blocks = buildContent({ today: "2026-08-30", text: "しおり", images: [{ base64: "AAAA", mediaType: "image/jpeg" }] });
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toEqual({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: "AAAA" } });
+    expect(blocks[1]).toMatchObject({ type: "text" });
+  });
+
+  it("写真が無ければ文章だけを渡す", () => {
+    expect(buildContent({ today: "2026-08-30", subject: "予約確認", body: "本文" })).toHaveLength(1);
+  });
+});
+
+describe("hasNoSource", () => {
+  it("読み取るもとが1つも無い時だけ真", () => {
+    expect(hasNoSource({}, 0)).toBe(true);
+    expect(hasNoSource({ text: "   " }, 0)).toBe(true);
+    expect(hasNoSource({}, 1)).toBe(false);
+    expect(hasNoSource({ text: "しおり" }, 0)).toBe(false);
+    expect(hasNoSource({ subject: "予約確認" }, 0)).toBe(false);
+    expect(hasNoSource({ body: "本文" }, 0)).toBe(false);
+  });
 });
 
 describe("Netlify版とVercel版のずれ", () => {
@@ -199,5 +278,18 @@ describe("Netlify版とVercel版のずれ", () => {
     expect(VERCEL_SYSTEM_PROMPT).toBe(SYSTEM_PROMPT);
     const payload = { today: "2026-08-25", subject: "予約確認", body: "本文" };
     expect(vercelBuildUserMessage(payload)).toBe(buildUserMessage(payload));
+  });
+
+  it("写真の受け取りと、渡す中身の組み立ても同じ", () => {
+    const payloads = [
+      { today: "2026-08-25", text: "しおり", images: [{ base64: "AAAA", mediaType: "image/jpeg" }] },
+      { today: "2026-08-25", images: [{ base64: "AAAA", mediaType: "image/heic" }] },
+      { today: "2026-08-25", text: "2日目 10:00 五稜郭", tripStart: "2026-09-12", tripEnd: "2026-09-14" },
+    ];
+    for (const payload of payloads) {
+      expect(vercelReadImages(payload)).toEqual(readImages(payload));
+      expect(vercelBuildContent(payload)).toEqual(buildContent(payload));
+      expect(vercelHasNoSource(payload, 0)).toBe(hasNoSource(payload, 0));
+    }
   });
 });

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { NotebookPen, Pencil, Plus, Trash2 } from "lucide-react";
+import { NotebookPen, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
 import type { TripScheduleItem, TripExpense, TripPackingItem, TripRoutePlace, TripStatus, DiaryEntry } from "../types";
 import { formatDisplayDate, tripDayList, tripDurationLabel, todayStr } from "../lib/date";
@@ -21,6 +21,7 @@ import { TripPackingList } from "../components/trips/TripPackingList";
 import { TripRouteView } from "../components/trips/TripRouteView";
 import { TripRouteForm } from "../components/trips/TripRouteForm";
 import { TripQuickPlanForm } from "../components/trips/TripQuickPlanForm";
+import { TripPlanScanForm } from "../components/trips/TripPlanScanForm";
 import { DiaryList } from "../components/diary/DiaryList";
 import { DiaryForm } from "../components/diary/DiaryForm";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -65,6 +66,7 @@ export default function TripDetailPage() {
   const [editingDiary, setEditingDiary] = useState<DiaryEntry | "new" | null>(null);
   /** 日程・費用・ルートをまとめて入れるシートを開いているか。 */
   const [quickPlanOpen, setQuickPlanOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   // 日程の場所からルートを起こすとき、追加フォームに渡して埋めておく値。
   const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
 
@@ -260,15 +262,23 @@ export default function TripDetailPage() {
               }}
             />
             {dayList.length > 0 && (
-              <Button
-                className="mt-4 w-full"
-                onClick={() => {
-                  setScheduleDatePreset(null);
-                  setEditingSchedule("new");
-                }}
-              >
-                予定を追加
-              </Button>
+              <div className="mt-4 space-y-2">
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    setScheduleDatePreset(null);
+                    setEditingSchedule("new");
+                  }}
+                >
+                  予定を追加
+                </Button>
+                {/* しおり・チケット・案内のメッセージから日程を起こす入り口。1件ずつ
+                    打ち込む「予定を追加」の下に置き、まとめて入れたい時だけ使う。 */}
+                <Button variant="secondary" className="w-full" onClick={() => setScanOpen(true)}>
+                  <Sparkles size={17} />
+                  写真・文章から読み取る
+                </Button>
+              </div>
             )}
           </>
         )}
@@ -474,6 +484,20 @@ export default function TripDetailPage() {
               showToast(message);
             }}
             onCancel={() => setQuickPlanOpen(false)}
+          />
+        )}
+      </Sheet>
+
+      <Sheet open={scanOpen} onClose={() => setScanOpen(false)} title="写真・文章から読み取る">
+        {scanOpen && (
+          <TripPlanScanForm
+            tripId={tripId}
+            trip={trip}
+            onSaved={(message) => {
+              setScanOpen(false);
+              showToast(message);
+            }}
+            onCancel={() => setScanOpen(false)}
           />
         )}
       </Sheet>
