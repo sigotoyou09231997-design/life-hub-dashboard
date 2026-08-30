@@ -15,6 +15,13 @@ interface Props {
   onCancel: () => void;
 }
 
+/** 本文欄の高さ(行数)。住所のように数行のテキストを入れたとき、枠の中で
+ *  スクロールしないと下が見えない状態を避けるため、入っている行数に合わせて伸ばす。
+ *  伸びっぱなしだと下のカテゴリ・タグが遠くなるので上限を置く。 */
+export function memoBodyRows(body: string): number {
+  return Math.min(20, Math.max(8, body.split("\n").length + 1));
+}
+
 export function MemoForm({ initial, onSaved, onCancel }: Props) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [body, setBody] = useState(initial?.body ?? "");
@@ -65,7 +72,13 @@ export function MemoForm({ initial, onSaved, onCancel }: Props) {
           required
           autoFocus
         />
-        <Textarea label="本文" optional value={body} onChange={(e) => setBody(e.target.value)} rows={5} />
+        <Textarea
+          label="本文"
+          optional
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={memoBodyRows(body)}
+        />
       </FormPanel>
 
       <FormPanel caption="整理のしかた">
