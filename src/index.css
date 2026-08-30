@@ -2176,9 +2176,22 @@ body .text-sm { line-height: 1.5; }
 .is-empty-fill > :last-child { flex: 1; }
 
 /* 背が高くなったぶん、中身は上に貼りつけず縦の中央に置く。 */
-.is-empty-fill > .notes-empty-control,
 .is-empty-fill > .finance-balance-module { justify-content: center; }
-.is-empty-fill > .notes-empty-control { display: flex; flex-direction: column; }
 .is-empty-fill .planning-task-list { justify-content: center; }
+
+/* メモ・リストの空状態だけは、中身をまとめて中央に落とすと形が崩れる。
+   このカードは「メモ・リスト 0件」という見出しで始まり、下端に区切り線付きの
+   「最初のメモを作成 / 新しいメモ」という操作の行を持つ、上下の端が意味を持つ面。
+   まとめて中央へ寄せると、見出しと内訳(メモ/チェックリスト/買い物リスト)が
+   カードの真ん中より下まで下がり、その上に大きな空白が残っていた(画面が広いほど
+   目立つ)。見出しと内訳は上端に置き、操作の行だけを下端に貼りつける — 空くのは
+   内訳と操作の間、つまりこれからメモが並ぶ場所になる。 */
+.is-empty-fill > .notes-empty-control {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.is-empty-fill > .notes-empty-control > .notes-empty-control__action { margin-top: auto; }
 /* こちらはgrid。既定のstretchのままだと、背が高くなったぶん行が上下に散る。 */
 .destination-empty-control.is-empty-fill-self { align-content: center; }
