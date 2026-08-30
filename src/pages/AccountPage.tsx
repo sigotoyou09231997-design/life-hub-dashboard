@@ -6,7 +6,6 @@ import { RefreshCw, Check, ChevronRight, Cloud, Mail, UserPlus, UserRound, Users
 import { db } from "../db/schema";
 import { auth, isSupabaseConfigured, getRedirectUri } from "../lib/supabase";
 import { listAccounts } from "../lib/accounts";
-import { describeAccountState } from "../lib/crossAccountEvents";
 import { signOutActiveAccount, startAddAccount, switchToAccount } from "../lib/accountSwitch";
 import { syncNow } from "../lib/syncRuntime";
 import { AccountAvatar, accountLabel } from "../components/layout/AccountSwitcher";
@@ -137,11 +136,6 @@ export default function AccountPage() {
                   </div>
                 );
               })}
-              {/* 「ほかのアカウントにも入れる」欄が出ない件の切り分け用。端末側で何が
-                  起きているのかを本人が読めるようにしている。原因が分かったら消す。 */}
-              <p className="break-all rounded-lg bg-slate-900/5 px-3 py-2 font-mono text-[10px] leading-relaxed text-slate-500">
-                {describeAccountState()}
-              </p>
               <Button variant="secondary" className="w-full" onClick={startAddAccount}>
                 <UserPlus size={16} />
                 アカウントを追加

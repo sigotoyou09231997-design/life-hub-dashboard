@@ -183,14 +183,3 @@ async function queueForPush(other: LifeHubDB, rowId: string, op: "upsert" | "del
   if (existing?.id) await other.syncQueue.update(existing.id, { op, queuedAt: Date.now() });
   else await other.syncQueue.add({ table: "calendar_events", rowId, op, queuedAt: Date.now() });
 }
-
-/** 画面に出す診断用の一行。「ほかのアカウントにも入れる」欄の状態を、端末側で本人が
- * 読めるようにするためのもの(アカウント画面に表示)。原因が分かったら消す。 */
-export function describeAccountState(): string {
-  const accounts = listAccounts();
-  const others = listOtherAccounts();
-  const rows = accounts
-    .map((a) => `${a.userId.slice(0, 6)}/${a.dbName}/slot=${a.slot ?? "既定"}`)
-    .join(" , ");
-  return `登録${accounts.length}件 [${rows}] / 開いているDB=${BOOT_DB_NAME} / 複製先=${others.length}件`;
-}
