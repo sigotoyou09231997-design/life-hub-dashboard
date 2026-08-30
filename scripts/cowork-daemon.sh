@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 #
 # cowork-daemon.sh
-#   docs/requests/ への書き込みを検知して、ヘッドレスの Claude Code
-#   （claude -p "/cowork-check"）を直接起動する常駐プロセス。
+#   docs/requests/ への書き込みを検知して、Claude Code
+#   （claude -p "/cowork-check"）を起動する常駐プロセス。
+#
+#   既定では、見えるターミナルのウィンドウ（Terminal.app）を開いて
+#   scripts/cowork-run-visible.sh をそこで走らせる。何も表示されないと
+#   「感知していない」ようにしか見えないため。GUIが無い環境では今までどおり
+#   完全に無人で走らせる（下の VISIBLE_RUN）。
 #
 #   SessionStart フックから cowork-hook-start.sh 経由で起動され、
 #   SessionEnd フックから cowork-hook-stop.sh で止められる。
@@ -33,9 +38,17 @@ LAST_HASH_FILE="$STATE_DIR/last_hash"
 #   acceptEdits       … ファイル編集は自動承認、シェルは allow リストの範囲だけ（既定・安全側）
 #   bypassPermissions … 全部無条件に実行（止まらないが、何でもできてしまう）
 PERMISSION_MODE='acceptEdits'
-POLL_SEC=5          # 見に行く間隔
-DEBOUNCE_SEC=6      # 書き込みが止んでから起動するまでの待ち
-COOLDOWN_SEC=45     # 1回走った後、次を受け付けるまでの休み
+# 反映を「見えるターミナルのウィンドウ」で走らせるか。
+#   1 … Terminal.app を開いて、その中で走らせる（既定）。何が起きているか見える
+#   0 … 今までどおり完全に無人で走らせる（画面には何も出ない）
+# GUIが無い環境（sshやコンテナ）では、1でも自動的に無人実行へ落ちる。
+VISIBLE_RUN="${COWORK_VISIBLE_RUN:-1}"
+VISIBLE_TIMEOUT_SEC=5400  # 見えるウィンドウの実行を待つ上限（1時間半）
+# 下の3つは、テスト(src/__tests__/coworkDaemon.test.ts)から短くして動きを確かめるために
+# 環境変数で上書きできる。ふだんの運用では指定しないので、右の既定値で動く。
+POLL_SEC="${COWORK_POLL_SEC:-5}"          # 見に行く間隔
+DEBOUNCE_SEC="${COWORK_DEBOUNCE_SEC:-6}"  # 書き込みが止んでから起動するまでの待ち
+COOLDOWN_SEC="${COWORK_COOLDOWN_SEC:-45}" # 1回走った後、次を受け付けるまでの休み
 MAX_RUNS_PER_HOUR=6 # 暴走よけの上限
 IDLE_EXIT_MIN=60    # ウィンドウが1枚も無い状態がこれだけ続いたら自分で終了
 # ------------------------------------------------------------------------
@@ -137,6 +150,85 @@ any_window_alive() {
   return 1
 }
 
+# ---- 見えるターミナルで走らせる ------------------------------------------
+# ログにしか残らないと「感知していない・動いていない」ようにしか見えないので、
+# 既定ではターミナルのウィンドウを開き、その中で実行役(cowork-run-visible.sh)を走らせる。
+# 常駐はウィンドウの終わりを .cowork/run.exit で待つ（Terminal.app の do script は
+# 実行を待ってくれないため、終了コードはファイル越しに受け取る）。
+#
+# 成功すれば 0 を返し、終了コードを VISIBLE_EXIT に入れる。
+# ウィンドウを開けない環境（sshやコンテナ）では 1 を返し、呼び元が今までどおり無人で走らせる。
+VISIBLE_EXIT=0
+run_visible() {
+  note="$1"
+  [ "$VISIBLE_RUN" = 1 ] || return 1
+  command -v osascript >/dev/null 2>&1 || return 1
+  # ログイン中のGUIが無ければ Terminal.app は開けない
+  [ "$(launchctl managername 2>/dev/null)" = "Aqua" ] || return 1
+
+  runner="$ROOT/scripts/cowork-run-visible.sh"
+  [ -f "$runner" ] || return 1
+
+  exitfile="$STATE_DIR/run.exit"
+  runpid="$STATE_DIR/run.pid"
+  rm -f "$exitfile" "$runpid"
+
+  # ダブルクォートは do script の文字列を壊すので落としておく（検知内容はただの説明文）
+  safe_note="$(printf '%s' "$note" | tr -d '"\\')"
+  # ウィンドウを開くのは、待たせない。初回は「Terminalを操作してよいか」の
+  # 確認ダイアログが出ることがあり、誰も答えないと osascript がそのまま返ってこない。
+  # そこで見張りを付け、返ってこなければ諦めて今までどおり無人で走らせる。
+  osascript \
+      -e 'on run argv' \
+      -e '  tell application "Terminal"' \
+      -e '    activate' \
+      -e '    do script ("bash " & quoted form of (item 1 of argv) & " " & quoted form of (item 2 of argv) & " " & quoted form of (item 3 of argv))' \
+      -e '  end tell' \
+      -e 'end run' \
+      "$runner" "$PERMISSION_MODE" "$safe_note" >/dev/null 2>&1 &
+  osa_pid=$!
+  ( sleep 20; kill -9 "$osa_pid" 2>/dev/null ) >/dev/null 2>&1 &
+  osa_watchdog=$!
+  wait "$osa_pid"
+  osa_rc=$?
+  kill "$osa_watchdog" 2>/dev/null || true
+  wait "$osa_watchdog" 2>/dev/null || true
+  if [ "$osa_rc" != 0 ]; then
+    log "ターミナルのウィンドウを開けなかったので、今までどおり無人で走らせます（osascript exit=${osa_rc}）"
+    return 1
+  fi
+
+  log "ターミナルのウィンドウで実行中（${note}）"
+
+  # 終わるのを待つ。ウィンドウごと閉じられた場合は run.pid が死ぬので、そこで打ち切る。
+  waited=0
+  while [ ! -f "$exitfile" ]; do
+    sleep 3
+    waited=$((waited + 3))
+    if [ "$waited" -ge "$VISIBLE_TIMEOUT_SEC" ]; then
+      log "ターミナルでの実行が ${VISIBLE_TIMEOUT_SEC} 秒を過ぎても終わらないため、待つのをやめます"
+      VISIBLE_EXIT=124
+      return 0
+    fi
+    # 起動直後は run.pid がまだ無いので、少し経ってから見る
+    if [ "$waited" -ge 30 ] && [ ! -f "$exitfile" ]; then
+      wpid="$(cat "$runpid" 2>/dev/null || true)"
+      if [ -z "${wpid:-}" ] || ! kill -0 "$wpid" 2>/dev/null; then
+        log "ターミナルのウィンドウが閉じられたようです（途中終了）"
+        VISIBLE_EXIT=125
+        return 0
+      fi
+    fi
+  done
+
+  VISIBLE_EXIT="$(cat "$exitfile" 2>/dev/null || printf '1')"
+  case "$VISIBLE_EXIT" in
+    ''|*[!0-9]*) VISIBLE_EXIT=1 ;;
+  esac
+  rm -f "$exitfile"
+  return 0
+}
+
 # ---- ヘッドレス実行 -----------------------------------------------------
 run_check() {
   paths_note="$1"
@@ -179,9 +271,13 @@ run_check() {
   # ヘッドレス実行は「開いているウィンドウ」ではない。フック側が登録／解除しないよう目印を渡す
   # （これが無いと、実行が終わった瞬間に「最後の1枚が閉じた」と誤判定して常駐が自滅する）
   # サブシェルで囲まない: ps 上の見た目が常駐と同じになり、取り残しの掃除で巻き添えにしてしまう
-  COWORK_HEADLESS=1 claude -p "/cowork-check" --permission-mode "$PERMISSION_MODE" \
-    < /dev/null > "$STATE_DIR/headless-out.txt" 2> "$STATE_DIR/headless-err.txt"
-  exit_code=$?
+  if run_visible "$paths_note"; then
+    exit_code="$VISIBLE_EXIT"
+  else
+    COWORK_HEADLESS=1 claude -p "/cowork-check" --permission-mode "$PERMISSION_MODE" \
+      < /dev/null > "$STATE_DIR/headless-out.txt" 2> "$STATE_DIR/headless-err.txt"
+    exit_code=$?
+  fi
 
   # ここまで来た＝実行を最後まで通した。「この内容は処理済み」の印は必ず**実行の後**に
   # 書く。先に書くと、途中で環境ごと落ちた時に未処理の依頼が黙って処理済みになる
