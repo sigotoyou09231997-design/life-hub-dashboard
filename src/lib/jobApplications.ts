@@ -84,3 +84,46 @@ export function jobEventTitle(application: JobApplication): string {
 export function isNextDatePast(application: JobApplication, today: string): boolean {
   return Boolean(application.nextDate && application.nextDate < today);
 }
+
+/** 応募先を足したときに一緒に作るタスクの下書き。 */
+export interface JobPreparationTask {
+  title: string;
+  /** 期限日(YYYY-MM-DD)。次の予定日が入っていないときは付けない。 */
+  dueDate?: string;
+}
+
+/** 段階ごとの「やること」。ここに無い段階(内定・お見送り・辞退)は、
+ * これから準備することが無いのでタスクを作らない。 */
+const PREPARATION_BY_STAGE: Partial<Record<JobApplicationStage, string>> = {
+  applied: "応募書類を準備する",
+  document: "応募書類を準備する",
+  interview1: "一次面接の準備をする",
+  interview2: "二次面接の準備をする",
+  final: "最終面接の準備をする",
+};
+
+/**
+ * 応募先1件ぶんの、一緒に作るタスク。作らない段階では undefined を返す。
+ *
+ * 期限は次の予定日の前日 — 面接当日を期限にすると、当日の朝に「まだ残っている」
+ * と出てしまい、準備を促す役に立たない。次の予定日が月初(1日)のときは前月末に
+ * なるが、それでも「その日までに」の意味は変わらないのでそのまま使う。
+ */
+export function jobPreparationTask(
+  application: Pick<JobApplication, "companyName" | "stage" | "nextDate">,
+): JobPreparationTask | undefined {
+  const what = PREPARATION_BY_STAGE[application.stage];
+  const company = application.companyName.trim();
+  if (!what || !company) return undefined;
+  return { title: `${company} ${what}`, dueDate: dayBefore(application.nextDate) };
+}
+
+/** YYYY-MM-DD の前日。読めない文字列は「期限なし」として扱う。 */
+function dayBefore(dateStr: string | undefined): string | undefined {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return undefined;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day - 1);
+  if (Number.isNaN(date.getTime())) return undefined;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
