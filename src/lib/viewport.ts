@@ -65,6 +65,22 @@ export function staleViewportGap(layoutHeight: number, visualHeight: number, vis
  * 見送っても直せる。 */
 export const VIEWPORT_GAP_SETTLE_MS = 250;
 
+/** いま動いている監視に「測り直して」と伝える口。visualViewport が何も知らせて
+ * こない場面のために要る。
+ *
+ * iOSは、キーボードが出ている入力欄が画面ごと消えた時(画面を切り替えた・シートを
+ * 閉じた)に focusout を出さないことがある。その時 window.innerHeight は
+ * キーボードぶん短いままで、visualViewport 側の resize / scroll も来ないので、
+ * この仕組みは「差が無い」と思い込んだまま止まる。結果、追従ナビと追加ボタんが
+ * 画面の途中に貼りついたまま戻らない(2026-08-31 の報告)。
+ *
+ * そこで、画面を切り替えた時(src/App.tsx)と画面を触った時に、ここから測り直す。 */
+let scheduledUpdate: (() => void) | null = null;
+
+export function refreshViewportGap(): void {
+  scheduledUpdate?.();
+}
+
 /** 上の差を CSS 変数 --viewport-gap として置き、画面下に貼りつくもの(追従ボタン・
  * シート・知らせ)がそれを見て自分の位置を直せるようにする。値を書き込むこと自体が
  * 描き直しのきっかけにもなる — iOSのfixedは「何かのきっかけで描き直されるまで」
@@ -97,6 +113,7 @@ export function trackViewportGap(): () => void {
 
   // 起動時は止まっているので、待たずにそのまま測る。
   write();
+  scheduledUpdate = update;
   visual.addEventListener("resize", update);
   visual.addEventListener("scroll", update);
   window.addEventListener("resize", update);
@@ -109,14 +126,21 @@ export function trackViewportGap(): () => void {
   // 追従ボタン・追従ナビゲーションはシートの外で常に浮いているので、シートの中の
   // 対応だけでは直らない。ここにも同じ引き金を持たせる)。
   document.addEventListener("focusout", update);
+  // 何かを触った時。上の引き金がどれも来なかった場合の最後の受け皿で、次に画面を
+  // 触った時点で必ず測り直す(押した瞬間ではなく、動きが止まってから測る)。
+  document.addEventListener("pointerup", update, { passive: true });
+  document.addEventListener("touchend", update, { passive: true });
   return () => {
     if (settleTimer !== undefined) clearTimeout(settleTimer);
+    scheduledUpdate = null;
     visual.removeEventListener("resize", update);
     visual.removeEventListener("scroll", update);
     window.removeEventListener("resize", update);
     window.removeEventListener("orientationchange", update);
     document.removeEventListener("visibilitychange", update);
     document.removeEventListener("focusout", update);
+    document.removeEventListener("pointerup", update);
+    document.removeEventListener("touchend", update);
   };
 }
 

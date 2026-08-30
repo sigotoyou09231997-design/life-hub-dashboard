@@ -7,6 +7,7 @@ import { clearShownPushNotifications } from "./lib/pushNotifications";
 import { startSync, stopSync } from "./lib/syncRuntime";
 import { ensureDataOwner } from "./lib/dataOwner";
 import { IS_ADDING_ACCOUNT } from "./lib/accounts";
+import { refreshViewportGap } from "./lib/viewport";
 import { finishAddAccount, rememberSignedInAccount } from "./lib/accountSwitch";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
@@ -52,6 +53,13 @@ export default function App() {
   const location = useLocation();
   // HOME以外の全ページに、HOMEと同じ出現アニメーションとスクロール連動を与える。
   const pageMotionRef = usePageMotion<HTMLDivElement>(location.pathname);
+  // 画面を切り替えたら、画面下に貼りつくもの(追従ナビ・追加ボタン)の位置を測り直す。
+  // iOSは、キーボードが出ている入力欄が画面ごと消えると focusout を出さないことが
+  // あり、そのままだと短いままの画面の高さが残って、ナビとボタンが画面の途中に
+  // 貼りついたままになる(src/lib/viewport.ts の refreshViewportGap 参照)。
+  useEffect(() => {
+    refreshViewportGap();
+  }, [location.pathname]);
   // 一覧(/gmail)だけ、内部スクロールのメールリストを1画面に収める固定高さのflex
   // レイアウト(下記)が必要。/gmail/mail/:id(新規タブで開く単独のメール詳細ページ)は
   // 他の通常ページと同じ、ページ全体が自然にスクロールする挙動にする — 固定高さ+
