@@ -1,0 +1,362 @@
+/* ============================================================================
+   Warm / Photo — 全画面共通の土台（2026-08-30）
+
+   これまでの「リキッドグラス」(青みのダーク寄り・半透明・backdrop-filter)をやめ、
+   生成りのクリーム地＋白い面＋大きめの角丸＋薄く柔らかい影に置き換える層。
+
+   既存の 5,500 行の CSS を一度に書き直すのは現実的ではないので、まず
+   .glass-* / サイドバー / ヘッダー / ナビ という「面を決めている primitive」だけを
+   ここで上書きする。これで全画面が同時に暖色のトーンに乗り、そのあと画面ごとに
+   組み方(カードの並び・写真の使い方)を参考デザインへ寄せていく。
+
+   index.css より後に読み込むこと(src/main.tsx)。.glass-* は index.css 側で
+   @layer utilities の中に !important 付きで書かれているので、こちらも同じ
+   utilities レイヤーに置いて「後に書いた方が勝つ」状態にしている。
+   ========================================================================= */
+
+:root {
+  /* 面（地→カード→へこみ） */
+  --warm-ground: #f3ede3;
+  --warm-ground-2: #faf6f0;
+  --warm-surface: #ffffff;
+  --warm-surface-soft: #fbf8f3;
+  --warm-surface-sunk: #f6f2eb;
+
+  /* 線と影 */
+  --warm-line: rgba(63, 51, 37, 0.085);
+  --warm-line-strong: rgba(63, 51, 37, 0.14);
+  --warm-shadow: 0 6px 22px rgba(70, 53, 32, 0.055), 0 1px 2px rgba(70, 53, 32, 0.04);
+  --warm-shadow-lift: 0 14px 38px rgba(70, 53, 32, 0.1), 0 2px 4px rgba(70, 53, 32, 0.045);
+  --warm-shadow-nav: 0 -8px 28px rgba(70, 53, 32, 0.07);
+
+  /* 文字（3段） */
+  --warm-ink: #2f2a23;
+  --warm-ink-2: #6c6355;
+  --warm-ink-3: #9c9284;
+
+  /* 角丸 */
+  --warm-r-xl: 24px;
+  --warm-r-lg: 20px;
+  --warm-r-md: 16px;
+  --warm-r-sm: 12px;
+
+  /* 機能ごとの色（参考デザインの指定：予定=青・タスク=緑・お金=紫・メモ=橙・Gmail=赤） */
+  --tone-schedule: #4b83e0;
+  --tone-task: #3faa72;
+  --tone-money: #8b6fd4;
+  --tone-notes: #e08a48;
+  --tone-gmail: #dd5c52;
+  --tone-trip: #4aa8a0;
+
+  /* 既存のトークンも暖色側へ寄せる（accent / navy は全画面で参照されている） */
+  --color-accent: #4f7cc9;
+  --color-accent-light: rgba(233, 240, 251, 0.9);
+  --color-navy: #2f2a23;
+
+  /* 旧リキッドグラス用のトークンも暖色へ読み替える。これらは hub.css / trips.css /
+     forms.css など各画面のCSSが直接参照しているので、ここを差し替えるだけで
+     その画面ぶんの面・文字・影がまとめて新しいトーンに乗る。 */
+  --hub-surface: var(--warm-surface);
+  --hub-inset: rgba(70, 53, 32, 0.04);
+  --hub-inset-2: rgba(70, 53, 32, 0.07);
+  --hub-edge: var(--warm-line);
+  --hub-hairline: var(--warm-line);
+  --hub-ink: var(--warm-ink);
+  --hub-ink-2: var(--warm-ink-2);
+  --hub-ink-3: var(--warm-ink-3);
+  --hub-navy: var(--warm-ink);
+  --hub-blue: var(--tone-schedule);
+  --hub-green: var(--tone-task);
+  --hub-red: var(--tone-gmail);
+  --hub-amber: var(--tone-notes);
+  --hub-blur: none;
+  --hub-shadow: var(--warm-shadow);
+  --hub-shadow-lift: var(--warm-shadow-lift);
+  --hub-shadow-inset: none;
+  --hub-r-xl: var(--warm-r-xl);
+  --hub-r-lg: var(--warm-r-lg);
+  --hub-r-md: var(--warm-r-md);
+  --hub-r-sm: var(--warm-r-sm);
+  --hub-r-card: var(--warm-r-lg);
+  /* 「写真の上に置く文字」用のトークン。地が写真でなくなったので白抜きはやめる。 */
+  --hub-on-photo: var(--warm-ink);
+  --hub-on-photo-2: var(--warm-ink-2);
+  --hub-photo-shadow: none;
+  --on-photo-shadow: none;
+  /* 見出しは明朝をやめて、参考デザインの丸みのあるゴシックに寄せる。 */
+  --font-display: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic Medium", "Noto Sans JP", sans-serif;
+
+  /* 旧グラス用トークン。ぼかしをやめて不透明な面に読み替える。 */
+  --glass-navigation: var(--warm-surface);
+  --glass-content: var(--warm-surface);
+  --glass-content-strong: var(--warm-surface);
+  --glass-floating: var(--warm-surface);
+  --glass-row: var(--warm-surface-soft);
+  --glass-line: var(--warm-line);
+  --shadow-panel: var(--warm-shadow);
+}
+
+html {
+  background: var(--warm-ground);
+}
+
+/* 背景は写真ではなく、生成りの地。AmbientBackground はこの1枚だけを描く。 */
+.ambient-background {
+  background:
+    radial-gradient(130% 90% at 78% -10%, rgba(255, 253, 249, 0.85), transparent 62%),
+    linear-gradient(170deg, #faf6ef 0%, #f6f1e8 60%, #f3ede3 100%);
+}
+
+.app-shell::before {
+  background: none;
+}
+
+/* 文字の3段。index.css が .app-shell 内で青灰に寄せているので、暖色の灰に戻す。 */
+.app-shell .text-slate-400 { color: var(--warm-ink-3); }
+.app-shell .text-slate-500 { color: var(--warm-ink-2); }
+.app-shell .text-slate-600 { color: #5a5245; }
+.app-shell .text-slate-700 { color: #453f35; }
+.app-shell .text-slate-800,
+.app-shell .text-slate-900 { color: var(--warm-ink); }
+
+/* index.css 側の .glass-* は @tailwind utilities のレイヤーの中にあるが、
+   Tailwind が処理し終えた時点でただのCSSになる。つまり効き方は「後に書いた方が
+   勝つ」だけ。このファイルは main.tsx で index.css より後に読み込むので、同じ
+   強さで書き直せば置き換わる（border-radius だけ元が !important なので合わせる）。
+   ※ @layer utilities はこのファイルでは使えない（Tailwind v3 は @tailwind
+   utilities が同じファイルに無いとエラーにする）。 */
+
+.glass-border { border: 1px solid var(--warm-line); }
+.glass-highlight { box-shadow: none; }
+.glass-shadow { box-shadow: var(--warm-shadow); }
+
+.glass-header {
+  background: rgba(250, 246, 240, 0.92);
+  border-bottom: 1px solid var(--warm-line);
+  box-shadow: none;
+  backdrop-filter: saturate(105%);
+  -webkit-backdrop-filter: saturate(105%);
+}
+
+.glass-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--warm-line);
+  border-radius: var(--warm-r-lg) !important;
+  background: var(--warm-surface);
+  box-shadow: var(--warm-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-card--strong {
+  background: var(--warm-surface);
+  box-shadow: var(--warm-shadow-lift);
+}
+
+/* ガラスの照り返しは新しいトーンに無い装飾なので消す。 */
+.glass-card--reflect::after { display: none; }
+
+.glass-row {
+  border: 1px solid var(--warm-line);
+  border-radius: var(--warm-r-sm) !important;
+  background: var(--warm-surface-soft);
+  box-shadow: none;
+}
+
+.glass-modal {
+  border: 1px solid var(--warm-line);
+  border-radius: var(--warm-r-xl) !important;
+  background: var(--warm-surface);
+  box-shadow: 0 28px 70px rgba(70, 53, 32, 0.2);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.glass-nav {
+  border: 1px solid var(--warm-line);
+  border-radius: var(--warm-r-xl);
+  background: rgba(255, 253, 250, 0.96);
+  box-shadow: var(--warm-shadow-nav);
+  backdrop-filter: saturate(105%);
+  -webkit-backdrop-filter: saturate(105%);
+}
+
+/* 写真の上に文字を乗せる所の読みやすさ用。以前ふりかえりのヘッダーで
+   文字が飛んだので、暖色でも同じ濃さの膜を必ず敷く。 */
+.glass-smoked {
+  background: linear-gradient(to top, rgba(46, 36, 24, 0.72), rgba(46, 36, 24, 0.14) 70%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* backdrop-filter が無い環境向けの旧フォールバックも暖色に合わせる。 */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .app-shell::before { background: none; }
+  .glass-header { background: rgba(250, 246, 240, 0.98); }
+  .glass-card { background: var(--warm-surface); }
+  .glass-row { background: var(--warm-surface-soft); }
+  .glass-modal { background: var(--warm-surface); }
+  .glass-nav { background: rgba(255, 253, 250, 0.98); }
+}
+
+/* ---- サイドバー ------------------------------------------------------- */
+
+.desktop-sidebar {
+  border-right: 1px solid var(--warm-line);
+  background: var(--warm-ground-2);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.sidebar-brand { color: var(--warm-ink); }
+
+.sidebar-brand__mark {
+  border: 1px solid var(--warm-line-strong);
+  border-radius: var(--warm-r-sm);
+  background: var(--warm-surface);
+  box-shadow: none;
+  color: var(--tone-trip);
+}
+
+.sidebar-brand__tagline { color: var(--warm-ink-3); }
+.sidebar-nav__divider { background: var(--warm-line); }
+
+.sidebar-link {
+  border-radius: var(--warm-r-md);
+  color: var(--warm-ink-2);
+  font-weight: 600;
+}
+
+.sidebar-link:hover { color: var(--warm-ink); background: rgba(255, 253, 249, 0.9); }
+.sidebar-link:hover svg { color: var(--color-accent); }
+
+.sidebar-link--active {
+  color: var(--color-accent);
+  background: rgba(233, 240, 251, 0.92);
+  box-shadow: none;
+}
+
+/* 選択中は「薄い色のかたまり」で示す（左の光る棒は使わない）。 */
+.sidebar-link__indicator,
+.sidebar-link:hover .sidebar-link__indicator,
+.sidebar-link--active .sidebar-link__indicator { display: none; }
+
+.sidebar-account {
+  border-top: 1px solid var(--warm-line);
+  border-radius: var(--warm-r-md);
+  color: var(--warm-ink);
+}
+
+.sidebar-account__avatar {
+  border: 1px solid var(--warm-line-strong);
+  background: var(--warm-surface);
+  color: var(--warm-ink-2);
+}
+
+/* ---- ヘッダー / モバイルナビ ------------------------------------------ */
+
+.app-header__mobile-brand { color: var(--warm-ink); }
+
+.glass-nav a svg { color: var(--warm-ink-3); }
+
+/* index.css 側は !important 付きの強い指定で、ヘッダーを「写真の上に浮く透明な帯」
+   または白〜水色の面として描いている。同じ強さで後から書いて、暖色の面にする。 */
+.glass-header,
+.app-header,
+.glass-header:not(.app-header--home),
+.app-header:not(.app-header--home) {
+  border-bottom: 1px solid var(--warm-line) !important;
+  background: rgba(250, 246, 240, 0.94) !important;
+  box-shadow: none;
+  backdrop-filter: saturate(105%);
+  -webkit-backdrop-filter: saturate(105%);
+}
+
+/* ヘッダーの裏に敷いていた「中身をぼかして落とす暗い幕」。地が写真でなくなった
+   いまは、画面のいちばん上に灰色の帯が残るだけなので外す。 */
+.app-header::before,
+.app-header:not(.app-header--home)::before { content: none; }
+
+.app-header__mobile-brand,
+.app-header [aria-label="ホーム"],
+.app-header [aria-label="通知"],
+.app-header [aria-label="設定"],
+.app-header:not(.app-header--home) .app-header__mobile-brand,
+.app-header:not(.app-header--home) [aria-label="ホーム"],
+.app-header:not(.app-header--home) [aria-label="通知"],
+.app-header:not(.app-header--home) [aria-label="設定"] {
+  color: var(--warm-ink-2);
+  filter: none;
+}
+
+/* ---- 「写真の上の白抜き文字」をやめる ---------------------------------
+   全画面に敷いていた写真が無くなったので、白い文字は生成りの地に溶けて読めない。
+   ページタイトル・戻る・カード列の見出しを、すべて濃いインクに戻す。 */
+
+.app-shell .spatial-page-header__title,
+.app-shell .spatial-page-header h1,
+.app-shell .mail-page-header h1 {
+  color: var(--warm-ink);
+  text-shadow: none;
+}
+
+.app-shell .spatial-page-header p,
+.app-shell .mail-page-header p {
+  color: var(--warm-ink-2);
+  text-shadow: none;
+}
+
+.app-shell .spatial-page-header a[aria-label="戻る"],
+.app-shell .spatial-page-header button[aria-label="戻る"],
+.app-shell .mail-page-header a[aria-label="戻る"],
+.app-shell .mail-page-header button[aria-label="戻る"],
+.app-shell .spatial-page-header button:not(:where(.glass-row, .glass-row *, .app-button, .app-button *)),
+.app-shell .spatial-page-header a:not(:where(.glass-row, .glass-row *, .app-button, .app-button *)),
+.app-shell .mail-page-header span:not(:where(.glass-row *)),
+.app-shell .mail-page-header button:not(:where(.glass-row, .glass-row *, .app-button, .app-button *)) {
+  color: var(--warm-ink-2);
+  filter: none;
+}
+
+.app-shell .label-on-photo {
+  color: var(--warm-ink-2);
+  text-shadow: none;
+}
+
+/* ホームのヘッダーは、以前は全画面の写真の上に透過で乗っていたので文字が白
+   だった。地がクリームになった今は白だと読めないので、他の画面と同じ扱いに戻す。 */
+.app-header--home {
+  border-bottom-color: var(--warm-line);
+  background: rgba(250, 246, 240, 0.92);
+}
+
+.app-header--home .app-header__mobile-brand,
+.app-header--home [aria-label="ホーム"],
+.app-header--home [aria-label="通知"],
+.app-header--home [aria-label="設定"] {
+  color: var(--warm-ink-2);
+  filter: none;
+}
+
+.app-header--home .app-header__mobile-brand { color: var(--warm-ink); }
+
+.app-shell:has(.warm-home) .sidebar-link:not(.sidebar-link--active) { color: var(--warm-ink-2); }
+.app-shell:has(.warm-home) .sidebar-account__avatar { color: var(--warm-ink-2); }
+.app-shell:has(.warm-home) .glass-nav a > span:not(.absolute) { color: var(--warm-ink-2); }
+
+/* ---- 角丸・影のならし -------------------------------------------------- */
+
+/* 旧デザインの「小さい角丸＋強い縁」を、大きめの角丸と薄い縁に寄せる。 */
+.app-shell .rounded-xl { border-radius: var(--warm-r-md); }
+.app-shell .rounded-2xl { border-radius: var(--warm-r-lg); }
+.app-shell .rounded-3xl { border-radius: var(--warm-r-xl); }
+
+@media (hover: hover) and (pointer: fine) {
+  .card-interactive:hover {
+    border-color: var(--warm-line-strong);
+    box-shadow: var(--warm-shadow-lift);
+  }
+}

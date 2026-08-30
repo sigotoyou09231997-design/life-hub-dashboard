@@ -31,8 +31,9 @@ const LEGACY_QUICK_ACTION_MIGRATIONS: Record<LegacyQuickActionKey, QuickActionKe
 // the production CSS, including 旅行 even when it is not part of the default four.
 export const QUICK_ACTIONS: QuickActionDefinition[] = [
   { key: "schedule", label: "予定", icon: CalendarDays, tintIcon: true, to: "/schedule", color: "text-blue-500", underline: "bg-blue-500" },
-  { key: "money", label: "お金管理", icon: Wallet, tintIcon: true, to: "/records/expense", color: "text-orange-500", underline: "bg-orange-500" },
-  { key: "notes", label: "メモ", icon: StickyNote, tintIcon: true, to: "/records/notes", color: "text-violet-500", underline: "bg-violet-500" },
+  // 色は参考デザインの指定どおり（予定=青・お金管理=紫・メモ=オレンジ・Gmail=赤・旅行=ティール）。
+  { key: "money", label: "お金管理", icon: Wallet, tintIcon: true, to: "/records/expense", color: "text-violet-500", underline: "bg-violet-500" },
+  { key: "notes", label: "メモ", icon: StickyNote, tintIcon: true, to: "/records/notes", color: "text-orange-500", underline: "bg-orange-500" },
   // Gmailの4色ロゴは、ナビの中でここだけ多色になって浮く。ロゴ本体はGmail画面の
   // ヘッダーに残してあるので、ここは他の項目と同じ単色のアイコンにする。
   { key: "gmail", label: "Gmail", icon: Mail, tintIcon: true, to: "/gmail", color: "text-rose-500", underline: "bg-rose-500" },

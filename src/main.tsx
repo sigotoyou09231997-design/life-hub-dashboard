@@ -11,6 +11,9 @@ import "./styles/trips.css";
 import "./styles/diary.css";
 import "./styles/forms.css";
 import "./styles/photos.css";
+// 暖色・写真ベースの新デザインの土台。既存のCSSを上書きするので必ず最後。
+import "./styles/theme-warm.css";
+import "./styles/home-warm.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()
