@@ -1,11 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { buildContent, buildUserMessage, hasNoSource, parseTripPlanResponse, readImages } from "../functions/extractTripPlan";
+import {
+  buildContent,
+  buildUserMessage,
+  hasNoSource,
+  parseTripPlanResponse,
+  pickResponseText,
+  readImages,
+} from "../functions/extractTripPlan";
 import {
   SYSTEM_PROMPT as VERCEL_SYSTEM_PROMPT,
   buildContent as vercelBuildContent,
   buildUserMessage as vercelBuildUserMessage,
   hasNoSource as vercelHasNoSource,
   parseTripPlanResponse as vercelParseTripPlanResponse,
+  pickResponseText as vercelPickResponseText,
   readImages as vercelReadImages,
 } from "../../api/extractTripPlan";
 import { SYSTEM_PROMPT } from "../functions/extractTripPlan";
@@ -249,6 +257,32 @@ describe("hasNoSource", () => {
   });
 });
 
+describe("pickResponseText", () => {
+  // claude-sonnet-5 は thinking の指定を省くと考えながら答えるので、content の先頭に
+  // text を持たない塊が入る。ここを先頭決め打ちで読んでいたせいで、読み取れているのに
+  // 「AIから日程を取得できませんでした」になっていた(2026-08-30)。
+  const answer = '{"items":[]}';
+
+  it("考えてから答えた応答でも、本文を取り出す", () => {
+    expect(
+      pickResponseText([
+        { type: "thinking", thinking: "…" } as unknown as { type: string; text?: string },
+        { type: "text", text: answer },
+      ]),
+    ).toBe(answer);
+  });
+
+  it("先頭が本文のときはそのまま取り出す", () => {
+    expect(pickResponseText([{ type: "text", text: answer }])).toBe(answer);
+  });
+
+  it("本文が1つも無ければ空", () => {
+    expect(pickResponseText([{ type: "thinking" } as unknown as { type: string; text?: string }])).toBe("");
+    expect(pickResponseText([])).toBe("");
+    expect(pickResponseText(undefined)).toBe("");
+  });
+});
+
 describe("Netlify版とVercel版のずれ", () => {
   // 同じ判断を2か所に書いてあるのは、netlify側から読み込む形にすると Vercel の
   // バンドルに含まれず関数ごと落ちるため。片方だけ直して食い違わないよう突き合わせる。
@@ -271,6 +305,18 @@ describe("Netlify版とVercel版のずれ", () => {
   it("応答の読み取りが、どちらも同じ結果になる", () => {
     for (const text of cases) {
       expect(vercelParseTripPlanResponse(text)).toEqual(parseTripPlanResponse(text));
+    }
+  });
+
+  it("応答から本文を取り出すところも同じ", () => {
+    const contents = [
+      [{ type: "text", text: '{"items":[]}' }],
+      [{ type: "thinking" } as unknown as { type: string; text?: string }, { type: "text", text: '{"items":[]}' }],
+      [{ type: "thinking" } as unknown as { type: string; text?: string }],
+      [],
+    ];
+    for (const content of contents) {
+      expect(vercelPickResponseText(content)).toBe(pickResponseText(content));
     }
   });
 

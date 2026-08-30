@@ -232,6 +232,17 @@ export function hasNoSource(payload: ExtractTripPlanBody, imageCount: number): b
   return !payload.body?.trim() && !payload.subject?.trim() && !payload.text?.trim() && imageCount === 0;
 }
 
+/** Anthropicの応答から、日程のJSONが書かれた text を取り出す。
+ *
+ * content の先頭が text とは限らない。claude-sonnet-5 は thinking の指定を省くと
+ * 考えながら答える(adaptive)ため、先頭に text を持たない thinking の塊が入る。
+ * `content[0].text` を見ていたせいで、読み取り自体は出来ているのに
+ * 「AIから日程を取得できませんでした」で止まっていた(2026-08-30)。
+ * AI下書き(generateDraft.ts)は元から type で選んでいて、こちらだけ残っていた。 */
+export function pickResponseText(content: { type: string; text?: string }[] | undefined): string {
+  return content?.find((block) => block.type === "text")?.text ?? "";
+}
+
 function jsonResponse(res: VercelResponse, statusCode: number, body: unknown) {
   res.status(statusCode).json(body);
 }
@@ -271,7 +282,9 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2048,
+      // thinking(claude-sonnet-5 は指定を省くと考えながら答える)と本文が同じ枠を
+      // 分け合うため、2048だと考えている途中で切れて本文が出ないことがある。
+      max_tokens: 8000,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: buildContent(payload) }],
     }),
@@ -282,13 +295,13 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     return jsonResponse(res, anthropicRes.status, { error: `Anthropic API error: ${text}` });
   }
 
-  const data = (await anthropicRes.json()) as { content?: { text?: string }[]; stop_reason?: string };
-  const text = data.content?.[0]?.text ?? "";
-  if (!text) {
-    return jsonResponse(res, 502, { error: "AIから日程を取得できませんでした。もう一度お試しください" });
-  }
+  const data = (await anthropicRes.json()) as { content?: { type: string; text?: string }[]; stop_reason?: string };
+  const text = pickResponseText(data.content);
   if (data.stop_reason === "max_tokens") {
     return jsonResponse(res, 502, { error: "内容が多すぎて読み取りきれませんでした。分けてもう一度お試しください" });
+  }
+  if (!text) {
+    return jsonResponse(res, 502, { error: "AIから日程を取得できませんでした。もう一度お試しください" });
   }
 
   return jsonResponse(res, 200, { items: parseTripPlanResponse(text) });
