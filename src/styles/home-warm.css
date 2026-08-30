@@ -209,83 +209,9 @@ a.warm-card {
   color: var(--warm-ink-2);
 }
 
-/* ---- 今日のハイライト（達成率リング＋色つきドットの一覧） -------------- */
-
-.warm-highlight__body {
-  display: flex;
-  align-items: center;
-  gap: 1.1rem;
-}
-
-.warm-ring {
-  position: relative;
-  display: grid;
-  flex: 0 0 auto;
-  width: 5.4rem;
-  height: 5.4rem;
-  place-items: center;
-  border-radius: 50%;
-  background: conic-gradient(var(--tone-schedule) var(--warm-progress, 0deg), var(--warm-surface-sunk) 0);
-}
-
-.warm-ring::after {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: 0.5rem;
-  border-radius: 50%;
-  background: var(--warm-surface);
-}
-
-/* ::after は span より後に描かれるので、数字側を必ず上に載せる。 */
-.warm-ring > span {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: baseline;
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--warm-ink);
-}
-
-.warm-ring small {
-  font-size: 0.55em;
-  font-weight: 700;
-  color: var(--warm-ink-3);
-}
-
-.warm-stats {
-  display: grid;
-  flex: 1;
-  gap: 0.42rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  min-width: 0;
-}
-
-.warm-stats li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.79rem;
-  color: var(--warm-ink-2);
-}
-
-.warm-stats span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.warm-stats b {
-  margin-left: auto;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--warm-ink);
-  white-space: nowrap;
-}
+/* 2026-08-31: 「今日のハイライト」カード（達成率のリング＋色つきドットの一覧）は
+   本人の指示で削除した。中の数字はそれぞれの画面とふりかえりで見られる。
+   下のドットだけは予定の分類で使い続けているので残す。 */
 
 .warm-dot {
   flex: 0 0 auto;
@@ -300,13 +226,6 @@ a.warm-card {
 .warm-dot--success { background: var(--tone-task); }
 .warm-dot--danger { background: var(--tone-gmail); }
 .warm-dot--neutral { background: var(--warm-ink-3); }
-
-.warm-dot--schedule { background: var(--tone-schedule); }
-.warm-dot--task { background: var(--tone-task); }
-.warm-dot--money { background: var(--tone-money); }
-.warm-dot--notes { background: var(--tone-notes); }
-.warm-dot--gmail { background: var(--tone-gmail); }
-.warm-dot--trip { background: var(--tone-trip); }
 
 /* ---- 旅行（写真つき） -------------------------------------------------- */
 
@@ -560,7 +479,8 @@ a.warm-card {
 
   .warm-top {
     display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
+    /* ハイライトを消して、ヒーローと旅行の2枚になった。 */
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
     gap: var(--warm-gap);
     align-items: stretch;
   }

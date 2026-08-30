@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
@@ -12,7 +12,6 @@ import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
 import { occursOn, spanDayIndex, spanTimeText } from "../lib/eventSpan";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
 import { pullBlockedSenders } from "../lib/blockedSenders";
-import { NOTE_TYPE_DEFS, getNoteType } from "../lib/noteTypes";
 import { tripCoverImage } from "../lib/tripCovers";
 import { getScheduleCategory } from "../lib/scheduleCategories";
 import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
@@ -116,15 +115,10 @@ export default function TopPage() {
     (event) => !timeToday(event) || minutesUntil(timeToday(event), now) !== null,
   );
   const nextEventMinutes = nextEvent ? minutesUntil(timeToday(nextEvent), now) : null;
-  const doneEvents = allTodayEvents.filter(
-    (event) => !event.allDay && Boolean(timeToday(event)) && minutesUntil(timeToday(event), now) === null,
-  ).length;
-
   const tasksResult = useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]);
   const todayTasks = (tasksResult ?? []).filter((task) => !task.parentTaskId);
   const doneCount = todayTasks.filter((task) => task.completed).length;
   const openCount = todayTasks.length - doneCount;
-  const progress = todayTasks.length ? Math.round((doneCount / todayTasks.length) * 100) : 0;
   const sortedTasks = [...todayTasks].sort(
     (a, b) =>
       Number(a.completed) - Number(b.completed) ||
@@ -168,12 +162,6 @@ export default function TopPage() {
     return { connected: true, emails: visible.slice(0, GMAIL_PREVIEW_LIMIT), total: visible.length };
   }, []);
 
-  const notesResult = useLiveQuery(() => db.notes.toArray(), []);
-  const noteTotal = NOTE_TYPE_DEFS.reduce(
-    (sum, definition) => sum + (notesResult ?? []).filter((note) => getNoteType(note) === definition.value).length,
-    0,
-  );
-
   const tripsResult = useLiveQuery(() => db.trips.toArray(), []);
   const featuredTrip =
     tripsResult?.find((trip) => trip.status === "ongoing") ??
@@ -210,43 +198,6 @@ export default function TopPage() {
             <p className="warm-hero__quote">{hero.quote}</p>
           </div>
         </section>
-
-        <Link to="/review" className="warm-card" data-reveal="1">
-          <CardHead title="今日のハイライト" />
-          <div className="warm-highlight__body">
-            <div className="warm-ring" style={{ "--warm-progress": `${progress * 3.6}deg` } as CSSProperties}>
-              <span>
-                {progress}
-                <small>%</small>
-              </span>
-            </div>
-            <ul className="warm-stats">
-              <li>
-                <i className="warm-dot warm-dot--task" aria-hidden="true" />
-                <span>タスク進捗</span>
-                <b>{doneCount}/{todayTasks.length}</b>
-              </li>
-              <li>
-                <i className="warm-dot warm-dot--schedule" aria-hidden="true" />
-                <span>予定完了</span>
-                <b>{doneEvents}/{allTodayEvents.length}</b>
-              </li>
-              <li>
-                <i className="warm-dot warm-dot--money" aria-hidden="true" />
-                <span>使えるお金</span>
-                <b>{budget ? `¥${budget.remaining.toLocaleString()}` : "—"}</b>
-              </li>
-              <li>
-                <i className="warm-dot warm-dot--notes" aria-hidden="true" />
-                <span>メモ</span>
-                <b>{noteTotal}件</b>
-              </li>
-            </ul>
-          </div>
-          <span className="warm-card__foot">
-            ふりかえりを見る <ArrowRight size={14} />
-          </span>
-        </Link>
 
         <Link to="/trips" className="warm-trip" data-reveal="2">
           <div
