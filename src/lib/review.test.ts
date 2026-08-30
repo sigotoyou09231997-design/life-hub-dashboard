@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CalendarEvent, DiaryEntry, Note, Task, Transaction } from "../types";
 import {
   compareToPrevious,
+  monthlyExpenseTrend,
   resolveReviewPeriod,
   summarizeReview,
   taskCompletionDate,
@@ -198,5 +199,57 @@ describe("compareToPrevious", () => {
 
   it("前の期間が0なら割合は出さない(0からの増加は何%とも言えない)", () => {
     expect(compareToPrevious(5000, 0)).toEqual({ diff: 5000, ratio: null });
+  });
+});
+
+describe("monthlyExpenseTrend", () => {
+  const period = resolveReviewPeriod("month", 0, BASE); // 2026年8月
+
+  it("見ている月を右端に、指定した数だけ古い順に並べる", () => {
+    const trend = monthlyExpenseTrend([], period, 6);
+    expect(trend.map((m) => m.month)).toEqual([
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+    ]);
+    expect(trend[5].label).toBe("8月");
+  });
+
+  it("月ごとの支出を合計する(収入は数えない)", () => {
+    const trend = monthlyExpenseTrend(
+      [
+        transaction({ date: "2026-07-03", amount: 1000 }),
+        transaction({ date: "2026-07-20", amount: 2000 }),
+        transaction({ date: "2026-08-01", amount: 500 }),
+        transaction({ date: "2026-08-02", amount: 900, type: "income" }),
+      ],
+      period,
+      6,
+    );
+    expect(trend.find((m) => m.month === "2026-07")?.amount).toBe(3000);
+    expect(trend.find((m) => m.month === "2026-08")?.amount).toBe(500);
+  });
+
+  it("記録が無い月も0で埋める", () => {
+    const trend = monthlyExpenseTrend([transaction({ date: "2026-08-01", amount: 500 })], period, 3);
+    expect(trend.map((m) => m.amount)).toEqual([0, 0, 500]);
+  });
+
+  it("並べる期間より古い支出は入れない", () => {
+    const trend = monthlyExpenseTrend([transaction({ date: "2026-01-15", amount: 9999 })], period, 3);
+    expect(trend.every((m) => m.amount === 0)).toBe(true);
+  });
+
+  it("年をまたいでも遡れる", () => {
+    const trend = monthlyExpenseTrend(
+      [transaction({ date: "2025-12-24", amount: 4000 })],
+      resolveReviewPeriod("month", -6, BASE), // 2026年2月
+      4,
+    );
+    expect(trend.map((m) => m.month)).toEqual(["2025-11", "2025-12", "2026-01", "2026-02"]);
+    expect(trend[1].amount).toBe(4000);
   });
 });

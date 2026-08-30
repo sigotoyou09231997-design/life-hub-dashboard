@@ -188,6 +188,47 @@ export function summarizeReview(input: ReviewInput, period: ReviewPeriod): Revie
   };
 }
 
+export interface MonthlyAmount {
+  /** YYYY-MM。 */
+  month: string;
+  /** 棒の下に出す文字(「8月」)。 */
+  label: string;
+  amount: number;
+}
+
+/** 推移グラフに並べる月数。半年ぶんあれば「増えてきている/落ち着いた」が見て取れる。 */
+export const TREND_MONTHS = 6;
+
+/**
+ * 見ている月を右端にして、そこから遡った数か月ぶんの支出合計を古い順に返す。
+ *
+ * 記録が1件も無い月も0で埋める — 詰めて並べると、間が空いていることが
+ * 分からなくなるため。月ごと表示のためのもので、週の期間を渡したときは
+ * その週が入っている月を右端にする。
+ */
+export function monthlyExpenseTrend(
+  transactions: Transaction[],
+  period: ReviewPeriod,
+  months: number = TREND_MONTHS,
+): MonthlyAmount[] {
+  const totals = new Map<string, number>();
+  for (const transaction of transactions) {
+    if (transaction.type === "income") continue;
+    const month = transaction.date?.slice(0, 7);
+    if (!month) continue;
+    totals.set(month, (totals.get(month) ?? 0) + transaction.amount);
+  }
+
+  const anchor = startOfMonth(parseISO(period.start));
+  const result: MonthlyAmount[] = [];
+  for (let back = months - 1; back >= 0; back--) {
+    const date = addMonths(anchor, -back);
+    const month = format(date, "yyyy-MM");
+    result.push({ month, label: format(date, "M月", { locale: ja }), amount: totals.get(month) ?? 0 });
+  }
+  return result;
+}
+
 /** 前の期間と比べた増減。前が0のときは割合を出さない(0からの増加は何%とも言えない)。 */
 export interface ReviewDelta {
   diff: number;
