@@ -53,6 +53,9 @@ const EXCLUDE_SELECTOR = [
   ".app-header",
   ".glass-nav",
   ".desktop-sidebar",
+  // HOMEの根っこ。暖色刷新で .hub-home → .warm-home に変わったので、両方を挙げて
+  // おく(古い方はもう出て来ないが、名前が戻ったときに黙って壊れないように)。
+  ".warm-home",
   ".hub-home",
 ].join(",");
 
@@ -74,7 +77,7 @@ function collectBlocks(root: HTMLElement): HTMLElement[] {
  *  2. `.is-page-reveal` … ブロックが順にせり上がって現れる一度きりの出現
  *
  * ページ側のJSXには一切触らない。ルートが変わるたびに面を数え直すので、今後
- * 増える画面も自動で同じ作法に乗る。HOME(`.hub-home`)は自前で useHubMotion を
+ * 増える画面も自動で同じ作法に乗る。HOME(`.warm-home`)は自前で useHubMotion を
  * 持っているので、ここでは何もしない。
  *
  * 出現の見た目は index.css の `.is-page-reveal` が持つ。HOMEの `[data-reveal]` を
@@ -93,7 +96,7 @@ export function usePageMotion<T extends HTMLElement>(routeKey: string) {
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
-    if (root.querySelector(".hub-home")) return;
+    if (root.querySelector(".warm-home, .hub-home")) return;
 
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 

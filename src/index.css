@@ -589,21 +589,12 @@ body .text-base { font-size: 1.05rem; }
   filter: drop-shadow(0 1px 2px rgba(8, 18, 34, .55)) drop-shadow(0 2px 12px rgba(8, 18, 34, .42));
 }
 
-.app-shell:has(.hub-home) .sidebar-link:not(.sidebar-link--active) {
-  color: rgba(30, 53, 81, .82);
-}
-
-.app-shell:has(.hub-home) .sidebar-nav__divider {
-  background: rgba(255, 255, 255, .58);
-}
-
-.app-shell:has(.hub-home) .sidebar-account__avatar {
-  color: rgba(35, 59, 88, .86);
-}
-
-.app-shell:has(.hub-home) .glass-nav a > span:not(.absolute) {
-  color: rgba(42, 59, 82, .78);
-}
+/* ここには以前、HOMEが全画面の写真を背負っていた頃の
+   `.app-shell:has(.hub-home) …`（サイドバー・ナビの文字を写真の上で読ませるための
+   青灰）が4つあった。暖色刷新でHOMEの根っこが .warm-home に変わり、地も写真では
+   なく生成りになったので、いまの受け持ちは theme-warm.css の
+   `.app-shell:has(.warm-home) …` 側にある。残しておくと当たらない規則が
+   「効いているつもり」で読まれるので消した(2026-08-30)。 */
 
 
 /* Desktop navigation. The previous pass collapsed this to a 71px icon-only rail

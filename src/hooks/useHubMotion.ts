@@ -55,6 +55,26 @@ export function useHubMotion<T extends HTMLElement>() {
     );
     targets.forEach((element) => observer.observe(element));
 
+    // 交差が一度も発火しなかったときの保険。HOMEは9枚中6枚が opacity:0 から
+    // 始まるので、発火しないと画面が真っ白なまま残る。usePageMotion と同じ
+    // 考え方で、まだ現れていないものを一定間隔で見に行き、すでに見えている
+    // (＝観測が取りこぼした)ものを開ける。全部出たら自分で止まる。
+    const failsafe = window.setInterval(() => {
+      const pending = targets.filter((element) => !element.classList.contains("is-revealed"));
+      if (pending.length === 0) {
+        window.clearInterval(failsafe);
+        return;
+      }
+      pending.forEach((element) => {
+        // 画面から外れたままのものまで開けると出現が台無しになるので、
+        // 「いま視界にある／すでに通り過ぎた」ものだけを対象にする。
+        const rect = element.getBoundingClientRect();
+        if (rect.top > window.innerHeight) return;
+        element.classList.add("is-revealed");
+        observer.unobserve(element);
+      });
+    }, 2000);
+
     let scroller = findScroller(root);
     let frame = 0;
     const applyScroll = () => {
@@ -85,6 +105,7 @@ export function useHubMotion<T extends HTMLElement>() {
     window.addEventListener("resize", handleResize);
 
     return () => {
+      window.clearInterval(failsafe);
       observer.disconnect();
       detach();
       window.removeEventListener("resize", handleResize);
