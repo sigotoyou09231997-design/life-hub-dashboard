@@ -568,64 +568,14 @@ a.warm-card {
   color: #fff;
 }
 
-/* ---- 下段：写真つきの機能カード ---------------------------------------- */
+/* 2026-08-31: 一番下にあった「写真つきの機能カード」6枚（予定・タスク／お金管理／
+   メモ・リスト／Gmail／旅行計画／設定）は本人の指示で削除した。同じ行き先へは
+   上のクイックナビ（.warm-quick）と下の追従ナビから行ける。
 
-.warm-features {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--warm-gap);
-}
-
-.warm-feature {
-  display: flex;
-  overflow: hidden;
-  flex-direction: column;
-  border: 1px solid var(--warm-line);
-  border-radius: var(--warm-r-lg);
-  background: var(--warm-surface);
-  box-shadow: var(--warm-shadow);
-  color: inherit;
-}
-
-.warm-feature__photo {
-  position: relative;
-  height: 6rem;
-  background-position: center;
-  background-size: cover;
-  /* 素材ごとの寒暖差はここで吸収するが、sepia(0.3) は外した（6枚並ぶので、
-     ここが黄色いと画面の下半分がまるごとベージュになる）。 */
-  filter: saturate(1.02) brightness(1.06);
-}
-
-.warm-feature__photo::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.22));
-}
-
-.warm-feature__copy { padding: 0.7rem 0.8rem 0.9rem; }
-
-.warm-feature__copy strong {
-  display: block;
-  font-size: 0.84rem;
-  font-weight: 700;
-  color: var(--warm-ink);
-}
-
-.warm-feature__copy small {
-  display: block;
-  margin-top: 0.22rem;
-  font-size: 0.7rem;
-  line-height: 1.5;
-  color: var(--warm-ink-2);
-}
-
-/* ---- 広い画面 ---------------------------------------------------------- */
+   ---- 広い画面 ---------------------------------------------------------- */
 
 @media (min-width: 768px) {
   .warm-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .warm-features { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (min-width: 1024px) {
@@ -645,19 +595,15 @@ a.warm-card {
 
   .warm-hero { min-height: 17rem; }
   .warm-lists { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .warm-features { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .warm-feature__photo { height: 5.4rem; }
 }
 
 @media (hover: hover) and (pointer: fine) {
   a.warm-card:hover,
-  .warm-feature:hover,
   .warm-trip:hover {
     box-shadow: var(--warm-shadow-lift);
     transform: translateY(-2px);
   }
 
-  .warm-feature,
   .warm-trip { transition: transform 240ms ease, box-shadow 240ms ease; }
 }
 

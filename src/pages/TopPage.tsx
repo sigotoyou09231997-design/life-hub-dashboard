@@ -64,16 +64,6 @@ const QUICK_LINKS = [
   { to: "/trips", label: "旅行", icon: Plane, tone: "var(--tone-trip)", tint: "rgba(74,168,160,.13)" },
 ] as const;
 
-/** 一番下の、写真つきの機能カード。 */
-const FEATURE_CARDS = [
-  { to: "/schedule", photo: "/backgrounds/morning-white-atrium-v5.jpg", title: "予定・タスク", note: "その日の段取りを、ひと目で。" },
-  { to: "/records/expense", photo: "/backgrounds/evening-warm-atrium-v5.jpg", title: "お金管理", note: "収支を見える化して、賢く使う。" },
-  { to: "/records/notes", photo: "/backgrounds/morning-villa-gallery-v5.jpg", title: "メモ・リスト", note: "思いついたことを、すぐ記録。" },
-  { to: "/gmail", photo: "/backgrounds/day-white-courtyard-v5.jpg", title: "Gmail", note: "大切なメールを、見落とさずに。" },
-  { to: "/trips", photo: "/backgrounds/morning-coastal-pavilion-v5.jpg", title: "旅行計画", note: "計画から思い出まで、ひと所に。" },
-  { to: "/settings", photo: "/backgrounds/day-concrete-gallery-v5.jpg", title: "設定", note: "自分に合う使い心地に整える。" },
-] as const;
-
 function CardHead({ title, to, trailing }: { title: string; to?: string; trailing?: ReactNode }) {
   return (
     <div className="warm-card__head">
@@ -460,18 +450,6 @@ export default function TopPage() {
             {gmailPreview?.connected ? "すべてのメールを見る" : "接続画面を開く"} <ArrowRight size={14} />
           </Link>
         </article>
-      </div>
-
-      <div className="warm-features" data-reveal="8">
-        {FEATURE_CARDS.map(({ to, photo, title, note }) => (
-          <Link key={to} to={to} className="warm-feature">
-            <div className="warm-feature__photo" style={{ backgroundImage: `url('${photo}')` }} aria-hidden="true" />
-            <div className="warm-feature__copy">
-              <strong>{title}</strong>
-              <small>{note}</small>
-            </div>
-          </Link>
-        ))}
       </div>
     </div>
   );
