@@ -192,7 +192,11 @@ export default function GmailPage() {
         {showSkeleton ? (
           <ListSkeleton />
         ) : !accounts || accounts.length === 0 ? (
-          <Card className="mail-connection-module relative mx-auto mt-4 w-full max-w-5xl overflow-visible p-0 lg:mt-7">
+          // 未接続のときはこのカード1枚しか出ず、下に背景写真だけの帯が
+          // 画面の6割ほど残っていた(1440x900で534px)。空状態を画面の残りの高さまで
+          // 伸ばす共通クラス(index.css)で、他の画面と同じ扱いにする。タブが無い
+          // ページなので --plain の方を使う(旅行計画の一覧と同じ)。
+          <Card className="mail-connection-module is-empty-fill-self is-empty-fill--plain relative mx-auto mt-4 flex w-full max-w-5xl flex-col justify-center overflow-visible p-0 lg:mt-7">
             <div className="mail-connect-control">
               <div className="mail-connect-visual" aria-hidden="true">
                 <div className="mail-connect-visual__icon"><Mail size={20} /></div>
