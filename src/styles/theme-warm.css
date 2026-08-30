@@ -131,12 +131,13 @@ html {
 .glass-highlight { box-shadow: none; }
 .glass-shadow { box-shadow: var(--warm-shadow); }
 
+/* 不透明にする理由は下の .glass-nav のコメントを参照（同じ理由・同じ直し方）。 */
 .glass-header {
-  background: rgba(250, 246, 240, 0.92);
+  background: var(--warm-ground-2);
   border-bottom: 1px solid var(--warm-line);
   box-shadow: none;
-  backdrop-filter: saturate(105%);
-  -webkit-backdrop-filter: saturate(105%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .glass-card {
@@ -174,13 +175,19 @@ html {
   -webkit-backdrop-filter: none;
 }
 
+/* 追従ナビとヘッダーは、面の下を本文が通り抜けていく2つだけの場所。旧デザインは
+   強いぼかし(--hub-blur)で下を溶かしていたが、この刷新でぼかしをやめた(--hub-blur:
+   none)ため、わずかに残した透け(0.96 / 0.92)がそのまま「下の文字が透けて読める」に
+   なってしまっていた。ぼかしの無い面に透けは効かないので、他の面(.glass-card 等)と
+   同じく不透明にする。色は透けていた時と同じ値の不透明版なので、見た目のトーンは
+   変わらない。 */
 .glass-nav {
   border: 1px solid var(--warm-line);
   border-radius: var(--warm-r-xl);
-  background: rgba(255, 253, 250, 0.96);
+  background: var(--warm-surface);
   box-shadow: var(--warm-shadow-nav);
-  backdrop-filter: saturate(105%);
-  -webkit-backdrop-filter: saturate(105%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* 写真の上に文字を乗せる所の読みやすさ用。以前ふりかえりのヘッダーで
@@ -191,14 +198,16 @@ html {
   -webkit-backdrop-filter: none;
 }
 
-/* backdrop-filter が無い環境向けの旧フォールバックも暖色に合わせる。 */
+/* backdrop-filter が無い環境向けの旧フォールバックも暖色に合わせる。
+   ヘッダーと追従ナビは上の規則でもう透けさせていないので、ここでも不透明にする
+   （0.98 のままだと、この環境でだけ下の文字がうっすら透ける）。 */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .app-shell::before { background: none; }
-  .glass-header { background: rgba(250, 246, 240, 0.98); }
+  .glass-header { background: var(--warm-ground-2); }
   .glass-card { background: var(--warm-surface); }
   .glass-row { background: var(--warm-surface-soft); }
   .glass-modal { background: var(--warm-surface); }
-  .glass-nav { background: rgba(255, 253, 250, 0.98); }
+  .glass-nav { background: var(--warm-surface); }
 }
 
 /* ---- サイドバー ------------------------------------------------------- */
@@ -269,10 +278,13 @@ html {
 .glass-header:not(.app-header--home),
 .app-header:not(.app-header--home) {
   border-bottom: 1px solid var(--warm-line) !important;
-  background: rgba(250, 246, 240, 0.94) !important;
+  /* 不透明にする理由は .glass-nav のコメントを参照。ここが実際に効いている方の
+     指定なので（上の .glass-header は index.css の !important に負ける）、
+     透けを外すにはこちらも直す必要がある。 */
+  background: var(--warm-ground-2) !important;
   box-shadow: none;
-  backdrop-filter: saturate(105%);
-  -webkit-backdrop-filter: saturate(105%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ヘッダーの裏に敷いていた「中身をぼかして落とす暗い幕」。地が写真でなくなった
