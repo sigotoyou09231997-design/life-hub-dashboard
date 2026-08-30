@@ -1,0 +1,877 @@
+/* ============================================================================
+   残り8画面（暖色・写真ベース） — 2026-08-30 / 第2段
+
+   第1段（theme-warm.css + home-warm.css）で「面・色・角丸・影」の土台とホームを
+   置き換えた。この層はその続きで、ホーム以外の8画面
+   （予定・タスク／お金管理／メモ・リスト／Gmail／旅行／ふりかえり／設定／アカウント）
+   の“組み方”を参考デザイン（docs/requests/screenshots/デザイン参考_LIFEHUB案.png）へ
+   寄せる。
+
+   なぜCSSだけで足りるのか
+   -----------------------
+   8画面はどれも同じ骨格を共有している。
+     .spatial-page（根っこ・画面ごとの別名つき）
+       └ .spatial-page-header（ui/PageHeader）／ .mail-page-header
+       └ .spatial-page-tabs > .spatial-tabs（ui/Tabs）
+       └ .spatial-page-content（中身は .glass-card / .spatial-module / .glass-row）
+   つまり「ページ名の帯」「タブ」「カード」の3つを書き換えれば、8画面が同時に
+   同じ組み方に乗る。依頼の「データ・挙動は変えない」を守るには、JSXを触らずに
+   済むこの入り方が一番安全でもある。
+
+   何を足したのか（参考デザインから持ってきたもの）
+   -----------------------------------------------
+   1. ページ名の帯に写真を敷く … 参考デザインの主役は「写真の上に置かれた見出し」。
+      ホームのヒーローと同じ作法（写真＋生成りの膜。文字が乗る左側はほぼ塗り
+      つぶし、右へ抜けるほど写真を見せる）を、8画面のページ名にも与える。
+      画面ごとに1枚を決め打ちし、下端でフェードさせて地に溶かす。
+   2. タブを生成りの溝＋白いつまみに … いまは青いガラスの角丸長方形で、ここだけ
+      前のデザインが残っていた。
+   3. 画面ごとの色（--page-tone） … 参考デザインの機能別の色を、その画面の
+      帯・選択中のタブ・見出しの小物に通す。
+
+   読み込み順は main.tsx で home-warm.css の後。index.css / hub.css 側の
+   旧デザインの青は詳細度で勝てるところまで .spatial-page を頭に付けて上書きする。
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   1. --spatial-* トークンの読み替え
+
+   8画面のモジュールは index.css の `--spatial-*`（青いガラス前提の面・影・インク）
+   を参照している。theme-warm.css が --hub-* でやったのと同じことをここでやると、
+   個々の規則を書き換えなくても面と文字が一度に暖色へ乗る。
+   ------------------------------------------------------------------------ */
+
+:root {
+  --spatial-workspace: var(--warm-surface);
+  --spatial-module-blue: var(--warm-surface);
+  --spatial-module-slate: var(--warm-surface);
+  --spatial-module-warm: var(--warm-surface);
+  --spatial-control: var(--warm-surface-sunk);
+  --spatial-edge: var(--warm-line);
+  --spatial-shadow: var(--warm-shadow);
+  --spatial-ink: var(--warm-ink);
+  --spatial-muted: var(--warm-ink-2);
+}
+
+/* ---------------------------------------------------------------------------
+   2. 画面ごとの色と写真
+
+   --page-tone  … その画面の色。帯・選択中のタブ・小物に通す。
+   --page-tint  … 同じ色のごく薄い面（チップやアイコンの下敷き）。
+   --page-photo … ページ名の帯に敷く1枚。
+
+   予定=青／タスク=緑／お金=紫／メモ=橙／Gmail=赤／旅行=青緑 は参考デザインの指定
+   （theme-warm.css の --tone-*）。ふりかえり・設定・アカウントは指定が無いので、
+   こちらで暖色の家族から選んだ（琥珀／灰茶／砂）。
+   写真は public/backgrounds の既存素材から、画面の性格に近いものを1枚ずつ。
+   ------------------------------------------------------------------------ */
+
+.planning-page {
+  --page-tone: var(--tone-schedule);
+  --page-tint: rgba(75, 131, 224, 0.1);
+  --page-photo: url("/backgrounds/morning-window-living-v5.jpg");
+}
+
+.finance-page {
+  --page-tone: var(--tone-money);
+  --page-tint: rgba(139, 111, 212, 0.1);
+  --page-photo: url("/backgrounds/day-sunlit-villa-v5.jpg");
+}
+
+.notes-page {
+  --page-tone: var(--tone-notes);
+  --page-tint: rgba(224, 138, 72, 0.11);
+  --page-photo: url("/backgrounds/morning-resort-suite-v5.jpg");
+}
+
+.mail-page {
+  --page-tone: var(--tone-gmail);
+  --page-tint: rgba(221, 92, 82, 0.1);
+  --page-photo: url("/backgrounds/evening-window-lounge-v5.jpg");
+}
+
+.trips-page,
+.trip-detail-page {
+  --page-tone: var(--tone-trip);
+  --page-tint: rgba(74, 168, 160, 0.11);
+  --page-photo: url("/backgrounds/day-minimal-coast-v5.jpg");
+}
+
+.review-page {
+  --page-tone: #c08a3e;
+  --page-tint: rgba(192, 138, 62, 0.11);
+  --page-photo: url("/backgrounds/morning-mist-lake-v5.jpg");
+}
+
+.settings-page {
+  --page-tone: #8c7a63;
+  --page-tint: rgba(140, 122, 99, 0.11);
+  --page-photo: url("/backgrounds/morning-white-atrium-v5.jpg");
+}
+
+.account-page {
+  --page-tone: #a08165;
+  --page-tint: rgba(160, 129, 101, 0.11);
+  --page-photo: url("/backgrounds/day-white-courtyard-v5.jpg");
+}
+
+/* ---------------------------------------------------------------------------
+   3. ページ名の帯（写真）
+
+   ホームのヒーロー（.warm-hero）・旅行詳細のヒーロー（.trip-detail-hero）と同じ
+   「角丸のカードの中に写真を敷き、その上に見出しを置く」形にする。
+
+   最初は全幅に写真を敷いて下端をぼかす作りにしてみたが、輪郭を持たない写真は
+   ページの右上に明るい染みが出ているようにしか見えず、下端のぼかしも本文の
+   カードを横切る線になってしまった（1440幅・390幅とも）。写真は枠を持たせて
+   はじめて「敷いた」に見える。
+
+   ページ側のJSXは触らないので、見出しの中身がカードの縁に貼りつかないよう、
+   左右の余白をこちらで広げ、その広げたぶんの内側にカードを置いている。
+
+   z-index: -1 が見出しの文字より後ろに回るだけで済む理由：.spatial-page-header は
+   `position: relative; z-index: 2`（index.css）で重なりの階層を自分で作るので、
+   -1 はこの見出しの中だけの話に閉じる。タブ（z-index: 3 の兄弟）より前には出ない。
+   ------------------------------------------------------------------------ */
+
+.spatial-page-header,
+.mail-page-header {
+  isolation: isolate;
+  /* 元は px-5（1.25rem）。カードの内側に文字を入れるぶんだけ広げる。 */
+  padding-right: 2.35rem;
+  padding-left: 2.35rem;
+}
+
+.spatial-page-header::before,
+.mail-page-header::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  /* 上下は見出しの余白いっぱい、左右は広げたぶんの内側に戻す。 */
+  inset: 0.35rem 1.25rem;
+  border: 1px solid var(--warm-line);
+  border-radius: var(--warm-r-xl);
+  background-image:
+    linear-gradient(
+      100deg,
+      rgba(255, 251, 244, 0.985) 0%,
+      rgba(255, 251, 244, 0.955) 40%,
+      rgba(255, 251, 244, 0.72) 68%,
+      rgba(255, 251, 244, 0.5) 100%
+    ),
+    var(--page-photo, none);
+  background-position: center 46%;
+  background-size: cover;
+  /* 素材ごとの寒暖差を吸収して、8枚が同じ生成りの家族に見えるようにする。
+     明るさを上げないのは home-warm.css のカードとの違い：あちらは6rem角の
+     大きい面だが、こちらは高さ数rem の細い帯なので、明るく飛ばすと写真ではなく
+     「白い染み」に見える。少し沈めて、輪郭が残る側に振っている。 */
+  filter: sepia(0.32) saturate(1.06) brightness(0.99) contrast(1.03);
+  box-shadow: var(--warm-shadow);
+}
+
+/* ページ名は帯の主役。参考デザインの見出しに合わせて大きめ・詰め気味に。 */
+.app-shell .spatial-page-header__title,
+.app-shell .spatial-page-header h1,
+.app-shell .mail-page-header h1 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+/* ページ名の前に、その画面の色の小さな点を置く。8画面を行き来したときに
+   「いまどこか」が色で分かるようにするための、参考デザインの機能別の色の応用。 */
+.spatial-page-header__title::before {
+  content: "";
+  display: inline-block;
+  width: 0.42rem;
+  height: 0.42rem;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  background: var(--page-tone, var(--warm-ink-3));
+  vertical-align: 0.16em;
+}
+
+/* 戻るボタンは帯の上に乗るので、押せることが分かる程度の面を持たせる。 */
+.app-shell .spatial-page-header a[aria-label="戻る"],
+.app-shell .spatial-page-header button[aria-label="戻る"] {
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 1px 2px rgba(70, 53, 32, 0.06);
+}
+
+/* ---------------------------------------------------------------------------
+   4. タブ（生成りの溝＋白いつまみ）
+
+   Tabs.tsx は Tailwind のユーティリティ（border-white/45・bg-white/18 など）を
+   直接持っているので、`.spatial-page` を頭に付けて詳細度で上回る。
+   ------------------------------------------------------------------------ */
+
+.spatial-page .spatial-tabs {
+  border: 1px solid var(--warm-line);
+  border-radius: 999px;
+  background: var(--warm-surface-sunk);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.spatial-page .spatial-tabs__indicator {
+  border: 1px solid var(--warm-line);
+  border-radius: 999px;
+  background: var(--warm-surface);
+  box-shadow: var(--warm-shadow);
+}
+
+.spatial-page .spatial-tabs button {
+  color: var(--warm-ink-2);
+  font-weight: 600;
+}
+
+.spatial-page .spatial-tabs button:hover {
+  color: var(--warm-ink);
+}
+
+.spatial-page .spatial-tabs button[aria-selected="true"] {
+  color: var(--page-tone, var(--warm-ink));
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+   5. 面と行のならし
+
+   index.css の重ね書き層（1085行〜）が既に --hub-* 経由で白い面にはしているが、
+   角丸だけ小さい方（--hub-r-md = 16px）で止まっている。参考デザインのカードは
+   もう一段大きいので、ページの中の「大きい面」を --warm-r-xl に揃える。
+   ------------------------------------------------------------------------ */
+
+.spatial-page .glass-card,
+.spatial-page .spatial-module,
+.spatial-page .note-widget,
+.spatial-page .notes-toolbar,
+.spatial-page .notes-empty-control,
+.spatial-page .destination-empty-control,
+.spatial-page .planning-timeline-module,
+.spatial-page .planning-task-module,
+.spatial-page .planning-secondary-module,
+.spatial-page .planning-list-module,
+.spatial-page .calendar-workspace__detail,
+.spatial-page .calendar-workspace__month,
+.spatial-page .finance-balance-module,
+.spatial-page .finance-summary-module,
+.spatial-page .finance-metric-module,
+.spatial-page .finance-metric-module--pace,
+.spatial-page .finance-breakdown-module,
+.spatial-page .finance-history-module,
+.spatial-page .mail-connection-module,
+.spatial-page .system-section,
+.spatial-page .profile-identity-module,
+.spatial-page .profile-sync-module,
+.spatial-page .profile-gmail-module,
+.spatial-page .trip-memo-note {
+  border-radius: var(--warm-r-lg) !important;
+  border: 1px solid var(--warm-line);
+  background-image: none;
+  background-color: var(--warm-surface);
+  box-shadow: var(--warm-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 中にモジュールを並べる「器」は、地に近い色で一段沈める。中の白いカードと
+   同じ白にすると入れ子の境目が消えて、どこまでが1枚か読めなくなる。 */
+.spatial-page .mail-inbox-workspace,
+.spatial-page .finance-ledger-workspace {
+  border-radius: var(--warm-r-xl) !important;
+  border: 1px solid var(--warm-line);
+  background-image: none;
+  background-color: var(--warm-surface-soft);
+  box-shadow: var(--warm-shadow);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* 面の中の行・くぼみ。 */
+.spatial-page .glass-row:not(.note-widget),
+.spatial-page .spatial-control:not(.note-widget),
+.spatial-page .mail-row,
+.spatial-page .system-state-control,
+.spatial-page .profile-state-row,
+.spatial-page .calendar-compact-empty,
+.spatial-page .mail-connect-visual,
+.spatial-page .notes-empty-control__types > div {
+  border-radius: var(--warm-r-sm) !important;
+  border: 1px solid transparent;
+  background-image: none;
+  background-color: var(--warm-surface-sunk);
+  box-shadow: none;
+}
+
+/* 未読メールだけは、面ではなく「その画面の色の細い印」で示す。行の色を変えると
+   一覧全体がまだらになるので、左の縁だけを塗る。 */
+.spatial-page .mail-row.is-unread {
+  border-left: 3px solid var(--page-tone, var(--warm-ink-3));
+  background-color: var(--warm-surface);
+  box-shadow: var(--warm-shadow);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .spatial-page .spatial-module.card-interactive:hover,
+  .spatial-page .note-widget:hover {
+    border-color: var(--warm-line-strong);
+    box-shadow: var(--warm-shadow-lift);
+    transform: translateY(-2px);
+  }
+
+  .spatial-page .mail-row:hover,
+  .spatial-page .planning-list-module .spatial-control:hover {
+    background-color: var(--warm-surface-soft);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   6. 見出し・小物のインク
+
+   各画面のモジュールには青いインク（#213550 / #1c314d 系）が直書きされている。
+   面が生成りになった今は青が浮くので、暖色の3段（--warm-ink / -2 / -3）へ寄せる。
+   「小見出しの英字ラベル」はどれも大文字・字間広めの同じ書き方なので、
+   まとめて --warm-ink-3 に落として脇役に戻す。
+   ------------------------------------------------------------------------ */
+
+.spatial-page .planning-module-heading p,
+.spatial-page .planning-task-overview > div:last-child strong,
+.spatial-page .planning-compact-empty strong,
+.spatial-page .calendar-detail-date,
+.spatial-page .note-widget__shopping strong,
+.spatial-page .notes-empty-control__heading h2,
+.spatial-page .notes-empty-control__types strong,
+.spatial-page .notes-empty-control__action p strong,
+.spatial-page .destination-empty-control__copy h2,
+.spatial-page .destination-empty-control__copy > div b,
+.spatial-page .destination-empty-control__copy > div strong,
+.spatial-page .mail-connect-copy h2,
+.spatial-page .system-section__identity h2,
+.spatial-page .profile-module__header h2,
+.spatial-page .system-state-control strong,
+.spatial-page .profile-state-row strong,
+.spatial-page .planning-secondary-module > p {
+  color: var(--warm-ink);
+}
+
+.spatial-page .planning-module-heading span,
+.spatial-page .planning-module-heading b,
+.spatial-page .planning-time-rail,
+.spatial-page .planning-compact-empty,
+.spatial-page .planning-compact-empty p,
+.spatial-page .planning-progress-ring small,
+.spatial-page .planning-task-overview > div:last-child p,
+.spatial-page .planning-empty-footer > span,
+.spatial-page .notes-empty-control__heading span,
+.spatial-page .notes-empty-control__heading > strong,
+.spatial-page .notes-empty-control__types span,
+.spatial-page .notes-empty-control__action p span,
+.spatial-page .note-widget__shopping > span,
+.spatial-page .destination-empty-control__copy > span,
+.spatial-page .destination-empty-control__action > span,
+.spatial-page .destination-empty-control__copy p,
+.spatial-page .mail-connect-kicker,
+.spatial-page .mail-connect-visual > span,
+.spatial-page .mail-connect-capability,
+.spatial-page .mail-connect-capability strong,
+.spatial-page .mail-connect-action > span,
+.spatial-page .mail-connect-copy > p:last-of-type,
+.spatial-page .system-section__identity p,
+.spatial-page .profile-module__header span,
+.spatial-page .system-status,
+.spatial-page .system-state-control span,
+.spatial-page .profile-state-row span,
+.spatial-page .system-state-control small,
+.spatial-page .profile-module__header > svg {
+  color: var(--warm-ink-3);
+}
+
+/* 丸いアイコンの下敷きは、その画面の色のごく薄い面に。 */
+.spatial-page .planning-date-glyph,
+.spatial-page .mail-connect-visual__icon,
+.spatial-page .system-section__identity > span,
+.spatial-page .profile-placeholder-avatar,
+.spatial-page .destination-empty-control__visual > span {
+  border-radius: var(--warm-r-md);
+  background: var(--page-tint, var(--warm-surface-sunk));
+  box-shadow: none;
+  color: var(--page-tone, var(--warm-ink-2));
+}
+
+.spatial-page .profile-placeholder-avatar,
+.spatial-page .destination-empty-control__visual > span {
+  border-radius: 50%;
+}
+
+/* 区切り線・仕切り。白い線は生成りの面では見えない。 */
+.spatial-page .system-section__actions,
+.spatial-page .profile-module__actions,
+.spatial-page .notes-empty-control__action,
+.spatial-page .planning-empty-footer {
+  border-top-color: var(--warm-line);
+}
+
+.spatial-page .spatial-calendar__weekdays {
+  border-color: var(--warm-line);
+}
+
+/* ---------------------------------------------------------------------------
+   7. 予定・タスク
+
+   タイムラインの軸と点、進捗リング、空のときの案内を暖色に。色は画面の色
+   （予定=青）ではなく、タイムライン=予定の青／リング=タスクの緑、と
+   参考デザインの機能別の色をそのまま当てる。
+   ------------------------------------------------------------------------ */
+
+.spatial-page .planning-time-rail::before {
+  background: linear-gradient(transparent, var(--warm-line-strong), transparent);
+}
+
+.spatial-page .planning-time-rail i {
+  border-color: var(--warm-surface);
+  background: var(--tone-schedule);
+  box-shadow: 0 0 0 3px rgba(75, 131, 224, 0.13);
+}
+
+.spatial-page .planning-progress-ring {
+  background: conic-gradient(var(--tone-task) var(--planning-progress), var(--warm-surface-sunk) 0);
+  box-shadow: none;
+}
+
+.spatial-page .planning-progress-ring::before {
+  background: var(--warm-surface);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.spatial-page .planning-progress-ring span {
+  color: var(--warm-ink);
+}
+
+.spatial-page .planning-empty-control--timeline,
+.spatial-page .planning-empty-control--tasks {
+  border-radius: var(--warm-r-md);
+  background-color: var(--warm-surface-sunk);
+}
+
+.spatial-page .planning-empty-footer > span i {
+  background: var(--tone-schedule);
+  box-shadow: none;
+}
+
+.spatial-page .planning-empty-footer button {
+  border-radius: 999px;
+  color: var(--tone-schedule);
+}
+
+.spatial-page .planning-empty-footer button:hover {
+  background: var(--page-tint, var(--warm-surface-sunk));
+}
+
+/* カレンダーの選択中・今日。今日は左の棒ではなく、参考デザインの丸い印にする。 */
+.spatial-page .spatial-calendar__cell {
+  border-radius: var(--warm-r-sm);
+}
+
+.spatial-page .spatial-calendar__cell:hover {
+  background: var(--warm-surface-sunk);
+}
+
+.spatial-page .spatial-calendar__cell.is-selected {
+  background: var(--page-tint, var(--warm-surface-sunk));
+  box-shadow: inset 0 0 0 1px var(--tone-schedule);
+}
+
+.spatial-page .spatial-calendar__cell.is-today:not(.is-selected)::after {
+  top: auto;
+  right: auto;
+  bottom: 0.3rem;
+  left: 50%;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: var(--tone-schedule);
+  box-shadow: none;
+  transform: translateX(-50%);
+}
+
+.spatial-page .spatial-calendar__cell .text-slate-300,
+.spatial-page .spatial-calendar__cell .text-slate-200 {
+  color: var(--warm-ink-3);
+}
+
+/* ---------------------------------------------------------------------------
+   8. メモ・リスト
+
+   3種類（メモ／チェックリスト／買い物）を色の違うカードで見分けていたが、
+   面は白で揃え、上端の細い帯だけを種類の色にする。参考デザインの
+   「白いカード＋色は小さく効かせる」に合わせるため。
+   ------------------------------------------------------------------------ */
+
+.spatial-page .note-widget {
+  position: relative;
+  overflow: hidden;
+}
+
+.spatial-page .note-widget::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 3px;
+  background: var(--tone-notes);
+}
+
+.spatial-page .note-widget--checklist::before {
+  background: var(--tone-task);
+}
+
+.spatial-page .note-widget--shopping::before {
+  background: var(--tone-trip);
+}
+
+.spatial-page .note-widget__progress > span {
+  background: var(--warm-surface-sunk);
+}
+
+.spatial-page .note-widget__progress i {
+  background: var(--tone-task);
+}
+
+.spatial-page .note-widget__progress small,
+.spatial-page .note-widget__shopping small {
+  color: var(--warm-ink-3);
+}
+
+.spatial-page .notes-toolbar {
+  border-radius: 999px !important;
+}
+
+/* ---------------------------------------------------------------------------
+   9. Gmail
+
+   受信箱は「器の中に行が並ぶ」形。行の区切りを線で描き、面の重ねを減らす。
+   ------------------------------------------------------------------------ */
+
+.spatial-page .mail-connect-visual__preview i {
+  background: var(--warm-line-strong);
+}
+
+.spatial-page .mail-connect-kicker i,
+.spatial-page .mail-connect-action > span i,
+.spatial-page .system-status i {
+  background: var(--warm-ink-3);
+}
+
+.spatial-page .system-status.is-online i {
+  background: var(--tone-task);
+  box-shadow: none;
+}
+
+.spatial-page .mail-connect-capability {
+  border-radius: 999px;
+  background: var(--warm-surface-sunk);
+}
+
+/* ---------------------------------------------------------------------------
+   10. 旅行
+
+   旅行だけは「写真そのものが中身」の画面なので、ヒーローは白抜き文字のまま
+   残す（home-warm.css の .warm-trip と同じ扱い）。ただし膜の色は青黒から
+   暖色の焦茶へ替えて、他の画面と同じ family に入れる。
+   ------------------------------------------------------------------------ */
+
+.spatial-page .trip-detail-hero {
+  border-radius: var(--warm-r-xl) !important;
+  border: 1px solid var(--warm-line);
+  box-shadow: var(--warm-shadow);
+}
+
+.spatial-page .trip-detail-hero__photo {
+  filter: sepia(0.14) saturate(0.98) brightness(1.02);
+}
+
+.spatial-page .trip-detail-hero__veil {
+  background: linear-gradient(90deg, rgba(46, 36, 24, 0.8), rgba(46, 36, 24, 0.34) 58%, rgba(46, 36, 24, 0.12));
+}
+
+.spatial-page .trip-detail-hero__content span {
+  color: rgba(255, 253, 248, 0.72);
+}
+
+.spatial-page .trip-detail-hero__content p {
+  color: rgba(255, 253, 248, 0.8);
+}
+
+/* 一覧の見出し（「これから行く」「行ってきた」）は、旅行の写真が全画面の地に
+   敷かれていた頃の作り — 暗いガラスの丸い札に白抜き — のままだった。地が生成りに
+   なった今は、ただの灰色の塊が本文の上に置いてあるようにしか見えないので、
+   札をやめて普通の見出しに戻す。 */
+.spatial-page .trips-head {
+  padding-left: 0;
+  border: 0;
+  background: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.spatial-page .trips-head h2 {
+  color: var(--warm-ink);
+  font-weight: 700;
+  text-shadow: none;
+}
+
+.spatial-page .trips-head span {
+  border-color: var(--warm-line);
+  background: var(--warm-surface-sunk);
+  color: var(--warm-ink-2);
+  text-shadow: none;
+}
+
+/* 旅行カードの写真は素材が寒色（青い空・夕暮れ）に寄っていて、暖色のページに
+   置くとここだけ別のアプリに見える。ヒーローと同じ膜の掛け方に揃える。 */
+.spatial-page .trip-lead__photo,
+.spatial-page .trip-plan__photo {
+  filter: sepia(0.16) saturate(0.98) brightness(1.02);
+}
+
+.spatial-page .trip-lead__veil {
+  background: linear-gradient(180deg, rgba(46, 36, 24, 0.22) 0%, rgba(46, 36, 24, 0.3) 34%, rgba(44, 34, 22, 0.74) 66%, rgba(42, 32, 21, 0.92) 100%);
+}
+
+.spatial-page .trip-plan__veil {
+  background: linear-gradient(180deg, rgba(46, 36, 24, 0.18) 0%, rgba(46, 36, 24, 0.32) 40%, rgba(44, 34, 22, 0.76) 72%, rgba(42, 32, 21, 0.92) 100%);
+}
+
+.spatial-page .destination-empty-control__visual {
+  border-color: var(--warm-line-strong);
+}
+
+.spatial-page .destination-empty-control__visual::before,
+.spatial-page .destination-empty-control__visual::after {
+  border-color: rgba(74, 168, 160, 0.22);
+}
+
+.spatial-page .destination-empty-control__visual i {
+  background: rgba(74, 168, 160, 0.5);
+}
+
+/* ---------------------------------------------------------------------------
+   11. 設定・アカウント
+
+   この2画面は「読むより探す」画面なので、カードを積むより一覧の見通しを優先する。
+   小見出しの左に画面の色の細い棒を置いて、区切りが目で拾えるようにする。
+   ------------------------------------------------------------------------ */
+
+.spatial-page .system-section__header,
+.spatial-page .profile-module__header {
+  position: relative;
+  padding-left: 0.7rem;
+}
+
+.spatial-page .system-section__header::before,
+.spatial-page .profile-module__header::before {
+  content: "";
+  position: absolute;
+  top: 0.15rem;
+  bottom: 0.15rem;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--page-tone, var(--warm-ink-3));
+  opacity: 0.65;
+}
+
+/* ---------------------------------------------------------------------------
+   12. 追加ボタン（FAB）と主ボタン
+
+   影が青いままだと、生成りの地の上で1か所だけ冷たく見える。画面の色を持つ
+   ボタンには、その色の暖かい影を付ける。
+   ------------------------------------------------------------------------ */
+
+.app-shell #page-fab-root > button {
+  box-shadow: 0 10px 26px rgba(70, 53, 32, 0.22);
+}
+
+/* 追加ボタンは PageFab が #page-fab-root（ページの外）へ出しているので、
+   ページの根っこに置いた AREA_ACCENT_STYLE の --color-accent が届かない。
+   旅行では青、メモでは橙、と画面ごとにばらばらになっていたので、いま開いて
+   いる画面を :has() で見て、その画面の色をボタン側へ渡し直す。
+   （置き場を動かすとページ切り替えでボタンが滑る問題が戻るため、
+   PageFab.tsx の作りはそのままにしてCSSだけで揃える。） */
+.app-shell:has(.planning-page) #page-fab-root > button { background: var(--tone-schedule); }
+.app-shell:has(.finance-page) #page-fab-root > button { background: var(--tone-money); }
+.app-shell:has(.notes-page) #page-fab-root > button { background: var(--tone-notes); }
+.app-shell:has(.mail-page) #page-fab-root > button { background: var(--tone-gmail); }
+.app-shell:has(.trips-page) #page-fab-root > button,
+.app-shell:has(.trip-detail-page) #page-fab-root > button { background: var(--tone-trip); }
+
+.spatial-page .notes-empty-control__action button,
+.spatial-page .destination-empty-control__action button {
+  border-radius: 999px;
+  box-shadow: 0 8px 18px rgba(70, 53, 32, 0.14);
+}
+
+/* ---------------------------------------------------------------------------
+   13. 入力シート（8画面すべての「追加・編集」）
+
+   forms.css の大半は --hub-* を通しているので既に暖色に乗っているが、
+   シートの地・入力欄・下の操作帯・選択中の色だけが青灰のまま直書きされていて、
+   どの画面から追加を開いてもそこだけ前のデザインに戻って見えていた。
+
+   選択中・フォーカスの色を --color-accent にしているのは、シートを開いた画面の
+   色（予定なら青、お金管理なら紫…）をそのまま引き継ぐため。シートは
+   .app-shell 直下ではなくページの中に出るので、エリア色が届く。
+   ------------------------------------------------------------------------ */
+
+.spatial-sheet .sheet-body,
+.glass-modal .sheet-body {
+  background: var(--warm-ground-2);
+}
+
+/* 後ろを落とす幕。青黒（rgba(10,24,46,·)）のままだと、シートを開くたびに
+   画面全体がいったん寒色に振れて見える。焦茶に替えて暖色の家族に入れる。 */
+.spatial-sheet-backdrop {
+  background: rgba(46, 36, 24, 0.3);
+}
+
+.form-panel,
+.choice-grid__option,
+.shopping-total {
+  background: var(--warm-surface);
+  box-shadow: var(--warm-shadow);
+}
+
+.field-shell,
+.segmented {
+  border-color: var(--warm-line);
+  background: var(--warm-surface-sunk);
+  box-shadow: none;
+}
+
+.field-shell:hover:not(:disabled) {
+  border-color: var(--warm-line-strong);
+}
+
+.field-shell:focus,
+.field-shell:focus-visible,
+.field-shell:focus-within,
+.field-shell--button.is-open {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-light);
+}
+
+.field.has-error .field-shell {
+  border-color: var(--tone-gmail);
+  background: rgba(253, 240, 238, 0.95);
+}
+
+.field.has-error .field-shell:focus {
+  box-shadow: 0 0 0 3px rgba(221, 92, 82, 0.16);
+}
+
+.segmented__option[aria-pressed="true"] {
+  box-shadow: 0 3px 10px rgba(70, 53, 32, 0.12);
+}
+
+.date-popover {
+  box-shadow: 0 14px 34px rgba(70, 53, 32, 0.16);
+}
+
+.form-actions {
+  border-top: 1px solid var(--warm-line);
+  background: var(--warm-ground-2);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.sheet-grip span,
+.switch {
+  background: var(--warm-line-strong);
+}
+
+.sheet-close:hover {
+  background: var(--warm-surface-sunk);
+}
+
+.switch__knob {
+  box-shadow: 0 2px 6px rgba(70, 53, 32, 0.28);
+}
+
+.choice-grid__icon {
+  background: var(--page-tint, var(--warm-surface-sunk));
+  color: var(--color-accent);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .choice-grid__option:hover {
+    box-shadow: var(--warm-shadow-lift);
+  }
+}
+
+/* 枠線の外側に出る輪郭は、青の直書きだとエリア色とちぐはぐになる。 */
+.sheet-close:focus-visible,
+.switch-row:focus-visible,
+.choice-grid__option:focus-visible {
+  outline-color: var(--color-accent);
+}
+
+/* ---------------------------------------------------------------------------
+   14. 画面幅ごとの詰め
+   ------------------------------------------------------------------------ */
+
+@media (min-width: 1024px) {
+  /* 元は lg:px-8（2rem）。ここも「カードの外側」ぶんを足す。 */
+  .spatial-page-header,
+  .mail-page-header {
+    padding-right: 3.1rem;
+    padding-left: 3.1rem;
+  }
+
+  .spatial-page-header::before,
+  .mail-page-header::before {
+    inset: 0.35rem 2rem;
+  }
+}
+
+@media (max-width: 639px) {
+  /* 狭い画面はカードの外側の余白を詰めて、見出しの文字を大きく使えるようにする。 */
+  .spatial-page-header,
+  .mail-page-header {
+    padding-right: 1.75rem;
+    padding-left: 1.75rem;
+  }
+
+  .spatial-page-header::before,
+  .mail-page-header::before {
+    inset: 0.25rem 0.75rem;
+    border-radius: var(--warm-r-lg);
+    /* 狭い画面では帯が「幅390px・高さ数rem」しかなく、そこに写真を出すと絵に
+       ならず、見出しの横で色が急に変わるだけになる。膜を厚くして、写真ではなく
+       「奥のほうに光がある」程度の色味として残す。 */
+    background-image:
+      linear-gradient(
+        100deg,
+        rgba(255, 251, 244, 0.99) 0%,
+        rgba(255, 251, 244, 0.975) 46%,
+        rgba(255, 251, 244, 0.86) 74%,
+        rgba(255, 251, 244, 0.74) 100%
+      ),
+      var(--page-photo, none);
+  }
+
+  .spatial-page .spatial-module {
+    border-radius: var(--warm-r-md) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spatial-page .spatial-module.card-interactive:hover,
+  .spatial-page .note-widget:hover {
+    transform: none;
+  }
+}

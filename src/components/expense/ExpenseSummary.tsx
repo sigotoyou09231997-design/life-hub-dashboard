@@ -32,13 +32,16 @@ function BalanceTrend({ expenses }: { expenses: Transaction[] }) {
   return (
     <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="h-24 w-full overflow-visible" aria-label="今期の支出推移">
       <defs>
+        {/* 線と面はお金管理のエリア色に従う（src/lib/areaColors.ts）。青を直書き
+            していたので、暖色刷新でお金管理が紫になったあとも、このグラフだけ
+            青いままだった。 */}
         <linearGradient id="balance-fill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#6178ff" stopOpacity=".28" />
-          <stop offset="100%" stopColor="#6178ff" stopOpacity="0" />
+          <stop offset="0%" stopColor="var(--color-accent)" stopOpacity=".24" />
+          <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
         </linearGradient>
       </defs>
       <polygon points={`0,42 ${points} 100,42`} fill="url(#balance-fill)" />
-      <polyline className="chart-line" pathLength="1" points={points} fill="none" stroke="#6178ff" strokeWidth="1.25" vectorEffect="non-scaling-stroke" />
+      <polyline className="chart-line" pathLength="1" points={points} fill="none" stroke="var(--color-accent)" strokeWidth="1.25" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }

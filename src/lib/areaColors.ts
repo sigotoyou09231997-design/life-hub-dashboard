@@ -9,14 +9,23 @@ import type { CSSProperties } from "react";
  * This intentionally overrides the user's Settings accent-color choice within
  * these areas so the four sections stay visually consistent with their TOP card.
  */
+/**
+ * 値は暖色・写真ベースの新デザインの機能別の色（src/styles/theme-warm.css の
+ * --tone-* ）と1対1で揃えてある。CSS変数を参照せず数値を書いているのは、これを
+ * インラインstyleで各画面の根っこに置くため（style属性の中では var() が
+ * 使えるが、Reactのstyleオブジェクトからは他所の :root 定義に依存させない方が
+ * 追いやすい）。片方だけ直すと必ず食い違うので、変えるときは両方を直すこと。
+ *
+ * 2026-08-31: お金管理とメモの色が、下部ナビ（新デザインの指定＝お金管理は紫・
+ * メモは橙）と逆になっていた。ナビのアイコンは紫なのに、開いた先のボタンや
+ * タブは橙、という食い違いになっていたので --tone-* に合わせて入れ替えた。
+ */
 export const AREA_ACCENT_STYLE: Record<"money" | "schedule" | "notes" | "trips" | "gmail", CSSProperties> = {
-  money: { "--color-accent": "#d97736", "--color-accent-light": "rgba(255, 244, 230, .76)" } as CSSProperties,
-  schedule: { "--color-accent": "#4f6fff", "--color-accent-light": "rgba(232, 241, 255, .78)" } as CSSProperties,
-  notes: { "--color-accent": "#7564d8", "--color-accent-light": "rgba(241, 237, 255, .78)" } as CSSProperties,
-  trips: { "--color-accent": "#2c8b91", "--color-accent-light": "rgba(229, 247, 247, .78)" } as CSSProperties,
-  // Gmailだけ、この指定が無いまま既定の青(--color-accent: #4f6fff)を使っていたので、
-  // ナビのGmailだけアイコンが赤・ページの中身が青、という食い違いになっていた。
-  // 赤はデザイン側の --hub-red (#c53f55) をそのまま使う — 他の4色と同じく、ナビの
-  // Tailwind色そのままではなく、写真の上に置ける彩度に寄せた値。
-  gmail: { "--color-accent": "#c53f55", "--color-accent-light": "rgba(253, 236, 239, .78)" } as CSSProperties,
+  money: { "--color-accent": "#8b6fd4", "--color-accent-light": "rgba(243, 239, 252, .8)" } as CSSProperties,
+  schedule: { "--color-accent": "#4b83e0", "--color-accent-light": "rgba(233, 240, 251, .8)" } as CSSProperties,
+  notes: { "--color-accent": "#e08a48", "--color-accent-light": "rgba(253, 241, 230, .8)" } as CSSProperties,
+  trips: { "--color-accent": "#4aa8a0", "--color-accent-light": "rgba(231, 247, 246, .8)" } as CSSProperties,
+  // Gmailだけ、この指定が無いまま既定の青を使っていたので、ナビのGmailだけ
+  // アイコンが赤・ページの中身が青、という食い違いになっていた。
+  gmail: { "--color-accent": "#dd5c52", "--color-accent-light": "rgba(253, 237, 235, .8)" } as CSSProperties,
 };

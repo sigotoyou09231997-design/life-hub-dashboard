@@ -9,9 +9,15 @@ export default {
           light: "var(--color-accent-light)",
         },
         navy: "var(--color-navy)",
-        success: "#22C55E",
-        warning: "#F59E0B",
-        danger: "#EF4444",
+        // 意味を持つ3色。暖色・写真ベースの新デザインの機能別の色
+        // （src/styles/theme-warm.css の --tone-task / --tone-gmail）と同じ濃さに
+        // 揃えてある。元は Tailwind 既定の蛍光寄りの3色で、生成りの地に置くと
+        // ここだけ浮いていた（達成率のバーや「優先度 高」の赤が典型）。
+        // CSS変数ではなく数値のままにしているのは、bg-success/70 のような
+        // 不透明度つきの書き方を残すため（var() だと透過が効かない）。
+        success: "#3FAA72",
+        warning: "#D99433",
+        danger: "#DD5C52",
       },
       fontFamily: {
         sans: [
