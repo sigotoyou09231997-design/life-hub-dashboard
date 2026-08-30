@@ -363,55 +363,8 @@ a.warm-card {
   opacity: 0.88;
 }
 
-/* ---- クイック操作（色分けされた丸アイコンの行） ------------------------ */
-
-.warm-quick {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.4rem;
-  border: 1px solid var(--warm-line);
-  border-radius: var(--warm-r-xl);
-  background: var(--warm-surface);
-  box-shadow: var(--warm-shadow);
-  padding: 0.95rem 0.6rem;
-}
-
-.warm-quick__item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.42rem;
-  min-width: 0;
-  color: var(--warm-ink-2);
-}
-
-.warm-quick__icon {
-  display: grid;
-  width: 2.9rem;
-  height: 2.9rem;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--tint, var(--warm-surface-sunk));
-  color: var(--tone, var(--warm-ink-2));
-  transition: transform 220ms cubic-bezier(0.16, 0.84, 0.28, 1);
-}
-
-.warm-quick__item:active .warm-quick__icon { transform: scale(0.93); }
-
-.warm-quick__item span {
-  overflow: hidden;
-  max-width: 100%;
-  font-size: 0.66rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.warm-quick__icon--ghost {
-  border: 1px dashed var(--warm-line-strong);
-  background: transparent;
-  color: var(--warm-ink-3);
-}
+/* 2026-08-31: 色分けされた丸アイコンの行（.warm-quick）は本人の指示で削除した。
+   同じ行き先へは下の追従ナビと各画面のヘッダーから行ける。 */
 
 /* ---- 4分割のリストカード ----------------------------------------------- */
 
@@ -570,7 +523,7 @@ a.warm-card {
 
 /* 2026-08-31: 一番下にあった「写真つきの機能カード」6枚（予定・タスク／お金管理／
    メモ・リスト／Gmail／旅行計画／設定）は本人の指示で削除した。同じ行き先へは
-   上のクイックナビ（.warm-quick）と下の追従ナビから行ける。
+   下の追従ナビから行ける。
 
    ---- 広い画面 ---------------------------------------------------------- */
 

@@ -4,16 +4,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
 import type { Session } from "@supabase/auth-js";
-import {
-  ArrowRight,
-  CalendarDays,
-  CheckSquare,
-  Check,
-  Mail,
-  NotebookPen,
-  Plane,
-  Wallet,
-} from "lucide-react";
+import { ArrowRight, CalendarDays, CheckSquare, Check, Mail, Plane } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent } from "../types";
 import { auth, isSupabaseConfigured } from "../lib/supabase";
@@ -52,17 +43,6 @@ function greetingFor(hour: number): string {
   if (hour < 18) return "こんにちは";
   return "こんばんは";
 }
-
-/** 参考デザインの「色分けされた円形アイコン」の行。色は機能ごとに固定
- *  （予定=青・タスク=緑・お金管理=紫・メモ=オレンジ・Gmail=赤・旅行=ティール）。 */
-const QUICK_LINKS = [
-  { to: "/schedule?view=calendar", label: "予定", icon: CalendarDays, tone: "var(--tone-schedule)", tint: "rgba(75,131,224,.12)" },
-  { to: "/schedule?view=list", label: "タスク", icon: CheckSquare, tone: "var(--tone-task)", tint: "rgba(63,170,114,.12)" },
-  { to: "/records/expense", label: "お金管理", icon: Wallet, tone: "var(--tone-money)", tint: "rgba(139,111,212,.12)" },
-  { to: "/records/notes", label: "メモ", icon: NotebookPen, tone: "var(--tone-notes)", tint: "rgba(224,138,72,.13)" },
-  { to: "/gmail", label: "Gmail", icon: Mail, tone: "var(--tone-gmail)", tint: "rgba(221,92,82,.12)" },
-  { to: "/trips", label: "旅行", icon: Plane, tone: "var(--tone-trip)", tint: "rgba(74,168,160,.13)" },
-] as const;
 
 function CardHead({ title, to, trailing }: { title: string; to?: string; trailing?: ReactNode }) {
   return (
@@ -289,17 +269,6 @@ export default function TopPage() {
           </p>
         </Link>
       </div>
-
-      <nav className="warm-quick" aria-label="よく使う機能" data-reveal="3">
-        {QUICK_LINKS.map(({ to, label, icon: Icon, tone, tint }) => (
-          <Link key={label} to={to} className="warm-quick__item">
-            <span className="warm-quick__icon" style={{ "--tone": tone, "--tint": tint } as CSSProperties}>
-              <Icon size={21} strokeWidth={1.9} />
-            </span>
-            <span>{label}</span>
-          </Link>
-        ))}
-      </nav>
 
       <div className="warm-lists">
         <article className="warm-card" data-reveal="4">
