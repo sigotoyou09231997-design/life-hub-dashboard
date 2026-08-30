@@ -17,25 +17,27 @@
 :root {
   /* 面（地→カード→へこみ）
 
-     2026-08-31: 地の色を白に近づけた。前の #f3ede3 は R と B の差が 16 あって、
-     単体で見て「ベージュ」と分かる濃さだった。参考デザインの地はほぼ白で、
-     暖かみは「わずかに黄が残る」程度でしかない。差を 5 前後まで詰めて、
-     そのぶん白いカードとの明度差（8〜13）がはっきり出るようにしている。
-     へこみ（sunk）だけは、地が明るくなったぶん白いカードの中で沈んで見える
-     必要があるので、逆にほんの少し暗くしている。 */
-  --warm-ground: #f7f5f2;
-  --warm-ground-2: #fcfaf8;
-  --warm-surface: #ffffff;
-  --warm-surface-soft: #fdfbf9;
-  --warm-surface-sunk: #f3f1ed;
+     2026-08-31: 地の色を白そのものにした。段階としては
+     #f3ede3（生成り）→ #f7f5f2（薄く）→ #ffffff（白）の3手目で、
+     参考デザインどおり「地に色を持たせない」形。暖かみは写真・ロゴ・
+     機能ごとの色（--tone-*）だけが受け持つ。
 
-  /* 線と影。地が白に近づいたぶん、カードの輪郭は前より少し強くする
-     （地とカードが同じ明るさに寄って輪郭が消えるのを防ぐ）。 */
-  --warm-line: rgba(63, 51, 37, 0.1);
-  --warm-line-strong: rgba(63, 51, 37, 0.16);
-  --warm-shadow: 0 6px 22px rgba(70, 53, 32, 0.075), 0 1px 2px rgba(70, 53, 32, 0.05);
-  --warm-shadow-lift: 0 14px 38px rgba(70, 53, 32, 0.12), 0 2px 4px rgba(70, 53, 32, 0.055);
-  --warm-shadow-nav: 0 -8px 28px rgba(70, 53, 32, 0.08);
+     地とカードが同じ白になったので、カードの区切りは縁と影だけが担う。
+     そのぶん下の --warm-line と --warm-shadow を少し強くしてある。
+     カードの中のへこみ（soft / sunk）は、白の中で沈んで見える必要があるので
+     白には寄せず、黄みだけ抜いてほぼ無彩色にした。 */
+  --warm-ground: #ffffff;
+  --warm-ground-2: #ffffff;
+  --warm-surface: #ffffff;
+  --warm-surface-soft: #f9f8f7;
+  --warm-surface-sunk: #f1f0ee;
+
+  /* 線と影。地とカードが同じ白なので、輪郭はここだけが頼り。 */
+  --warm-line: rgba(63, 51, 37, 0.12);
+  --warm-line-strong: rgba(63, 51, 37, 0.18);
+  --warm-shadow: 0 6px 22px rgba(70, 53, 32, 0.085), 0 1px 2px rgba(70, 53, 32, 0.06);
+  --warm-shadow-lift: 0 14px 38px rgba(70, 53, 32, 0.13), 0 2px 4px rgba(70, 53, 32, 0.06);
+  --warm-shadow-nav: 0 -8px 28px rgba(70, 53, 32, 0.09);
 
   /* 文字（3段） */
   --warm-ink: #2f2a23;
@@ -109,11 +111,10 @@ html {
   background: var(--warm-ground);
 }
 
-/* 背景は写真ではなく、生成りの地。AmbientBackground はこの1枚だけを描く。 */
+/* 背景は写真でも生成りでもなく、ただの白。AmbientBackground はこの1枚だけを描く。
+   index.css 側の水色〜生成りのグラデーションを、色を持たない面で塗りつぶす。 */
 .ambient-background {
-  background:
-    radial-gradient(130% 90% at 78% -10%, rgba(255, 255, 253, 0.9), transparent 62%),
-    linear-gradient(170deg, #fdfbf8 0%, #faf8f5 60%, #f7f5f2 100%);
+  background: var(--warm-ground);
 }
 
 .app-shell::before {
@@ -247,7 +248,8 @@ html {
   font-weight: 600;
 }
 
-.sidebar-link:hover { color: var(--warm-ink); background: rgba(255, 253, 249, 0.9); }
+/* サイドバーが白になったので、hover は白より明るくできない。少し沈ませて示す。 */
+.sidebar-link:hover { color: var(--warm-ink); background: var(--warm-surface-soft); }
 .sidebar-link:hover svg { color: var(--color-accent); }
 
 .sidebar-link--active {
@@ -350,7 +352,7 @@ html {
    だった。地がクリームになった今は白だと読めないので、他の画面と同じ扱いに戻す。 */
 .app-header--home {
   border-bottom-color: var(--warm-line);
-  background: rgba(252, 250, 248, 0.94);
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .app-header--home .app-header__mobile-brand,
