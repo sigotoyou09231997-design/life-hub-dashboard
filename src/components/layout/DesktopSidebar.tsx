@@ -3,6 +3,7 @@ import {
   CalendarDays,
   Home,
   Landmark,
+  LineChart,
   Mail,
   NotebookPen,
   Plane,
@@ -20,6 +21,7 @@ const PRIMARY_NAV = [
 ];
 
 const SECONDARY_NAV = [
+  { to: "/review", label: "ふりかえり", icon: LineChart },
   { to: "/settings", label: "設定", icon: Settings },
 ];
 

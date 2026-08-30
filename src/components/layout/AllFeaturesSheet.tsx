@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, Mail, Pencil, Plane, Plus, RotateCcw, Settings as SettingsIcon, StickyNote, Trash2, Wallet, type LucideIcon } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, LineChart, Mail, Pencil, Plane, Plus, RotateCcw, Settings as SettingsIcon, StickyNote, Trash2, Wallet, type LucideIcon } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import {
@@ -32,6 +32,7 @@ const FEATURES: FeatureLink[] = [
   { to: "/records/notes", label: "メモ・リスト", icon: StickyNote, color: "text-violet-500", bg: "bg-violet-50" },
   { to: "/trips", label: "旅行計画", icon: Plane, color: "text-teal-500", bg: "bg-teal-50" },
   { to: "/gmail", label: "Gmail自動返信", icon: Mail, color: "text-pink-500", bg: "bg-pink-50" },
+  { to: "/review", label: "ふりかえり", icon: LineChart, color: "text-emerald-500", bg: "bg-emerald-50" },
   { to: "/settings", label: "設定", icon: SettingsIcon, color: "text-slate-500", bg: "bg-slate-100" },
 ];
 
