@@ -1,8 +1,9 @@
 # docs/requests/ — Cowork からの依頼を置く場所
 
 Cowork（要件整理担当）がここに Markdown を1件1ファイルで書く。
-書き込みは `scripts/cowork-daemon.sh` が検知して、Claude Code をヘッドレスで起動する。
-**このREADME自体は監視対象から外してある**（`cowork-watch.sh` が除外）。
+書き込みは**ワークスペースの常駐**（`../../scripts/cowork-daemon.sh`）が検知して、
+このアプリのフォルダで Claude Code をヘッドレス起動する。
+**このREADME自体は監視対象から外してある**（`../../scripts/cowork-watch.sh` が除外）。
 
 ## 1ファイルの書き方
 
@@ -40,5 +41,5 @@ Cowork（要件整理担当）がここに Markdown を1件1ファイルで書�
 ## いまの状況を見る
 
 ```
-bash scripts/cowork-watch.sh
+bash ../scripts/cowork-watch.sh --app "todoアプリ"
 ```

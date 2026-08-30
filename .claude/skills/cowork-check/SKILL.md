@@ -1,14 +1,15 @@
 ---
 name: cowork-check
-description: docs/requests/ にある依頼を確認し、着手可能なものを実装してテストが通れば本番へ反映する。scripts/cowork-daemon.sh が docs/requests への書き込みを検知してヘッドレスで /cowork-check を起動したときに使う。
+description: docs/requests/ にある依頼を確認し、着手可能なものを実装してテストが通れば本番へ反映する。ワークスペース（~/Desktop/WEBアプリ用）の常駐 scripts/cowork-daemon.sh が docs/requests への書き込みを検知してヘッドレスで /cowork-check を起動したときに使う。
 disable-model-invocation: true
 ---
 
 ## これは何か
 
 `docs/requests/` に置かれた依頼（Cowork が書いた Markdown）を確認し、着手できるものを実装して、
-型チェックとテストが通れば本番（`main`）へ反映するための手順。常駐デーモンから
+型チェックとテストが通れば本番（`main`）へ反映するための手順。ワークスペース（`~/Desktop/WEBアプリ用`）の常駐から
 `claude -p "/cowork-check" --permission-mode acceptEdits` としてヘッドレス起動される想定。
+このアプリ専用のスクリプトは持たず、`../scripts/` にあるワークスペース共通のものを使う。
 
 このプロジェクトの本番反映ルールは `CLAUDE.md` に書かれている。矛盾する場合は `CLAUDE.md` が優先。
 
@@ -17,7 +18,7 @@ disable-model-invocation: true
 ### 1. 状況を確認する
 
 ```
-bash scripts/cowork-watch.sh
+bash ../scripts/cowork-watch.sh --app "todoアプリ"
 ```
 
 出力の「依頼ステータス」表で、依頼ごとに次のいずれかが分かる。
@@ -75,7 +76,7 @@ git push
 「実装済み」として記録する。
 
 ```
-bash scripts/cowork-watch.sh --update
+bash ../scripts/cowork-watch.sh --app "todoアプリ" --update
 ```
 
 **注意**: `--update` は実装・テスト通過・コミットがすべて終わってから実行する。途中で止めた依頼や

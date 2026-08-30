@@ -12,15 +12,11 @@ img/
 
 # Cowork連携の生成物（state.tsv と waiting.txt は共有したいのでコミットする）
 .cowork/report.md
-.cowork/daemon.log
-.cowork/daemon.pid
-.cowork/sessions.tsv
 .cowork/headless-out.txt
 .cowork/headless-err.txt
 .cowork/headless-stream.jsonl
 .cowork/last-run.hash
 .cowork/last_hash
-.cowork/report.seen
 .cowork/run.lock/
 .cowork/run.exit
 .cowork/run.pid

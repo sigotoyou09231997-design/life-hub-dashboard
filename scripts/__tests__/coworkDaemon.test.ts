@@ -1,22 +1,29 @@
-import { test, expect } from "vitest";
+import { test, expect, describe } from "vitest";
 import { spawn } from "node:child_process";
 import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, chmodSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
 
-// 常駐(scripts/cowork-daemon.sh)が、依頼を見つけてから見えるウィンドウ側の実行を
-// 待ち終えるまでを、偽の Terminal・偽の claude を置いて一通り動かす。
+// Cowork の常駐は、このリポジトリではなく**ワークスペース**（~/Desktop/WEBアプリ用）に1つだけ置いてある。
+// 中の全アプリを1つの常駐が見張る作りなので、スクリプトの実体も向こうにある。
+// ここでは偽の Terminal・偽の claude を置いて、検知から実行の待ち合わせまでを一通り動かす。
 // アプリのコードではなく自動化の仕組みそのものを見ているテスト。
-const REPO = process.cwd();
+const WORKSPACE = dirname(process.cwd());
+const DAEMON = join(WORKSPACE, "scripts/cowork-daemon.sh");
+const RUNNER = join(WORKSPACE, "scripts/cowork-run-visible.sh");
 
-function fakeRoot() {
+// リポジトリ単体で clone した場合はワークスペースが無いので、その時だけ飛ばす
+const hasWorkspace = existsSync(DAEMON) && existsSync(RUNNER);
+
+const APP = "テストアプリ";
+
+function fakeWorkspace() {
   const root = mkdtempSync(join(tmpdir(), "coworkd-"));
   mkdirSync(join(root, "scripts"));
-  mkdirSync(join(root, "docs/requests"), { recursive: true });
-  for (const f of ["cowork-daemon.sh", "cowork-run-visible.sh"]) {
-    copyFileSync(join(REPO, "scripts", f), join(root, "scripts", f));
-  }
-  writeFileSync(join(root, "docs/requests/依頼.md"), "# テスト依頼\n");
+  mkdirSync(join(root, APP, "docs/requests"), { recursive: true });
+  copyFileSync(DAEMON, join(root, "scripts/cowork-daemon.sh"));
+  copyFileSync(RUNNER, join(root, "scripts/cowork-run-visible.sh"));
+  writeFileSync(join(root, APP, "docs/requests/依頼.md"), "# テスト依頼\n");
 
   const bin = join(root, "bin");
   mkdirSync(bin);
@@ -37,11 +44,11 @@ function fakeRoot() {
       'args=("$@")',
       "n=${#args[@]}",
       'runner="${args[$((n-3))]:-}"',
-      'mode="${args[$((n-2))]:-}"',
-      'note="${args[$((n-1))]:-}"',
+      'a2="${args[$((n-2))]:-}"',
+      'a3="${args[$((n-1))]:-}"',
       'case "$runner" in',
       "  *cowork-run-visible.sh)",
-      '    nohup bash "$runner" "$mode" "$note" >/dev/null 2>&1 &',
+      '    nohup bash "$runner" "$a2" "$a3" >/dev/null 2>&1 &',
       "    exit 0 ;;",
       "esac",
       "exit 0",
@@ -51,14 +58,13 @@ function fakeRoot() {
   return { root, bin };
 }
 
-test("常駐が、見えるウィンドウ側の実行を待って終了コードを受け取る", { timeout: 120_000 }, async () => {
-  const { root, bin } = fakeRoot();
-  const log = join(root, ".cowork/daemon.log");
-
-  const proc = spawn("bash", [join(root, "scripts/cowork-daemon.sh"), "test"], {
+// 既定は「ターミナルを出さずに裏で走らせる」。見えるウィンドウ側を見たいテストだけ visible: true にする。
+function startDaemon(root: string, bin: string, visible = false) {
+  return spawn("bash", [join(root, "scripts/cowork-daemon.sh"), "test"], {
     env: {
       ...process.env,
       PATH: `${bin}:${process.env.PATH}`,
+      COWORK_VISIBLE_RUN: visible ? "1" : "0",
       // 待ち時間を詰めて、テストが数秒で終わるようにする
       COWORK_POLL_SEC: "1",
       COWORK_DEBOUNCE_SEC: "1",
@@ -67,66 +73,89 @@ test("常駐が、見えるウィンドウ側の実行を待って終了コー�
     stdio: "ignore",
     detached: true,
   });
+}
 
-  try {
-    const deadline = Date.now() + 60_000;
-    let text = "";
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 300));
-      text = existsSync(log) ? readFileSync(log, "utf8") : "";
-      if (text.includes("ヘッドレス実行が終了しました")) break;
-    }
-    expect(text).toContain("ターミナルのウィンドウで実行中");
-    expect(text).toContain("ヘッドレス実行が終了しました（exit=0）");
-    // 実行役が実際に走って、読める形の出力を残していること
-    expect(readFileSync(join(root, ".cowork/headless-out.txt"), "utf8")).toContain("何もありませんでした");
-    // 待ち合わせに使ったファイルは片付いていること
-    expect(existsSync(join(root, ".cowork/run.exit"))).toBe(false);
-  } finally {
-    try {
-      process.kill(-proc.pid!, "SIGKILL");
-    } catch {
-      /* もう死んでいる */
-    }
+async function waitForLog(log: string, needle: string, ms = 60_000) {
+  const deadline = Date.now() + ms;
+  let text = "";
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 300));
+    text = existsSync(log) ? readFileSync(log, "utf8") : "";
+    if (text.includes(needle)) break;
   }
-});
+  return text;
+}
 
-test("ウィンドウを開けない環境では、今までどおり無人で走る", { timeout: 120_000 }, async () => {
-  const { root, bin } = fakeRoot();
-  // GUI が無い状態を作る
-  writeFileSync(join(bin, "launchctl"), "#!/usr/bin/env bash\necho 'Background'\n");
-  chmodSync(join(bin, "launchctl"), 0o755);
-  const log = join(root, ".cowork/daemon.log");
+describe.skipIf(!hasWorkspace)("ワークスペースの Cowork 常駐", () => {
+  test("見えるウィンドウを出す設定のときは、その実行を待って終了コードを受け取る", { timeout: 120_000 }, async () => {
+    const { root, bin } = fakeWorkspace();
+    const proc = startDaemon(root, bin, true);
 
-  const proc = spawn("bash", [join(root, "scripts/cowork-daemon.sh"), "test"], {
-    env: {
-      ...process.env,
-      PATH: `${bin}:${process.env.PATH}`,
-      // 待ち時間を詰めて、テストが数秒で終わるようにする
-      COWORK_POLL_SEC: "1",
-      COWORK_DEBOUNCE_SEC: "1",
-      COWORK_COOLDOWN_SEC: "1",
-    },
-    stdio: "ignore",
-    detached: true,
+    try {
+      const text = await waitForLog(join(root, ".cowork/daemon.log"), "実行が終了しました");
+      expect(text).toContain("ターミナルのウィンドウで実行中");
+      expect(text).toContain("実行が終了しました（exit=0）");
+      // 実行役が実際に走って、読める形の出力を残していること
+      expect(readFileSync(join(root, APP, ".cowork/headless-out.txt"), "utf8")).toContain("何もありませんでした");
+      // 待ち合わせに使ったファイルは片付いていること
+      expect(existsSync(join(root, APP, ".cowork/run.exit"))).toBe(false);
+      // 処理済みの印が残っていること（次の起動で同じ依頼を繰り返さないため）
+      expect(existsSync(join(root, APP, ".cowork/last_hash"))).toBe(true);
+    } finally {
+      try {
+        process.kill(-proc.pid!, "SIGKILL");
+      } catch {
+        /* もう死んでいる */
+      }
+    }
   });
 
-  try {
-    const deadline = Date.now() + 60_000;
-    let text = "";
-    while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, 300));
-      text = existsSync(log) ? readFileSync(log, "utf8") : "";
-      if (text.includes("ヘッドレス実行が終了しました")) break;
-    }
-    expect(text).toContain("ヘッドレス実行が終了しました（exit=0）");
-    expect(text).not.toContain("ターミナルのウィンドウで実行中");
-    expect(readFileSync(join(root, ".cowork/headless-out.txt"), "utf8")).toContain("何もありませんでした");
-  } finally {
+  test("既定ではターミナルを出さずに裏で走る", { timeout: 120_000 }, async () => {
+    const { root, bin } = fakeWorkspace();
+    const proc = startDaemon(root, bin);
+
     try {
-      process.kill(-proc.pid!, "SIGKILL");
+      const text = await waitForLog(join(root, ".cowork/daemon.log"), "実行が終了しました");
+      expect(text).toContain("実行が終了しました（exit=0）");
+      expect(text).not.toContain("ターミナルのウィンドウで実行中");
+      expect(readFileSync(join(root, APP, ".cowork/headless-out.txt"), "utf8")).toContain("何もありませんでした");
+    } finally {
+      try {
+        process.kill(-proc.pid!, "SIGKILL");
+      } catch {
+        /* もう死んでいる */
+      }
+    }
+  });
+
+  test("常駐が止まっている間に置かれた依頼を、起動時に拾い直す", { timeout: 120_000 }, async () => {
+    const { root, bin } = fakeWorkspace();
+    // 「前回ここまで処理し切った」印を、いまの内容に合わせて作っておく
+    mkdirSync(join(root, APP, ".cowork"), { recursive: true });
+    const proc1 = startDaemon(root, bin);
+    await waitForLog(join(root, ".cowork/daemon.log"), "実行が終了しました");
+    try {
+      process.kill(-proc1.pid!, "SIGKILL");
     } catch {
       /* もう死んでいる */
     }
-  }
+    await new Promise((r) => setTimeout(r, 500));
+
+    // 常駐が居ない間に依頼が増える
+    writeFileSync(join(root, APP, "docs/requests/あとから来た依頼.md"), "# あとから\n");
+    writeFileSync(join(root, ".cowork/daemon.log"), "");
+
+    const proc2 = startDaemon(root, bin);
+    try {
+      const text = await waitForLog(join(root, ".cowork/daemon.log"), "実行が終了しました");
+      expect(text).toContain("起動時点で未処理の書き込みが残っている");
+      expect(text).toContain("実行が終了しました（exit=0）");
+    } finally {
+      try {
+        process.kill(-proc2.pid!, "SIGKILL");
+      } catch {
+        /* もう死んでいる */
+      }
+    }
+  });
 });
