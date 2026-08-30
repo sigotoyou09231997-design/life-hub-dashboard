@@ -408,7 +408,7 @@ export default function TopPage() {
             {budget ? budget.remaining.toLocaleString() : "—"}
           </p>
           <p className="warm-amount__note">
-            {budget ? `1日あたり ¥${Math.max(0, budget.perDayUsable).toLocaleString()} 使えます` : "給与を登録すると自動計算します"}
+            {budget ? `1日あたり ¥${Math.round(Math.max(0, budget.perDayUsable)).toLocaleString()} 使えます` : "給与を登録すると自動計算します"}
           </p>
           <span className="warm-card__foot">
             詳細をチェック <ArrowRight size={14} />
