@@ -59,8 +59,10 @@ function DailyBars({ summary }: { summary: ReviewSummary }) {
     <div className="review-bars flex items-end gap-1" style={{ height: 96 }}>
       {summary.dailyExpenses.map((day) => (
         <div key={day.date} className="flex min-w-0 flex-1 flex-col items-center justify-end gap-1" style={{ height: "100%" }}>
+          {/* 色に bg-accent/70 のような不透明度は付けない。--color-accent はCSS変数なので、
+              Tailwindが不透明度を混ぜられず background-color が透明になり、棒が消える。 */}
           <div
-            className={`w-full rounded-t-[3px] ${day.amount > 0 ? "bg-accent/70" : "bg-white/45"}`}
+            className={`w-full rounded-t-[3px] ${day.amount > 0 ? "bg-accent" : "bg-white/45"}`}
             style={{ height: `${day.amount > 0 ? Math.max(4, (day.amount / max) * 100) : 3}%` }}
             title={`${day.date} ${yen(day.amount)}`}
           />
@@ -121,12 +123,14 @@ export default function ReviewPage() {
         />
       </div>
 
-      <div className="mx-5 mb-4 flex items-center justify-between gap-3 lg:mx-8 lg:mb-5">
+      {/* 背景が写真なので、地の無いまま置くと日付の文字が沈んで読めない。
+          タブと同じように、面(glass-row)の上に乗せる。 */}
+      <div className="glass-row mx-5 mb-4 flex items-center justify-between gap-3 rounded-2xl px-2 py-2 lg:mx-8 lg:mb-5 lg:max-w-[320px]">
         <button
           type="button"
           onClick={() => setOffset(offset - 1)}
           aria-label={`前の${spanWord}へ`}
-          className="glass-row flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition-colors active:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           <ChevronLeft size={19} />
         </button>
@@ -142,7 +146,7 @@ export default function ReviewPage() {
           // 今週(今月)より先は記録が存在しないので進めない。
           disabled={offset >= 0}
           aria-label={`次の${spanWord}へ`}
-          className="glass-row flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition-colors active:bg-white/60 disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           <ChevronRight size={19} />
         </button>
