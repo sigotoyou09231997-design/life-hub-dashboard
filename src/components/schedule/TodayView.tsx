@@ -37,8 +37,13 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
   const now = new Date();
   const currentTimePosition = Math.max(0, Math.min(100, (((now.getHours() + now.getMinutes() / 60) - 6) / 18) * 100));
 
+  // 予定もタスクも無い日は、2枚のカードだけで画面の半分も埋まらず、下に背景
+  // だけの帯が残っていた。その日は下まで使い切る(.is-empty-fill、index.css)。
+  const nothingToday =
+    todayEvents.length === 0 && dueTodayTasks.length === 0 && todayTripAgenda.length === 0 && overdueTasks.length === 0;
+
   return (
-    <div className="planning-today space-y-5">
+    <div className={`planning-today space-y-5 ${nothingToday ? "is-empty-fill" : ""}`}>
       <div className="planning-today__grid grid gap-3 lg:grid-cols-12">
         <Card className="planning-timeline-module flex min-h-[250px] flex-col lg:col-span-7">
           <div className="planning-module-heading">

@@ -96,7 +96,10 @@ export default function TripsPage() {
         {showSkeleton ? (
           <ListSkeleton />
         ) : trips.length === 0 ? (
-          <Card className="destination-empty-control p-0">
+          // 旅行が0件のときもこのカード1枚だけなので、下まで伸ばす。このページは
+          // タブが無いぶん、他より高く取れる(--plain、index.css)。中身はもともと
+          // 縦中央(align-items: center)なので、伸ばすだけで収まる。
+          <Card className="destination-empty-control is-empty-fill-self is-empty-fill--plain p-0">
             <div className="destination-empty-control__visual" aria-hidden="true"><span><Plane size={22} /></span><i /><i /><i /></div>
             <div className="destination-empty-control__copy">
               <span>旅行</span>

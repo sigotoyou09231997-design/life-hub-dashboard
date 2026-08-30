@@ -74,8 +74,10 @@ export function ExpenseSummary({ onAddSalary }: Props) {
   if (loading) return showSkeleton ? <ListSkeleton rows={2} /> : null;
 
   if (!data) {
+    // 給与未登録のときはこのカード1枚しか出ない。左上に寄せたまま画面の大半を
+    // 背景のまま残さないよう、中央に置いて下まで伸ばす(.is-empty-fill、index.css)。
     return (
-      <div className="finance-empty max-w-4xl">
+      <div className="finance-empty is-empty-fill mx-auto max-w-4xl">
         <Card className="finance-balance-module flex flex-col p-6 lg:p-8">
           <div>
             <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">使えるお金</p>

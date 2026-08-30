@@ -36,8 +36,12 @@ export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
     return (b.updatedAt ?? 0) - (a.updatedAt ?? 0);
   });
 
+  // メモが1件も無いときは案内カード1枚しか出ないので、検索の帯はそのままに、
+  // カードだけ画面の下まで伸ばす(.is-empty-fill、index.css)。
+  const noNotesYet = notes.length === 0;
+
   return (
-    <div className="notes-control-center">
+    <div className={`notes-control-center ${noNotesYet ? "is-empty-fill" : ""}`}>
       <div className="notes-toolbar mb-5 grid gap-3 border-b border-white/35 pb-4 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-center">
       <div className="relative">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />

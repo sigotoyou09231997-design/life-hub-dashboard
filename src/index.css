@@ -2130,3 +2130,55 @@ body .text-sm { line-height: 1.5; }
     font-size: 0.86rem;
   }
 }
+
+/* ==========================================================================
+   空状態の高さ(2026-08-30)
+
+   予定0件の日・給与未登録・メモ0件のように、面が1〜2枚しか出ない画面では、
+   カードの下に背景写真だけの帯が残っていた。1440x900だと、予定の「今日」タブは
+   中身が250pxしかないのに使える高さが約670pxあり、画面の半分近くが空いていた。
+   データが無い状態はこのアプリでは普通に起きるので、その都度画面が間延びして
+   未完成に見えないよう、空状態のときだけ中身を画面の残りの高さまで伸ばす。
+
+   引いているのは、中身の上と下に必ず載るものの高さ:
+     スマホ … ノッチ + ヘッダー(3.9rem) + ページ見出し(3.2rem) + タブ(3.5rem)
+              + ページ下余白(2.5rem) + 追従バーの逃げ(6.5rem)
+     PC    … ヘッダー(3.55rem) + ページ見出し(4.45rem) + タブ(4.3rem)
+              + ページ下余白(2rem)
+   min-height なので、中身が入っている画面には効かない。上のUIが想定より高く
+   ても、はみ出してスクロールが増えるのではなく、帯が少し残るだけで済むよう
+   気持ち小さめに取ってある。--plain はタブが無いページ(旅行計画)用。
+   ========================================================================== */
+
+:root {
+  --empty-fill: calc(100dvh - env(safe-area-inset-top, 0px) - 19.5rem);
+  --empty-fill-plain: calc(100dvh - env(safe-area-inset-top, 0px) - 16rem);
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --empty-fill: calc(100dvh - 14.5rem);
+    --empty-fill-plain: calc(100dvh - 10.25rem);
+  }
+}
+
+/* 囲いに付ける場合(.is-empty-fill)と、伸ばしたい面そのものに付ける場合
+   (.is-empty-fill-self)。--plain は後に置いてあるので、どちらと組み合わせても
+   タブぶんの高さを足し戻せる。 */
+.is-empty-fill,
+.is-empty-fill-self { min-height: var(--empty-fill); }
+.is-empty-fill--plain { min-height: var(--empty-fill-plain); }
+
+.is-empty-fill { display: flex; flex-direction: column; }
+
+/* 伸ばすのは最後の要素だけ — メモの一覧のように、上に検索・絞り込みの帯が
+   あるページでも、その帯は元の高さのまま残す。 */
+.is-empty-fill > :last-child { flex: 1; }
+
+/* 背が高くなったぶん、中身は上に貼りつけず縦の中央に置く。 */
+.is-empty-fill > .notes-empty-control,
+.is-empty-fill > .finance-balance-module { justify-content: center; }
+.is-empty-fill > .notes-empty-control { display: flex; flex-direction: column; }
+.is-empty-fill .planning-task-list { justify-content: center; }
+/* こちらはgrid。既定のstretchのままだと、背が高くなったぶん行が上下に散る。 */
+.destination-empty-control.is-empty-fill-self { align-content: center; }
