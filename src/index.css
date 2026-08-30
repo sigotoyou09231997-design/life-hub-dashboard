@@ -919,7 +919,9 @@ body .text-base { font-size: 1.05rem; }
 
 .mail-connect-control { display: grid; min-height: 9.2rem; grid-template-columns: 7.5rem minmax(0,1fr) auto; align-items: center; gap: 1.35rem; padding: 1.15rem; }
 .mail-connect-visual { position: relative; display: grid; min-height: 6.7rem; align-content: center; gap: .55rem; padding: .8rem; border-radius: .78rem; background: linear-gradient(145deg, rgba(241,247,251,.3), rgba(207,225,239,.2)); box-shadow: inset 0 1px 0 rgba(255,255,255,.43); }
-.mail-connect-visual__icon { display: grid; width: 2.25rem; height: 2.25rem; place-items: center; border-radius: .65rem; background: rgba(237,246,252,.48); color: #5576df; box-shadow: inset 0 1px 0 rgba(255,255,255,.58); }
+/* 色はGmail画面のエリア色(--color-accent、src/lib/areaColors.ts)に従う — 青を
+   直書きしていたので、下部ナビの赤いGmailアイコンとここだけ食い違っていた。 */
+.mail-connect-visual__icon { display: grid; width: 2.25rem; height: 2.25rem; place-items: center; border-radius: .65rem; background: rgba(237,246,252,.48); color: var(--color-accent); box-shadow: inset 0 1px 0 rgba(255,255,255,.58); }
 .mail-connect-visual__preview { display: grid; gap: .28rem; }
 .mail-connect-visual__preview i { display: block; height: .3rem; border-radius: 999px; background: rgba(79,100,127,.18); }
 .mail-connect-visual__preview i:nth-child(2) { width: 76%; }

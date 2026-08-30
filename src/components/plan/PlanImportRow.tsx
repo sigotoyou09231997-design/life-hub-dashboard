@@ -42,7 +42,7 @@ export function PlanImportRow({ row, destination, already, outside, similar, mis
           disabled={already}
           onChange={(e) => onChange({ checked: e.target.checked })}
           aria-label={`${row.title}を入れる`}
-          className="mt-1 h-4 w-4 shrink-0 accent-[color:var(--hub-accent,#4f6fff)] disabled:opacity-50"
+          className="mt-1 h-4 w-4 shrink-0 accent-[color:var(--color-accent)] disabled:opacity-50"
         />
         <span className="min-w-0 flex-1 text-sm font-medium text-slate-900">{row.title}</span>
       </label>

@@ -325,7 +325,7 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
                           disabled={already}
                           onChange={(e) => updateRouteRow(index, { checked: e.target.checked })}
                           aria-label={`${row.name}を入れる`}
-                          className="mt-1 h-4 w-4 shrink-0 accent-[color:var(--hub-accent,#4f6fff)] disabled:opacity-50"
+                          className="mt-1 h-4 w-4 shrink-0 accent-[color:var(--color-accent)] disabled:opacity-50"
                         />
                         <span className="min-w-0 flex-1 text-sm font-medium text-slate-900">{row.name}</span>
                       </label>

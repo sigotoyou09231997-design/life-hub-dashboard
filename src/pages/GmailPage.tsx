@@ -3,6 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, CheckCircle2, Mail, Plus, RefreshCw, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { db } from "../db/schema";
+import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { GmailLogo } from "../components/gmail/GmailLogo";
 import { Tabs } from "../components/ui/Tabs";
 import { Card } from "../components/ui/Card";
@@ -123,7 +124,7 @@ export default function GmailPage() {
   );
 
   return (
-    <div className="spatial-page mail-page micro-contrast mx-auto pb-10 lg:flex lg:h-full lg:min-h-0 lg:max-w-[1480px] lg:flex-col lg:pb-0">
+    <div className="spatial-page mail-page micro-contrast mx-auto pb-10 lg:flex lg:h-full lg:min-h-0 lg:max-w-[1480px] lg:flex-col lg:pb-0" style={AREA_ACCENT_STYLE.gmail}>
       <div className="mail-page-header flex items-center justify-between gap-2 px-5 pb-4 pt-6 lg:shrink-0 lg:px-8 lg:pb-5 lg:pt-7">
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={() => navigate("/")} aria-label="戻る" className={`${BACK_BUTTON_CLASS} lg:hidden`}>
