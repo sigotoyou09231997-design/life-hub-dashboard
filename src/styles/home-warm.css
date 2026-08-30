@@ -32,24 +32,18 @@
   transition: opacity 460ms cubic-bezier(0.16, 0.84, 0.28, 1), transform 460ms cubic-bezier(0.16, 0.84, 0.28, 1);
 }
 
-/* ---- あいさつ ---------------------------------------------------------- */
+/* ---- 日付（画面のいちばん上） ------------------------------------------- */
 
 .warm-greet {
   padding: 0.35rem 0.15rem 0.1rem;
 }
 
-.warm-greet__hello {
+.warm-greet__date {
   margin: 0;
-  font-size: 1.32rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--warm-ink);
-}
-
-.warm-greet__sub {
-  margin: 0.3rem 0 0;
-  font-size: 0.83rem;
-  color: var(--warm-ink-2);
 }
 
 /* ---- 共通のカード ------------------------------------------------------ */
@@ -475,7 +469,7 @@ a.warm-card {
     padding: 0.75rem var(--warm-pad) 2.5rem;
   }
 
-  .warm-greet__hello { font-size: 1.6rem; }
+  .warm-greet__date { font-size: 1.3rem; }
 
   .warm-top {
     display: grid;

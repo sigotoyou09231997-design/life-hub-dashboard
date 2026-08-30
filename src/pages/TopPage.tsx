@@ -3,11 +3,9 @@ import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import type { Session } from "@supabase/auth-js";
 import { ArrowRight, CalendarDays, CheckSquare, Check, Mail, Plane } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent } from "../types";
-import { auth, isSupabaseConfigured } from "../lib/supabase";
 import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
 import { occursOn, spanDayIndex, spanTimeText } from "../lib/eventSpan";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
@@ -34,13 +32,6 @@ const HERO_PHOTO = [
 
 function heroFor(hour: number) {
   return HERO_PHOTO.find((entry) => hour < entry.until) ?? HERO_PHOTO[0];
-}
-
-function greetingFor(hour: number): string {
-  if (hour < 4) return "おつかれさま";
-  if (hour < 11) return "おはよう";
-  if (hour < 18) return "こんにちは";
-  return "こんばんは";
 }
 
 function CardHead({ title, to, trailing }: { title: string; to?: string; trailing?: ReactNode }) {
@@ -83,18 +74,6 @@ export default function TopPage() {
   }, []);
 
   const motionRef = useHubMotion<HTMLDivElement>();
-
-  // あいさつに名前を出すため。ヘッダー(AppHeader)と同じ読み方をしている。
-  const [session, setSession] = useState<Session | null>(null);
-  useEffect(() => {
-    if (!isSupabaseConfigured) return;
-    auth.getSession().then(({ data }) => setSession(data.session));
-    const { data: listener } = auth.onAuthStateChange((_event, next) => setSession(next));
-    return () => listener.subscription.unsubscribe();
-  }, []);
-  const fullName = session?.user.user_metadata?.full_name as string | undefined;
-  // メールアドレスをそのまま「◯◯さん」に入れると長すぎるので、@ の前だけ使う。
-  const displayName = (fullName ?? session?.user.email?.split("@")[0] ?? "").trim();
 
   const today = todayStr();
   // 何日かにまたがる予定(宿泊など)は初日の date しか索引に載らないので、date の索引で
@@ -177,12 +156,12 @@ export default function TopPage() {
 
   return (
     <div className="warm-home" ref={motionRef}>
+      {/* 2026-08-31: あいさつ（「こんばんは、◯◯さん」とその下の一文）はやめて、
+          日付だけにした。 */}
       <header className="warm-greet">
-        <h1 className="warm-greet__hello">
-          {greetingFor(hour)}
-          {displayName && `、${displayName}さん`} 🌿
+        <h1 className="warm-greet__date">
+          <time dateTime={today}>{formatDisplayDate(today)}</time>
         </h1>
-        <p className="warm-greet__sub">今日も、心にゆとりのある一日を。</p>
       </header>
 
       <div className="warm-top">
