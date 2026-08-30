@@ -70,43 +70,43 @@
 
 .planning-page {
   --page-tone: var(--tone-schedule);
-  --page-tint: rgba(75, 131, 224, 0.1);
+  --page-tint: rgba(94, 139, 188, 0.12);
 }
 
 .finance-page {
   --page-tone: var(--tone-money);
-  --page-tint: rgba(139, 111, 212, 0.1);
+  --page-tint: rgba(123, 113, 192, 0.12);
 }
 
 .notes-page {
   --page-tone: var(--tone-notes);
-  --page-tint: rgba(224, 138, 72, 0.11);
+  --page-tint: rgba(208, 138, 85, 0.12);
 }
 
 .mail-page {
   --page-tone: var(--tone-gmail);
-  --page-tint: rgba(221, 92, 82, 0.1);
+  --page-tint: rgba(220, 99, 85, 0.12);
 }
 
 .trips-page,
 .trip-detail-page {
   --page-tone: var(--tone-trip);
-  --page-tint: rgba(74, 168, 160, 0.11);
+  --page-tint: rgba(78, 158, 155, 0.12);
 }
 
 .review-page {
-  --page-tone: #c08a3e;
-  --page-tint: rgba(192, 138, 62, 0.11);
+  --page-tone: #b08a52;
+  --page-tint: rgba(176, 138, 82, 0.12);
 }
 
 .settings-page {
-  --page-tone: #7c7f85;
-  --page-tint: rgba(124, 127, 133, 0.11);
+  --page-tone: #7a8189;
+  --page-tint: rgba(122, 129, 137, 0.12);
 }
 
 .account-page {
-  --page-tone: #83868c;
-  --page-tint: rgba(131, 134, 140, 0.11);
+  --page-tone: #838a92;
+  --page-tint: rgba(131, 138, 146, 0.12);
 }
 
 /* ---------------------------------------------------------------------------
@@ -152,7 +152,7 @@
   border: 1px solid var(--warm-line);
   border-radius: 50%;
   background: var(--warm-surface);
-  box-shadow: 0 1px 2px rgba(28, 30, 34, 0.06);
+  box-shadow: 0 1px 2px rgba(28, 45, 75, 0.05);
 }
 
 /* ---------------------------------------------------------------------------
@@ -552,7 +552,7 @@
 }
 
 .spatial-page .trip-detail-hero__veil {
-  background: linear-gradient(90deg, rgba(20, 21, 24, 0.8), rgba(20, 21, 24, 0.34) 58%, rgba(20, 21, 24, 0.12));
+  background: linear-gradient(90deg, rgba(18, 22, 30, 0.8), rgba(18, 22, 30, 0.34) 58%, rgba(18, 22, 30, 0.12));
 }
 
 .spatial-page .trip-detail-hero__content span {
@@ -596,11 +596,11 @@
 }
 
 .spatial-page .trip-lead__veil {
-  background: linear-gradient(180deg, rgba(20, 21, 24, 0.22) 0%, rgba(20, 21, 24, 0.3) 34%, rgba(18, 19, 22, 0.74) 66%, rgba(16, 17, 20, 0.92) 100%);
+  background: linear-gradient(180deg, rgba(18, 22, 30, 0.22) 0%, rgba(18, 22, 30, 0.3) 34%, rgba(16, 20, 27, 0.74) 66%, rgba(14, 18, 24, 0.92) 100%);
 }
 
 .spatial-page .trip-plan__veil {
-  background: linear-gradient(180deg, rgba(20, 21, 24, 0.18) 0%, rgba(20, 21, 24, 0.32) 40%, rgba(18, 19, 22, 0.76) 72%, rgba(16, 17, 20, 0.92) 100%);
+  background: linear-gradient(180deg, rgba(18, 22, 30, 0.18) 0%, rgba(18, 22, 30, 0.32) 40%, rgba(16, 20, 27, 0.76) 72%, rgba(14, 18, 24, 0.92) 100%);
 }
 
 .spatial-page .destination-empty-control__visual {
@@ -649,7 +649,7 @@
    ------------------------------------------------------------------------ */
 
 .app-shell #page-fab-root > button {
-  box-shadow: 0 10px 26px rgba(28, 30, 34, 0.22);
+  box-shadow: 0 10px 26px rgba(28, 45, 75, 0.2);
 }
 
 /* 追加ボタンは PageFab が #page-fab-root（ページの外）へ出しているので、
@@ -668,7 +668,7 @@
 .spatial-page .notes-empty-control__action button,
 .spatial-page .destination-empty-control__action button {
   border-radius: 999px;
-  box-shadow: 0 8px 18px rgba(28, 30, 34, 0.14);
+  box-shadow: 0 8px 18px rgba(28, 45, 75, 0.13);
 }
 
 /* ---------------------------------------------------------------------------
@@ -691,7 +691,7 @@
 /* 後ろを落とす幕。青黒（rgba(10,24,46,·)）でも焦茶（rgba(46,36,24,·)）でも、
    シートを開くたびに画面全体がその色へ振れて見える。色を持たない黒にする。 */
 .spatial-sheet-backdrop {
-  background: rgba(20, 21, 24, 0.3);
+  background: rgba(18, 22, 30, 0.3);
 }
 
 .form-panel,
@@ -730,11 +730,11 @@
 }
 
 .segmented__option[aria-pressed="true"] {
-  box-shadow: 0 3px 10px rgba(28, 30, 34, 0.12);
+  box-shadow: 0 3px 10px rgba(28, 45, 75, 0.11);
 }
 
 .date-popover {
-  box-shadow: 0 14px 34px rgba(28, 30, 34, 0.16);
+  box-shadow: 0 14px 34px rgba(28, 45, 75, 0.15);
 }
 
 .form-actions {
@@ -754,7 +754,7 @@
 }
 
 .switch__knob {
-  box-shadow: 0 2px 6px rgba(28, 30, 34, 0.28);
+  box-shadow: 0 2px 6px rgba(28, 45, 75, 0.26);
 }
 
 .choice-grid__icon {

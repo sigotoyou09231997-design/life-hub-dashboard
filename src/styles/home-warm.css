@@ -328,7 +328,7 @@ a.warm-card {
 .warm-trip__veil {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(20, 21, 24, 0.78), rgba(20, 21, 24, 0.2) 62%, rgba(20, 21, 24, 0.06));
+  background: linear-gradient(to top, rgba(18, 22, 30, 0.78), rgba(18, 22, 30, 0.2) 62%, rgba(18, 22, 30, 0.06));
 }
 
 .warm-trip__kicker,

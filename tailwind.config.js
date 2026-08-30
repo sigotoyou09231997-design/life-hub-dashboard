@@ -15,9 +15,9 @@ export default {
         // ここだけ浮いていた（達成率のバーや「優先度 高」の赤が典型）。
         // CSS変数ではなく数値のままにしているのは、bg-success/70 のような
         // 不透明度つきの書き方を残すため（var() だと透過が効かない）。
-        success: "#3FAA72",
-        warning: "#D99433",
-        danger: "#DD5C52",
+        success: "#3F9C82",
+        warning: "#CF9448",
+        danger: "#DC6355",
       },
       fontFamily: {
         sans: [

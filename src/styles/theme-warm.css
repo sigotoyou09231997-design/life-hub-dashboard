@@ -17,37 +17,33 @@
 :root {
   /* 面（地→カード→へこみ）
 
-     2026-08-31: 地の色を白そのものにした。段階としては
-     #f3ede3（生成り）→ #f7f5f2（薄く）→ #ffffff（白）の3手目で、
-     参考デザインどおり「地に色を持たせない」形。暖かみは写真・ロゴ・
-     機能ごとの色（--tone-*）だけが受け持つ。
+     2026-08-31（3回目・参考画像に寄せる）: 地とカードを同じ白にしていたが、
+     参考画像では「ごく薄い灰の地」の上に「白いカード」が乗っていて、そこで面が
+     分かれている（実測: 地 250前後 / カード 254前後の、青みがほんの少しある灰）。
+     地だけをその薄い灰にして、カード・ヘッダー・サイドバー・シートは白のまま残す。
+     色の経緯は #f3ede3（生成り）→ #f7f5f2 → #ffffff → いまの #fafbfd。
 
-     地とカードが同じ白になったので、カードの区切りは縁と影だけが担う。
-     そのぶん下の --warm-line と --warm-shadow を少し強くしてある。
-     カードの中のへこみ（soft / sunk）は、白の中で沈んで見える必要があるので
-     白には寄せず、黄みだけ抜いてほぼ無彩色にした。 */
-  --warm-ground: #ffffff;
+     --warm-ground   … 全画面の地（.ambient-background / html）
+     --warm-ground-2 … 地の上に置くが白でいたい面（ヘッダー・サイドバー・シート） */
+  --warm-ground: #fafbfd;
   --warm-ground-2: #ffffff;
   --warm-surface: #ffffff;
-  --warm-surface-soft: #fafafa;
-  --warm-surface-sunk: #f1f1f2;
+  --warm-surface-soft: #f4f6f8;
+  --warm-surface-sunk: #eef1f4;
 
-  /* 線と影。地とカードが同じ白なので、輪郭はここだけが頼り。
+  /* 線と影。地とカードの差ができたぶん、輪郭は少し弱めてよい。色は参考画像に合わせて
+     わずかに青みのある灰（前は無彩色の黒 rgba(28,30,34)、その前は焦茶）。 */
+  --warm-line: rgba(28, 38, 56, 0.10);
+  --warm-line-strong: rgba(28, 38, 56, 0.16);
+  --warm-shadow: 0 6px 22px rgba(28, 45, 75, 0.07), 0 1px 2px rgba(28, 45, 75, 0.05);
+  --warm-shadow-lift: 0 14px 38px rgba(28, 45, 75, 0.11), 0 2px 4px rgba(28, 45, 75, 0.05);
+  --warm-shadow-nav: 0 -8px 28px rgba(28, 45, 75, 0.08);
 
-     2026-08-31（2回目）: 色そのものは白でも、線・影・文字が焦茶（rgba(63,51,37)
-     など）だと、面積の広いこの3つが画面全体にうっすら茶色をかけて「まだベージュ」に
-     見えていた。白い地に対して色を足さないよう、ほぼ無彩色の黒に替えた。 */
-  --warm-line: rgba(28, 30, 34, 0.12);
-  --warm-line-strong: rgba(28, 30, 34, 0.18);
-  --warm-shadow: 0 6px 22px rgba(28, 30, 34, 0.085), 0 1px 2px rgba(28, 30, 34, 0.06);
-  --warm-shadow-lift: 0 14px 38px rgba(28, 30, 34, 0.13), 0 2px 4px rgba(28, 30, 34, 0.06);
-  --warm-shadow-nav: 0 -8px 28px rgba(28, 30, 34, 0.09);
-
-  /* 文字（3段）。ここも黄みを抜いた灰色にする（前は #2f2a23 / #6c6355 / #9c9284 と
-     いう焦茶寄りで、本文全体がベージュ側に引っ張られていた）。 */
-  --warm-ink: #26272a;
-  --warm-ink-2: #6a6c70;
-  --warm-ink-3: #9b9da1;
+  /* 文字（3段）。参考画像の見出しはほぼ黒（実測 19,20,23）で、説明文はその下の灰。
+     無彩色から、ごくわずかに青みのある灰に寄せた。 */
+  --warm-ink: #1c1e23;
+  --warm-ink-2: #5f646d;
+  --warm-ink-3: #9aa1aa;
 
   /* 角丸 */
   --warm-r-xl: 24px;
@@ -55,25 +51,31 @@
   --warm-r-md: 16px;
   --warm-r-sm: 12px;
 
-  /* 機能ごとの色（参考デザインの指定：予定=青・タスク=緑・お金=紫・メモ=橙・Gmail=赤） */
-  --tone-schedule: #4b83e0;
-  --tone-task: #3faa72;
-  --tone-money: #8b6fd4;
-  --tone-notes: #e08a48;
-  --tone-gmail: #dd5c52;
-  --tone-trip: #4aa8a0;
+  /* 機能ごとの色（予定=青・タスク=緑・お金=紫・メモ=橙・Gmail=赤・旅行=青緑）。
+     2026-08-31: 参考画像の色は同じ系統だが、どれも彩度が低く落ち着いている
+     （実測: 青 100,143,186 / 緑 40,136,120 / 紫 96,80,152 / 赤 232,96,72）。
+     どの機能が何色か（意味の対応）は変えず、鮮やかさだけをその高さに合わせた。
+     ※ src/lib/areaColors.ts と tailwind.config.js（success/danger）に同じ値が
+     　 書かれている。片方だけ直すと必ず食い違うので、変えるときは3か所とも直すこと。 */
+  --tone-schedule: #5e8bbc;
+  --tone-task: #3f9c82;
+  --tone-money: #7b71c0;
+  --tone-notes: #d08a55;
+  --tone-gmail: #dc6355;
+  --tone-trip: #4e9e9b;
 
-  /* 既存のトークンも暖色側へ寄せる（accent / navy は全画面で参照されている） */
-  --color-accent: #4f7cc9;
-  --color-accent-light: rgba(233, 240, 251, 0.9);
-  --color-navy: #26272a;
+  /* accent / navy は全画面で参照されている。accent は参考画像の丸ボタン・進捗の輪と
+     同じ青（実測 100,143,186）。 */
+  --color-accent: #5e8bbc;
+  --color-accent-light: rgba(233, 240, 248, 0.9);
+  --color-navy: #1c1e23;
 
   /* 旧リキッドグラス用のトークンも暖色へ読み替える。これらは hub.css / trips.css /
      forms.css など各画面のCSSが直接参照しているので、ここを差し替えるだけで
      その画面ぶんの面・文字・影がまとめて新しいトーンに乗る。 */
   --hub-surface: var(--warm-surface);
-  --hub-inset: rgba(28, 30, 34, 0.04);
-  --hub-inset-2: rgba(28, 30, 34, 0.07);
+  --hub-inset: rgba(28, 38, 56, 0.04);
+  --hub-inset-2: rgba(28, 38, 56, 0.07);
   --hub-edge: var(--warm-line);
   --hub-hairline: var(--warm-line);
   --hub-ink: var(--warm-ink);
@@ -129,8 +131,8 @@ html {
 /* 文字の3段。index.css が .app-shell 内で青灰に寄せているので、無彩色の灰に戻す。 */
 .app-shell .text-slate-400 { color: var(--warm-ink-3); }
 .app-shell .text-slate-500 { color: var(--warm-ink-2); }
-.app-shell .text-slate-600 { color: #585a5e; }
-.app-shell .text-slate-700 { color: #414347; }
+.app-shell .text-slate-600 { color: #4f545c; }
+.app-shell .text-slate-700 { color: #3a3f47; }
 .app-shell .text-slate-800,
 .app-shell .text-slate-900 { color: var(--warm-ink); }
 
@@ -184,7 +186,7 @@ html {
   border: 1px solid var(--warm-line);
   border-radius: var(--warm-r-xl) !important;
   background: var(--warm-surface);
-  box-shadow: 0 28px 70px rgba(28, 30, 34, 0.2);
+  box-shadow: 0 28px 70px rgba(24, 36, 60, 0.18);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -207,7 +209,7 @@ html {
 /* 写真の上に文字を乗せる所の読みやすさ用。以前ふりかえりのヘッダーで
    文字が飛んだので、同じ濃さの膜は必ず敷く（色は焦茶をやめて無彩色の黒）。 */
 .glass-smoked {
-  background: linear-gradient(to top, rgba(20, 21, 24, 0.72), rgba(20, 21, 24, 0.14) 70%, transparent);
+  background: linear-gradient(to top, rgba(18, 22, 30, 0.72), rgba(18, 22, 30, 0.14) 70%, transparent);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }

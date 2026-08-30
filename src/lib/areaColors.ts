@@ -21,11 +21,11 @@ import type { CSSProperties } from "react";
  * タブは橙、という食い違いになっていたので --tone-* に合わせて入れ替えた。
  */
 export const AREA_ACCENT_STYLE: Record<"money" | "schedule" | "notes" | "trips" | "gmail", CSSProperties> = {
-  money: { "--color-accent": "#8b6fd4", "--color-accent-light": "rgba(243, 239, 252, .8)" } as CSSProperties,
-  schedule: { "--color-accent": "#4b83e0", "--color-accent-light": "rgba(233, 240, 251, .8)" } as CSSProperties,
-  notes: { "--color-accent": "#e08a48", "--color-accent-light": "rgba(253, 241, 230, .8)" } as CSSProperties,
-  trips: { "--color-accent": "#4aa8a0", "--color-accent-light": "rgba(231, 247, 246, .8)" } as CSSProperties,
+  money: { "--color-accent": "#7b71c0", "--color-accent-light": "rgba(241, 239, 251, .8)" } as CSSProperties,
+  schedule: { "--color-accent": "#5e8bbc", "--color-accent-light": "rgba(233, 240, 248, .8)" } as CSSProperties,
+  notes: { "--color-accent": "#d08a55", "--color-accent-light": "rgba(251, 241, 232, .8)" } as CSSProperties,
+  trips: { "--color-accent": "#4e9e9b", "--color-accent-light": "rgba(232, 245, 244, .8)" } as CSSProperties,
   // Gmailだけ、この指定が無いまま既定の青を使っていたので、ナビのGmailだけ
   // アイコンが赤・ページの中身が青、という食い違いになっていた。
-  gmail: { "--color-accent": "#dd5c52", "--color-accent-light": "rgba(253, 237, 235, .8)" } as CSSProperties,
+  gmail: { "--color-accent": "#dc6355", "--color-accent-light": "rgba(253, 238, 236, .8)" } as CSSProperties,
 };
