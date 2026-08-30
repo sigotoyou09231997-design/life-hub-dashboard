@@ -103,13 +103,17 @@ export default function NotePage() {
           (showDiarySkeleton ? (
             <ListSkeleton />
           ) : (diaryEntries ?? []).length === 0 ? (
-            <EmptyState
-              icon={NotebookPen}
-              title="日記はまだありません"
-              description="旅行に関係なく、その日のことを残せます。"
-              action={{ label: "日記を書く", onClick: () => setEditingDiary("new") }}
-              card
-            />
+            // 日記0件のときはこのカード1枚しか出ず、下に背景写真だけの帯が残る。
+            // カードを画面の下まで伸ばす(.is-empty-fill、index.css)。
+            <div className="is-empty-fill">
+              <EmptyState
+                icon={NotebookPen}
+                title="日記はまだありません"
+                description="旅行に関係なく、その日のことを残せます。"
+                action={{ label: "日記を書く", onClick: () => setEditingDiary("new") }}
+                card
+              />
+            </div>
           ) : (
             <>
               <DiaryList
