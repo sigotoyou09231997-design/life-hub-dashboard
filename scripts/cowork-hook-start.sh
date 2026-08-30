@@ -69,11 +69,26 @@ printf '%s\t%s\t%s\n' "$SESSION_ID" "$CLAUDE_PID" "$(date '+%Y-%m-%dT%H:%M:%S%z'
 mv "$TMP" "$SESSFILE"
 WINDOWS="$(wc -l < "$SESSFILE" | tr -d ' ')"
 
+# ---- 前回のヘッドレス実行の結果を、まだ伝えていなければ知らせる ----
+# 結果は .cowork/report.md に書かれるだけで、こちらから見に行かないと分からない。
+# 「感知していない」ように見えていた原因がこれなので、セッションを開いた時に出す。
+REPORT="$STATE_DIR/report.md"
+SEEN="$STATE_DIR/report.seen"
+UNREAD=""
+if [ -f "$REPORT" ] && { [ ! -f "$SEEN" ] || [ "$REPORT" -nt "$SEEN" ]; }; then
+  UNREAD="$(sed -n 's/^# Cowork 検知レポート（\(.*\)）$/\1/p' "$REPORT" | head -1)"
+  DONE_COUNT="$(grep -c '| 実装済み |' "$REPORT" 2>/dev/null | tr -d ' ')"
+  HOLD_COUNT="$(grep -c '| 保留中 |' "$REPORT" 2>/dev/null | tr -d ' ')"
+  UNREAD="前回のCowork実行（${UNREAD:-時刻不明}）: 実装済み ${DONE_COUNT:-0}件 / 保留中 ${HOLD_COUNT:-0}件。詳細は .cowork/report.md"
+  : > "$SEEN"
+fi
+
 # ---- 常駐が動いていなければ起動 ----
 if [ -f "$PIDFILE" ]; then
   old_pid="$(head -1 "$PIDFILE" 2>/dev/null | cut -f1)"
   if [ -n "${old_pid:-}" ] && kill -0 "$old_pid" 2>/dev/null; then
-    printf '{"systemMessage":"Cowork監視は稼働中（PID %s / 開いているウィンドウ %s）"}\n' "$old_pid" "$WINDOWS"
+    printf '{"systemMessage":"Cowork監視は稼働中（PID %s / 開いているウィンドウ %s）%s"}\n' \
+      "$old_pid" "$WINDOWS" "${UNREAD:+ ｜ $UNREAD}"
     exit 0
   fi
 fi
@@ -90,4 +105,5 @@ done
 nohup bash "$DAEMON" "$SESSION_ID" >/dev/null 2>&1 &
 disown 2>/dev/null || true
 
-printf '{"systemMessage":"Cowork監視を起動しました（docs/requests への書き込みを検知したら /cowork-check をヘッドレス実行します）"}\n'
+printf '{"systemMessage":"Cowork監視を起動しました（docs/requests への書き込みを検知したら /cowork-check をヘッドレス実行します）%s"}\n' "${UNREAD:+ ｜ $UNREAD}"
+

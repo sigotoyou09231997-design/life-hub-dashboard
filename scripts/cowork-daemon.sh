@@ -45,6 +45,14 @@ cd "$ROOT" || exit 1
 
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$LOG"; }
 
+# 感知したこと・終わったことを、Macの通知として出す。
+# ログとレポートは見に行かないと分からず、「動いていない」ようにしか見えないため。
+notify() {
+  command -v osascript >/dev/null 2>&1 || return 0
+  msg="$(printf '%s' "$1" | tr -d '"\\' | tr '\n' ' ')"
+  osascript -e "display notification \"$msg\" with title \"Cowork\"" >/dev/null 2>&1 || true
+}
+
 # ---- ヘッドレス実行の排他ロック（プロセスをまたぐ） ----------------------
 # 常駐が万一2つ生き残っても、claude が同時に2本走らないようにする保険。
 # mkdir は「既にあれば失敗する」ので、これだけで取り合いが成立する。
@@ -162,11 +170,11 @@ run_check() {
     release_lock
     return
   fi
-  printf '%s\n' "$cur_hash" > "$LASTHASHFILE"
 
   RUN_TIMES="$RUN_TIMES $now"
 
   log "検知 → claude -p '/cowork-check' を起動（${paths_note}）"
+  notify "依頼を見つけました。いまから反映します"
 
   # ヘッドレス実行は「開いているウィンドウ」ではない。フック側が登録／解除しないよう目印を渡す
   # （これが無いと、実行が終わった瞬間に「最後の1枚が閉じた」と誤判定して常駐が自滅する）
@@ -175,11 +183,21 @@ run_check() {
     < /dev/null > "$STATE_DIR/headless-out.txt" 2> "$STATE_DIR/headless-err.txt"
   exit_code=$?
 
+  # ここまで来た＝実行を最後まで通した。「この内容は処理済み」の印は必ず**実行の後**に
+  # 書く。先に書くと、途中で環境ごと落ちた時に未処理の依頼が黙って処理済みになる
+  # (2026-08-30 に、別環境の常駐が印だけ書いて消えた)。
+  printf '%s\n' "$cur_hash" > "$LASTHASHFILE"
+
   release_lock
 
   tail_out="$(cat "$STATE_DIR/headless-out.txt" "$STATE_DIR/headless-err.txt" 2>/dev/null | tail -c 2000)"
   [ -n "$tail_out" ] && log "ヘッドレス実行の出力（末尾）: $tail_out"
   log "ヘッドレス実行が終了しました（exit=${exit_code}）"
+  if [ "$exit_code" = 0 ]; then
+    notify "依頼の反映が終わりました。結果は .cowork/report.md"
+  else
+    notify "依頼の反映が途中で終わりました（exit=${exit_code}）"
+  fi
 
   # ここまで来た(=途中で常駐ごと落ちなかった)ということは、今回のdocs/requestsの状態は
   # 一通りcowork-checkに処理させたということ。次に常駐が落ちて再起動しても、この時点の
@@ -224,10 +242,19 @@ while true; do
 
   # daemon.pid の持ち主でなくなっていたら引退する
   # （別の常駐が引き継いだ／停止処理で消された。放っておくと2つ動いてしまう）
+  #
+  # ただし引退するのは、新しい持ち主が**このマシンで生きている**時だけ。
+  # 別環境(コンテナなど)で動いた常駐が、ここには存在しないPIDを daemon.pid に
+  # 書き残していくことがあり、それで引退すると誰も見ていない状態になる
+  # (2026-08-30: PID 6 に書き換えられて監視が止まった)。その場合は取り戻す。
   owner_pid="$(head -1 "$PIDFILE" 2>/dev/null | cut -f1)"
   if [ "${owner_pid:-}" != "$$" ]; then
-    log "daemon.pid の持ち主が ${owner_pid:-なし} に変わったため、この常駐（PID $$）は終了します"
-    break
+    if [ -n "${owner_pid:-}" ] && kill -0 "$owner_pid" 2>/dev/null; then
+      log "daemon.pid の持ち主が ${owner_pid} に変わったため、この常駐（PID $$）は終了します"
+      break
+    fi
+    log "daemon.pid が動いていない PID ${owner_pid:-なし} に書き換えられていたので、この常駐（PID $$）が引き継ぎ直します"
+    printf '%s\t%s\t%s\n' "$$" "$OWNER" "$(date '+%Y-%m-%dT%H:%M:%S%z')" > "$PIDFILE"
   fi
 
   # 1時間ごとに生存を書き残す（黙って落ちたのを後から見つけられるように）
