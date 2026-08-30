@@ -16,10 +16,12 @@ interface Props<T extends string> {
   onChange: (value: T) => void;
   /** text-sm fits 2-3 columns; text-[11px] keeps 5 columns from wrapping at 320px */
   dense?: boolean;
+  /** その画面を移動する主役のタブ用。押しやすいように背を高く、文字も大きくする（dense より優先） */
+  large?: boolean;
   className?: string;
 }
 
-export function Tabs<T extends string>({ options, value, onChange, dense = false, className = "" }: Props<T>) {
+export function Tabs<T extends string>({ options, value, onChange, dense = false, large = false, className = "" }: Props<T>) {
   const activeIndex = Math.max(0, options.findIndex((option) => option.value === value));
   return (
     <div
@@ -40,9 +42,11 @@ export function Tabs<T extends string>({ options, value, onChange, dense = false
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(opt.value)}
-            className={`relative z-10 min-h-9 py-2 font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
-              dense ? "text-[11px]" : "text-sm"
-            } ${selected ? "font-semibold text-accent" : "text-slate-500 hover:text-slate-700"}`}
+            className={`relative z-10 font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
+              large ? "min-h-12 py-3 text-sm" : "min-h-9 py-2"
+            } ${large ? "" : dense ? "text-[11px]" : "text-sm"} ${
+              selected ? "font-semibold text-accent" : "text-slate-500 hover:text-slate-700"
+            }`}
           >
             {opt.label}
           </button>
