@@ -6,6 +6,7 @@ import type { Trip } from "../../types";
 import { todayStr } from "../../lib/date";
 import {
   describePlanImportError,
+  findSimilarPlan,
   isAlreadyRegistered,
   isOutsideTrip,
   planKey,
@@ -65,12 +66,16 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   const [rows, setRows] = useState<TripImportRow[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // 同じ内容を二重に入れないための鍵。日付・時刻・タイトルが一致するものは入れない
-  // (メールからの取り込みと同じ決まり)。
-  const existingKeys = useLiveQuery(async () => {
-    const schedule = await db.tripSchedule.where("tripId").equals(tripId).toArray();
-    return new Set(schedule.map((item) => planKey(item.date, item.startTime, item.title)));
-  }, [tripId]);
+  // いま入っている日程。二重に入れないために2通りの見方をする —
+  // 日付・時刻・タイトルが揃うものは入れさせず(メールの取り込みと同じ決まり)、
+  // 同じ日の似たタイトルは、入れられるが既定では外しておく。
+  const existingSchedule = useLiveQuery(
+    async () => await db.tripSchedule.where("tripId").equals(tripId).toArray(),
+    [tripId],
+  );
+  const existingKeys = existingSchedule
+    ? new Set(existingSchedule.map((item) => planKey(item.date, item.startTime, item.title)))
+    : undefined;
 
   function addPhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -123,7 +128,13 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         tripStart: trip.startDate,
         tripEnd: trip.endDate,
       });
-      setRows(toImportRows(items));
+      // 同じ日に似た予定が既にあるものは、外した状態で並べる。読み取り直すたびに
+      // 同じ予定が積み上がるのを、押す前に止めるため。
+      setRows(
+        toImportRows(items).map((row) =>
+          findSimilarPlan(row, existingSchedule) ? { ...row, checked: false, withExpense: false } : row,
+        ),
+      );
       setStatus("ready");
     } catch (err) {
       console.error("[tripPlanScan] failed to read a plan:", err);
@@ -229,6 +240,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
                   destination="trip"
                   already={isAlreadyRegistered(row, existingKeys)}
                   outside={isOutsideTrip(trip, row.date)}
+                  similar={findSimilarPlan(row, existingSchedule)}
                   missingAmountHint="写真・文章から金額を読み取れませんでした"
                   onChange={(changes) => updateRow(index, changes)}
                 />

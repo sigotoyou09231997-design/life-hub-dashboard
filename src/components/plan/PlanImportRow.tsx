@@ -16,6 +16,9 @@ interface Props {
   already: boolean;
   /** 旅行の期間から外れた日付。入れられるが、日程表には出てこないので印を出す。 */
   outside: boolean;
+  /** 同じ日にある似た予定のタイトル。完全一致(already)と違って入れられるが、
+      重ねて入れることになるので、既定では外したうえで断りを出す。 */
+  similar?: string;
   /** 金額が読み取れなかった時に、費用のスイッチに出す注記。 */
   missingAmountHint: string;
   onChange: (changes: Partial<TripImportRow>) => void;
@@ -29,7 +32,7 @@ interface Props {
  * (src/components/gmail/MailPlanImport.tsx)と、旅行計画の写真・文章からの取り込み
  * (src/components/trips/TripPlanScanForm.tsx)で同じ行を使う。
  */
-export function PlanImportRow({ row, destination, already, outside, missingAmountHint, onChange }: Props) {
+export function PlanImportRow({ row, destination, already, outside, similar, missingAmountHint, onChange }: Props) {
   return (
     <div className={`glass-row space-y-2 rounded-xl p-3 ${already ? "opacity-70" : ""}`}>
       <label className="flex items-start gap-2">
@@ -48,6 +51,13 @@ export function PlanImportRow({ row, destination, already, outside, missingAmoun
         <p className="flex items-start gap-1.5 px-1 text-xs leading-relaxed text-success">
           <Check size={13} className="mt-0.5 shrink-0" />
           すでに登録されています
+        </p>
+      )}
+
+      {!already && similar && (
+        <p className="flex items-start gap-1.5 px-1 text-xs leading-relaxed text-warning">
+          <TriangleAlert size={13} className="mt-0.5 shrink-0" />
+          同じ日に「{similar}」があります。重ねて入れる時だけチェックしてください
         </p>
       )}
 

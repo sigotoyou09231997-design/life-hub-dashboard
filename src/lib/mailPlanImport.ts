@@ -337,3 +337,47 @@ export function isAlreadyRegistered(row: TripImportRow, existingKeys: Set<string
   if (!existingKeys) return false;
   return existingKeys.has(planKey(row.date, row.startTime, row.title));
 }
+
+/** 見た目の違いだけを落としたタイトル。「似ているか」を見るためのもの。
+ *
+ * planKey は日付・時刻・タイトルが揃って初めて同じとみなすので、しおりのような
+ * 時刻の無い文章を読み取ると、手で入れた「鎌倉散歩」と読み取った「🚗 鎌倉散歩」が
+ * 別物になって二重に並ぶ。絵文字・記号・空白・全角半角のゆれをここで揃える。 */
+export function normalizePlanTitle(title: string): string {
+  return title
+    .normalize("NFKC")
+    .toLowerCase()
+    // 絵文字と、区切りに使われる記号・かっこ。しおりの「🎣 初心者船釣り」「江の島・灯籠」など。
+    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, "")
+    .replace(/[\s・、。,，.．/／|｜~〜\-–—+＋:：;；()（）[\]「」『』【】"'!！?？♪…]/gu, "")
+    .trim();
+}
+
+/** 同じ日にある予定。似ているかを見るのに、鍵ではなく中身が要る。 */
+export interface ExistingPlan {
+  date: string;
+  startTime?: string;
+  title: string;
+}
+
+/** その行と似た予定が、同じ日に既にあるか。あればその予定のタイトルを返す。
+ *
+ * 完全一致(planKey)は入れさせないが、こちらは**入れられるが既定では外しておく**ための
+ * ゆるい判定 — 「鎌倉散歩」と「お迎え・買い出し・鎌倉散歩」のように、片方がもう片方を
+ * 含む書き方は同じ予定のことが多い。ただし「移動」「昼食」のような短い言葉は、別の
+ * 予定にも普通に出てくるので、含むだけでは同じとみなさない(2文字以下は完全一致のみ)。 */
+export function findSimilarPlan(row: { date: string; title: string }, existing: ExistingPlan[] | undefined): string | undefined {
+  if (!existing) return undefined;
+  const target = normalizePlanTitle(row.title);
+  if (!target) return undefined;
+  for (const item of existing) {
+    if (item.date !== row.date) continue;
+    const other = normalizePlanTitle(item.title);
+    if (!other) continue;
+    if (other === target) return item.title;
+    const shorter = target.length <= other.length ? target : other;
+    if (shorter.length <= 2) continue;
+    if (other.includes(target) || target.includes(other)) return item.title;
+  }
+  return undefined;
+}
