@@ -907,8 +907,11 @@ body .text-base { font-size: 1.05rem; }
 /* Final Micro Polish — empty-state density and system hierarchy only.
    Core glass/background tokens and data-state layouts remain unchanged. */
 .planning-empty-control { display: flex; width: 100%; min-height: 0; flex-direction: column; justify-content: center; }
-/* 予定が1件も無い日の囲い。予定がある時は行が面になるので、こちらには出さない。 */
-.planning-empty-control--timeline { border-radius: var(--hub-r-sm); background-color: var(--hub-inset); }
+/* 予定・タスクが1件も無い時の囲い。ある時は行そのものが面になるので出さない。
+   左のタイムラインだけに面があり、右のタスクは案内が地の上に浮いていたので、
+   同じくぼみを敷いて2枚の見え方を揃えた(2026-08-30)。 */
+.planning-empty-control--timeline,
+.planning-empty-control--tasks { border-radius: var(--hub-r-sm); background-color: var(--hub-inset); }
 .planning-empty-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: .2rem .7rem 0; padding-top: .62rem; border-top: 1px solid rgba(255,255,255,.3); }
 .planning-empty-footer > span { display: inline-flex; align-items: center; gap: .35rem; color: rgba(48,67,91,.61); font-size: .56rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .planning-empty-footer > span i { width: .36rem; height: .36rem; border-radius: 50%; background: #5e7de3; box-shadow: 0 0 7px rgba(76,107,218,.4); }
@@ -2177,7 +2180,28 @@ body .text-sm { line-height: 1.5; }
 
 /* 背が高くなったぶん、中身は上に貼りつけず縦の中央に置く。 */
 .is-empty-fill > .finance-balance-module { justify-content: center; }
-.is-empty-fill .planning-task-list { justify-content: center; }
+
+/* 予定の「今日」タブの2枚も、メモ・リストと同じ考え方に揃える(2026-08-30)。
+   中身をまとめて縦の中央へ寄せていたので、画面が広いほど案内の上下に大きな
+   空白ができ、カードが間延びして見えていた。
+
+   どちらも、案内が浮いている地ではなく囲い(くぼみ)の方を空いた高さいっぱいに
+   広げ、中身はその上端に置く。空くのは囲いの中 — これから予定・タスクが並ぶ
+   場所になるので、カードが伸びたぶんの空白が「これから使う場所」として読める。
+
+   「予定を追加」の行だけは時間軸の下端(24時)に貼りつける — 6→24 の時間軸は
+   上下の端が意味を持つ面なので、そこが日の終わりになる。タスク側は貼りつけない:
+   画面の右下には丸ボタン(PageFab)が浮いていて、幅1024〜1200あたりだとカードが
+   狭く、下端に置いた「タスクを追加」がそのボタンに隠れてしまうため。 */
+.is-empty-fill .planning-timeline-content { justify-content: stretch; }
+.is-empty-fill .planning-task-list { justify-content: flex-start; }
+
+.is-empty-fill .planning-empty-control {
+  flex: 1;
+  justify-content: flex-start;
+}
+
+.is-empty-fill .planning-empty-control--timeline > .planning-empty-footer { margin-top: auto; }
 
 /* メモ・リストの空状態だけは、中身をまとめて中央に落とすと形が崩れる。
    このカードは「メモ・リスト 0件」という見出しで始まり、下端に区切り線付きの
