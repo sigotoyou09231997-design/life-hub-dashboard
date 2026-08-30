@@ -25,8 +25,9 @@ async function readErrorMessage(res: Response, fallback: string): Promise<string
   }
 }
 
-/** FileをAnthropicへ渡せる生base64(データURLの接頭辞なし)にする。 */
-export function fileToBase64(file: File): Promise<string> {
+/** 画像をAnthropicへ渡せる生base64(データURLの接頭辞なし)にする。
+ * 縮めた後のBlobも渡せるよう Blob で受ける(src/lib/imageDownscale.ts)。 */
+export function fileToBase64(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {

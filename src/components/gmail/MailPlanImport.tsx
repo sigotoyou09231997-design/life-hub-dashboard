@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CalendarPlus, Check, MapPin, TriangleAlert } from "lucide-react";
 import { db } from "../../db/schema";
-import type { GmailAccount, SyncedEmail, TripScheduleType } from "../../types";
+import type { GmailAccount, SyncedEmail } from "../../types";
 import { extractTripPlanFromEmail } from "../../lib/gmail";
 import {
   PLAN_GROUPS,
@@ -36,15 +36,13 @@ import {
   type TripImportRow,
   type TripSection,
 } from "../../lib/mailPlanImport";
-import { TRIP_SCHEDULE_TYPES } from "../../lib/tripCategories";
 import { formatShortDate } from "../../lib/date";
+import { PlanImportRow } from "../plan/PlanImportRow";
 import { Sheet } from "../ui/Sheet";
 import { Tabs } from "../ui/Tabs";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { SwitchField } from "../ui/SwitchField";
-import { DateField } from "../ui/DateField";
-import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
 import { FormActions } from "../ui/FormActions";
 import { EmptyState } from "../ui/EmptyState";
@@ -371,134 +369,17 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
 
           {destination !== "route" && (
             <div className="space-y-3">
-              {rows.map((row, index) => {
-                const outside = destination === "trip" && isOutsideTrip(selectedTrip, row.date);
-                const already = isAlreadyRegistered(row, keysFor(destination));
-                return (
-                  <div key={index} className={`glass-row space-y-2 rounded-xl p-3 ${already ? "opacity-70" : ""}`}>
-                    <label className="flex items-start gap-2">
-                      <input
-                        type="checkbox"
-                        checked={row.checked && !already}
-                        disabled={already}
-                        onChange={(e) => updateRow(index, { checked: e.target.checked })}
-                        aria-label={`${row.title}を入れる`}
-                        className="mt-1 h-4 w-4 shrink-0 accent-[color:var(--hub-accent,#4f6fff)] disabled:opacity-50"
-                      />
-                      <span className="min-w-0 flex-1 text-sm font-medium text-slate-900">{row.title}</span>
-                    </label>
-
-                    {already && (
-                      <p className="flex items-start gap-1.5 px-1 text-xs leading-relaxed text-success">
-                        <Check size={13} className="mt-0.5 shrink-0" />
-                        すでに登録されています
-                      </p>
-                    )}
-
-                    {row.checked && !already && (
-                      <div className="space-y-2">
-                        <Input
-                          label={destination === "task" ? "やること" : "内容"}
-                          value={row.title}
-                          onChange={(e) => updateRow(index, { title: e.target.value })}
-                        />
-                        <DateField
-                          label={destination === "task" ? "期限" : "日付"}
-                          value={row.date}
-                          onChange={(date) => updateRow(index, { date })}
-                        />
-                        <Field label={destination === "task" ? "時刻" : "開始 → 終了"} as="div">
-                          {destination === "task" ? (
-                            <input
-                              type="time"
-                              aria-label="時刻"
-                              className="field-shell"
-                              value={row.startTime ?? ""}
-                              onChange={(e) => updateRow(index, { startTime: e.target.value })}
-                            />
-                          ) : (
-                            // 予定フォーム(EventForm)と同じ並び。移動なら「10:05 〜 13:20」と
-                            // 出るので、当日の動きが一目で分かる。
-                            <div className="range-field range-field--time">
-                              <input
-                                type="time"
-                                aria-label="開始時刻"
-                                className="field-shell"
-                                value={row.startTime ?? ""}
-                                onChange={(e) => updateRow(index, { startTime: e.target.value })}
-                              />
-                              <span className="range-field__arrow" aria-hidden="true">
-                                〜
-                              </span>
-                              <input
-                                type="time"
-                                aria-label="終了時刻"
-                                className="field-shell"
-                                value={row.endTime ?? ""}
-                                onChange={(e) => updateRow(index, { endTime: e.target.value })}
-                              />
-                            </div>
-                          )}
-                        </Field>
-                        {/* 種類は旅行の日程だけが持つ項目。 */}
-                        {destination === "trip" && (
-                          <Select
-                            label="種類"
-                            value={row.type}
-                            onChange={(e) => updateRow(index, { type: e.target.value as TripScheduleType })}
-                          >
-                            {TRIP_SCHEDULE_TYPES.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </Select>
-                        )}
-                        {destination !== "task" && (
-                          <Input
-                            label="場所"
-                            optional
-                            value={row.location ?? ""}
-                            onChange={(e) => updateRow(index, { location: e.target.value })}
-                          />
-                        )}
-                        {/* 費用は旅行の日程に入れる時だけ。新幹線なら交通費、宿なら宿泊費として
-                            同じ旅行に積む(種類がそのまま費用の分類になる)。 */}
-                        {destination === "trip" && (
-                          <>
-                            <SwitchField
-                              label="費用にも入れる"
-                              hint={row.amount ? undefined : "メールから金額を読み取れませんでした"}
-                              checked={row.withExpense}
-                              onChange={(withExpense) => updateRow(index, { withExpense })}
-                            />
-                            {row.withExpense && (
-                              <Input
-                                label="金額"
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                value={row.amount != null ? String(row.amount) : ""}
-                                onChange={(e) =>
-                                  updateRow(index, { amount: e.target.value ? Number(e.target.value) : undefined })
-                                }
-                                placeholder="例: 12540"
-                              />
-                            )}
-                          </>
-                        )}
-                        {row.memo && <p className="px-1 text-xs leading-relaxed text-slate-500">{row.memo}</p>}
-                        {outside && (
-                          <p className="flex items-start gap-1.5 px-1 text-xs leading-relaxed text-warning">
-                            <TriangleAlert size={13} className="mt-0.5 shrink-0" />
-                            この旅行の期間の外です。入れても日程表には出てこないので、日付か旅行の期間を直してください
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+              {rows.map((row, index) => (
+                <PlanImportRow
+                  key={index}
+                  row={row}
+                  destination={destination}
+                  already={isAlreadyRegistered(row, keysFor(destination))}
+                  outside={destination === "trip" && isOutsideTrip(selectedTrip, row.date)}
+                  missingAmountHint="メールから金額を読み取れませんでした"
+                  onChange={(changes) => updateRow(index, changes)}
+                />
+              ))}
             </div>
           )}
 
