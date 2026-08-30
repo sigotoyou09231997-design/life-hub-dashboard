@@ -12,7 +12,7 @@ import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
 import { occursOn, spanDayIndex, spanTimeText } from "../lib/eventSpan";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
 import { pullBlockedSenders } from "../lib/blockedSenders";
-import { tripCoverImage } from "../lib/tripCovers";
+import { useTripCover } from "../hooks/useTripCover";
 import { getScheduleCategory } from "../lib/scheduleCategories";
 import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { useHubMotion } from "../hooks/useHubMotion";
@@ -168,6 +168,8 @@ export default function TopPage() {
     [...(tripsResult ?? [])]
       .filter((trip) => trip.status === "planning")
       .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+  const tripCover = useTripCover(featuredTrip?.name ?? "", featuredTrip?.destination ?? "");
+
   const tripDays = featuredTrip ? differenceInCalendarDays(parseISO(featuredTrip.startDate), now) : null;
 
   const hour = now.getHours();
@@ -202,7 +204,7 @@ export default function TopPage() {
         <Link to="/trips" className="warm-trip" data-reveal="2">
           <div
             className="warm-trip__photo"
-            style={featuredTrip ? { backgroundImage: `url('${tripCoverImage(featuredTrip.destination || featuredTrip.name)}')` } : undefined}
+            style={featuredTrip ? { backgroundImage: `url('${tripCover.url}')` } : undefined}
             aria-hidden="true"
           />
           <div className="warm-trip__veil" aria-hidden="true" />

@@ -4,7 +4,7 @@ import { CalendarRange, MapPin, Plane } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Trip } from "../../types";
 import { formatDisplayDate, todayStr, tripCountdownLabel, tripDurationLabel } from "../../lib/date";
-import { tripCoverImage } from "../../lib/tripCovers";
+import { useTripCover } from "../../hooks/useTripCover";
 import { occurringOn } from "../../lib/eventSpan";
 import { TripRemoveButton } from "./TripRemoveButton";
 
@@ -25,6 +25,7 @@ function yen(value: number): string {
  */
 export function TripLeadCard({ trip, onDelete }: Props) {
   const today = todayStr();
+  const cover = useTripCover(trip.name, trip.destination ?? "");
   const ongoing = trip.status === "ongoing";
 
   const stats = useLiveQuery(async () => {
@@ -49,7 +50,7 @@ export function TripLeadCard({ trip, onDelete }: Props) {
     <Link to={`/trips/${trip.id}`} className="trip-lead hub-tap" data-page-block>
       <div
         className="trip-lead__photo"
-        style={{ backgroundImage: `url('${tripCoverImage(trip.destination || trip.name)}')` }}
+        style={{ backgroundImage: `url('${cover.url}')` }}
         aria-hidden="true"
       />
       <div className="trip-lead__veil" aria-hidden="true" />

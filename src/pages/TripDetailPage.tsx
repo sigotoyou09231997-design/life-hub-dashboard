@@ -29,6 +29,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
+import { useTripCover } from "../hooks/useTripCover";
 import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
@@ -141,6 +142,9 @@ export default function TripDetailPage() {
   }
 
   const showSkeleton = useDelayedFlag(tripResult === undefined);
+  // 表紙写真。読み込み中や見つからない場合もフックは同じ回数呼ぶ必要があるので、
+  // 下の早期returnより前に置く。
+  const cover = useTripCover(tripResult?.trip?.name ?? "", tripResult?.trip?.destination ?? "");
 
   if (!tripId) return null;
 
@@ -202,8 +206,10 @@ export default function TripDetailPage() {
       />
 
       <section className="trip-detail-hero mx-5 mb-3 lg:mx-8">
-        <div className="trip-detail-hero__photo" aria-hidden="true" /><div className="trip-detail-hero__veil" aria-hidden="true" />
+        <div className="trip-detail-hero__photo" style={{ backgroundImage: `url('${cover.url}')` }} aria-hidden="true" /><div className="trip-detail-hero__veil" aria-hidden="true" />
         <div className="trip-detail-hero__content"><span>{STATUS_LABEL[trip.status]}</span><h2>{trip.destination}</h2><p>{formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} · {tripDurationLabel(trip.startDate, trip.endDate)}</p></div>
+        {/* Googleの写真を出す時は撮影者のクレジットを併記する決まりになっている。 */}
+        {cover.attribution && <span className="trip-detail-hero__credit">写真: {cover.attribution}</span>}
       </section>
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-5">

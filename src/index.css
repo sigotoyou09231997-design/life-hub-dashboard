@@ -818,6 +818,8 @@ body .text-base { font-size: 1.05rem; }
 .trip-detail-hero__content span { color: rgba(255,255,255,.68); font-size: .56rem; font-weight: 750; letter-spacing: .16em; text-transform: uppercase; }
 .trip-detail-hero__content h2 { margin: .35rem 0 0; font-size: clamp(1.5rem,3vw,2.35rem); font-weight: 610; letter-spacing: -.035em; }
 .trip-detail-hero__content p { margin: .35rem 0 0; color: rgba(255,255,255,.76); font-size: .68rem; }
+/* Googleの場所の写真を使った時の撮影者クレジット（規約上、写真と一緒に出す）。 */
+.trip-detail-hero__credit { position: absolute; right: .7rem; bottom: .5rem; z-index: 1; color: rgba(255,255,255,.62); font-size: .55rem; letter-spacing: .02em; }
 .trip-memo-note { max-width: 800px; background: rgba(210,227,239,.34); }
 
 /* System and profile panels */
