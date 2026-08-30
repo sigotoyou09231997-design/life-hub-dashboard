@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban, CalendarPlus, Copy, Mail, MailOpen, Star } from "lucide-react";
+import { Ban, Briefcase, CalendarPlus, Copy, Mail, MailOpen, Star } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
@@ -29,6 +29,8 @@ import { MonthView } from "../calendar/MonthView";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { updateMessageState } from "../../lib/gmailMessageState";
 import { isPlanSuggestion, planSuggestionHint } from "../../lib/mailPlanSuggestion";
+import { detectJobStageSuggestion } from "../../lib/jobMailSuggestion";
+import { getJobStage } from "../../lib/jobApplications";
 import { AttachmentPicker } from "./AttachmentPicker";
 
 const EMPTY_DATE_SET = new Set<string>();
@@ -130,6 +132,27 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   async function handleDismissPlanSuggestion() {
     if (!email.id) return;
     await db.syncedEmails.update(email.id, { planSuggestionDismissedAt: Date.now() });
+  }
+
+  // 就活タブの応募先。選考結果らしいメールを開いたときに、その会社の進捗を
+  // 進める提案を出すために読む(判定は端末の中の文字合わせだけ — AIは呼ばない)。
+  const jobApplications = useLiveQuery(() => db.jobApplications.toArray(), []);
+  const jobStageSuggestion = detectJobStageSuggestion(email, jobApplications ?? []);
+
+  async function handleDismissJobStageSuggestion() {
+    if (!email.id) return;
+    await db.syncedEmails.update(email.id, { jobStageSuggestionDismissedAt: Date.now() });
+  }
+
+  async function handleApplyJobStageSuggestion() {
+    if (!jobStageSuggestion?.application.id) return;
+    await db.jobApplications.update(jobStageSuggestion.application.id, {
+      stage: jobStageSuggestion.stage,
+      updatedAt: Date.now(),
+    });
+    // 反映したメールにはもう出さない(同じ提案が残り続けるのを防ぐ)。
+    if (email.id) await db.syncedEmails.update(email.id, { jobStageSuggestionDismissedAt: Date.now() });
+    showToast(`「${jobStageSuggestion.application.companyName}」を${getJobStage(jobStageSuggestion.stage).label}にしました`);
   }
 
   // Shown as dots on the date picker so the user can see at a glance which days
@@ -617,6 +640,39 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     </div>
   );
 
+  /** 選考結果らしいメールに出す提案。押すまで就活タブの記録は変わらない。
+   * 「あとで」を押すと、このメールにはもう出さない。 */
+  const jobStageSuggestionBanner = jobStageSuggestion && (
+    <div className="glass-row flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-4 py-3">
+      <span className="flex min-w-0 flex-1 items-center gap-2 text-sm text-slate-700">
+        <Briefcase size={16} className="shrink-0 text-accent" />
+        <span className="min-w-0">
+          選考の連絡のようです。就活タブの「{jobStageSuggestion.application.companyName}」を
+          {getJobStage(jobStageSuggestion.stage).label}にしますか?
+          {jobStageSuggestion.hint && (
+            <em className="ml-1.5 not-italic text-xs text-slate-500">({jobStageSuggestion.hint})</em>
+          )}
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
+        <button
+          type="button"
+          onClick={handleDismissJobStageSuggestion}
+          className="rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          あとで
+        </button>
+        <button
+          type="button"
+          onClick={handleApplyJobStageSuggestion}
+          className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          進捗を更新
+        </button>
+      </span>
+    </div>
+  );
+
   const candidateSheet = (
     <Sheet open={editingCandidateIndex !== null} onClose={() => setEditingCandidateIndex(null)} title="候補日を変更">
       <div className="space-y-4">
@@ -652,6 +708,8 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         {senderRow}
 
         {planSuggestionBanner}
+
+        {jobStageSuggestionBanner}
 
         {/* 元メール本文: 初期は折りたたみ、タップで全文表示 */}
         <div>
@@ -782,6 +840,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         </div>
         <div className="mt-3 shrink-0">{senderRow}</div>
         {planSuggestionBanner && <div className="mt-3 shrink-0">{planSuggestionBanner}</div>}
+        {jobStageSuggestionBanner && <div className="mt-3 shrink-0">{jobStageSuggestionBanner}</div>}
         <div className="my-4 shrink-0 border-t border-white/40" />
         {originalBodyNote}
         <div className="whitespace-pre-wrap break-words text-sm text-slate-700">{originalBodyText}</div>

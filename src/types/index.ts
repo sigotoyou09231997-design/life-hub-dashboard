@@ -311,6 +311,10 @@ export interface SyncedEmail {
    * 提案として出さない。この端末だけの覚え書きで、索引も要らないため
    * Dexieのバージョンは上げていない(importantAtと同じ扱い)。 */
   planSuggestionDismissedAt?: number;
+  /** 「就活タブの進捗を進めますか?」の提案に対して「あとで」を押した(または
+   * 反映した)時刻。以後そのメールは提案として出さない。planSuggestionDismissedAt
+   * と同じで、この端末だけの覚え書き・索引は不要のためDexieのバージョンは上げていない。 */
+  jobStageSuggestionDismissedAt?: number;
   /** readAt/importantAt/status を最後に人が変えた時刻。端末間で状態を揃える時の
    * last-write-wins の基準(src/lib/gmailMessageState.ts)。索引は不要なので
    * Dexieのバージョンは上げていない。 */
