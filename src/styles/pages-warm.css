@@ -54,123 +54,77 @@
 }
 
 /* ---------------------------------------------------------------------------
-   2. 画面ごとの色と写真
+   2. 画面ごとの色
 
-   --page-tone  … その画面の色。帯・選択中のタブ・小物に通す。
+   --page-tone  … その画面の色。選択中のタブ・見出しの点・小物に通す。
    --page-tint  … 同じ色のごく薄い面（チップやアイコンの下敷き）。
-   --page-photo … ページ名の帯に敷く1枚。
 
    予定=青／タスク=緑／お金=紫／メモ=橙／Gmail=赤／旅行=青緑 は参考デザインの指定
    （theme-warm.css の --tone-*）。ふりかえり・設定・アカウントは指定が無いので、
    こちらで暖色の家族から選んだ（琥珀／灰茶／砂）。
-   写真は public/backgrounds の既存素材から、画面の性格に近いものを1枚ずつ。
+
+   2026-08-31: ここには画面ごとの写真（--page-photo）もあったが、それを敷いていた
+   ページ名の帯を外したので一緒に消した。写真を使うのはホームのヒーローと
+   ホームの機能カード、旅行のヒーローだけになる。
    ------------------------------------------------------------------------ */
 
 .planning-page {
   --page-tone: var(--tone-schedule);
   --page-tint: rgba(75, 131, 224, 0.1);
-  --page-photo: url("/backgrounds/morning-window-living-v5.jpg");
 }
 
 .finance-page {
   --page-tone: var(--tone-money);
   --page-tint: rgba(139, 111, 212, 0.1);
-  --page-photo: url("/backgrounds/day-sunlit-villa-v5.jpg");
 }
 
 .notes-page {
   --page-tone: var(--tone-notes);
   --page-tint: rgba(224, 138, 72, 0.11);
-  --page-photo: url("/backgrounds/morning-resort-suite-v5.jpg");
 }
 
 .mail-page {
   --page-tone: var(--tone-gmail);
   --page-tint: rgba(221, 92, 82, 0.1);
-  --page-photo: url("/backgrounds/evening-window-lounge-v5.jpg");
 }
 
 .trips-page,
 .trip-detail-page {
   --page-tone: var(--tone-trip);
   --page-tint: rgba(74, 168, 160, 0.11);
-  --page-photo: url("/backgrounds/day-minimal-coast-v5.jpg");
 }
 
 .review-page {
   --page-tone: #c08a3e;
   --page-tint: rgba(192, 138, 62, 0.11);
-  --page-photo: url("/backgrounds/morning-mist-lake-v5.jpg");
 }
 
 .settings-page {
   --page-tone: #8c7a63;
   --page-tint: rgba(140, 122, 99, 0.11);
-  --page-photo: url("/backgrounds/morning-white-atrium-v5.jpg");
 }
 
 .account-page {
   --page-tone: #a08165;
   --page-tint: rgba(160, 129, 101, 0.11);
-  --page-photo: url("/backgrounds/day-white-courtyard-v5.jpg");
 }
 
 /* ---------------------------------------------------------------------------
-   3. ページ名の帯（写真）
+   3. ページ名（帯なし）
 
-   ホームのヒーロー（.warm-hero）・旅行詳細のヒーロー（.trip-detail-hero）と同じ
-   「角丸のカードの中に写真を敷き、その上に見出しを置く」形にする。
+   2026-08-31: ここには以前「角丸のカードの中に写真を敷き、その上に見出しを置く」
+   帯があった（--page-photo で画面ごとに1枚）。参考デザインにこの帯は無く、
+   見出しはただの地に濃い文字で置かれている。実際に本番で見ると、この帯が
+   画面ごとに色のついた面を作って、全体のベージュ感を強める一番の原因になって
+   いたので、帯ごと外した。見出しは地の上に直に置く。
 
-   最初は全幅に写真を敷いて下端をぼかす作りにしてみたが、輪郭を持たない写真は
-   ページの右上に明るい染みが出ているようにしか見えず、下端のぼかしも本文の
-   カードを横切る線になってしまった（1440幅・390幅とも）。写真は枠を持たせて
-   はじめて「敷いた」に見える。
-
-   ページ側のJSXは触らないので、見出しの中身がカードの縁に貼りつかないよう、
-   左右の余白をこちらで広げ、その広げたぶんの内側にカードを置いている。
-
-   z-index: -1 が見出しの文字より後ろに回るだけで済む理由：.spatial-page-header は
-   `position: relative; z-index: 2`（index.css）で重なりの階層を自分で作るので、
-   -1 はこの見出しの中だけの話に閉じる。タブ（z-index: 3 の兄弟）より前には出ない。
+   帯が無くなったので、左右の余白を広げていたぶん（カードの内側に文字を入れる
+   ための 2.35rem / 3.1rem / 1.75rem）も、ページ側のJSXが持つ px-5・lg:px-8 に
+   戻している。--page-photo は他に使い道が無いので、画面ごとの定義ごと消した
+   （画面の色 --page-tone / --page-tint はタブや見出しの点で使うので残す）。
    ------------------------------------------------------------------------ */
 
-.spatial-page-header,
-.mail-page-header {
-  isolation: isolate;
-  /* 元は px-5（1.25rem）。カードの内側に文字を入れるぶんだけ広げる。 */
-  padding-right: 2.35rem;
-  padding-left: 2.35rem;
-}
-
-.spatial-page-header::before,
-.mail-page-header::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  /* 上下は見出しの余白いっぱい、左右は広げたぶんの内側に戻す。 */
-  inset: 0.35rem 1.25rem;
-  border: 1px solid var(--warm-line);
-  border-radius: var(--warm-r-xl);
-  background-image:
-    linear-gradient(
-      100deg,
-      rgba(255, 251, 244, 0.985) 0%,
-      rgba(255, 251, 244, 0.955) 40%,
-      rgba(255, 251, 244, 0.72) 68%,
-      rgba(255, 251, 244, 0.5) 100%
-    ),
-    var(--page-photo, none);
-  background-position: center 46%;
-  background-size: cover;
-  /* 素材ごとの寒暖差を吸収して、8枚が同じ生成りの家族に見えるようにする。
-     明るさを上げないのは home-warm.css のカードとの違い：あちらは6rem角の
-     大きい面だが、こちらは高さ数rem の細い帯なので、明るく飛ばすと写真ではなく
-     「白い染み」に見える。少し沈めて、輪郭が残る側に振っている。 */
-  filter: sepia(0.32) saturate(1.06) brightness(0.99) contrast(1.03);
-  box-shadow: var(--warm-shadow);
-}
-
-/* ページ名は帯の主役。参考デザインの見出しに合わせて大きめ・詰め気味に。 */
+/* ページ名は見出しの主役。参考デザインの見出しに合わせて大きめ・詰め気味に。 */
 .app-shell .spatial-page-header__title,
 .app-shell .spatial-page-header h1,
 .app-shell .mail-page-header h1 {
@@ -191,11 +145,13 @@
   vertical-align: 0.16em;
 }
 
-/* 戻るボタンは帯の上に乗るので、押せることが分かる程度の面を持たせる。 */
+/* 戻るボタンは地の上に直に乗る。地が白に近づいて白い丸だけでは輪郭が出ないので、
+   薄い縁を足して「押せる丸」として見えるようにする。 */
 .app-shell .spatial-page-header a[aria-label="戻る"],
 .app-shell .spatial-page-header button[aria-label="戻る"] {
+  border: 1px solid var(--warm-line);
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--warm-surface);
   box-shadow: 0 1px 2px rgba(70, 53, 32, 0.06);
 }
 
@@ -824,46 +780,10 @@
    14. 画面幅ごとの詰め
    ------------------------------------------------------------------------ */
 
-@media (min-width: 1024px) {
-  /* 元は lg:px-8（2rem）。ここも「カードの外側」ぶんを足す。 */
-  .spatial-page-header,
-  .mail-page-header {
-    padding-right: 3.1rem;
-    padding-left: 3.1rem;
-  }
-
-  .spatial-page-header::before,
-  .mail-page-header::before {
-    inset: 0.35rem 2rem;
-  }
-}
+/* ページ名の帯を外したので、見出しの左右の余白をここで足し引きする必要は無くなった
+   （ページ側のJSXが持つ px-5 / lg:px-8 が、そのまま本文のカードと揃う）。 */
 
 @media (max-width: 639px) {
-  /* 狭い画面はカードの外側の余白を詰めて、見出しの文字を大きく使えるようにする。 */
-  .spatial-page-header,
-  .mail-page-header {
-    padding-right: 1.75rem;
-    padding-left: 1.75rem;
-  }
-
-  .spatial-page-header::before,
-  .mail-page-header::before {
-    inset: 0.25rem 0.75rem;
-    border-radius: var(--warm-r-lg);
-    /* 狭い画面では帯が「幅390px・高さ数rem」しかなく、そこに写真を出すと絵に
-       ならず、見出しの横で色が急に変わるだけになる。膜を厚くして、写真ではなく
-       「奥のほうに光がある」程度の色味として残す。 */
-    background-image:
-      linear-gradient(
-        100deg,
-        rgba(255, 251, 244, 0.99) 0%,
-        rgba(255, 251, 244, 0.975) 46%,
-        rgba(255, 251, 244, 0.86) 74%,
-        rgba(255, 251, 244, 0.74) 100%
-      ),
-      var(--page-photo, none);
-  }
-
   .spatial-page .spatial-module {
     border-radius: var(--warm-r-md) !important;
   }

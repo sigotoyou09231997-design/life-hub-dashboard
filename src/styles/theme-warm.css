@@ -15,19 +15,27 @@
    ========================================================================= */
 
 :root {
-  /* 面（地→カード→へこみ） */
-  --warm-ground: #f3ede3;
-  --warm-ground-2: #faf6f0;
-  --warm-surface: #ffffff;
-  --warm-surface-soft: #fbf8f3;
-  --warm-surface-sunk: #f6f2eb;
+  /* 面（地→カード→へこみ）
 
-  /* 線と影 */
-  --warm-line: rgba(63, 51, 37, 0.085);
-  --warm-line-strong: rgba(63, 51, 37, 0.14);
-  --warm-shadow: 0 6px 22px rgba(70, 53, 32, 0.055), 0 1px 2px rgba(70, 53, 32, 0.04);
-  --warm-shadow-lift: 0 14px 38px rgba(70, 53, 32, 0.1), 0 2px 4px rgba(70, 53, 32, 0.045);
-  --warm-shadow-nav: 0 -8px 28px rgba(70, 53, 32, 0.07);
+     2026-08-31: 地の色を白に近づけた。前の #f3ede3 は R と B の差が 16 あって、
+     単体で見て「ベージュ」と分かる濃さだった。参考デザインの地はほぼ白で、
+     暖かみは「わずかに黄が残る」程度でしかない。差を 5 前後まで詰めて、
+     そのぶん白いカードとの明度差（8〜13）がはっきり出るようにしている。
+     へこみ（sunk）だけは、地が明るくなったぶん白いカードの中で沈んで見える
+     必要があるので、逆にほんの少し暗くしている。 */
+  --warm-ground: #f7f5f2;
+  --warm-ground-2: #fcfaf8;
+  --warm-surface: #ffffff;
+  --warm-surface-soft: #fdfbf9;
+  --warm-surface-sunk: #f3f1ed;
+
+  /* 線と影。地が白に近づいたぶん、カードの輪郭は前より少し強くする
+     （地とカードが同じ明るさに寄って輪郭が消えるのを防ぐ）。 */
+  --warm-line: rgba(63, 51, 37, 0.1);
+  --warm-line-strong: rgba(63, 51, 37, 0.16);
+  --warm-shadow: 0 6px 22px rgba(70, 53, 32, 0.075), 0 1px 2px rgba(70, 53, 32, 0.05);
+  --warm-shadow-lift: 0 14px 38px rgba(70, 53, 32, 0.12), 0 2px 4px rgba(70, 53, 32, 0.055);
+  --warm-shadow-nav: 0 -8px 28px rgba(70, 53, 32, 0.08);
 
   /* 文字（3段） */
   --warm-ink: #2f2a23;
@@ -104,8 +112,8 @@ html {
 /* 背景は写真ではなく、生成りの地。AmbientBackground はこの1枚だけを描く。 */
 .ambient-background {
   background:
-    radial-gradient(130% 90% at 78% -10%, rgba(255, 253, 249, 0.85), transparent 62%),
-    linear-gradient(170deg, #faf6ef 0%, #f6f1e8 60%, #f3ede3 100%);
+    radial-gradient(130% 90% at 78% -10%, rgba(255, 255, 253, 0.9), transparent 62%),
+    linear-gradient(170deg, #fdfbf8 0%, #faf8f5 60%, #f7f5f2 100%);
 }
 
 .app-shell::before {
@@ -342,7 +350,7 @@ html {
    だった。地がクリームになった今は白だと読めないので、他の画面と同じ扱いに戻す。 */
 .app-header--home {
   border-bottom-color: var(--warm-line);
-  background: rgba(250, 246, 240, 0.92);
+  background: rgba(252, 250, 248, 0.94);
 }
 
 .app-header--home .app-header__mobile-brand,
