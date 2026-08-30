@@ -3,6 +3,7 @@ import {
   COVER_CACHE_TTL_MS,
   COVER_MISS_TTL_MS,
   coverCacheKey,
+  describeCoverAnswer,
   isFreshCoverEntry,
   parseCoverEntry,
   tripCoverImage,
@@ -55,5 +56,35 @@ describe("表紙のキャッシュ", () => {
 
   it("写真のURLは、キーを出さないようサーバー関数を通す", () => {
     expect(tripCoverPhotoUrl("places/x/photos/y+z")).toBe("/api/tripCover?photo=places%2Fx%2Fphotos%2Fy%2Bz");
+  });
+});
+
+describe("describeCoverAnswer", () => {
+  it("キーが未設定なら、そう言う", () => {
+    expect(describeCoverAnswer({ configured: false }).ok).toBe(false);
+    expect(describeCoverAnswer({ configured: false }).message).toContain("GOOGLE_MAPS_API_KEY");
+  });
+
+  it("Googleに断られた時は、Places APIの有効化まで案内する", () => {
+    const probe = describeCoverAnswer({ configured: true, query: "鎌倉", error: "403 PERMISSION_DENIED" });
+    expect(probe.ok).toBe(false);
+    expect(probe.message).toContain("Places API (New)");
+    expect(probe.message).toContain("403 PERMISSION_DENIED");
+  });
+
+  it("写真が見つからない時は、検索語を見せる", () => {
+    const probe = describeCoverAnswer({ configured: true, query: "どこか", cover: null });
+    expect(probe.ok).toBe(false);
+    expect(probe.message).toContain("どこか");
+  });
+
+  it("見つかった時は、その写真のURLを返す", () => {
+    const probe = describeCoverAnswer({
+      configured: true,
+      query: "鎌倉 由比ヶ浜",
+      cover: { photo: "places/x/photos/y" },
+    });
+    expect(probe.ok).toBe(true);
+    expect(probe.url).toBe(tripCoverPhotoUrl("places/x/photos/y"));
   });
 });

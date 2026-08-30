@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
-import { Bell, CalendarArrowUp, Database, Mail, PiggyBank, Wallet } from "lucide-react";
+import { Bell, CalendarArrowUp, Database, Image as ImageIcon, Mail, PiggyBank, Wallet } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
@@ -9,6 +9,7 @@ import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
+import { probeTripCover, type TripCoverProbe } from "../lib/tripCovers";
 import { auth, isSupabaseConfigured } from "../lib/supabase";
 import { getSupabaseDataClient } from "../lib/supabaseData";
 import {
@@ -232,6 +233,24 @@ export default function SettingsPage() {
     showToast("Gmail連携を解除しました");
   }
 
+  // 旅行の表紙写真が「その土地の写真」になるかを、その場で確かめるためのもの。
+  // うまくいかない時に、キー未設定なのか・Places API が未有効なのか・写真が
+  // 見つからなかったのかを、画面から切り分けられるようにする。
+  const trips = useLiveQuery(() => db.trips.toArray(), []);
+  const [coverProbe, setCoverProbe] = useState<TripCoverProbe | null>(null);
+  const [coverChecking, setCoverChecking] = useState(false);
+
+  async function handleCheckCover() {
+    const trip = trips?.[0];
+    setCoverChecking(true);
+    try {
+      // 旅行がまだ1件も無い端末でも確かめられるよう、その時は見本の旅行名で聞く。
+      setCoverProbe(await probeTripCover(trip?.name ?? "神奈川旅行", trip?.destination ?? ""));
+    } finally {
+      setCoverChecking(false);
+    }
+  }
+
   return (
     <div className="spatial-page settings-page micro-contrast mx-auto max-w-[1040px] pb-10 lg:pb-8">
       <PageHeader title="設定" backTo="/" />
@@ -282,6 +301,32 @@ export default function SettingsPage() {
           <div className="system-section__actions">
             <Button variant="secondary" className="w-full" onClick={handleExportIcs} disabled={calendarEvents === undefined}>
               .icsで書き出す
+            </Button>
+          </div>
+        </Card>
+
+        <Card className="system-section system-section--tripcover">
+          <div className="system-section__header">
+            <div className="system-section__identity"><span><ImageIcon size={17} /></span><div><h2>旅行の表紙写真</h2></div></div>
+            <div className={`system-status ${coverProbe?.ok ? "is-online" : ""}`}><i />{coverProbe ? (coverProbe.ok ? "取得できました" : "取得できません") : "未確認"}</div>
+          </div>
+          <p className="system-section__description text-xs text-slate-500">
+            旅行名から地名をAIが読み取り、その土地の写真を表紙にします。写真が変わらない時は、ここで理由を確かめられます。
+          </p>
+          {coverProbe && (
+            <div className="system-state-control">
+              <div className="min-w-0">
+                <span>結果</span>
+                <strong className="block whitespace-normal text-xs leading-relaxed">{coverProbe.message}</strong>
+              </div>
+              {coverProbe.url && (
+                <img src={coverProbe.url} alt="" className="h-14 w-20 shrink-0 rounded-lg object-cover" />
+              )}
+            </div>
+          )}
+          <div className="system-section__actions">
+            <Button variant="secondary" className="w-full" onClick={handleCheckCover} disabled={coverChecking}>
+              {coverChecking ? "確かめています…" : "いま写真が取れるか確かめる"}
             </Button>
           </div>
         </Card>

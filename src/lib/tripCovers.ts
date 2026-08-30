@@ -117,6 +117,30 @@ function toResolved(entry: TripCoverEntry): ResolvedTripCover | null {
  * その旅行の土地の写真を1枚見つける。見つからなければ null（呼び出し側は
  * tripCoverImage() の同梱写真のままにする）。
  */
+interface TripCoverAnswer {
+  configured?: boolean;
+  cover?: { photo?: string; attribution?: string } | null;
+  query?: string;
+  error?: string;
+}
+
+/** サーバーに聞く一手だけ。覚え書きは見ない・書かない。 */
+async function fetchTripCover(name: string, destination: string): Promise<TripCoverAnswer> {
+  const res = await fetch("/api/tripCover", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ title: name, destination }),
+  });
+  if (!res.ok) throw new Error(`サーバーが ${res.status} を返しました`);
+  const text = await res.text();
+  try {
+    return JSON.parse(text) as TripCoverAnswer;
+  } catch {
+    // 本番にまだ反映されていない端末では、/api/tripCover が画面のHTMLを返す。
+    throw new Error("サーバーの応答が読み取れませんでした（アプリが最新になっていない可能性があります）");
+  }
+}
+
 export async function resolveTripCover(name: string, destination: string): Promise<ResolvedTripCover | null> {
   if (!name && !destination) return null;
   const key = coverCacheKey(name, destination);
@@ -126,17 +150,7 @@ export async function resolveTripCover(name: string, destination: string): Promi
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
 
   try {
-    const res = await fetch("/api/tripCover", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: name, destination }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      configured?: boolean;
-      cover?: { photo?: string; attribution?: string } | null;
-      error?: string;
-    };
+    const data = await fetchTripCover(name, destination);
     // 探しに行って失敗した時（Places APIをまだ有効にしていない等）は覚えない。
     // 覚えてしまうと、設定を直したあとも期限切れまで同梱の写真のままになる。
     if (data.error) return null;
@@ -147,5 +161,56 @@ export async function resolveTripCover(name: string, destination: string): Promi
   } catch {
     // 通信できなかっただけ。覚えずに、次に開いた時もう一度試す。
     return null;
+  }
+}
+
+export interface TripCoverProbe {
+  ok: boolean;
+  /** 画面にそのまま出す説明。うまくいかない時は理由と次の一手まで書く。 */
+  message: string;
+  /** 見つかった写真（設定画面で見本として出す）。 */
+  url?: string;
+}
+
+/** サーバーの答えを、そのまま画面に出せる日本語にする。 */
+export function describeCoverAnswer(data: TripCoverAnswer): TripCoverProbe {
+  if (data.configured === false) {
+    return { ok: false, message: "サーバーに Google Maps のキー（GOOGLE_MAPS_API_KEY）が設定されていません。" };
+  }
+  if (data.error) {
+    return {
+      ok: false,
+      message: `Googleに断られました。Google Cloud で Places API (New) を有効にすると出るようになります。（${data.error}）`,
+    };
+  }
+  if (!data.cover?.photo) {
+    return { ok: false, message: `「${data.query || "?"}」で写真が見つかりませんでした。旅行名か行き先を具体的な地名にすると見つかりやすくなります。` };
+  }
+  return {
+    ok: true,
+    message: `「${data.query}」の写真が見つかりました。旅行の表紙はこの写真になります。`,
+    url: tripCoverPhotoUrl(data.cover.photo),
+  };
+}
+
+/**
+ * いま表紙写真が出るかどうかを、その場で確かめる（設定画面から使う）。
+ * 覚え書きは見ずに必ず聞き直し、見つかったらその場で覚え直すので、
+ * 設定を直した直後でもすぐ反映される。
+ */
+export async function probeTripCover(name: string, destination: string): Promise<TripCoverProbe> {
+  try {
+    const data = await fetchTripCover(name, destination);
+    const probe = describeCoverAnswer(data);
+    if (probe.ok && data.cover?.photo) {
+      writeEntry(coverCacheKey(name, destination), {
+        photo: data.cover.photo,
+        attribution: data.cover.attribution,
+        at: Date.now(),
+      });
+    }
+    return probe;
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : String(error) };
   }
 }
