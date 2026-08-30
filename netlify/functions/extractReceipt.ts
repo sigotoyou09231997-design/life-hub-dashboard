@@ -67,6 +67,16 @@ export const SYSTEM_PROMPT = `あなたは、レシート・領収書の画像�
 
 /** モデルの応答からJSONを取り出し、使える形の項目だけに絞る。すべて任意項目 —
  * 一部しか読み取れなくても、画面側の確認・修正フォームで人が埋められる。 */
+/** Anthropicの応答から、レシートのJSONが書かれた text を取り出す。
+ *
+ * content の先頭が text とは限らない。claude-sonnet-5 は thinking の指定を省くと
+ * 考えながら答える(adaptive)ため、先頭に text を持たない thinking の塊が入る。
+ * 旅行の読み取り(extractTripPlan.ts)が、ここを先頭決め打ちで読んでいたせいで
+ * 読み取れているのに失敗として返していた(2026-08-30)。同じ形をこちらも直した。 */
+export function pickResponseText(content: { type: string; text?: string }[] | undefined): string {
+  return content?.find((block) => block.type === "text")?.text ?? "";
+}
+
 export function parseReceiptResponse(text: string): ExtractedReceipt | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -131,7 +141,9 @@ export const handler: Handler = async (event) => {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 1024,
+      // thinking(claude-sonnet-5 は指定を省くと考えながら答える)と本文が同じ枠を
+      // 分け合うため、1024だと考えている途中で切れて本文が出ないことがある。
+      max_tokens: 4000,
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -150,8 +162,8 @@ export const handler: Handler = async (event) => {
     return jsonResponse(res.status, { error: `Anthropic API error: ${text}` });
   }
 
-  const data = (await res.json()) as { content?: { text?: string }[]; stop_reason?: string };
-  const text = data.content?.[0]?.text ?? "";
+  const data = (await res.json()) as { content?: { type: string; text?: string }[]; stop_reason?: string };
+  const text = pickResponseText(data.content);
   if (!text) {
     return jsonResponse(502, { error: "AIから読み取り結果を取得できませんでした。もう一度お試しください" });
   }

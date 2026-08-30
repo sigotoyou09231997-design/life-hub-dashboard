@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from "../../src/lib/categories";
-import { parseReceiptResponse, SYSTEM_PROMPT } from "../functions/extractReceipt";
+import { parseReceiptResponse, pickResponseText, SYSTEM_PROMPT } from "../functions/extractReceipt";
 import {
   parseReceiptResponse as vercelParseReceiptResponse,
+  pickResponseText as vercelPickResponseText,
   SYSTEM_PROMPT as VERCEL_SYSTEM_PROMPT,
 } from "../../api/extractReceipt";
 
@@ -63,6 +64,28 @@ describe("parseReceiptResponse", () => {
   });
 });
 
+describe("pickResponseText", () => {
+  // claude-sonnet-5 は thinking の指定を省くと考えながら答えるので、content の先頭に
+  // text を持たない塊が入る。ここを先頭決め打ちで読んでいると、読み取れているのに
+  // 「AIから読み取り結果を取得できませんでした」になる(旅行の読み取りで起きた事故)。
+  const answer = '{"receipt":{"amount":500}}';
+  const thinking = { type: "thinking", thinking: "…" } as unknown as { type: string; text?: string };
+
+  it("考えてから答えた応答でも、本文を取り出す", () => {
+    expect(pickResponseText([thinking, { type: "text", text: answer }])).toBe(answer);
+  });
+
+  it("先頭が本文のときはそのまま取り出す", () => {
+    expect(pickResponseText([{ type: "text", text: answer }])).toBe(answer);
+  });
+
+  it("本文が1つも無ければ空", () => {
+    expect(pickResponseText([thinking])).toBe("");
+    expect(pickResponseText([])).toBe("");
+    expect(pickResponseText(undefined)).toBe("");
+  });
+});
+
 describe("Netlify版とVercel版のずれ", () => {
   const cases = [
     JSON.stringify({ receipt: { storeName: "いつものスーパー", date: "2026-08-20", amount: 1234, category: "食費" } }),
@@ -80,6 +103,19 @@ describe("Netlify版とVercel版のずれ", () => {
 
   it("AIへの指示も同じ", () => {
     expect(VERCEL_SYSTEM_PROMPT).toBe(SYSTEM_PROMPT);
+  });
+
+  it("応答から本文を取り出すところも同じ", () => {
+    const thinking = { type: "thinking" } as unknown as { type: string; text?: string };
+    const contents = [
+      [{ type: "text", text: '{"receipt":{"amount":500}}' }],
+      [thinking, { type: "text", text: '{"receipt":{"amount":500}}' }],
+      [thinking],
+      [],
+    ];
+    for (const content of contents) {
+      expect(vercelPickResponseText(content)).toBe(pickResponseText(content));
+    }
   });
 });
 

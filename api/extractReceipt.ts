@@ -60,6 +60,16 @@ export const SYSTEM_PROMPT = `あなたは、レシート・領収書の画像�
   入れる。レシートの内容を丸写ししない。不要なら省く。
 - レシート・領収書として読み取れる内容が無ければ {"receipt":null} を返す。`;
 
+/** Anthropicの応答から、レシートのJSONが書かれた text を取り出す。
+ *
+ * content の先頭が text とは限らない。claude-sonnet-5 は thinking の指定を省くと
+ * 考えながら答える(adaptive)ため、先頭に text を持たない thinking の塊が入る。
+ * 旅行の読み取り(extractTripPlan.ts)が、ここを先頭決め打ちで読んでいたせいで
+ * 読み取れているのに失敗として返していた(2026-08-30)。同じ形をこちらも直した。 */
+export function pickResponseText(content: { type: string; text?: string }[] | undefined): string {
+  return content?.find((block) => block.type === "text")?.text ?? "";
+}
+
 export function parseReceiptResponse(text: string): ExtractedReceipt | null {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
@@ -123,7 +133,9 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 1024,
+      // thinking(claude-sonnet-5 は指定を省くと考えながら答える)と本文が同じ枠を
+      // 分け合うため、1024だと考えている途中で切れて本文が出ないことがある。
+      max_tokens: 4000,
       system: SYSTEM_PROMPT,
       messages: [
         {
@@ -142,8 +154,8 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     return jsonResponse(res, anthropicRes.status, { error: `Anthropic API error: ${text}` });
   }
 
-  const data = (await anthropicRes.json()) as { content?: { text?: string }[]; stop_reason?: string };
-  const text = data.content?.[0]?.text ?? "";
+  const data = (await anthropicRes.json()) as { content?: { type: string; text?: string }[]; stop_reason?: string };
+  const text = pickResponseText(data.content);
   if (!text) {
     return jsonResponse(res, 502, { error: "AIから読み取り結果を取得できませんでした。もう一度お試しください" });
   }
