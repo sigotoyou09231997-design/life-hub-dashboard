@@ -100,13 +100,13 @@
 }
 
 .settings-page {
-  --page-tone: #8c7a63;
-  --page-tint: rgba(140, 122, 99, 0.11);
+  --page-tone: #7c7f85;
+  --page-tint: rgba(124, 127, 133, 0.11);
 }
 
 .account-page {
-  --page-tone: #a08165;
-  --page-tint: rgba(160, 129, 101, 0.11);
+  --page-tone: #83868c;
+  --page-tint: rgba(131, 134, 140, 0.11);
 }
 
 /* ---------------------------------------------------------------------------
@@ -152,7 +152,7 @@
   border: 1px solid var(--warm-line);
   border-radius: 50%;
   background: var(--warm-surface);
-  box-shadow: 0 1px 2px rgba(70, 53, 32, 0.06);
+  box-shadow: 0 1px 2px rgba(28, 30, 34, 0.06);
 }
 
 /* ---------------------------------------------------------------------------
@@ -548,19 +548,19 @@
 }
 
 .spatial-page .trip-detail-hero__photo {
-  filter: sepia(0.14) saturate(0.98) brightness(1.02);
+  filter: saturate(0.98) brightness(1.02);
 }
 
 .spatial-page .trip-detail-hero__veil {
-  background: linear-gradient(90deg, rgba(46, 36, 24, 0.8), rgba(46, 36, 24, 0.34) 58%, rgba(46, 36, 24, 0.12));
+  background: linear-gradient(90deg, rgba(20, 21, 24, 0.8), rgba(20, 21, 24, 0.34) 58%, rgba(20, 21, 24, 0.12));
 }
 
 .spatial-page .trip-detail-hero__content span {
-  color: rgba(255, 253, 248, 0.72);
+  color: rgba(255, 255, 255, 0.72);
 }
 
 .spatial-page .trip-detail-hero__content p {
-  color: rgba(255, 253, 248, 0.8);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* 一覧の見出し（「これから行く」「行ってきた」）は、旅行の写真が全画面の地に
@@ -588,19 +588,19 @@
   text-shadow: none;
 }
 
-/* 旅行カードの写真は素材が寒色（青い空・夕暮れ）に寄っていて、暖色のページに
-   置くとここだけ別のアプリに見える。ヒーローと同じ膜の掛け方に揃える。 */
+/* 旅行カードの写真はヒーローと同じ膜の掛け方に揃える。
+   2026-08-31（2回目）: ここに掛けていた sepia(0.16) は外した（写真が黄色く転ぶ）。 */
 .spatial-page .trip-lead__photo,
 .spatial-page .trip-plan__photo {
-  filter: sepia(0.16) saturate(0.98) brightness(1.02);
+  filter: saturate(0.98) brightness(1.02);
 }
 
 .spatial-page .trip-lead__veil {
-  background: linear-gradient(180deg, rgba(46, 36, 24, 0.22) 0%, rgba(46, 36, 24, 0.3) 34%, rgba(44, 34, 22, 0.74) 66%, rgba(42, 32, 21, 0.92) 100%);
+  background: linear-gradient(180deg, rgba(20, 21, 24, 0.22) 0%, rgba(20, 21, 24, 0.3) 34%, rgba(18, 19, 22, 0.74) 66%, rgba(16, 17, 20, 0.92) 100%);
 }
 
 .spatial-page .trip-plan__veil {
-  background: linear-gradient(180deg, rgba(46, 36, 24, 0.18) 0%, rgba(46, 36, 24, 0.32) 40%, rgba(44, 34, 22, 0.76) 72%, rgba(42, 32, 21, 0.92) 100%);
+  background: linear-gradient(180deg, rgba(20, 21, 24, 0.18) 0%, rgba(20, 21, 24, 0.32) 40%, rgba(18, 19, 22, 0.76) 72%, rgba(16, 17, 20, 0.92) 100%);
 }
 
 .spatial-page .destination-empty-control__visual {
@@ -645,12 +645,11 @@
 /* ---------------------------------------------------------------------------
    12. 追加ボタン（FAB）と主ボタン
 
-   影が青いままだと、生成りの地の上で1か所だけ冷たく見える。画面の色を持つ
-   ボタンには、その色の暖かい影を付ける。
+   影は地に対して色を足さないよう、ほぼ無彩色の黒で落とす。
    ------------------------------------------------------------------------ */
 
 .app-shell #page-fab-root > button {
-  box-shadow: 0 10px 26px rgba(70, 53, 32, 0.22);
+  box-shadow: 0 10px 26px rgba(28, 30, 34, 0.22);
 }
 
 /* 追加ボタンは PageFab が #page-fab-root（ページの外）へ出しているので、
@@ -669,7 +668,7 @@
 .spatial-page .notes-empty-control__action button,
 .spatial-page .destination-empty-control__action button {
   border-radius: 999px;
-  box-shadow: 0 8px 18px rgba(70, 53, 32, 0.14);
+  box-shadow: 0 8px 18px rgba(28, 30, 34, 0.14);
 }
 
 /* ---------------------------------------------------------------------------
@@ -689,10 +688,10 @@
   background: var(--warm-ground-2);
 }
 
-/* 後ろを落とす幕。青黒（rgba(10,24,46,·)）のままだと、シートを開くたびに
-   画面全体がいったん寒色に振れて見える。焦茶に替えて暖色の家族に入れる。 */
+/* 後ろを落とす幕。青黒（rgba(10,24,46,·)）でも焦茶（rgba(46,36,24,·)）でも、
+   シートを開くたびに画面全体がその色へ振れて見える。色を持たない黒にする。 */
 .spatial-sheet-backdrop {
-  background: rgba(46, 36, 24, 0.3);
+  background: rgba(20, 21, 24, 0.3);
 }
 
 .form-panel,
@@ -731,11 +730,11 @@
 }
 
 .segmented__option[aria-pressed="true"] {
-  box-shadow: 0 3px 10px rgba(70, 53, 32, 0.12);
+  box-shadow: 0 3px 10px rgba(28, 30, 34, 0.12);
 }
 
 .date-popover {
-  box-shadow: 0 14px 34px rgba(70, 53, 32, 0.16);
+  box-shadow: 0 14px 34px rgba(28, 30, 34, 0.16);
 }
 
 .form-actions {
@@ -755,7 +754,7 @@
 }
 
 .switch__knob {
-  box-shadow: 0 2px 6px rgba(70, 53, 32, 0.28);
+  box-shadow: 0 2px 6px rgba(28, 30, 34, 0.28);
 }
 
 .choice-grid__icon {

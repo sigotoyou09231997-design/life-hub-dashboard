@@ -29,20 +29,25 @@
   --warm-ground: #ffffff;
   --warm-ground-2: #ffffff;
   --warm-surface: #ffffff;
-  --warm-surface-soft: #f9f8f7;
-  --warm-surface-sunk: #f1f0ee;
+  --warm-surface-soft: #fafafa;
+  --warm-surface-sunk: #f1f1f2;
 
-  /* 線と影。地とカードが同じ白なので、輪郭はここだけが頼り。 */
-  --warm-line: rgba(63, 51, 37, 0.12);
-  --warm-line-strong: rgba(63, 51, 37, 0.18);
-  --warm-shadow: 0 6px 22px rgba(70, 53, 32, 0.085), 0 1px 2px rgba(70, 53, 32, 0.06);
-  --warm-shadow-lift: 0 14px 38px rgba(70, 53, 32, 0.13), 0 2px 4px rgba(70, 53, 32, 0.06);
-  --warm-shadow-nav: 0 -8px 28px rgba(70, 53, 32, 0.09);
+  /* 線と影。地とカードが同じ白なので、輪郭はここだけが頼り。
 
-  /* 文字（3段） */
-  --warm-ink: #2f2a23;
-  --warm-ink-2: #6c6355;
-  --warm-ink-3: #9c9284;
+     2026-08-31（2回目）: 色そのものは白でも、線・影・文字が焦茶（rgba(63,51,37)
+     など）だと、面積の広いこの3つが画面全体にうっすら茶色をかけて「まだベージュ」に
+     見えていた。白い地に対して色を足さないよう、ほぼ無彩色の黒に替えた。 */
+  --warm-line: rgba(28, 30, 34, 0.12);
+  --warm-line-strong: rgba(28, 30, 34, 0.18);
+  --warm-shadow: 0 6px 22px rgba(28, 30, 34, 0.085), 0 1px 2px rgba(28, 30, 34, 0.06);
+  --warm-shadow-lift: 0 14px 38px rgba(28, 30, 34, 0.13), 0 2px 4px rgba(28, 30, 34, 0.06);
+  --warm-shadow-nav: 0 -8px 28px rgba(28, 30, 34, 0.09);
+
+  /* 文字（3段）。ここも黄みを抜いた灰色にする（前は #2f2a23 / #6c6355 / #9c9284 と
+     いう焦茶寄りで、本文全体がベージュ側に引っ張られていた）。 */
+  --warm-ink: #26272a;
+  --warm-ink-2: #6a6c70;
+  --warm-ink-3: #9b9da1;
 
   /* 角丸 */
   --warm-r-xl: 24px;
@@ -61,14 +66,14 @@
   /* 既存のトークンも暖色側へ寄せる（accent / navy は全画面で参照されている） */
   --color-accent: #4f7cc9;
   --color-accent-light: rgba(233, 240, 251, 0.9);
-  --color-navy: #2f2a23;
+  --color-navy: #26272a;
 
   /* 旧リキッドグラス用のトークンも暖色へ読み替える。これらは hub.css / trips.css /
      forms.css など各画面のCSSが直接参照しているので、ここを差し替えるだけで
      その画面ぶんの面・文字・影がまとめて新しいトーンに乗る。 */
   --hub-surface: var(--warm-surface);
-  --hub-inset: rgba(70, 53, 32, 0.04);
-  --hub-inset-2: rgba(70, 53, 32, 0.07);
+  --hub-inset: rgba(28, 30, 34, 0.04);
+  --hub-inset-2: rgba(28, 30, 34, 0.07);
   --hub-edge: var(--warm-line);
   --hub-hairline: var(--warm-line);
   --hub-ink: var(--warm-ink);
@@ -121,11 +126,11 @@ html {
   background: none;
 }
 
-/* 文字の3段。index.css が .app-shell 内で青灰に寄せているので、暖色の灰に戻す。 */
+/* 文字の3段。index.css が .app-shell 内で青灰に寄せているので、無彩色の灰に戻す。 */
 .app-shell .text-slate-400 { color: var(--warm-ink-3); }
 .app-shell .text-slate-500 { color: var(--warm-ink-2); }
-.app-shell .text-slate-600 { color: #5a5245; }
-.app-shell .text-slate-700 { color: #453f35; }
+.app-shell .text-slate-600 { color: #585a5e; }
+.app-shell .text-slate-700 { color: #414347; }
 .app-shell .text-slate-800,
 .app-shell .text-slate-900 { color: var(--warm-ink); }
 
@@ -179,7 +184,7 @@ html {
   border: 1px solid var(--warm-line);
   border-radius: var(--warm-r-xl) !important;
   background: var(--warm-surface);
-  box-shadow: 0 28px 70px rgba(70, 53, 32, 0.2);
+  box-shadow: 0 28px 70px rgba(28, 30, 34, 0.2);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -200,9 +205,9 @@ html {
 }
 
 /* 写真の上に文字を乗せる所の読みやすさ用。以前ふりかえりのヘッダーで
-   文字が飛んだので、暖色でも同じ濃さの膜を必ず敷く。 */
+   文字が飛んだので、同じ濃さの膜は必ず敷く（色は焦茶をやめて無彩色の黒）。 */
 .glass-smoked {
-  background: linear-gradient(to top, rgba(46, 36, 24, 0.72), rgba(46, 36, 24, 0.14) 70%, transparent);
+  background: linear-gradient(to top, rgba(20, 21, 24, 0.72), rgba(20, 21, 24, 0.14) 70%, transparent);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }

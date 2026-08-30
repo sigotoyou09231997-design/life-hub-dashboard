@@ -793,7 +793,7 @@ body .text-base { font-size: 1.05rem; }
 .notes-toolbar { padding: .65rem; border: 0; border-radius: .82rem; background: rgba(215,230,241,.24); box-shadow: inset 0 1px 0 rgba(255,255,255,.36), 0 12px 32px rgba(35,54,78,.065); backdrop-filter: blur(18px); }
 .note-widget { border-radius: .82rem !important; background: linear-gradient(145deg, rgba(240,246,250,.29), rgba(206,225,239,.27)); transition: transform 230ms ease-out, box-shadow 230ms ease-out; }
 .note-widget--checklist { background: linear-gradient(145deg, rgba(226,240,240,.33), rgba(202,225,229,.25)); }
-.note-widget--shopping { background: linear-gradient(145deg, rgba(239,235,227,.35), rgba(220,226,226,.25)); }
+.note-widget--shopping { background: linear-gradient(145deg, rgba(236,236,238,.35), rgba(220,224,226,.25)); }
 .note-widget__progress { margin-top: .65rem; }
 .note-widget__progress > span { display: block; height: .36rem; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.28); }
 .note-widget__progress i { display: block; height: 100%; border-radius: inherit; background: #56a98a; }
