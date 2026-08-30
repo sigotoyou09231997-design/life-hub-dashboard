@@ -285,6 +285,12 @@ export interface GmailAccount {
   refreshToken: string;
   connectedAt: number;
   lastSyncedAt?: number;
+  /** Googleの更新用トークンが失効している（invalid_grant / revoked）と分かった時刻。
+   * 入っている間は画面を開いた時の自動同期を止め、代わりに「つなぎ直す」を出す。
+   * つなぎ直しに成功した時と、同期が通った時に 0 へ戻す。
+   * 失効はGoogle側の事情で起きる（アクセスの取り消しのほか、OAuth同意画面が
+   * 「テスト中」のままだと更新用トークンは7日で切れる）。 */
+  reauthRequiredAt?: number;
 }
 
 export type EmailStatus = "unprocessed" | "generating" | "drafted" | "edited" | "sent" | "skipped";

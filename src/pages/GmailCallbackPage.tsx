@@ -50,6 +50,9 @@ export default function GmailCallbackPage() {
           accessTokenExpiresAt: Date.now() + result.expiresIn * 1000,
           refreshToken: result.refreshToken,
           connectedAt: Date.now(),
+          // 連携切れの印を下ろす。ここで消さないと、つなぎ直した直後の画面に
+          // 「連携が切れています」の帯が残り、自動同期も止まったままになる。
+          reauthRequiredAt: 0,
         };
         // 同じアドレスで連携し直した場合は、行を増やさず既存の行を上書きする。
         // 増やしていた頃は、古い行にぶら下がったメール・AI下書き・ブロックリストが

@@ -45,7 +45,7 @@ vi.mock("./syncedEmails", () => ({
 }));
 
 import { NO_CHANGES_SUMMARY } from "./gmail";
-import { describeSyncError, summarizeGmailSync, syncGmailAccount } from "./gmailSync";
+import { describeSyncError, isReauthRequiredError, summarizeGmailSync, syncGmailAccount } from "./gmailSync";
 
 const account = (id: string, email: string): GmailAccount => ({
   id,
@@ -126,7 +126,23 @@ describe("describeSyncError", () => {
   });
 
   it("連携切れは、つなぎ直す場所まで伝える", () => {
-    expect(describeSyncError(new Error("invalid_grant"))).toContain("設定 → Gmail連携");
+    expect(describeSyncError(new Error("invalid_grant"))).toContain("つなぎ直す");
+  });
+});
+
+describe("isReauthRequiredError", () => {
+  it("更新用トークンの失効は、つなぎ直すまで直らない失敗として扱う", () => {
+    expect(isReauthRequiredError(new Error("invalid_grant"))).toBe(true);
+    expect(isReauthRequiredError(new Error("Token has been expired or revoked."))).toBe(true);
+  });
+
+  it("利用量超過は、待てば直るので連携切れ扱いにしない", () => {
+    // 同じ403で返ってくるが、ここで連携切れ扱いにすると自動同期を止めてしまう。
+    expect(isReauthRequiredError(new Error("403 RATE_LIMIT_EXCEEDED"))).toBe(false);
+  });
+
+  it("それ以外の失敗は連携切れ扱いにしない", () => {
+    expect(isReauthRequiredError(new Error("Failed to fetch"))).toBe(false);
   });
 });
 

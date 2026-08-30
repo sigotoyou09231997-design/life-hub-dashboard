@@ -36,6 +36,20 @@ export interface GmailSyncResult {
   error: string | null;
 }
 
+/** 利用量超過は連携切れと同じ403で返ってくるが、対処はまったく違う(待てば直る)。
+ * どちらの判定でも、必ずこちらを先に見る。 */
+const RATE_LIMIT_PATTERN = /rateLimitExceeded|userRateLimitExceeded|quotaExceeded|RATE_LIMIT_EXCEEDED|\b429\b/i;
+const REAUTH_PATTERN = /invalid_grant|expired|revoked|\b40[13]\b/i;
+
+/** 「つなぎ直すまで直らない失敗」かどうか。真なら、そのアカウントは何度同期しても
+ * 同じ所で失敗する — 呼び出し側は自動同期を止めて、つなぎ直しを促す
+ * (src/pages/GmailPage.tsx の帯 / src/components/gmail/GmailInbox.tsx の自動同期)。 */
+export function isReauthRequiredError(err: unknown): boolean {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (RATE_LIMIT_PATTERN.test(raw)) return false;
+  return REAUTH_PATTERN.test(raw);
+}
+
 /** 何が起きたか分からない「メールの取得に失敗しました」だけだと、端末ごとに一覧が
  * 揃わない時に原因を切り分けられない。よくある失敗(連携切れ)は次にやることまで書き、
  * それ以外は元のメッセージをそのまま出す。
@@ -44,13 +58,11 @@ export interface GmailSyncResult {
  * OAuth同意画面が「テスト中」のままだと更新用トークンが7日で失効するため。 */
 export function describeSyncError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
-  // 利用量超過は連携切れと同じ403で返ってくるが、対処はまったく違う(待てば直る)。
-  // 連携切れの案内より先に判定する。
-  if (/rateLimitExceeded|userRateLimitExceeded|quotaExceeded|RATE_LIMIT_EXCEEDED|\b429\b/i.test(raw)) {
+  if (RATE_LIMIT_PATTERN.test(raw)) {
     return "Gmailの利用制限に達しました。1分ほど待ってから、もう一度同期してください";
   }
-  if (/invalid_grant|expired|revoked|\b40[13]\b/i.test(raw)) {
-    return `Gmailの連携が切れています。設定 → Gmail連携 でつなぎ直してください (${raw})`;
+  if (REAUTH_PATTERN.test(raw)) {
+    return `Gmailの連携が切れています。画面上部の「つなぎ直す」からやり直してください (${raw})`;
   }
   return `メールの取得に失敗しました: ${raw}`;
 }
@@ -239,7 +251,8 @@ async function runSync(account: GmailAccount, accountId: string): Promise<GmailS
     }
     const freshAdded = added - blockedAdded - handledElsewhere;
 
-    await db.gmailAccounts.update(accountId, { lastSyncedAt: Date.now() });
+    // 同期が通ったということは、連携は生きている。前回の失敗で立てた印は下ろす。
+    await db.gmailAccounts.update(accountId, { lastSyncedAt: Date.now(), reauthRequiredAt: 0 });
     return {
       summary: buildSyncSummary({
         freshAdded,
@@ -256,6 +269,12 @@ async function runSync(account: GmailAccount, accountId: string): Promise<GmailS
       error: null,
     };
   } catch (err) {
+    // つなぎ直すまで直らない失敗は、アカウントに印を付けて自動同期を止める。
+    // 印が無かった頃は、画面を開くたびに同じ同期が走って同じ赤いトーストが出るだけで、
+    // つなぎ直す場所(設定)にはそこから行けなかった。
+    if (isReauthRequiredError(err)) {
+      await db.gmailAccounts.update(accountId, { reauthRequiredAt: Date.now() }).catch(() => undefined);
+    }
     return { summary: "", stateError: null, error: describeSyncError(err) };
   }
 }

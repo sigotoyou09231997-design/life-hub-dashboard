@@ -115,9 +115,12 @@ export function GmailInbox({ account }: Props) {
   }
 
   // 画面を開いた瞬間に最新化する — ヘッダーの「今すぐ同期」は以降の手動リフレッシュ用として残す。
+  // 連携が切れているアカウントでは走らせない。何度やっても同じ所で失敗し、赤いトーストが
+  // 出るだけなので、画面上部の「つなぎ直す」の帯(GmailPage)に任せる。
   useEffect(() => {
+    if (account.reauthRequiredAt) return;
     void handleSync();
-  }, [account.id]);
+  }, [account.id, account.reauthRequiredAt]);
 
   async function handleUnblock(id: string, email: string) {
     await db.blockedSenders.delete(id);

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, CheckCircle2, Mail, Plus, RefreshCw, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { AlertCircle, ChevronLeft, CheckCircle2, Mail, Plus, RefreshCw, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { db } from "../db/schema";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { GmailLogo } from "../components/gmail/GmailLogo";
@@ -11,6 +11,7 @@ import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { GmailInbox } from "../components/gmail/GmailInbox";
+import { startGmailOAuth } from "../lib/gmail";
 import { pullBlockedSenders } from "../lib/blockedSenders";
 import {
   consolidateGmailAccounts,
@@ -65,6 +66,11 @@ export default function GmailPage() {
   }, []);
 
   const selectedAccount = accounts?.find((a) => a.id === selectedAccountId);
+
+  // Googleの更新用トークンが切れたアカウント(src/lib/gmailSync.ts が印を付ける)。
+  // 印がある間、自動同期は止まっている — つなぎ直す場所がここにしか無いので、
+  // 一覧の上に出しっぱなしの帯にする(トーストは数秒で消えてしまう)。
+  const reauthAccounts = (accounts ?? []).filter((a) => a.reauthRequiredAt);
 
   // 「自動下書き」＝新着メール同期時にAI下書きを自動生成するかどうか。
   // 通知(プッシュ)設定とは別のsettings.autoDraftEnabledを使う — 同じ値を共有しない。
@@ -133,10 +139,17 @@ export default function GmailPage() {
           <GmailLogo size={22} />
           <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">Gmail自動返信</h1>
           {selectedAccount && (
-            <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600">
-              <CheckCircle2 size={14} />
-              同期済み
-            </span>
+            selectedAccount.reauthRequiredAt ? (
+              <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-danger">
+                <AlertCircle size={14} />
+                連携切れ
+              </span>
+            ) : (
+              <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600">
+                <CheckCircle2 size={14} />
+                同期済み
+              </span>
+            )
           )}
         </div>
 
@@ -219,6 +232,28 @@ export default function GmailPage() {
           </Card>
         ) : (
           <>
+            {reauthAccounts.length > 0 && (
+              <div className="mt-4 mb-4 flex flex-col gap-3 rounded-2xl border border-danger/30 bg-danger/5 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                    <AlertCircle size={16} className="shrink-0 text-danger" />
+                    Gmailの連携が切れています
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                    {reauthAccounts.map((a) => a.email).join("、")} のメールをいま取り込めません。
+                    つなぎ直すまで自動同期は止めています。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => startGmailOAuth()}
+                  className="app-button shrink-0 rounded-lg bg-danger px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
+                >
+                  つなぎ直す
+                </button>
+              </div>
+            )}
+
             {accounts.length > 1 && (
               <div className="mb-4">
                 <Tabs
