@@ -10,6 +10,7 @@ import "./styles/hub.css";
 import "./styles/trips.css";
 import "./styles/diary.css";
 import "./styles/forms.css";
+import "./styles/photos.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()

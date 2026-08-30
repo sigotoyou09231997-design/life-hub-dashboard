@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { MapPin, PenLine, Smile } from "lucide-react";
+import { ImagePlus, MapPin, PenLine, Smile } from "lucide-react";
 import { db } from "../../db/schema";
 import type { DiaryEntry, DiaryMood } from "../../types";
 import { todayStr } from "../../lib/date";
+import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
 import { buildMapEmbedUrl, coordsQuery } from "../../lib/googleMaps";
+import { PhotoField } from "../attachments/PhotoField";
 import { Input, Textarea } from "../ui/Input";
 import { SegmentedField } from "../ui/SegmentedField";
 import { DateField } from "../ui/DateField";
@@ -44,7 +46,22 @@ export function DiaryForm({ initial, tripId, defaultDate, onSaved, onCancel }: P
       : null,
   );
   const [spotState, setSpotState] = useState<"idle" | "asking" | "denied">("idle");
+  const [photos, setPhotos] = useState<PhotoDraft[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // 貼ってある写真は日記の行と別のテーブルに置いてあるので、開いたときに読み直す
+  // (src/lib/attachments.ts)。
+  const initialId = initial?.id;
+  useEffect(() => {
+    if (!initialId) return;
+    let alive = true;
+    loadAttachmentDrafts("diary", initialId).then((drafts) => {
+      if (alive) setPhotos(drafts);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [initialId]);
 
   function locate() {
     if (!navigator.geolocation) {
@@ -89,11 +106,16 @@ export function DiaryForm({ initial, tripId, defaultDate, onSaved, onCancel }: P
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
+    // 新しい日記にはまだidが無く、写真の貼り先を決められない。保存して得たidに
+    // 向けて、そのあとで写真を書く(src/lib/attachments.ts)。
+    let entryId: string;
     if (initial?.id) {
-      await db.diaryEntries.update(initial.id, record);
+      entryId = initial.id;
+      await db.diaryEntries.update(entryId, record);
     } else {
-      await db.diaryEntries.add(record);
+      entryId = String(await db.diaryEntries.add(record));
     }
+    await saveAttachmentDrafts("diary", entryId, photos);
     setSaving(false);
     onSaved();
   }
@@ -111,6 +133,10 @@ export function DiaryForm({ initial, tripId, defaultDate, onSaved, onCancel }: P
           required
           autoFocus
         />
+      </FormPanel>
+
+      <FormPanel caption="写真" icon={ImagePlus}>
+        <PhotoField value={photos} onChange={setPhotos} />
       </FormPanel>
 
       <FormPanel caption="気分" icon={Smile}>

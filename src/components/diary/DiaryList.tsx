@@ -1,7 +1,11 @@
+import { useLiveQuery } from "dexie-react-hooks";
 import { ExternalLink, MapPin, Pencil, Trash2 } from "lucide-react";
+import { db } from "../../db/schema";
 import type { DiaryEntry, DiaryMood } from "../../types";
 import { formatDisplayDate } from "../../lib/date";
+import { groupByOwner } from "../../lib/attachments";
 import { buildMapEmbedUrl, buildMapSearchUrl, coordsQuery } from "../../lib/googleMaps";
+import { PhotoStrip } from "../attachments/PhotoStrip";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 
@@ -36,6 +40,11 @@ export function groupByMonth(entries: DiaryEntry[]): { label: string; items: Dia
 }
 
 export function DiaryList({ entries, onEdit, onDelete }: Props) {
+  // 日記に貼った写真。1件ずつ引くと並ぶ日記の数だけ問い合わせが増えるので、
+  // 日記ぶんをまとめて読んでから配る(src/lib/attachments.ts)。
+  const photos = useLiveQuery(() => db.attachments.where("ownerType").equals("diary").toArray(), []);
+  const photosByEntry = groupByOwner(photos ?? []);
+
   return (
     <div className="diary-board">
       {groupByMonth(entries).map((group) => (
@@ -89,6 +98,8 @@ export function DiaryList({ entries, onEdit, onDelete }: Props) {
                   </header>
 
                   <p className="diary-entry__body">{entry.body}</p>
+
+                  <PhotoStrip attachments={photosByEntry.get(entry.id!) ?? []} interactive />
 
                   {spot && (
                     <div className="diary-entry__spot">

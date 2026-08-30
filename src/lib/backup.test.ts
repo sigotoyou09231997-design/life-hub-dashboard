@@ -24,6 +24,7 @@ const BACKUP_TABLE_NAMES = [
   "paypayTransactions",
   "savingsGoals",
   "jobApplications",
+  "categoryBudgets",
 ] as const;
 
 // Dexieの実体(IndexedDB)はテストでは開けないので、使う操作(toArray/clear/bulkAdd)だけを
@@ -47,6 +48,9 @@ const mocks = vi.hoisted(() => {
     "paypayTransactions",
     "savingsGoals",
     "jobApplications",
+    "categoryBudgets",
+    // バックアップには入らないが、復元のあとで辿れなくなった写真を落とすために読む。
+    "attachments",
   ]) {
     stores.set(name, []);
   }
@@ -66,12 +70,18 @@ vi.mock("../db/schema", () => {
       add: async (row: Record<string, unknown>) => {
         mocks.stores.get(name)!.push(row);
       },
+      bulkDelete: async (ids: string[]) => {
+        mocks.stores.set(name, mocks.stores.get(name)!.filter((row) => !ids.includes(row.id as string)));
+      },
     };
   }
   return {
     db: {
       table: (name: string) => fakeTable(name),
       savingsGoals: fakeTable("savingsGoals"),
+      notes: fakeTable("notes"),
+      diaryEntries: fakeTable("diaryEntries"),
+      attachments: fakeTable("attachments"),
       transaction: async (_mode: string, _tables: unknown[], callback: () => Promise<void>) => callback(),
     },
   };
@@ -83,7 +93,7 @@ describe("バックアップの書き出し", () => {
     vi.restoreAllMocks();
   });
 
-  it("16テーブルすべてを書き出す", async () => {
+  it("バックアップ対象のテーブルすべてを書き出す", async () => {
     mocks.stores.set("trips", [{ id: "trip-1", name: "沖縄" }]);
     mocks.stores.set("diaryEntries", [{ id: "diary-1", date: "2026-08-01", body: "楽しかった" }]);
 
@@ -123,7 +133,7 @@ describe("バックアップの復元", () => {
     for (const name of mocks.stores.keys()) mocks.stores.set(name, []);
   });
 
-  it("16テーブルすべてを、書き出したファイルの内容で置き換える", async () => {
+  it("バックアップ対象のテーブルすべてを、書き出したファイルの内容で置き換える", async () => {
     mocks.stores.set("transactions", [{ id: "old" }]);
 
     const file = fakeFile(
@@ -216,5 +226,28 @@ describe("バックアップの復元", () => {
     await importBackup(file);
 
     expect(mocks.stores.get("savingsGoals")).toEqual([{ id: "g1", name: "旅行用", monthlyAmount: 30000, createdAt: 1 }]);
+  });
+
+  it("復元で貼り先が消えた写真は落とし、戻ってきたメモ・日記の写真は残す", async () => {
+    // 写真はバックアップに入らない(端末内のみ)。同じファイルを戻したときは
+    // メモ・日記のidも同じまま戻るので、貼ってあった写真はそのまま残る。
+    mocks.stores.set("attachments", [
+      { id: "p1", ownerType: "note", ownerId: "n1" },
+      { id: "p2", ownerType: "note", ownerId: "消えたメモ" },
+      { id: "p3", ownerType: "diary", ownerId: "d1" },
+      { id: "p4", ownerType: "diary", ownerId: "消えた日記" },
+    ]);
+
+    const file = fakeFile(
+      JSON.stringify({
+        version: 2,
+        data: { notes: [{ id: "n1", title: "残るメモ" }], diaryEntries: [{ id: "d1", date: "2026-08-01" }] },
+      }),
+    );
+
+    const { importBackup } = await import("./backup");
+    await importBackup(file);
+
+    expect(mocks.stores.get("attachments")!.map((row) => row.id)).toEqual(["p1", "p3"]);
   });
 });

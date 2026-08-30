@@ -5,6 +5,7 @@ import { db } from "../../db/schema";
 import type { DiaryEntry, Note, NoteType } from "../../types";
 import { NOTE_TYPE_DEFS, getNoteType } from "../../lib/noteTypes";
 import { selectStandaloneDiaries } from "../../lib/diaryEntries";
+import { deleteAttachmentsFor } from "../../lib/attachments";
 import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { Sheet } from "../../components/ui/Sheet";
@@ -55,7 +56,8 @@ export default function NotePage() {
   }
 
   function handleDelete(id: string) {
-    db.notes.delete(id);
+    // 貼った写真は別のテーブルにあるので、一緒に落とす(src/lib/attachments.ts)。
+    void Promise.all([db.notes.delete(id), deleteAttachmentsFor("note", id)]);
     showToast("削除しました");
   }
 
@@ -120,7 +122,7 @@ export default function NotePage() {
                 entries={diaryEntries ?? []}
                 onEdit={(entry) => setEditingDiary(entry)}
                 onDelete={(id) => {
-                  db.diaryEntries.delete(id);
+                  void Promise.all([db.diaryEntries.delete(id), deleteAttachmentsFor("diary", id)]);
                   showToast("削除しました");
                 }}
               />

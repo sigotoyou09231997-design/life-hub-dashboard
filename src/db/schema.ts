@@ -23,6 +23,7 @@ import type {
   SavingsGoal,
   JobApplication,
   CategoryBudget,
+  Attachment,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -115,6 +116,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "savingsGoals", indexes: "", fks: [], hasUpdatedAt: true },
   { name: "jobApplications", indexes: "nextDate", fks: [], hasUpdatedAt: true },
   { name: "categoryBudgets", indexes: "category", fks: [], hasUpdatedAt: true },
+  { name: "attachments", indexes: "ownerType, [ownerType+ownerId]", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -179,6 +181,7 @@ export class LifeHubDB extends Dexie {
   savingsGoals!: EntityTable<SavingsGoal, "id">;
   jobApplications!: EntityTable<JobApplication, "id">;
   categoryBudgets!: EntityTable<CategoryBudget, "id">;
+  attachments!: EntityTable<Attachment, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -320,6 +323,14 @@ export class LifeHubDB extends Dexie {
     // (給与 - 固定費)はそのままで、これはそこに足す形の上限なので既存データには触らない。
     this.version(17).stores({
       categoryBudgets: "id, category",
+    });
+
+    // メモ・日記に貼った写真。画像そのもの(Blob)をここに置き、メモ・日記の行には
+    // 何も足さない(types/index.ts の Attachment)。v10のblockedSendersと同じく
+    // TABLE_SCHEMASには加えず、ここで作ってPOST_MIGRATION_TABLE_SCHEMAS側から
+    // フックを張る。既存のメモ・日記には触らない。
+    this.version(18).stores({
+      attachments: "id, ownerType, [ownerType+ownerId]",
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

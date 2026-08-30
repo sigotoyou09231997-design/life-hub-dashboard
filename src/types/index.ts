@@ -392,6 +392,34 @@ export interface SavingsGoal {
   userId?: string;
 }
 
+/** 写真を貼れる相手。今はメモと日記だけ。 */
+export type AttachmentOwnerType = "note" | "diary";
+
+/** メモ・日記に貼った写真1枚。
+ *
+ * 写真そのもの(Blob)をこのテーブルに置き、メモ・日記の行には何も足さない。
+ * notes と diaryEntries はSupabaseへ同期しているので、行の中に写真を抱えると
+ * 同期の1行が数MBになり、送る側でも受ける側でも詰まる。ここは同期の対象にせず
+ * (src/lib/syncRuntime.ts)、端末の中だけに置く。
+ *
+ * 同じ理由でバックアップ(src/lib/backup.ts)にも含めていない — あれはJSONなので、
+ * Blobを入れても空のオブジェクトになって復元できない。 */
+export interface Attachment {
+  id?: string;
+  ownerType: AttachmentOwnerType;
+  /** Note.id / DiaryEntry.id。 */
+  ownerId: string;
+  /** 選んだときのファイル名。一覧では出さないが、何の写真か分かる手がかりとして残す。 */
+  name: string;
+  mediaType: string;
+  /** 画像そのもの。長辺1600pxのJPEGに縮めてから持つ(src/lib/attachments.ts)。 */
+  blob: Blob;
+  /** 縮めた後の大きさ(バイト)。 */
+  size: number;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 /** カテゴリごとの使いすぎの目安(「食費は月3万円まで」)。全体の予算(給与 - 固定費)は
  * 今までどおり給与から計算するもので、これはそれとは別に持つ追加の上限。
  * 端末内のみ — 同期の対象にはしていない(src/lib/syncRuntime.ts)。 */

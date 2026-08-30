@@ -33,8 +33,13 @@ export function fitWithin(width: number, height: number, max: number): { width: 
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
 }
 
-/** 縮めた画像をJPEGで返す。縮められなければ null(呼び出し側で元の写真を使う)。 */
-async function toDownscaledJpeg(file: File): Promise<ScannedImage | null> {
+/**
+ * 縮めた画像をJPEGのBlobで返す。縮められなければ null(呼び出し側で元の写真を使う)。
+ * AIに送るとき(下の prepareImageForScan)と、メモ・日記に貼って端末内に持つとき
+ * (src/lib/attachments.ts)の両方がここを通る — 縮め方を1か所にしておかないと、
+ * 片方だけ元の大きさのまま保存する、といったずれが出る。
+ */
+export async function downscaleToJpegBlob(file: Blob, maxEdge: number = MAX_IMAGE_EDGE): Promise<Blob | null> {
   if (typeof createImageBitmap !== "function" || typeof document === "undefined") return null;
   let bitmap: ImageBitmap;
   try {
@@ -43,7 +48,7 @@ async function toDownscaledJpeg(file: File): Promise<ScannedImage | null> {
     return null;
   }
   try {
-    const size = fitWithin(bitmap.width, bitmap.height, MAX_IMAGE_EDGE);
+    const size = fitWithin(bitmap.width, bitmap.height, maxEdge);
     if (size.width === 0 || size.height === 0) return null;
     const canvas = document.createElement("canvas");
     canvas.width = size.width;
@@ -51,14 +56,19 @@ async function toDownscaledJpeg(file: File): Promise<ScannedImage | null> {
     const context = canvas.getContext("2d");
     if (!context) return null;
     context.drawImage(bitmap, 0, 0, size.width, size.height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
-    if (!blob) return null;
-    return { base64: await fileToBase64(blob), mediaType: "image/jpeg" };
+    return await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
   } catch {
     return null;
   } finally {
     bitmap.close();
   }
+}
+
+/** 縮めた画像をJPEGで返す。縮められなければ null(呼び出し側で元の写真を使う)。 */
+async function toDownscaledJpeg(file: File): Promise<ScannedImage | null> {
+  const blob = await downscaleToJpegBlob(file);
+  if (!blob) return null;
+  return { base64: await fileToBase64(blob), mediaType: "image/jpeg" };
 }
 
 /** 選ばれた写真を、そのまま送れる形にして返す。 */

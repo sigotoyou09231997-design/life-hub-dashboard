@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { ImagePlus } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Note } from "../../types";
+import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
+import { PhotoField } from "../attachments/PhotoField";
 import { Input, Textarea } from "../ui/Input";
 import { SwitchField } from "../ui/SwitchField";
 import { FormPanel } from "../ui/FormPanel";
@@ -28,7 +31,22 @@ export function MemoForm({ initial, onSaved, onCancel }: Props) {
   const [tagsInput, setTagsInput] = useState(initial?.tags.join(", ") ?? "");
   const [category, setCategory] = useState(initial?.category ?? NOTE_CATEGORIES[0]);
   const [pinned, setPinned] = useState(initial?.pinned ?? false);
+  const [photos, setPhotos] = useState<PhotoDraft[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // 貼ってある写真は本文と別のテーブルに置いてあるので、開いたときに読み直す
+  // (src/lib/attachments.ts)。
+  const initialId = initial?.id;
+  useEffect(() => {
+    if (!initialId) return;
+    let alive = true;
+    loadAttachmentDrafts("note", initialId).then((drafts) => {
+      if (alive) setPhotos(drafts);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [initialId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,11 +70,16 @@ export function MemoForm({ initial, onSaved, onCancel }: Props) {
       updatedAt: now,
     };
 
+    // 新しいメモにはまだidが無く、写真の貼り先を決められない。保存して得たidに
+    // 向けて、そのあとで写真を書く(src/lib/attachments.ts)。
+    let noteId: string;
     if (initial?.id) {
-      await db.notes.put({ ...record, id: initial.id });
+      noteId = initial.id;
+      await db.notes.put({ ...record, id: noteId });
     } else {
-      await db.notes.add(record);
+      noteId = String(await db.notes.add(record));
     }
+    await saveAttachmentDrafts("note", noteId, photos);
     setSaving(false);
     onSaved();
   }
@@ -79,6 +102,10 @@ export function MemoForm({ initial, onSaved, onCancel }: Props) {
           onChange={(e) => setBody(e.target.value)}
           rows={memoBodyRows(body)}
         />
+      </FormPanel>
+
+      <FormPanel caption="写真" icon={ImagePlus}>
+        <PhotoField value={photos} onChange={setPhotos} />
       </FormPanel>
 
       <FormPanel caption="整理のしかた">

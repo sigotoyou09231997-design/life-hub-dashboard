@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
+import { db } from "../../db/schema";
 import type { Note, NoteType } from "../../types";
 import { NOTE_TYPE_DEFS, getNoteType } from "../../lib/noteTypes";
+import { groupByOwner } from "../../lib/attachments";
 import { NoteCard } from "./NoteCard";
 import { EmptyState } from "../ui/EmptyState";
 import { Plus, Search } from "lucide-react";
@@ -17,6 +20,11 @@ type TypeFilter = "all" | NoteType;
 export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+
+  // メモに貼った写真。1件ずつ引くと並ぶメモの数だけ問い合わせが増えるので、
+  // メモぶんをまとめて読んでから配る(src/lib/attachments.ts)。
+  const photos = useLiveQuery(() => db.attachments.where("ownerType").equals("note").toArray(), []);
+  const photosByNote = groupByOwner(photos ?? []);
 
   const filtered = notes.filter((n) => {
     if (typeFilter !== "all" && getNoteType(n) !== typeFilter) return false;
@@ -108,7 +116,7 @@ export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
       ) : (
         <div className="notes-widget-grid grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {sorted.map((n) => (
-            <NoteCard key={n.id} note={n} onEdit={onEdit} onDelete={onDelete} />
+            <NoteCard key={n.id} note={n} photos={photosByNote.get(n.id!) ?? []} onEdit={onEdit} onDelete={onDelete} />
           ))}
         </div>
       )}

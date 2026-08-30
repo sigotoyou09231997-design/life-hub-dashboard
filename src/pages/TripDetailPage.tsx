@@ -5,6 +5,7 @@ import { NotebookPen, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
 import type { TripScheduleItem, TripExpense, TripPackingItem, TripRoutePlace, TripStatus, DiaryEntry } from "../types";
 import { formatDisplayDate, tripDayList, tripDurationLabel, todayStr } from "../lib/date";
+import { deleteAttachmentsFor } from "../lib/attachments";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
@@ -365,7 +366,9 @@ export default function TripDetailPage() {
                   entries={diaryEntries}
                   onEdit={(entry) => setEditingDiary(entry)}
                   onDelete={(id) => {
-                    db.diaryEntries.delete(id);
+                    // 貼った写真は別のテーブルにあるので、一緒に落とす
+                    // (src/lib/attachments.ts)。
+                    void Promise.all([db.diaryEntries.delete(id), deleteAttachmentsFor("diary", id)]);
                     showToast("削除しました");
                   }}
                 />

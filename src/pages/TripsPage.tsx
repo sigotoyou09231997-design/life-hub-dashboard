@@ -5,6 +5,7 @@ import { Plane, Plus } from "lucide-react";
 import { db } from "../db/schema";
 import type { Trip } from "../types";
 import { todayStr } from "../lib/date";
+import { deleteAttachmentsForAll } from "../lib/attachments";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
@@ -27,6 +28,9 @@ export async function deleteTripCascade(tripId: string) {
     .map((entry) => entry.id!)
     .filter(Boolean);
   await Promise.all(diaryIds.map((id) => db.diaryEntries.delete(id)));
+  // 日記に貼った写真は別のテーブルにあるので、日記を消しただけでは残る
+  // (src/lib/attachments.ts)。
+  await deleteAttachmentsForAll("diary", diaryIds);
 
   await Promise.all([
     db.tripSchedule.where("tripId").equals(tripId).delete(),

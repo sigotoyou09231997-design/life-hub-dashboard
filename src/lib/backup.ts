@@ -61,6 +61,33 @@ export async function importBackup(file: File): Promise<void> {
     await Promise.all(BACKUP_TABLES.map((table) => db.table(table).bulkAdd(d[table] ?? [])));
     await restoreLegacySavingsGoal(d);
   });
+
+  await pruneOrphanAttachments();
+}
+
+/**
+ * メモ・日記に貼った写真は端末の中だけのもので、バックアップには入っていない
+ * (types/index.ts の Attachment — JSONにBlobを入れても空になるため)。復元で
+ * メモ・日記が入れ替わると、貼り先が消えた写真だけが残って場所を取り続けるので、
+ * 辿れなくなったぶんをここで落とす。
+ *
+ * 同じ端末で書き出した同じファイルを戻したときは、メモ・日記のidも同じまま
+ * 戻ってくるので、貼ってあった写真はそのまま残る。
+ */
+async function pruneOrphanAttachments(): Promise<void> {
+  const [notes, diaries, attachments] = await Promise.all([
+    db.notes.toArray(),
+    db.diaryEntries.toArray(),
+    db.attachments.toArray(),
+  ]);
+  const alive = {
+    note: new Set(notes.map((note) => note.id)),
+    diary: new Set(diaries.map((entry) => entry.id)),
+  };
+  const orphans = attachments
+    .filter((row) => row.id && !alive[row.ownerType].has(row.ownerId))
+    .map((row) => row.id!);
+  if (orphans.length > 0) await db.attachments.bulkDelete(orphans);
 }
 
 /**

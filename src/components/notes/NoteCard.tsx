@@ -1,13 +1,16 @@
-import type { Note } from "../../types";
+import type { Attachment, Note } from "../../types";
 import { db } from "../../db/schema";
 import { todayStr } from "../../lib/date";
 import { getNoteType, getNoteTypeDef } from "../../lib/noteTypes";
+import { PhotoStrip } from "../attachments/PhotoStrip";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { Pin, CheckSquare, CalendarPlus, Trash2 } from "lucide-react";
 
 interface Props {
   note: Note;
+  /** このメモに貼ってある写真(NoteListがまとめて読んで配る)。 */
+  photos?: Attachment[];
   onEdit: (note: Note) => void;
   onDelete: (id: string) => void;
 }
@@ -58,7 +61,7 @@ function NoteSummary({ note }: { note: Note }) {
   return note.body ? <p className="mt-1 line-clamp-2 text-xs text-slate-500">{note.body}</p> : null;
 }
 
-export function NoteCard({ note, onEdit, onDelete }: Props) {
+export function NoteCard({ note, photos = [], onEdit, onDelete }: Props) {
   const type = getNoteType(note);
   const typeDef = getNoteTypeDef(type);
   const TypeIcon = typeDef.icon;
@@ -82,6 +85,9 @@ export function NoteCard({ note, onEdit, onDelete }: Props) {
               </p>
             </div>
             <NoteSummary note={note} />
+            {/* カード全体が編集ボタンなので、写真は押せる形にしない
+                (押しても編集が開く。大きく見るのは日記の一覧と編集画面から)。 */}
+            <PhotoStrip attachments={photos} limit={3} />
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge tone={typeDef.tone}>{typeDef.label}</Badge>
               {note.category && <Badge tone="accent">{note.category}</Badge>}
