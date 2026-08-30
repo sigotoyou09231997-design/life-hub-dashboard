@@ -77,7 +77,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
           <div className="planning-task-list">
             {dueTodayTasks.length === 0 ? (
               <div className="planning-empty-control planning-empty-control--tasks">
-                <div className="planning-compact-empty"><CheckSquare size={18} /><div><strong>今日のタスクはありません</strong><p>今日のControlは整っています</p></div></div>
+                <div className="planning-compact-empty"><CheckSquare size={18} /><div><strong>今日のタスクはありません</strong><p>やることは片づいています</p></div></div>
                 <div className="planning-empty-footer"><span>未完了 0件</span><button type="button" onClick={onAddTask}><Plus size={13} />タスクを追加</button></div>
               </div>
             ) : (
