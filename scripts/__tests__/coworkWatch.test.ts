@@ -1,21 +1,18 @@
 import { test, expect, describe } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
+import { appStateDir, copyCoworkScripts, hasWorkspace } from "./coworkFixture";
 
 // 状況を出す係（アプリ別ステータス／依頼ごとの状態）もワークスペース側にある。
 // 日本語のフォルダ名・ファイル名で落ちないことを含めて見る。
-const WORKSPACE = dirname(process.cwd());
-const WATCH = join(WORKSPACE, "scripts/cowork-watch.sh");
-const hasWorkspace = existsSync(WATCH);
 
 const APP = "テスト案件アプリ";
 
 function fakeWorkspace() {
   const root = mkdtempSync(join(tmpdir(), "coworkw-"));
-  mkdirSync(join(root, "scripts"));
-  copyFileSync(WATCH, join(root, "scripts/cowork-watch.sh"));
+  copyCoworkScripts(join(root, "scripts"));
   mkdirSync(join(root, APP, "docs/requests"), { recursive: true });
   writeFileSync(join(root, APP, "docs/requests/README.md"), "# 説明（依頼ではない）\n");
   writeFileSync(join(root, APP, "docs/requests/色を変えたい.md"), "# 色を変えたい\n");
@@ -51,7 +48,7 @@ describe.skipIf(!hasWorkspace)("ワークスペースの Cowork 状況表示", (
     expect(after).toContain("実装済み");
     expect(after).toContain("実装済み（新規依頼待ち）");
     // 記録は sha1 + パスの表になっている
-    const state = readFileSync(join(root, APP, ".cowork/state.tsv"), "utf8");
+    const state = readFileSync(join(appStateDir(root, APP), "state.tsv"), "utf8");
     expect(state).toMatch(/^[0-9a-f]{40}\tdocs\/requests\/色を変えたい\.md$/m);
   });
 
