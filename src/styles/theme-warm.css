@@ -104,6 +104,22 @@
   --font-display: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
     "Yu Gothic Medium", "Noto Sans JP", sans-serif;
 
+  /* 2026-08-31: ホームのヒーローだけ、時刻とひとことで書体を分ける（参考画像に合わせて）。
+     Webフォントは読み込まない — このアプリはPWAで、電波の無い所でも開く前提のため、
+     外部のフォント配信に見た目を預けたくない。手元にある書体だけで組む。
+
+     --font-rounded … 時刻用の丸ゴシック。ui-rounded は WebKit だけが解釈する総称名で、
+       Safari / iOS では SF Pro Rounded になる。Chrome では無視されるので、次の
+       Hiragino Maru Gothic ProN（macOS/iOS に標準で入っている丸ゴシック）が受ける。
+       どちらも無い環境（Windows など）は、丸みは諦めて本文と同じゴシックに落ちる。 */
+  --font-rounded: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+    "Hiragino Maru Gothic Pro", "M PLUS Rounded 1c", "Quicksand", var(--font-display);
+
+  /* --font-serif … ひとこと用のセリフ体。欧文は Iowan Old Style / Palatino、
+     和文は明朝（ヒラギノ明朝 → 游明朝）が受ける。 */
+  --font-serif: "Iowan Old Style", Palatino, "Palatino Linotype", "Hiragino Mincho ProN",
+    "Yu Mincho", YuMincho, "Noto Serif JP", "Times New Roman", serif;
+
   /* 旧グラス用トークン。ぼかしをやめて不透明な面に読み替える。 */
   --glass-navigation: var(--warm-surface);
   --glass-content: var(--warm-surface);
@@ -270,16 +286,65 @@ html {
 .sidebar-link:hover .sidebar-link__indicator,
 .sidebar-link--active .sidebar-link__indicator { display: none; }
 
+/* 2026-08-31: 参考デザインに合わせて、ここだけ「区切り線の下の1行」ではなく
+   独立したカードにする。index.css が付けている上の区切り線は外す
+   （カードの縁と二重になって、線が2本並んで見えるため）。 */
 .sidebar-account {
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--warm-line);
   border-top: 1px solid var(--warm-line);
   border-radius: var(--warm-r-md);
+  background: var(--warm-surface-soft);
   color: var(--warm-ink);
 }
 
+.sidebar-account:hover {
+  border-color: var(--warm-line-strong);
+  background: var(--warm-surface-sunk);
+}
+
 .sidebar-account__avatar {
-  border: 1px solid var(--warm-line-strong);
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 0;
   background: var(--warm-surface);
+  box-shadow: var(--warm-shadow);
   color: var(--warm-ink-2);
+}
+
+.sidebar-account__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.08rem;
+}
+
+.sidebar-account__name {
+  overflow: hidden;
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--warm-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-account__sub {
+  overflow: hidden;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--warm-ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-account__chevron {
+  flex: 0 0 auto;
+  margin-left: auto;
+  color: var(--warm-ink-3);
 }
 
 /* ---- ヘッダー / モバイルナビ ------------------------------------------ */

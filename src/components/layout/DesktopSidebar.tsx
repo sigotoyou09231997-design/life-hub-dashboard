@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   CalendarDays,
+  ChevronRight,
   Home,
   Landmark,
   Leaf,
@@ -66,9 +67,16 @@ export function DesktopSidebar() {
         </div>
       </nav>
 
+      {/* 参考デザインではサイドバーの一番下が「プロフィールカード」になっている。
+          プラン名などこのアプリに無い情報は出さず、見た目だけカードに寄せる
+          （丸いアバター＋名前＋行き先を示す山かっこ）。 */}
       <NavLink to="/account" className="sidebar-account" aria-label="アカウント" data-label="アカウント">
-        <span className="sidebar-account__avatar"><UserRound size={20} strokeWidth={1.6} /></span>
-        <span className="text-sm font-semibold text-slate-700">アカウント</span>
+        <span className="sidebar-account__avatar"><UserRound size={22} strokeWidth={1.6} /></span>
+        <span className="sidebar-account__text">
+          <span className="sidebar-account__name">アカウント</span>
+          <span className="sidebar-account__sub">プロフィールと同期</span>
+        </span>
+        <ChevronRight className="sidebar-account__chevron" size={16} strokeWidth={2} aria-hidden="true" />
       </NavLink>
     </aside>
   );

@@ -176,15 +176,20 @@ a.warm-card {
   color: var(--warm-ink-2);
 }
 
+/* 2026-08-31: 時刻とひとことで書体を分ける（参考画像では時刻が丸ゴシック、
+   ひとことがセリフ体で、いまはどちらも本文と同じゴシックだった）。
+   時刻は数字と「AM」だけの欧文なので、丸ゴシックがそのまま効く。 */
 .warm-hero__clock {
   display: flex;
   align-items: baseline;
   gap: 0.3rem;
   margin: 0.1rem 0 0;
+  font-family: var(--font-rounded);
   font-size: clamp(3.1rem, 13vw, 4.4rem);
   font-weight: 700;
   line-height: 1.02;
-  letter-spacing: -0.035em;
+  /* 丸ゴシックは字面が広いので、詰めを少しゆるめる（-0.035em だと数字がぶつかる）。 */
+  letter-spacing: -0.02em;
   color: var(--warm-ink);
 }
 
@@ -195,11 +200,18 @@ a.warm-card {
   color: var(--warm-ink-2);
 }
 
+/* ひとことはセリフ体（欧文は Palatino 系、和文は明朝）。
+   斜体は掛けない — ひとこと（「静かに、今日を始める。」など）は日本語で、
+   和文の明朝にイタリック体は無く、font-style: italic だとブラウザが機械的に
+   傾けるだけになって字が潰れて見えるため（依頼にも「不自然なら無理に斜体に
+   しなくてよい」とある）。参考画像のイタリックは欧文の一文だったので事情が違う。
+   代わりに、セリフ体＋字間を少し空けて「本文とは別の声」に見せる。 */
 .warm-hero__quote {
-  margin: 0.55rem 0 0;
-  font-size: 1rem;
-  font-style: italic;
-  line-height: 1.5;
+  margin: 0.6rem 0 0;
+  font-family: var(--font-serif);
+  font-size: 1.06rem;
+  line-height: 1.65;
+  letter-spacing: 0.02em;
   color: var(--warm-ink-2);
 }
 
