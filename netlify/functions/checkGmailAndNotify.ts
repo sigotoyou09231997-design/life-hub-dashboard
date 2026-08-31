@@ -66,20 +66,41 @@ export function buildNotificationPayload(newMessageCount: number, latest: Latest
   return JSON.stringify({ title, body, url: "/gmail" });
 }
 
-async function refreshAccessToken(refreshToken: string, clientId: string, clientSecret: string): Promise<string | null> {
-  const res = await fetch(TOKEN_ENDPOINT, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: "refresh_token",
-      refresh_token: refreshToken,
-    }).toString(),
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as { access_token: string };
-  return data.access_token;
+/** 更新用トークンの取り直しの結果。失敗を1つにまとめず「もう使えない(revoked)」と
+ * 「今回はダメだった」に分けているのは、前者だけが行を消してよい失敗のため —
+ * checkAccount の呼び出し側を参照。 */
+export type TokenRefreshResult = { ok: true; accessToken: string } | { ok: false; revoked: boolean; detail: string };
+
+/** Googleが「このrefresh_tokenはもう使えない」と言っているのは invalid_grant を返した時だけ
+ * (連携解除・パスワード変更、またはOAuth同意画面が「テスト中」のままで7日経過した場合)。
+ * 5xx・レート制限・ネットワーク由来の失敗は、待てば直る一時的なもの。 */
+export async function refreshAccessToken(
+  refreshToken: string,
+  clientId: string,
+  clientSecret: string,
+): Promise<TokenRefreshResult> {
+  let res: Response;
+  try {
+    res = await fetch(TOKEN_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: refreshToken,
+      }).toString(),
+    });
+  } catch (err) {
+    return { ok: false, revoked: false, detail: `token endpoint unreachable: ${err instanceof Error ? err.message : String(err)}` };
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    return { ok: false, revoked: res.status === 400 && /invalid_grant/i.test(body), detail: `${res.status} ${body.slice(0, 200)}` };
+  }
+  const data = (await res.json()) as { access_token?: string };
+  if (!data.access_token) return { ok: false, revoked: false, detail: "token endpoint returned no access_token" };
+  return { ok: true, accessToken: data.access_token };
 }
 
 function findHeader(headers: { name: string; value: string }[], name: string): string {
@@ -157,13 +178,24 @@ async function checkAccount(
   clientId: string,
   clientSecret: string,
 ): Promise<void> {
-  const accessToken = await refreshAccessToken(account.refresh_token, clientId, clientSecret);
-  if (!accessToken) {
-    // リフレッシュトークンが失効済み(連携解除・パスワード変更など) — このアカウントの監視を止める
-    console.error(`[checkGmailAndNotify] refresh token invalid for ${account.email}, removing account`);
+  const refreshed = await refreshAccessToken(account.refresh_token, clientId, clientSecret);
+  if (!refreshed.ok) {
+    if (!refreshed.revoked) {
+      // 一時的な失敗(Google側の5xx・レート制限・通信断)。ここで行を消していた頃は、
+      // その一度きりの失敗でバックグラウンド通知が二度と戻らなくなっていた
+      // (行が消えたことは画面のどこにも出ないので、本人からは「メールの通知だけ
+      // 来なくなった」ように見える)。次回のポーリングに持ち越す。
+      console.error(`[checkGmailAndNotify] token refresh failed for ${account.email}, keeping account for the next run: ${refreshed.detail}`);
+      return;
+    }
+    // リフレッシュトークンが失効済み(連携解除・パスワード変更、または同意画面が
+    // 「テスト中」のままで7日経過) — このアカウントの監視を止める。つなぎ直せば
+    // src/lib/pushNotifications.ts の registerGmailAccountForPush が入れ直す。
+    console.error(`[checkGmailAndNotify] refresh token revoked for ${account.email}, removing account: ${refreshed.detail}`);
     await supabase.from("gmail_server_accounts").delete().eq("id", account.id);
     return;
   }
+  const accessToken = refreshed.accessToken;
 
   // ブロック済み送信者(src/lib/blockedSenders.tsがブロック/解除のたびに直接upsert/deleteする、
   // アカウント単位のブロックリスト)を読み、そこからのメールは通知の対象外にする。テーブルが

@@ -1,5 +1,10 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearShownPushNotifications, urlBase64ToUint8Array } from "./pushNotifications";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearShownPushNotifications, registerGmailAccountForPush, urlBase64ToUint8Array } from "./pushNotifications";
+
+const mocks = vi.hoisted(() => ({ from: vi.fn(), getSession: vi.fn() }));
+
+vi.mock("./supabase", () => ({ isSupabaseConfigured: true, auth: { getSession: mocks.getSession } }));
+vi.mock("./supabaseData", () => ({ getSupabaseDataClient: vi.fn(async () => ({ from: mocks.from })) }));
 
 describe("urlBase64ToUint8Array", () => {
   it("decodes a URL-safe base64 VAPID-style key into the matching bytes", () => {
@@ -58,5 +63,68 @@ describe("clearShownPushNotifications", () => {
 
     expect(close1).toHaveBeenCalledOnce();
     expect(close2).toHaveBeenCalledOnce();
+  });
+});
+
+describe("registerGmailAccountForPush", () => {
+  /** Stands in for supabase.from("push_subscriptions").select("id").eq(...).limit(1),
+   * plus the gmail_server_accounts upsert that follows it. Returns the upsert spy. */
+  function supabaseWith(subscriptionRows: { id: string }[]) {
+    const upsert = vi.fn(async (_row: Record<string, unknown>, _options: { onConflict: string }) => ({ error: null }));
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "push_subscriptions") {
+        const query: Record<string, unknown> = {};
+        query.select = vi.fn(() => query);
+        query.eq = vi.fn(() => query);
+        query.limit = vi.fn(async () => ({ data: subscriptionRows, error: null }));
+        return query;
+      }
+      return { upsert };
+    });
+    return upsert;
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getSession.mockResolvedValue({ data: { session: { user: { id: "user-1" } } } });
+  });
+
+  it("stores the reconnected account's new refresh token so background notifications resume", async () => {
+    const upsert = supabaseWith([{ id: "sub-1" }]);
+
+    await registerGmailAccountForPush({ email: "me@gmail.com", refreshToken: "new-token" });
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: "user-1", email: "me@gmail.com", refresh_token: "new-token" }),
+      { onConflict: "user_id,email" },
+    );
+  });
+
+  it("starts the server-side checkpoint at the reconnection, so the backlog isn't replayed as notifications", async () => {
+    const upsert = supabaseWith([{ id: "sub-1" }]);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-31T00:00:00.000Z"));
+
+    await registerGmailAccountForPush({ email: "me@gmail.com", refreshToken: "new-token" });
+
+    expect(upsert.mock.calls[0][0]).toMatchObject({ last_checked_at: "2026-08-31T00:00:00.000Z" });
+    vi.useRealTimers();
+  });
+
+  it("stores nothing when this user never turned background notifications on", async () => {
+    const upsert = supabaseWith([]);
+
+    await registerGmailAccountForPush({ email: "me@gmail.com", refreshToken: "new-token" });
+
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("stores nothing when there is no Supabase session to attach the token to", async () => {
+    const upsert = supabaseWith([{ id: "sub-1" }]);
+    mocks.getSession.mockResolvedValue({ data: { session: null } });
+
+    await registerGmailAccountForPush({ email: "me@gmail.com", refreshToken: "new-token" });
+
+    expect(upsert).not.toHaveBeenCalled();
   });
 });

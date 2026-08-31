@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { db } from "../db/schema";
 import { describeGmailConnectError, exchangeAuthorizationCode, GMAIL_OAUTH_STATE_KEY } from "../lib/gmail";
+import { registerGmailAccountForPush } from "../lib/pushNotifications";
 import { useToast } from "../components/ui/ToastProvider";
 
 /** Landing page for Google's OAuth redirect (/gmail/callback). Exchanges the
@@ -63,6 +64,14 @@ export default function GmailCallbackPage() {
         } else {
           await db.gmailAccounts.add({ email: result.email, ...tokens });
         }
+        // バックグラウンド通知の側にも、いま受け取ったrefresh_tokenを渡す。これが無いと、
+        // 一覧の取り込みだけ戻って通知は止まったまま — サーバー側は古い(失効した)トークンを
+        // 持ち続けるため(src/lib/pushNotifications.ts の registerGmailAccountForPush)。
+        // 通知を使っていない場合は、その中で何もせずに戻る。連携そのものはもう済んでいるので、
+        // ここでの失敗で「連携に失敗しました」にはしない。
+        await registerGmailAccountForPush({ email: result.email, refreshToken: result.refreshToken }).catch((error) => {
+          console.error("[gmail] connected, but could not register the account for notifications:", error);
+        });
         showToast(`${result.email} と${existing ? "つなぎ直しました" : "連携しました"}`);
         navigate("/settings", { replace: true });
       } catch (error) {

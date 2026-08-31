@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildNotificationPayload, checkForNewMail, parseSenderEmail } from "../functions/checkGmailAndNotify";
+import { buildNotificationPayload, checkForNewMail, parseSenderEmail, refreshAccessToken } from "../functions/checkGmailAndNotify";
 
 describe("buildNotificationPayload", () => {
   it("uses the sender's display name as the title, and a labeled subject+snippet as the body", () => {
@@ -96,5 +96,61 @@ describe("checkForNewMail", () => {
 
     expect(result.count).toBe(0);
     expect(result.latest).toBeNull();
+  });
+});
+
+describe("refreshAccessToken", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("returns the new access token when Google accepts the refresh token", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ access_token: "fresh" }) })));
+
+    const result = await refreshAccessToken("refresh", "client", "secret");
+
+    expect(result).toEqual({ ok: true, accessToken: "fresh" });
+  });
+
+  it("reports a revoked token only for invalid_grant — that is the one failure the account can't recover from", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 400, text: async () => '{"error":"invalid_grant"}' })),
+    );
+
+    const result = await refreshAccessToken("refresh", "client", "secret");
+
+    expect(result).toMatchObject({ ok: false, revoked: true });
+  });
+
+  it("does not report a revoked token when Google itself is failing, so the account survives to the next run", async () => {
+    // 以前はここでもnullを返しており、呼び出し側がその一度きりの失敗で
+    // gmail_server_accountsの行を消していた = 通知が二度と戻らなかった。
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 503, text: async () => "Service Unavailable" })));
+
+    const result = await refreshAccessToken("refresh", "client", "secret");
+
+    expect(result).toMatchObject({ ok: false, revoked: false });
+  });
+
+  it("treats a network failure as temporary rather than revoked", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("getaddrinfo ENOTFOUND oauth2.googleapis.com");
+      }),
+    );
+
+    const result = await refreshAccessToken("refresh", "client", "secret");
+
+    expect(result).toMatchObject({ ok: false, revoked: false });
+  });
+
+  it("treats a 200 with no access_token as temporary rather than revoked", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({}) })));
+
+    const result = await refreshAccessToken("refresh", "client", "secret");
+
+    expect(result).toMatchObject({ ok: false, revoked: false });
   });
 });

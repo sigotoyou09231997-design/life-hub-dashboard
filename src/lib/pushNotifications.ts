@@ -1,3 +1,4 @@
+import { auth, isSupabaseConfigured } from "./supabase";
 import { getSupabaseDataClient } from "./supabaseData";
 import { getDeviceId } from "./deviceId";
 import type { GmailAccount } from "../types";
@@ -78,6 +79,64 @@ export async function subscribeToPush(accounts: GmailAccount[], userId: string):
     );
     if (accountsError) throw accountsError;
   }
+}
+
+/** Hands a just-(re)connected Gmail account's refresh token to the server-side poll
+ * (netlify/functions/checkGmailAndNotify.ts), so background 新着メール notifications
+ * survive a reconnection.
+ *
+ * Without this, notifications stop for good the first time Google's refresh token
+ * expires — which happens routinely, every 7 days, while the OAuth consent screen is
+ * still "testing" (see the comment on describeSyncError in src/lib/gmailSync.ts):
+ *   1. the token dies; the app's own sync starts failing and GmailPage shows the
+ *      「つなぎ直す」 banner,
+ *   2. checkGmailAndNotify.ts fails on the same dead token and deletes the
+ *      gmail_server_accounts row,
+ *   3. the user reconnects — but that only wrote the new refresh token into the local
+ *      Dexie row (src/pages/GmailCallbackPage.tsx), so the inbox fills up again while
+ *      the server has no token at all and never sends another notification.
+ * The only thing that used to re-register it was toggling バックグラウンド通知 off and
+ * back on in 設定 (subscribeToPush above) — which nothing tells the user to do.
+ *
+ * Only stores the token if this user actually uses background notifications: the check
+ * is on push_subscriptions for the whole user (not just this device), since 通知を
+ * 有効にした端末 and つなぎ直した端末 can be different ones.
+ *
+ * `last_checked_at` is moved to now on purpose. Notifications should resume from the
+ * reconnection, not replay whatever arrived while the link was broken (that would be a
+ * burst of notifications for mail the inbox is about to show anyway).
+ *
+ * Best-effort: reports failures to the console instead of throwing, so a reconnection
+ * still counts as successful when only this extra step couldn't be completed. */
+export async function registerGmailAccountForPush(account: Pick<GmailAccount, "email" | "refreshToken">): Promise<void> {
+  if (!isSupabaseConfigured) return;
+  const { data: sessionData } = await auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) return;
+
+  const supabase = await getSupabaseDataClient();
+  const { data: subs, error: subsError } = await supabase
+    .from("push_subscriptions")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1);
+  if (subsError) {
+    console.error("[push] failed to check for existing push subscriptions:", subsError.message);
+    return;
+  }
+  if ((subs ?? []).length === 0) return;
+
+  const { error } = await supabase.from("gmail_server_accounts").upsert(
+    {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      email: account.email,
+      refresh_token: account.refreshToken,
+      last_checked_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,email" },
+  );
+  if (error) console.error("[push] failed to register the reconnected Gmail account for notifications:", error.message);
 }
 
 /** Closes any OS notifications from this app still sitting open on this device
