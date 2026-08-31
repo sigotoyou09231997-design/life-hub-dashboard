@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Ban, Briefcase, CalendarPlus, Copy, Mail, MailOpen, Star } from "lucide-react";
 import { db } from "../../db/schema";
@@ -72,6 +72,50 @@ interface Props {
    * compact mobile bottom-sheet layout where the original body and AI返信案
    * sections start collapsed so the mail list stays visible behind it. */
   variant?: "pane" | "sheet";
+}
+
+interface SuggestionBannerProps {
+  icon: ReactNode;
+  /** 提案の文言。末尾に補足(読み取れた日時など)が付くことがある。 */
+  children: ReactNode;
+  onDismiss: () => void;
+  actionLabel: string;
+  onAction: () => void;
+}
+
+/** メール画面に出る提案の帯(予定を追加・就活の進捗を更新)。
+ *
+ * 文章とボタンを1行に並べるのは、横幅が足りている時だけにする。以前は画面幅に関係なく
+ * 常に横並びで、スマホでは伸び縮みしない2つのボタン(「あとで」「予定を追加」)に押されて
+ * 文章の幅が半分以下になり、3行の細い柱のように折り返されていた(2026-08-31 修正)。
+ * 狭い画面では文章に1行ぶんの幅を丸ごと使わせ、ボタンはその下の行へ右寄せで置く。
+ *
+ * 2か所で同じ形を別々に書いていたので、崩れも直しも片方だけにならないよう1つにまとめた。 */
+function SuggestionBanner({ icon, children, onDismiss, actionLabel, onAction }: SuggestionBannerProps) {
+  return (
+    <div className="glass-row flex flex-col gap-2 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:gap-x-3">
+      <span className="flex min-w-0 flex-1 items-start gap-2 text-sm text-slate-700">
+        {icon}
+        <span className="min-w-0">{children}</span>
+      </span>
+      <span className="flex shrink-0 items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          あとで
+        </button>
+        <button
+          type="button"
+          onClick={onAction}
+          className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          {actionLabel}
+        </button>
+      </span>
+    </div>
+  );
 }
 
 export function DraftReview({ email, account, onSent, variant = "pane" }: Props) {
@@ -611,66 +655,34 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
    * 「予定を追加」を押して初めて MailPlanImport が1通ぶんだけ読む。
    * 「あとで」を押すと、このメールにはもう出さない。 */
   const planSuggestionBanner = isPlanSuggestion(email) && (
-    <div className="glass-row flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-4 py-3">
-      <span className="flex min-w-0 flex-1 items-center gap-2 text-sm text-slate-700">
-        <CalendarPlus size={16} className="shrink-0 text-accent" />
-        <span className="min-w-0">
-          日時が書かれているようです。予定を追加しますか?
-          {planSuggestionHint(email) && (
-            <em className="ml-1.5 not-italic text-xs text-slate-500">({planSuggestionHint(email)})</em>
-          )}
-        </span>
-      </span>
-      <span className="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={handleDismissPlanSuggestion}
-          className="rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-        >
-          あとで
-        </button>
-        <button
-          type="button"
-          onClick={() => setPlanImportOpen(true)}
-          className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-        >
-          予定を追加
-        </button>
-      </span>
-    </div>
+    <SuggestionBanner
+      icon={<CalendarPlus size={16} className="mt-0.5 shrink-0 text-accent" />}
+      onDismiss={handleDismissPlanSuggestion}
+      actionLabel="予定を追加"
+      onAction={() => setPlanImportOpen(true)}
+    >
+      日時が書かれているようです。予定を追加しますか?
+      {planSuggestionHint(email) && (
+        <em className="ml-1.5 not-italic text-xs text-slate-500">({planSuggestionHint(email)})</em>
+      )}
+    </SuggestionBanner>
   );
 
   /** 選考結果らしいメールに出す提案。押すまで就活タブの記録は変わらない。
    * 「あとで」を押すと、このメールにはもう出さない。 */
   const jobStageSuggestionBanner = jobStageSuggestion && (
-    <div className="glass-row flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl px-4 py-3">
-      <span className="flex min-w-0 flex-1 items-center gap-2 text-sm text-slate-700">
-        <Briefcase size={16} className="shrink-0 text-accent" />
-        <span className="min-w-0">
-          選考の連絡のようです。就活タブの「{jobStageSuggestion.application.companyName}」を
-          {getJobStage(jobStageSuggestion.stage).label}にしますか?
-          {jobStageSuggestion.hint && (
-            <em className="ml-1.5 not-italic text-xs text-slate-500">({jobStageSuggestion.hint})</em>
-          )}
-        </span>
-      </span>
-      <span className="flex shrink-0 items-center gap-2">
-        <button
-          type="button"
-          onClick={handleDismissJobStageSuggestion}
-          className="rounded-full px-2.5 py-1.5 text-xs font-medium text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-        >
-          あとで
-        </button>
-        <button
-          type="button"
-          onClick={handleApplyJobStageSuggestion}
-          className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-        >
-          進捗を更新
-        </button>
-      </span>
-    </div>
+    <SuggestionBanner
+      icon={<Briefcase size={16} className="mt-0.5 shrink-0 text-accent" />}
+      onDismiss={handleDismissJobStageSuggestion}
+      actionLabel="進捗を更新"
+      onAction={handleApplyJobStageSuggestion}
+    >
+      選考の連絡のようです。就活タブの「{jobStageSuggestion.application.companyName}」を
+      {getJobStage(jobStageSuggestion.stage).label}にしますか?
+      {jobStageSuggestion.hint && (
+        <em className="ml-1.5 not-italic text-xs text-slate-500">({jobStageSuggestion.hint})</em>
+      )}
+    </SuggestionBanner>
   );
 
   const candidateSheet = (
