@@ -396,9 +396,18 @@ export async function mapWithConcurrency<T>(items: T[], limit: number, run: (ite
   await Promise.all(workers);
 }
 
-/** 1回の同期で辿るページ数の上限。1ページ100件なので最大500件 —
- * 直近30日の受信トレイがこれを超える場合だけ `complete: false` になる。 */
-const MESSAGE_ID_PAGE_LIMIT = 5;
+/** 1回の同期で辿るページ数の上限。1ページ100件なので最大3000件 —
+ * 直近30日の受信トレイがこれを超える場合だけ `complete: false` になる。
+ *
+ * 以前は5ページ(500件)だった。求人サイトからの配信が多いと受信トレイは1日30〜50件
+ * 入るので、30日分は1000件を超える — つまり新しい方から500件で打ち切られ、そこから
+ * 先のメールは「30日以内なのにアプリには一生入ってこない」状態になっていた。しかも
+ * 打ち切られたことは画面のどこにも出ないので、本人からは「きてないgmailがある」
+ * としか見えない。
+ *
+ * ここを増やしても増えるのはIDの一覧(1ページ=1リクエスト、100件ぶん)だけで、重い方の
+ * 1通ごとの取得はこれまでどおりNEW_EMAILS_PER_SYNC件/回に絞られたまま(gmailSync.ts)。 */
+const MESSAGE_ID_PAGE_LIMIT = 30;
 
 /** `complete` は「この期間の受信トレイを最後まで数えきれたか」。false の時に
  * 「Gmail側に無いローカル行を消す」判断をすると、単に取得しきれていないだけの
@@ -486,6 +495,10 @@ export interface SyncSummaryCounts {
   pulledStates: number;
   failed: number;
   deferred: number;
+  /** 直近30日の受信トレイが多すぎて、一覧の取得が上限で打ち切られたか
+   * (listRecentMessageIds の `complete` の裏返し)。黙って打ち切ると、本人からは
+   * 単に「メールが入ってこない」ようにしか見えないため、文面に出す。 */
+  truncated?: boolean;
 }
 
 /** 何も起きなかった同期の文面。複数アカウントをまとめて同期した時に、これだけが
@@ -505,6 +518,8 @@ export function buildSyncSummary(counts: SyncSummaryCounts): string {
   const notes: string[] = [];
   if (counts.handledElsewhere > 0) notes.push(`${counts.handledElsewhere}件は他の端末で処理済み(既読・送信済みタブ)`);
   if (counts.blockedAdded > 0) notes.push(`${counts.blockedAdded}件はブロック中の送信者`);
+  // 「しました」に続く parts ではなく注記に置く — 件数ではなく状態の説明なので。
+  if (counts.truncated) notes.push("受信トレイが多く、30日ぶんの一部までしか見ていません");
 
   const summary = parts.length > 0 ? `${parts.join("・")}しました` : NO_CHANGES_SUMMARY;
   return notes.length > 0 ? `${summary}(${notes.join("・")})` : summary;

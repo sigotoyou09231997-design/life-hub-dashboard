@@ -69,11 +69,15 @@ export function describeSyncError(err: unknown): string {
 
 /** Gmailの受信トレイに無くなったメールをこの端末からも消す(AI下書きも一緒に)。
  * `inboxIds` はその期間の受信トレイを最後まで数えきれた場合のみ渡ってくる —
- * 途中までのリストで消すと、まだ受信トレイにあるメールまで消えてしまう。 */
-async function pruneMissingEmails(accountId: string, inboxIds: string[]): Promise<number> {
+ * 途中までのリストで消すと、まだ受信トレイにあるメールまで消えてしまう。
+ *
+ * 消す対象はその期間(直近SYNC_WINDOW_DAYS日)に届いたメールだけにする。`inboxIds` は
+ * その期間しか見ていないので、期間より前のメールは「Gmailから無くなった」のではなく
+ * 単に範囲外なだけ — 日が経っただけで手元から消えてしまうのは掃除ではない。 */
+async function pruneMissingEmails(accountId: string, inboxIds: string[], windowStartMs: number): Promise<number> {
   const keep = new Set(inboxIds);
   const stale = (await db.syncedEmails.where("accountId").equals(accountId).toArray()).filter(
-    (email) => email.id && !keep.has(email.gmailMessageId),
+    (email) => email.id && email.receivedAt >= windowStartMs && !keep.has(email.gmailMessageId),
   );
   for (const email of stale) {
     const drafts = await db.draftReplies.where("emailId").equals(email.id!).toArray();
@@ -227,7 +231,7 @@ async function runSync(account: GmailAccount, accountId: string): Promise<GmailS
     // 端末ごとに溜まり続け、同じアカウントなのに一覧の面ぶれが揃わない。
     // completeがfalse(=取得上限まで辿っても数えきれなかった)時は、単に取得しきれて
     // いないだけのメールを消してしまうので掃除しない。
-    const removed = complete ? await pruneMissingEmails(accountId, ids) : 0;
+    const removed = complete ? await pruneMissingEmails(accountId, ids, sinceEpochSec * 1000) : 0;
 
     // 既読の共有。まだ送っていないこの端末の既読(この機能より前の分を含む)を送ってから、
     // 他端末の分を取り込む。取り込みはメールを入れた後 — ローカルに行が無い
@@ -264,6 +268,9 @@ async function runSync(account: GmailAccount, accountId: string): Promise<GmailS
         pulledStates: pulledStates.count,
         failed,
         deferred,
+        // 一覧を最後まで数えきれなかった = この30日の中にも、まだ見えていないメールが
+        // 残っている。黙っていると「きてないgmailがある」としか見えないので文面に出す。
+        truncated: !complete,
       }),
       stateError: pushedStates.error ?? pulledStates.error ?? null,
       error: null,

@@ -1,20 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { GmailAccount } from "../types";
 
-/** 同期が触るテーブルのうち、このテストが通る経路(空の受信トレイ)だけを持つ最小の偽DB。 */
+/** 同期が触るテーブルだけを持つ最小の偽DB。中身は `mocks.rows` に入れ、消された行は
+ * `mocks.deleted` に溜まる(既定はどのテーブルも空 = 空の受信トレイ)。 */
 const mocks = vi.hoisted(() => {
-  const emptyQuery = { toArray: async () => [], first: async () => undefined, count: async () => 0 };
-  const emptyTable = {
-    where: () => ({ equals: () => emptyQuery }),
+  const rows: Record<string, Record<string, unknown>[]> = {};
+  const deleted: Record<string, string[]> = {};
+  const table = (name: string) => ({
+    where: () => ({
+      equals: () => ({
+        toArray: async () => rows[name] ?? [],
+        first: async () => (rows[name] ?? [])[0],
+        count: async () => (rows[name] ?? []).length,
+      }),
+    }),
     update: vi.fn(async () => undefined),
+    add: vi.fn(async () => "new-row"),
     bulkGet: async () => [],
-  };
+    delete: vi.fn(async (id: string) => {
+      (deleted[name] ??= []).push(id);
+    }),
+  });
   return {
+    rows,
+    deleted,
     db: {
-      syncedEmails: emptyTable,
-      draftReplies: emptyTable,
-      blockedSenders: emptyTable,
-      gmailAccounts: emptyTable,
+      syncedEmails: table("syncedEmails"),
+      draftReplies: table("draftReplies"),
+      blockedSenders: table("blockedSenders"),
+      gmailAccounts: table("gmailAccounts"),
       settings: { toCollection: () => ({ first: async () => undefined }) },
     },
     ensureFreshAccessToken: vi.fn(async (account: GmailAccount) => account),
@@ -172,5 +186,50 @@ describe("syncGmailAccount", () => {
       syncGmailAccount(account("account-b", "b@example.com")),
     ]);
     expect(mocks.ensureFreshAccessToken).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("受信トレイから消えたメールの掃除", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  /** 掃除の対象になるのは「Gmailの受信トレイに無い」行なので、一覧は空のまま
+   * (complete: true = 30日ぶんを最後まで数えきれた)にして走らせる。 */
+  beforeEach(() => {
+    for (const key of Object.keys(mocks.rows)) delete mocks.rows[key];
+    for (const key of Object.keys(mocks.deleted)) delete mocks.deleted[key];
+    mocks.listRecentMessageIds.mockResolvedValue({ ids: [], complete: true });
+  });
+
+  const localEmail = (id: string, receivedAt: number) => ({
+    id,
+    accountId: "account-a",
+    gmailMessageId: `gmail-${id}`,
+    threadId: `thread-${id}`,
+    from: "someone@example.com",
+    subject: "件名",
+    snippet: "",
+    receivedAt,
+    status: "unprocessed" as const,
+    createdAt: 0,
+  });
+
+  it("30日の範囲内でGmailの受信トレイから無くなったメールは、この端末からも消す", async () => {
+    mocks.rows.syncedEmails = [localEmail("recent", Date.now() - 3 * DAY_MS)];
+
+    const result = await syncGmailAccount(account("account-a", "me@example.com"));
+
+    expect(mocks.deleted.syncedEmails).toEqual(["recent"]);
+    expect(result.summary).toContain("1件をGmailに合わせて削除");
+  });
+
+  it("30日より前のメールは、範囲外なだけなので消さない", async () => {
+    // 一覧は直近30日しか見ていない。日が経って範囲から外れただけの分まで
+    // 「Gmailから無くなった」と見なすと、手元のメールが黙って減っていく。
+    mocks.rows.syncedEmails = [localEmail("old", Date.now() - 45 * DAY_MS)];
+
+    const result = await syncGmailAccount(account("account-a", "me@example.com"));
+
+    expect(mocks.deleted.syncedEmails).toBeUndefined();
+    expect(result.summary).toBe(NO_CHANGES_SUMMARY);
   });
 });

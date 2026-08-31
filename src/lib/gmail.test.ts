@@ -178,6 +178,19 @@ describe("buildSyncSummary", () => {
     );
   });
 
+  // 実際に出た不具合(2026-08-31): 受信トレイが1日30〜50件あると30日ぶんは1000件を超え、
+  // 一覧の取得が上限で打ち切られる。打ち切りが文面に出ないと、本人からは「30日以内なのに
+  // きてないgmailがある」としか見えない。
+  it("一覧を最後まで数えきれなかった時は、まだ見えていない分があることを添える", () => {
+    expect(buildSyncSummary({ ...none, freshAdded: 2, truncated: true })).toBe(
+      "2件の新着メールしました(受信トレイが多く、30日ぶんの一部までしか見ていません)",
+    );
+  });
+
+  it("数えきれていれば注記は出さない", () => {
+    expect(buildSyncSummary({ ...none, freshAdded: 2, truncated: false })).toBe("2件の新着メールしました");
+  });
+
   it("何も無ければこれまでどおりの文言", () => {
     expect(buildSyncSummary(none)).toBe("新着メールはありませんでした");
   });
