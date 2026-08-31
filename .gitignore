@@ -11,15 +11,10 @@ img/
 .netlify
 
 # Cowork連携の生成物（state.tsv と waiting.txt は共有したいのでコミットする）
-.cowork/report.md
-.cowork/headless-out.txt
-.cowork/headless-err.txt
-.cowork/headless-stream.jsonl
-.cowork/last-run.hash
-.cowork/last_hash
-.cowork/run.lock/
-.cowork/run.exit
-.cowork/run.pid
 
 # Cowork側のサンドボックスが .git/index.lock を削除できず退避した残骸（手動で消してOK）
 _to_delete/
+
+# Cowork の状態は ../.cowork/apps/<アプリ名>/ に集約した（2026-08-31）。
+# ここに再びできても追跡しない。
+.cowork/
