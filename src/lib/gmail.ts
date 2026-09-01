@@ -443,7 +443,7 @@ async function listRecentSentMessageIds(accessToken: string, limit: number): Pro
  * both English "On ... wrote:" and Japanese "...のメッセージ:" forms, depending on locale).
  * Falls back to stripping "> "-quoted lines when no header match is found, since forwarded
  * or manually-quoted messages sometimes quote without one. */
-function stripQuotedReply(body: string): string {
+export function stripQuotedReply(body: string): string {
   const headerMatch = body.match(/^\s*(On .{0,120} wrote:|.{0,80}のメッセージ:)\s*$/m);
   const cut = headerMatch ? body.slice(0, headerMatch.index) : body;
   return cut

@@ -4,14 +4,17 @@ import {
   buildSyncSummary,
   ensureFreshAccessToken,
   generateDraftForEmail,
+  getMessageBody,
   getMessageMeta,
   isUnhandledEmail,
   listRecentMessageIds,
   NO_CHANGES_SUMMARY,
   mapWithConcurrency,
   parseSender,
+  stripQuotedReply,
   threadHasSentReplyAfter,
 } from "./gmail";
+import { needsPlanText } from "./mailPlanSuggestion";
 import { pullMessageStates, pushPendingMessageStates } from "./gmailMessageState";
 import { addEmailIfAbsent, dedupeSyncedEmails } from "./syncedEmails";
 
@@ -22,6 +25,15 @@ const SYNC_WINDOW_DAYS = 30;
  * 上限があり、越えると403 RATE_LIMIT_EXCEEDEDで同期全体が失敗する。 */
 const RECONCILE_PER_SYNC = 40;
 const RECONCILE_CONCURRENCY = 4;
+
+/** 予定候補の判定用に本文の頭を取り込む、1回の同期あたりの上限と文字数。
+ *
+ * 抜粋(snippet)は200文字ほどしかなく、「日時は下記のとおり」と書いて実際の日時が
+ * その後ろに来る案内メールを拾えなかった。ただし1通ごとにGmail APIをもう1回叩くので、
+ * 対象は「予定らしい言葉はあるのに日付が読めないメール」だけに絞り(needsPlanText)、
+ * 1回の同期でこの件数までにする。残りは次の同期で取り込まれる。 */
+const PLAN_TEXT_PER_SYNC = 20;
+const PLAN_TEXT_CHARS = 2000;
 
 /** 1回の同期で新しく取り込むメールの上限。1通ごとに本文以外の情報を取りに行くため、
  * 連携し直した直後のように未取得が数百件ある端末では、ここを絞らないと上限に当たる。 */
@@ -179,6 +191,25 @@ async function runSync(account: GmailAccount, accountId: string): Promise<GmailS
         }
       }
     }
+    // 予定候補の見落としを減らすため、案内らしいのに抜粋からは日付が読めないメールは、
+    // 本文の頭も取り込んでおく。新しく取り込んだ分と、それ以前から手元にある分を
+    // まとめてここで見る(以前から持っているメールも、次の同期で順に埋まっていく)。
+    const planTextTargets = (await db.syncedEmails.where("accountId").equals(accountId).toArray())
+      .filter((e) => e.id && e.receivedAt >= sinceEpochSec * 1000 && needsPlanText(e))
+      .sort((a, b) => b.receivedAt - a.receivedAt)
+      .slice(0, PLAN_TEXT_PER_SYNC);
+    for (const target of planTextTargets) {
+      try {
+        const body = await getMessageBody(fresh.accessToken, target.gmailMessageId);
+        // 引用部分は落とす — 返信のやり取りでは、前のメールに書かれた古い日時が
+        // そのまま引用されていて、済んだ日程を候補として拾ってしまう。
+        // 何も取れなかった時も空文字で印を付ける(毎回の同期で取りに行かないため)。
+        await db.syncedEmails.update(target.id!, { planText: stripQuotedReply(body).slice(0, PLAN_TEXT_CHARS) });
+      } catch {
+        // 1通の取得失敗で同期全体を止めない。印を付けないので次の同期でやり直す。
+      }
+    }
+
     // Gmail側とのズレ防止: このアプリの外(他デバイス・Gmail本体)から直接返信された
     // 場合、この app には知る手段がないため、まだ未送信扱いのトラッキング中メールは
     // 毎回スレッドの実際の状態と突き合わせて「送信済み」を確定させる。新規追加分より

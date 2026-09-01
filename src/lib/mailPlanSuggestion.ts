@@ -194,6 +194,11 @@ const PLAN_KEYWORDS = [
  * 抜粋の頭に出てくる売り文句だけを並べる。 */
 const PROMO_KEYWORDS = ["セール", "キャンペーン", "クーポン", "割引", "抽選", "メルマガ", "無料プレゼント"];
 
+function isPromoText(text: string): boolean {
+  const normalized = normalizeText(text);
+  return PROMO_KEYWORDS.some((word) => normalized.includes(word));
+}
+
 export interface PlanSignals {
   hasDate: boolean;
   hasTime: boolean;
@@ -255,7 +260,36 @@ export function detectPlanSignals(text: string, receivedAt?: number): PlanSignal
 type SuggestionEmail = Pick<SyncedEmail, "subject" | "snippet" | "status"> & {
   receivedAt?: number;
   planSuggestionDismissedAt?: number;
+  planText?: string;
 };
+
+/** 判定に使う文章。件名と抜粋に加えて、取り込んであれば本文の頭も見る
+ * (src/lib/gmailSync.ts が入れる planText)。「日時は下記のとおり」と書いて実際の
+ * 日時が抜粋の外に出るメールは、これが無いと1件も拾えない。 */
+function planSourceText(email: Pick<SyncedEmail, "subject" | "snippet"> & { planText?: string }): string {
+  return [email.subject, email.snippet, email.planText ?? ""].join(" ");
+}
+
+/** 本文の頭を取りに行く価値があるメールか(同期のときに使う)。
+ *
+ * 予定らしい言葉はあるのに抜粋からは日付が読めない、というメールだけを対象にする。
+ * 全部のメールの本文を取り込むと、1通ごとにGmail APIをもう1回叩くうえ、広告メールの
+ * 本文まで端末に溜まっていく。 */
+export function needsPlanText(
+  email: Pick<SyncedEmail, "subject" | "snippet" | "status"> & {
+    planText?: string;
+    planSuggestionDismissedAt?: number;
+  },
+): boolean {
+  // 一度取りに行っていれば、空でもやり直さない。
+  if (email.planText !== undefined) return false;
+  if (email.planSuggestionDismissedAt) return false;
+  if (email.status === "skipped") return false;
+  const text = `${email.subject} ${email.snippet}`;
+  if (isPromoText(text)) return false;
+  if (!hasPlanKeyword(text)) return false;
+  return !detectPlanSignals(text).hasDate;
+}
 
 /**
  * このメールを「予定を追加しますか?」として出すか。
@@ -271,9 +305,8 @@ type SuggestionEmail = Pick<SyncedEmail, "subject" | "snippet" | "status"> & {
 export function isPlanSuggestion(email: SuggestionEmail, today: string = todayStr()): boolean {
   if (email.planSuggestionDismissedAt) return false;
   if (email.status === "skipped") return false;
-  const text = `${email.subject} ${email.snippet}`;
-  const normalized = normalizeText(text);
-  if (PROMO_KEYWORDS.some((word) => normalized.includes(word))) return false;
+  const text = planSourceText(email);
+  if (isPromoText(text)) return false;
   const signals = detectPlanSignals(text, email.receivedAt);
   if (!signals.hasDate) return false;
   if (!signals.hasTime && !hasPlanKeyword(text)) return false;
@@ -288,9 +321,9 @@ export function hasPlanKeyword(text: string): boolean {
 
 /** 提案に添える一言。「9月3日・14:00・面接」のように、何を見つけたかを並べる。 */
 export function planSuggestionHint(
-  email: Pick<SyncedEmail, "subject" | "snippet"> & { receivedAt?: number },
+  email: Pick<SyncedEmail, "subject" | "snippet"> & { receivedAt?: number; planText?: string },
 ): string {
-  return detectPlanSignals(`${email.subject} ${email.snippet}`, email.receivedAt).hints.join("・");
+  return detectPlanSignals(planSourceText(email), email.receivedAt).hints.join("・");
 }
 
 /** 提案として出せるメールだけを、新しい順に返す。 */

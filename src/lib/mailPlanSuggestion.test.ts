@@ -4,6 +4,7 @@ import {
   detectPlanSignals,
   hasPlanKeyword,
   isPlanSuggestion,
+  needsPlanText,
   pickPlanSuggestions,
   planSuggestionHint,
 } from "./mailPlanSuggestion";
@@ -179,6 +180,49 @@ describe("isPlanSuggestion", () => {
 
   it("「あとで」を押したメールは、もう提案しない", () => {
     expect(isPlanSuggestion(mail("面接のご案内", "9月3日 14:00", { planSuggestionDismissedAt: 1 }), TODAY)).toBe(false);
+  });
+});
+
+describe("本文の頭(planText)を使う", () => {
+  // 実際に届いた人材紹介会社のメール。日時は抜粋(先頭200文字ほど)より後ろにある。
+  const AGENCY_SNIPPET =
+    "船田様 お世話になります。 AIdea Career株式会社の福井です。 ご返信ありがとうございました。 " +
+    "【株式会社アイフリークモバイル】様より 改めて1次面接日時についてご連絡をいただきましたので、下記ご確認ください。 " +
+    "※お時間等問題なければ、必ず了承の旨をご返信ください。 ご返信をいただいてからの日程確定となります。";
+  const AGENCY_BODY = `${AGENCY_SNIPPET}
+＝＝＝＝＝＝＝＝＝＝＝＝＝＝
+【株式会社アイフリークモバイル・1次面接】
+■日時
+・9月4日（金）19：30～20：30
+■URL
+https://meet.google.com/dsq-khcm-aii
+■お持ち物：筆記用具`;
+
+  it("抜粋だけでは日付が読めない案内メールは、本文を取りに行く", () => {
+    expect(needsPlanText(mail("1次面接日時のご連絡", AGENCY_SNIPPET))).toBe(true);
+  });
+
+  it("本文を取り込んであれば、その日時で候補にする", () => {
+    const email = mail("1次面接日時のご連絡", AGENCY_SNIPPET, { receivedAt: RECEIVED });
+    expect(isPlanSuggestion(email, TODAY)).toBe(false);
+    expect(isPlanSuggestion({ ...email, planText: AGENCY_BODY }, TODAY)).toBe(true);
+    expect(planSuggestionHint({ ...email, planText: AGENCY_BODY })).toBe("9月4日・19:30・面接");
+  });
+
+  it("抜粋だけで日付が読めるなら、本文は取りに行かない", () => {
+    expect(needsPlanText(mail("一次面接のご案内", "9月3日 14:00 にお越しください"))).toBe(false);
+  });
+
+  it("予定らしい言葉が無いメールは取りに行かない", () => {
+    expect(needsPlanText(mail("ご請求書の送付", "添付をご確認ください"))).toBe(false);
+  });
+
+  it("宣伝のメールは取りに行かない", () => {
+    expect(needsPlanText(mail("セール開催のお知らせ", "参加はこちらから"))).toBe(false);
+  });
+
+  it("一度取りに行ったら、何も取れなくてもやり直さない", () => {
+    expect(needsPlanText({ ...mail("1次面接日時のご連絡", AGENCY_SNIPPET), planText: "" })).toBe(false);
   });
 });
 
