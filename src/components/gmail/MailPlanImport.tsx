@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { CalendarPlus, Check, MapPin, TriangleAlert } from "lucide-react";
+import { CalendarPlus, Check, MapPin, TriangleAlert, Users } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import { extractTripPlanFromEmail } from "../../lib/gmail";
@@ -36,6 +36,14 @@ import {
   type TripImportRow,
   type TripSection,
 } from "../../lib/mailPlanImport";
+import {
+  applyEventToAccount,
+  emptyDrafts,
+  followMainTitle,
+  listOtherAccounts,
+  planAccountChanges,
+  type AccountEventDraft,
+} from "../../lib/crossAccountEvents";
 import { formatShortDate } from "../../lib/date";
 import { PlanImportRow } from "../plan/PlanImportRow";
 import { Sheet } from "../ui/Sheet";
@@ -93,6 +101,13 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
   }
   const [tripId, setTripId] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
+  // この端末に登録した、いま開いていない方のアカウント(予定フォームと同じ仕組み)。
+  // 面接の予定を、こちらには会社名入りで・相手には別の名前で入れられるようにする。
+  const otherAccountsRef = useRef(listOtherAccounts());
+  const otherAccounts = otherAccountsRef.current;
+  const [accountDrafts, setAccountDrafts] = useState<Record<string, AccountEventDraft>>(() =>
+    emptyDrafts(otherAccountsRef.current, ""),
+  );
 
   // 開いた時に1回だけ読み取る。閉じたら状態を捨てて、次に開いた時はやり直す
   // (失敗した時は開き直せば再試行になる方が分かりやすい)。
@@ -112,6 +127,7 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
       setExtras([]);
       setError("");
       setTripId(undefined);
+      setAccountDrafts(emptyDrafts(otherAccountsRef.current, ""));
       return;
     }
     if (startedRef.current) return;
@@ -180,6 +196,20 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
   );
   /** 今回入れる先。タブの入れ先と、「ほかにも入れる」で入にした先。 */
   const targets = sortDestinations([destination, ...extras]);
+  /** 予定として入る行。ほかのアカウントに入れられるのは予定だけ(旅行の日程・タスクは
+   * アカウントをまたぐ仕組みを持っていない)。 */
+  const eventRows = targets.includes("event") ? rowsFor("event") : [];
+  /** 1件だけ入れる時は、その内容をアカウントごとの予定名の初期値にする。複数入れる時は
+   * どれの名前か決められないので、それぞれの内容のまま入れる。 */
+  const singleEventTitle = eventRows.length === 1 ? eventRows[0].title : null;
+  const showAccountPanel = otherAccounts.length > 0 && eventRows.length > 0;
+
+  // 上の「内容」を打ち替えたら、まだ個別に書き換えていないアカウント欄も追従させる
+  // (予定フォームと同じ。書き換えた行はそのまま残る)。
+  useEffect(() => {
+    if (singleEventTitle == null) return;
+    setAccountDrafts((current) => followMainTitle(current, singleEventTitle));
+  }, [singleEventTitle]);
   const counts = targets.map((target) => ({
     destination: target,
     // 旅行が決まっていない入れ先には入れられない(旅行が1つも無い時)。
@@ -227,7 +257,27 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
             // 費用は旅行にだけあるもの。金額が読み取れていて、外されていない分だけ積む。
             if (row.withExpense && row.amount) await db.tripExpenses.add(toTripExpenseRecord(row, tripId!, now));
           } else if (target === "event") {
-            await db.calendarEvents.add(toCalendarEventRecord(row, now));
+            // 複数入れる時は、アカウントごとの予定名は使わずそれぞれの内容で入れる
+            // (どの行の名前なのかを決められないため)。
+            const drafts =
+              singleEventTitle != null
+                ? accountDrafts
+                : Object.fromEntries(
+                    Object.entries(accountDrafts).map(([userId, draft]) => [userId, { ...draft, title: "" }]),
+                  );
+            const changes = planAccountChanges(otherAccounts, drafts, row.title.trim());
+            // 印(linkId)は、ほかのアカウントにも入れる時だけ持たせる。
+            const linkId = changes.apply.length > 0 ? crypto.randomUUID() : undefined;
+            const record = toCalendarEventRecord(row, now, linkId);
+            await db.calendarEvents.add(record);
+            for (const planned of changes.apply) {
+              try {
+                await applyEventToAccount(planned.account, record, linkId!, planned.title);
+              } catch (error) {
+                // 1つ失敗しても残りは続ける。こちらのアカウントには入っている。
+                console.error("[mailPlanImport] failed to add the event to another account:", error);
+              }
+            }
           } else {
             await db.tasks.add(toTaskRecord(row, now));
           }
@@ -379,6 +429,50 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
                   missingAmountHint="メールから金額を読み取れませんでした"
                   onChange={(changes) => updateRow(index, changes)}
                 />
+              ))}
+            </div>
+          )}
+
+          {/* 予定として入れる時だけ出す。予定フォーム(EventForm)の同じ欄と揃えてある —
+              こちらには会社名入りで、相手のアカウントには別の名前で置ける。 */}
+          {showAccountPanel && (
+            <div>
+              <span className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-slate-600">
+                <Users size={14} />
+                ほかのアカウントにも入れる
+              </span>
+              {singleEventTitle == null && (
+                <p className="mb-1 px-1 text-xs leading-relaxed text-slate-500">
+                  {eventRows.length}件まとめて入れるので、予定名はそれぞれの内容のまま入ります。
+                </p>
+              )}
+              {otherAccounts.map((account) => (
+                <div key={account.userId}>
+                  <SwitchField
+                    label={account.label}
+                    hint={account.email ?? undefined}
+                    checked={accountDrafts[account.userId]?.checked ?? false}
+                    onChange={(checked) =>
+                      setAccountDrafts((current) => ({
+                        ...current,
+                        [account.userId]: { ...current[account.userId], checked },
+                      }))
+                    }
+                  />
+                  {accountDrafts[account.userId]?.checked && singleEventTitle != null && (
+                    <Input
+                      label="このアカウントでの予定名"
+                      value={accountDrafts[account.userId].title}
+                      onChange={(e) =>
+                        setAccountDrafts((current) => ({
+                          ...current,
+                          [account.userId]: { ...current[account.userId], title: e.target.value, edited: true },
+                        }))
+                      }
+                      placeholder={singleEventTitle || "例: 面接"}
+                    />
+                  )}
+                </div>
               ))}
             </div>
           )}

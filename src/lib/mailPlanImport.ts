@@ -339,9 +339,12 @@ export function toTripScheduleRecord(row: TripImportRow, tripId: string, now: nu
 
 /** カレンダーの予定1件。時刻が読み取れなかったものは終日にする —
  * 開始時刻が無い予定は通知の起点が無く、時刻ありのまま置くと0:00に見えてしまう。 */
-export function toCalendarEventRecord(row: TripImportRow, now: number): CalendarEvent {
+export function toCalendarEventRecord(row: TripImportRow, now: number, linkId?: string): CalendarEvent {
   const allDay = !row.startTime;
   return {
+    // 印(linkId)は、ほかのアカウントにも入れる時だけ持たせる(予定フォームと同じ扱い)。
+    // 1つのアカウントにしか入れない予定に印を付けても、突き合わせる相手がいない。
+    linkId,
     title: row.title.trim(),
     date: row.date,
     allDay,

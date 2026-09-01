@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   items: [] as Record<string, unknown>[],
   extractError: null as Error | null,
   trips: [] as Record<string, unknown>[],
+  otherAccounts: [] as { userId: string; dbName: string; label: string; email: string | null }[],
+  appliedToAccounts: [] as { userId: string; linkId: string; title: string; event: unknown }[],
   existingTripSchedule: [] as Record<string, unknown>[],
   existingEvents: [] as Record<string, unknown>[],
   existingTasks: [] as Record<string, unknown>[],
@@ -73,6 +75,15 @@ vi.mock("../../lib/gmail", () => ({
     return mocks.items;
   },
 }));
+// ほかのアカウントの一覧と書き込みだけ差し替える。控えの作り方(emptyDrafts など)は
+// 本物のまま使う — 予定フォームと同じ動きになっているかを見たいため。
+vi.mock("../../lib/crossAccountEvents", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/crossAccountEvents")>()),
+  listOtherAccounts: () => mocks.otherAccounts,
+  applyEventToAccount: async (account: { userId: string }, event: unknown, linkId: string, title: string) => {
+    mocks.appliedToAccounts.push({ userId: account.userId, linkId, title, event });
+  },
+}));
 
 import { MailPlanImport } from "./MailPlanImport";
 
@@ -96,6 +107,8 @@ beforeEach(() => {
   mocks.existingEvents = [];
   mocks.existingTasks = [];
   mocks.existingRoutePlaces = [];
+  mocks.otherAccounts = [];
+  mocks.appliedToAccounts = [];
 });
 
 afterEach(cleanup);
@@ -131,6 +144,60 @@ describe("メールから予定を作る画面", () => {
     await user.click(screen.getByRole("button", { name: "1件を入れる" }));
     expect(mocks.saved.calendarEvents).toEqual([expect.objectContaining({ date: "2026-09-12", startTime: "08:20" })]);
     expect(mocks.saved.tripSchedule).toEqual([]);
+  });
+
+  describe("ほかのアカウントにも入れる", () => {
+    const otherAccount = { userId: "u2", dbName: "lifehub_u2", label: "サブ", email: "sub@example.com" };
+
+    it("ほかのアカウントが無ければ、その欄は出さない", async () => {
+      const user = userEvent.setup();
+      renderSheet();
+      await user.click(await screen.findByRole("tab", { name: "予定" }));
+      expect(screen.queryByText("ほかのアカウントにも入れる")).toBeNull();
+    });
+
+    it("入にしたアカウントへ、指定した予定名で入れる(こちらの予定名は変わらない)", async () => {
+      mocks.otherAccounts = [otherAccount];
+      const user = userEvent.setup();
+      renderSheet();
+      await user.click(await screen.findByRole("tab", { name: "予定" }));
+      await user.click(screen.getByRole("switch", { name: /サブ/ }));
+
+      const accountTitle = screen.getByLabelText("このアカウントでの予定名");
+      // 既定は上の内容に追従している。個別に書き換えたらそちらが優先される。
+      expect((accountTitle as HTMLInputElement).value).toBe("羽田→福岡");
+      await user.clear(accountTitle);
+      await user.type(accountTitle, "移動");
+
+      await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+
+      expect(mocks.saved.calendarEvents).toEqual([
+        expect.objectContaining({ title: "羽田→福岡", linkId: expect.any(String) }),
+      ]);
+      expect(mocks.appliedToAccounts).toEqual([
+        expect.objectContaining({ userId: "u2", title: "移動", linkId: expect.any(String) }),
+      ]);
+    });
+
+    it("入にしなければ、印(linkId)は付けない", async () => {
+      mocks.otherAccounts = [otherAccount];
+      const user = userEvent.setup();
+      renderSheet();
+      await user.click(await screen.findByRole("tab", { name: "予定" }));
+      await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+      expect(mocks.appliedToAccounts).toEqual([]);
+      expect(mocks.saved.calendarEvents[0]).toEqual(expect.objectContaining({ linkId: undefined }));
+    });
+
+    it("旅行の日程タブでも、「予定にも入れる」を入にすれば出る", async () => {
+      mocks.otherAccounts = [otherAccount];
+      const user = userEvent.setup();
+      renderSheet();
+      await screen.findByDisplayValue("羽田→福岡");
+      expect(screen.queryByText("ほかのアカウントにも入れる")).toBeNull();
+      await user.click(screen.getByRole("switch", { name: "予定にも入れる" }));
+      expect(screen.getByText("ほかのアカウントにも入れる")).toBeTruthy();
+    });
   });
 
   it("タスクに入れる", async () => {
