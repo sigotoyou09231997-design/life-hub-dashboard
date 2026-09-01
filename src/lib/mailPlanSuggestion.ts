@@ -261,14 +261,16 @@ type SuggestionEmail = Pick<SyncedEmail, "subject" | "snippet" | "status"> & {
  * このメールを「予定を追加しますか?」として出すか。
  *
  * 日付が読み取れることが前提で、そのうえで時刻か予定らしい言葉があるもの。
- * 返信を送り終えたメールと、本人が「あとで」を押したメールは出さない。
+ * 本人が「あとで」を押したメールと、スキップしたメールは出さない。
+ * 返信を送り終えたメール(送信済み)は出す — 日程調整は「返信した時点で決まる」ので、
+ * いちばん予定に入れたいメールがここで消えていた(2026-09-01)。
  * 書かれている日付がすべて過ぎているメールも出さない —
  * 済んだ面接の案内が「予定候補」に残り続けるため(2026-09-01)。
  * 宣伝のメール(PROMO_KEYWORDS)も、日付と言葉が揃ってしまうので出さない。
  */
 export function isPlanSuggestion(email: SuggestionEmail, today: string = todayStr()): boolean {
   if (email.planSuggestionDismissedAt) return false;
-  if (email.status === "sent" || email.status === "skipped") return false;
+  if (email.status === "skipped") return false;
   const text = `${email.subject} ${email.snippet}`;
   const normalized = normalizeText(text);
   if (PROMO_KEYWORDS.some((word) => normalized.includes(word))) return false;

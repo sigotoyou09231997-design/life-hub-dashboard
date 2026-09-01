@@ -168,8 +168,12 @@ describe("isPlanSuggestion", () => {
     expect(isPlanSuggestion(email, TODAY)).toBe(false);
   });
 
-  it("返信を送り終えたメールは提案しない", () => {
-    expect(isPlanSuggestion(mail("面接のご案内", "9月3日 14:00", { status: "sent" }), TODAY)).toBe(false);
+  it("返信を送り終えたメールも、これからの日付なら提案する", () => {
+    // 日程調整は返信した時点で決まるので、そこで候補から外すと予定に入れそびれる。
+    expect(isPlanSuggestion(mail("面接のご案内", "9月3日 14:00", { status: "sent" }), TODAY)).toBe(true);
+  });
+
+  it("スキップしたメールは提案しない", () => {
     expect(isPlanSuggestion(mail("面接のご案内", "9月3日 14:00", { status: "skipped" }), TODAY)).toBe(false);
   });
 
