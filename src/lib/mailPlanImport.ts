@@ -36,7 +36,75 @@ export interface TripImportRow extends ExtractedTripItem {
 
 export function toImportRows(items: ExtractedTripItem[]): TripImportRow[] {
   // 金額が読み取れたものは、費用にも入れる前提にしておく(要らなければ外せる)。
-  return items.map((item) => ({ ...item, checked: true, withExpense: item.amount != null }));
+  return mergeDuplicateItems(items).map((item) => ({ ...item, checked: true, withExpense: item.amount != null }));
+}
+
+/** 見出しから空白と記号を落とす。「株式会社Widsley 一次面接」と「株式会社Widsley　面接」を
+ * 同じものとして見比べるため。 */
+function titleKey(title: string): string {
+  return title.replace(/[\s\u3000・:：\-−–—【】\[\]()（）]/g, "");
+}
+
+/** 同じ予定が粒度違いで2件返ってくることがあるので、1件にまとめる。
+ *
+ * 件名の「株式会社Widsley 面接」と、本文の「株式会社Widsley 一次面接 12:15〜12:45」のように、
+ * AIが同じ用件を別々の項目として返すことがある。そのまま並べると、どちらを入れればいいのか
+ * 分からず、両方入れると同じ予定が2件できてしまう(2026-09-01)。
+ *
+ * まとめるのは、日付が同じで・時刻が食い違っておらず(片方に時刻が無いのは食い違いではない)・
+ * どちらかの見出しがもう一方を含んでいる場合だけ。日程調整メールの候補日時のように、
+ * 同じ日で時刻が違うものは別々に残す — 本人が選ぶためのものなので、勝手にまとめない。 */
+export function mergeDuplicateItems(items: ExtractedTripItem[]): ExtractedTripItem[] {
+  const kept: ExtractedTripItem[] = [];
+  for (const item of items) {
+    const index = kept.findIndex((other) => isSameAppointment(other, item));
+    if (index < 0) {
+      kept.push(item);
+      continue;
+    }
+    kept[index] = mergeItems(kept[index], item);
+  }
+  return kept;
+}
+
+function isSameAppointment(a: ExtractedTripItem, b: ExtractedTripItem): boolean {
+  if (a.date !== b.date) return false;
+  if (a.startTime && b.startTime && a.startTime !== b.startTime) return false;
+  const [keyA, keyB] = [titleKey(a.title), titleKey(b.title)];
+  // 短すぎる見出しは、たまたま文字が並んだだけで同じ扱いにしてしまうので見比べない。
+  if (keyA.length < 3 || keyB.length < 3) return false;
+  const [shorter, longer] = keyA.length <= keyB.length ? [keyA, keyB] : [keyB, keyA];
+  // 詳しい方に、短い方の文字が同じ順で入っているかを見る。「株式会社Widsley面接」は
+  // 「株式会社Widsley一次面接」の間に「一次」が挟まっているだけなので、
+  // 単純な部分一致では同じものだと分からない。
+  return isSubsequence(shorter, longer);
+}
+
+/** short の文字が、同じ順番で long の中に現れるか。 */
+function isSubsequence(short: string, long: string): boolean {
+  let index = 0;
+  for (const char of long) {
+    if (char === short[index]) index++;
+    if (index === short.length) return true;
+  }
+  return index === short.length;
+}
+
+/** 2件を1件にする。どちらか片方にしか無い情報は残し、見出しは詳しい方(長い方)を採る。 */
+function mergeItems(a: ExtractedTripItem, b: ExtractedTripItem): ExtractedTripItem {
+  const longer = (x?: string, y?: string) => ((y?.length ?? 0) > (x?.length ?? 0) ? y : x) || undefined;
+  return {
+    date: a.date,
+    title: longer(a.title, b.title) ?? a.title,
+    startTime: a.startTime ?? b.startTime,
+    endTime: a.endTime ?? b.endTime,
+    location: longer(a.location, b.location),
+    endLocation: longer(a.endLocation, b.endLocation),
+    memo: longer(a.memo, b.memo),
+    // 種類は、どちらかが「その他」以外ならそちらを採る(片方だけが用件を読み取れている)。
+    type: a.type !== "other" ? a.type : b.type,
+    amount: a.amount ?? b.amount,
+  };
 }
 
 /** どの旅行に入れるかの初期値を決める。

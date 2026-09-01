@@ -18,6 +18,7 @@ import {
   toTripRoutePlaceRecord,
   isAlreadyRegistered,
   isOutsideTrip,
+  mergeDuplicateItems,
   pickDefaultTripId,
   planKey,
   toExpenseCategory,
@@ -85,6 +86,54 @@ describe("toImportRows", () => {
 
   it("金額が無ければ、費用は入れない", () => {
     expect(toImportRows([item("2026-09-12")])[0].withExpense).toBe(false);
+  });
+});
+
+describe("mergeDuplicateItems", () => {
+  const plan = (title: string, over: Partial<{ startTime: string; endTime: string; location: string; memo: string }> = {}) => ({
+    date: "2026-09-03",
+    title,
+    type: "other" as const,
+    ...over,
+  });
+
+  it("同じ用件が粒度違いで2件返ってきたら、1件にまとめる", () => {
+    // 実際に起きた形: 件名からの「株式会社Widsley 面接」と、本文からの「一次面接 12:15〜」。
+    const merged = mergeDuplicateItems([
+      plan("株式会社Widsley 面接"),
+      plan("株式会社Widsley 一次面接", { startTime: "12:15", endTime: "12:45", location: "オンライン(Google Meet)" }),
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].title).toBe("株式会社Widsley 一次面接");
+    expect(merged[0].startTime).toBe("12:15");
+    expect(merged[0].location).toBe("オンライン(Google Meet)");
+  });
+
+  it("日程調整の候補日時(同じ日で時刻が違う)は、まとめない", () => {
+    const merged = mergeDuplicateItems([
+      plan("一次面接 候補", { startTime: "10:00" }),
+      plan("一次面接 候補", { startTime: "14:00" }),
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+
+  it("日付が違えばまとめない", () => {
+    const merged = mergeDuplicateItems([plan("一次面接"), { ...plan("一次面接"), date: "2026-09-04" }]);
+    expect(merged).toHaveLength(2);
+  });
+
+  it("別の用件はまとめない", () => {
+    const merged = mergeDuplicateItems([plan("株式会社A 説明会"), plan("株式会社B 一次面接")]);
+    expect(merged).toHaveLength(2);
+  });
+
+  it("種類が読み取れている方を残す", () => {
+    const merged = mergeDuplicateItems([
+      { date: "2026-09-03", title: "羽田→福岡", type: "other" as const },
+      { date: "2026-09-03", title: "羽田→福岡 JAL123", type: "transport" as const, startTime: "09:00" },
+    ]);
+    expect(merged[0].type).toBe("transport");
+    expect(merged[0].title).toBe("羽田→福岡 JAL123");
   });
 });
 
