@@ -30,6 +30,7 @@ import type { TravelMode } from "../../lib/googleMaps";
 import { formatShortDate } from "../../lib/date";
 import { TripRouteForm } from "./TripRouteForm";
 import { TripLegModes } from "./TripLegModes";
+import { TripPlaceStation } from "./TripPlaceStation";
 
 interface Props {
   tripId: string;
@@ -149,7 +150,9 @@ export function TripRouteView({
    * 矢印を押すまで所要時間も移動手段も出てこなかった(2026-08-26の指摘)。
    * 邪魔なときだけ畳めるよう、矢印は開閉ボタンのまま残す。 */
   const [closedLegs, setClosedLegs] = useState<string[]>([]);
-  /** いま見ている日。既定は「すべて」— 日付を決めていない場所も含めて今まで通り並ぶ。 */
+  /** いま見ている日。既定は1日目 —「すべて」は本人の指示で外した(2026-09-01)。
+   * 日をまたいだ場所を1本の鎖に並べると、その日に回る順として読めないため。
+   * 日にちの切り替えを出さない旅行(1日で終わる)だけ、内部的に全件表示のままにする。 */
   const [day, setDay] = useState<string>(ALL_DAYS);
   /** 検索は絞り込まず、一致した場所を鎖の中で光らせるだけにする(src/styles/trips.css
    * の.trip-route-card--match) — 間を抜くと区間(誰から誰まで)の意味が崩れるため。 */
@@ -181,6 +184,15 @@ export function TripRouteView({
   const noMatch = trimmedQuery.length > 0 && matchedIds.size === 0;
   // 1日だけの旅行に切り替えは要らない。
   const showsDayTabs = dayList.length > 1;
+
+  // 旅行の日付は少し遅れて届くので、届いてから1日目に合わせる。まだどの場所にも
+  // 日付が付いていない旅行では「日付なし」から始める — 1日目に寄せると、開いた瞬間に
+  // 何も無い画面になり、入れたはずの場所が消えたように見えるため。
+  useEffect(() => {
+    if (!showsDayTabs || day !== ALL_DAYS) return;
+    const hasDated = places.some((place) => place.date);
+    setDay(!hasDated && places.length > 0 ? NO_DAY : dayList[0]);
+  }, [showsDayTabs, day, dayList, places]);
 
   // ボタンを押させずに、ルートを開いた時点で現在地を取りにいく。旅行中に開くのは
   // たいてい「いまここからどう行くか」を見たいときで、毎回押させる意味が薄い。
@@ -303,14 +315,6 @@ export function TripRouteView({
               絞れるようにする。日付を決めていない場所は「日付なし」に集まる。 */}
           {showsDayTabs && (
             <div className="trip-route__days" role="group" aria-label="日にちで絞る">
-              <button
-                type="button"
-                className={`trip-route__day${day === ALL_DAYS ? " is-active" : ""}`}
-                aria-pressed={day === ALL_DAYS}
-                onClick={() => setDay(ALL_DAYS)}
-              >
-                すべて<small>{places.length}</small>
-              </button>
               {dayList.map((date, i) => {
                 const count = places.filter((place) => place.date === date).length;
                 return (
@@ -479,6 +483,9 @@ export function TripRouteView({
                           </div>
 
                           <p className="trip-route-card__address" title={place.address}>{place.address}</p>
+                          {/* いちばん近い駅から徒歩何分か。押すと駅からの道が地図で開く
+                              (src/components/trips/TripPlaceStation.tsx)。 */}
+                          <TripPlaceStation placeName={place.name} address={place.address} />
                           {place.memo && <p className="trip-route-card__memo">{place.memo}</p>}
                         </article>
                       </li>

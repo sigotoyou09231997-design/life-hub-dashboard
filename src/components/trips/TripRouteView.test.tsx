@@ -88,14 +88,36 @@ describe("旅行のルート", () => {
       />,
     );
 
-    // 既定は「すべて」。日付を決めていない場所も含めて今まで通り並ぶ。
-    expect(screen.getByTitle("岡山駅の地図")).toBeTruthy();
-    expect(screen.getByTitle("新横浜駅の地図")).toBeTruthy();
+    // 既定は1日目(「すべて」は置いていない — その日に回る順として読めないため)。
+    expect(screen.queryByRole("button", { name: "すべて" })).toBeNull();
+    expect(await screen.findByTitle("岡山駅の地図")).toBeTruthy();
+    expect(screen.queryByTitle("新横浜駅の地図")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: /2日目/ }));
 
     expect(screen.queryByTitle("岡山駅の地図")).toBeNull();
     expect(screen.getByTitle("新横浜駅の地図")).toBeTruthy();
+  });
+
+  it("どの場所にも日付が付いていなければ、「日付なし」から始める", async () => {
+    // 1日目に寄せると開いた瞬間が空になり、入れた場所が消えたように見える。
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="横浜"
+        places={[place("p1", "宿泊先", 1)]}
+        dayList={["2026-09-19", "2026-09-20"]}
+        suggestions={[]}
+        onAddSuggestions={() => {}}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+    );
+
+    expect(await screen.findByTitle("宿泊先の地図")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /日付なし/ }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("その日のルートが空でも、日程に入っている場所を候補に出す", async () => {
