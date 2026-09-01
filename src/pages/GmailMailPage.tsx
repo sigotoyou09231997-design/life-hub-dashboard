@@ -11,9 +11,12 @@ import { DraftReview } from "../components/gmail/DraftReview";
 import { pullBlockedSenders } from "../lib/blockedSenders";
 import { pullMessageStates } from "../lib/gmailMessageState";
 
-/** Opened as its own browser tab (window.open, see GmailInbox.tsx) rather than
- * an in-app Sheet, so a long email can be read full-size and independently of
- * the inbox list tab it was opened from. */
+/** 一覧(GmailInbox)から同じタブで開くメール1通ぶんの画面。
+ *
+ * 画面いっぱいを使う独立したページのままにしてある — 一覧の横に並べるペインや下からの
+ * シートに入れると、長い本文とAI返信文の編集欄が狭い枠に押し込まれるため。戻ると一覧の
+ * 絞り込み・検索語・スクロール位置はそのまま(GmailInbox.tsx の rememberedView)。
+ * 通知一覧・ホーム・全体検索からも同じURLで開く。 */
 export default function GmailMailPage() {
   const { emailId } = useParams<{ emailId: string }>();
 
@@ -30,22 +33,22 @@ export default function GmailMailPage() {
   // 開いただけでは既読にしない(2026-08-23) — 既読は必ず本人がボタンを押した時だけ。
   // 既読にする操作は一覧のチェックボタンと、この画面のDraftReview内のボタンの2つ。
 
-  // このページは一覧(GmailPage)を経由せず単独のタブとして開かれるので、そちらと同じ
+  // 通知一覧やブックマークから直に開かれると、一覧(GmailPage)を通らない。そちらと同じ
   // ブロックリストの取り込みをここでも行う — DraftReviewのブロックボタンの状態
   // (ブロック済みかどうか)が他端末での操作を反映していないままになるのを防ぐ。
   useEffect(() => {
     if (data?.account.id) void pullBlockedSenders(data.account.id, data.account.email);
   }, [data?.account.id, data?.account.email]);
 
-  // 他端末で既読にした/未読に戻した分をこのタブにも反映する(一覧側は同期のたびに
-  // 取り込むが、このページは単独のタブとして開かれるので自前で呼ぶ)。
+  // 他端末で既読にした/未読に戻した分をこの画面にも反映する(一覧側は同期のたびに
+  // 取り込むが、このページは一覧を通らずに開かれることがあるので自前で呼ぶ)。
   useEffect(() => {
     if (data?.account.id) void pullMessageStates(data.account.id, data.account.email);
   }, [data?.account.id, data?.account.email]);
 
   return (
     <div className="mx-auto max-w-[1240px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.gmail}>
-      <PageHeader title="メール" onBack={() => window.close()} />
+      <PageHeader title="メール" backTo="/gmail" />
       <div className="px-5 lg:px-8">
         {data === undefined ? (
           <ListSkeleton />
@@ -53,7 +56,7 @@ export default function GmailMailPage() {
           <EmptyState
             icon={Mail}
             title="メールが見つかりません"
-            description="このタブを閉じて、一覧からもう一度開いてください"
+            description="一覧に戻って、もう一度開いてください"
           />
         ) : (
           <DraftReview email={data.email} account={data.account} />

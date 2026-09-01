@@ -7,31 +7,21 @@ interface Props {
   subtitle?: string;
   right?: ReactNode;
   backTo?: string;
-  /** Alternative to backTo for pages opened as their own tab/window (e.g. via
-   * window.open) rather than reached by in-app navigation — closes the tab
-   * instead of pushing a route. Takes precedence over backTo when both are set. */
-  onBack?: () => void;
 }
 
 const BACK_BUTTON_CLASS =
   "-ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-600 transition-colors active:bg-slate-900/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50";
 
-export function PageHeader({ title, subtitle, right, backTo, onBack }: Props) {
+export function PageHeader({ title, subtitle, right, backTo }: Props) {
   return (
     // Safe-area top spacing is handled once by the global AppHeader above this;
     // this only needs a normal-flow gap beneath it.
     <div className="spatial-page-header flex items-center justify-between gap-3 px-5 pb-4 pt-6 lg:px-8 lg:pb-5 lg:pt-7">
       <div className="flex items-center gap-2 min-w-0">
-        {onBack ? (
-          <button type="button" onClick={onBack} aria-label="戻る" className={BACK_BUTTON_CLASS}>
+        {backTo && (
+          <Link to={backTo} aria-label="戻る" className={`${BACK_BUTTON_CLASS} ${backTo === "/" ? "lg:hidden" : ""}`}>
             <ChevronLeft size={22} />
-          </button>
-        ) : (
-          backTo && (
-            <Link to={backTo} aria-label="戻る" className={`${BACK_BUTTON_CLASS} ${backTo === "/" ? "lg:hidden" : ""}`}>
-              <ChevronLeft size={22} />
-            </Link>
-          )
+          </Link>
         )}
         <div className="min-w-0">
           <h1 className="spatial-page-header__title text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">{title}</h1>

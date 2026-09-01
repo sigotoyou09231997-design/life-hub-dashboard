@@ -319,20 +319,14 @@ export default function TopPage() {
               {gmailPreview.emails.map((email) => {
                 const sender = parseSender(email.from);
                 return (
-                  <a
-                    key={email.id}
-                    href={`/gmail/mail/${email.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="warm-list__row"
-                  >
+                  <Link key={email.id} to={`/gmail/mail/${email.id}`} className="warm-list__row">
                     <span className={`warm-avatar ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</span>
                     <span className="warm-list__copy">
                       <strong>{sender.name}</strong>
                       <small>{email.subject}</small>
                     </span>
                     <span className="warm-list__meta">{formatGmailTimestamp(email.receivedAt)}</span>
-                  </a>
+                  </Link>
                 );
               })}
             </div>

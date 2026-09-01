@@ -74,30 +74,19 @@ export function GlobalSearch({ open, onClose }: Props) {
               <span className="text-xs text-slate-400">{group.hits.length}件</span>
             </div>
             <div className="space-y-2">
-              {group.hits.map((hit) =>
-                hit.external ? (
-                  <a
-                    key={hit.id}
-                    href={hit.to}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="glass-row block rounded-xl p-3 text-left transition-colors active:bg-white/70"
-                  >
-                    <p className="truncate text-sm font-medium text-slate-900">{hit.title}</p>
-                    {hit.subtitle && <p className="truncate text-xs text-slate-500">{hit.subtitle}</p>}
-                  </a>
-                ) : (
-                  <Link
-                    key={hit.id}
-                    to={hit.to}
-                    onClick={onClose}
-                    className="glass-row block rounded-xl p-3 text-left transition-colors active:bg-white/70"
-                  >
-                    <p className="truncate text-sm font-medium text-slate-900">{hit.title}</p>
-                    {hit.subtitle && <p className="truncate text-xs text-slate-500">{hit.subtitle}</p>}
-                  </Link>
-                ),
-              )}
+              {/* メールだけ新規タブで開いていたが、行き先はどれもアプリの中の画面なので
+                  同じ扱いに揃えた(GmailInbox.tsx と同じ理由)。 */}
+              {group.hits.map((hit) => (
+                <Link
+                  key={hit.id}
+                  to={hit.to}
+                  onClick={onClose}
+                  className="glass-row block rounded-xl p-3 text-left transition-colors active:bg-white/70"
+                >
+                  <p className="truncate text-sm font-medium text-slate-900">{hit.title}</p>
+                  {hit.subtitle && <p className="truncate text-xs text-slate-500">{hit.subtitle}</p>}
+                </Link>
+              ))}
             </div>
           </section>
         ))}

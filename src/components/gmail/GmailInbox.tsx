@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { Link } from "react-router-dom";
 import { Ban, CalendarPlus, Check, Mail, Search } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
@@ -21,6 +22,28 @@ interface Props {
   account: GmailAccount;
 }
 
+type StatusFilter = "all" | "plan" | "important" | "drafted" | "sent" | "read";
+
+/** メールを開いて戻ってきた時に、一覧の見え方(検索語・絞り込み・スクロール位置)を戻すための控え。
+ *
+ * メールは同じタブで /gmail/mail/:id へ移るので、この一覧はいったん消える。控えが無いと
+ * 1通読んで戻るたびに「すべて」の先頭に戻ってしまい、続きから見られない。
+ * 読み込み直し(F5)では消えてよいのでモジュール変数に置く — localStorageに残すと、
+ * 何日も前の検索語が入ったままの一覧で始まってしまう。 */
+let rememberedView: {
+  accountId: string;
+  query: string;
+  statusFilter: StatusFilter;
+  /** PC(lg以上)で内部スクロールする一覧側の位置。 */
+  listScroll: number;
+  /** スマホでページ全体(window)がスクロールした位置。 */
+  pageScroll: number;
+} | null = null;
+
+/** 一覧を開いた時の自動同期を見送る間隔。メールを1通開いて戻るだけで毎回取りに行くと、
+ * Gmail APIの1分あたりの上限に近づく(src/lib/gmailSync.ts の絞り込みと同じ理由)。 */
+const OPEN_SYNC_COOLDOWN_MS = 60_000;
+
 const STATUS_LABEL: Record<EmailStatus, string> = {
   unprocessed: "未処理",
   generating: "生成中",
@@ -41,9 +64,16 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
 
 export function GmailInbox({ account }: Props) {
   const showToast = useToast();
-  const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "plan" | "important" | "drafted" | "sent" | "read">("all");
+  // 直前にこの一覧を離れた時の見え方(同じアカウントの時だけ)。初回の描画で1度だけ読む。
+  const restoredRef = useRef(rememberedView?.accountId === account.id ? rememberedView : null);
+  const [query, setQuery] = useState(restoredRef.current?.query ?? "");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(restoredRef.current?.statusFilter ?? "all");
   const [manageBlockedOpen, setManageBlockedOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  // スクロール位置は、離れる時にDOMから読もうとすると参照が外れた後になることがあるので、
+  // 動かすたびにここへ写しておく。
+  const listScrollRef = useRef(restoredRef.current?.listScroll ?? 0);
+  const scrollRestoredRef = useRef(false);
   const emails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
     [account.id],
@@ -117,10 +147,40 @@ export function GmailInbox({ account }: Props) {
   // 画面を開いた瞬間に最新化する — ヘッダーの「今すぐ同期」は以降の手動リフレッシュ用として残す。
   // 連携が切れているアカウントでは走らせない。何度やっても同じ所で失敗し、赤いトーストが
   // 出るだけなので、画面上部の「つなぎ直す」の帯(GmailPage)に任せる。
+  // 直前に同期したばかりなら見送る — メールを開いて戻るとこの一覧は作り直されるので、
+  // 見送らないと1通読むごとに同期が走る。
   useEffect(() => {
     if (account.reauthRequiredAt) return;
+    if (account.lastSyncedAt && Date.now() - account.lastSyncedAt < OPEN_SYNC_COOLDOWN_MS) return;
     void handleSync();
   }, [account.id, account.reauthRequiredAt]);
+
+  // 離れる時の見え方を控える。最新の値を掴めるよう、描画のたびにrefへ写しておく
+  // (片付けの関数は、最初の描画の時の値を掴んだままになるため)。
+  const viewRef = useRef({ query, statusFilter });
+  viewRef.current = { query, statusFilter };
+  useEffect(
+    () => () => {
+      rememberedView = {
+        accountId: account.id ?? "",
+        query: viewRef.current.query,
+        statusFilter: viewRef.current.statusFilter,
+        listScroll: listScrollRef.current,
+        pageScroll: window.scrollY,
+      };
+    },
+    [account.id],
+  );
+
+  // 控えたスクロール位置は、行が並んでから戻す(空の一覧に対して戻しても効かない)。
+  useEffect(() => {
+    if (scrollRestoredRef.current || !filteredEmails || filteredEmails.length === 0) return;
+    scrollRestoredRef.current = true;
+    const restored = restoredRef.current;
+    if (!restored) return;
+    if (listRef.current) listRef.current.scrollTop = restored.listScroll;
+    if (restored.pageScroll) window.scrollTo(0, restored.pageScroll);
+  }, [filteredEmails]);
 
   async function handleUnblock(id: string, email: string) {
     await db.blockedSenders.delete(id);
@@ -208,21 +268,26 @@ export function GmailInbox({ account }: Props) {
       ) : filteredEmails && filteredEmails.length > 0 ? (
         // 末尾の余白は、右下の新規作成ボタン(FAB)に最後の行の「既読にする」が
         // 隠れないための逃げ。一覧が画面下端まで伸びるPCでだけ必要。
-        <div className="flex flex-col gap-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-14 lg:pr-0.5">
+        <div
+          ref={listRef}
+          onScroll={(e) => (listScrollRef.current = e.currentTarget.scrollTop)}
+          className="flex flex-col gap-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-14 lg:pr-0.5"
+        >
           {filteredEmails.map((email) => {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed" && !email.readAt;
             return (
-              // 「既読にする」ボタンをaの外(兄弟要素)に置くため、行全体を囲むdivとaに分けている
-              // (button要素をa要素の中にネストするのはHTML的に不正で、挙動が環境依存になる)。
+              // 「既読にする」ボタンをリンクの外(兄弟要素)に置くため、行全体を囲むdivとリンクに
+              // 分けている(button要素をa要素の中にネストするのはHTML的に不正で、挙動が環境依存になる)。
               <div
                 key={email.id}
                 className={`mail-row glass-row flex w-full items-stretch rounded-xl border-l-[3px] transition-colors ${unread ? "is-unread border-l-accent" : "border-l-transparent"}`}
               >
-                <a
-                  href={`/gmail/mail/${email.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                {/* 同じタブで開く。新規タブに分けていた頃(2026-08-14〜)は、1通読むごとに
+                    タブが増えていった。Linkのままcmd/ctrl+クリックや「新しいタブで開く」は
+                    今までどおり効く(実体はhref付きのaのため)。 */}
+                <Link
+                  to={`/gmail/mail/${email.id}`}
                   className="flex min-w-0 flex-1 items-start gap-3 px-3.5 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 active:bg-white/60"
                 >
                   <div
@@ -255,7 +320,7 @@ export function GmailInbox({ account }: Props) {
                       </div>
                     )}
                   </div>
-                </a>
+                </Link>
                 {!email.readAt && (
                   <button
                     type="button"

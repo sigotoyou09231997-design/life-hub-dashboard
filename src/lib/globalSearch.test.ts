@@ -122,7 +122,6 @@ describe("searchEverything", () => {
     expect(byKind.note.to).toBe("/records/notes");
     expect(byKind.tripSchedule.to).toBe("/trips/trip1?tab=schedule");
     expect(byKind.email.to).toBe("/gmail/mail/m1");
-    expect(byKind.email.external).toBe(true);
   });
 
   it("names the trip a schedule item belongs to", () => {

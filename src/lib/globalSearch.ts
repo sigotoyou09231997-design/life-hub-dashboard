@@ -13,8 +13,6 @@ export interface SearchHit {
   date: string;
   /** 押したときの行き先。その機能の既存の画面へ返すだけで、専用の詳細は作らない。 */
   to: string;
-  /** 新しいタブで開くか(メールだけ — 既存の通知一覧と同じ扱い)。 */
-  external?: boolean;
 }
 
 export interface SearchGroup {
@@ -151,7 +149,6 @@ export function searchEverything(query: string, source: SearchSource): SearchGro
       subtitle: email.from,
       date: "",
       to: `/gmail/mail/${email.id}`,
-      external: true,
     });
   }
 

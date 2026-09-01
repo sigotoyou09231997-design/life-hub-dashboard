@@ -124,11 +124,10 @@ export function AppHeader() {
                   {signals.gmailUnprocessed.map((email) => {
                     const sender = parseSender(email.from);
                     return (
-                      <a
+                      <Link
                         key={email.id}
-                        href={`/gmail/mail/${email.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        to={`/gmail/mail/${email.id}`}
+                        onClick={() => setNotifOpen(false)}
                         className="glass-row flex items-start gap-3 rounded-xl p-3 text-left transition-colors active:bg-white/70"
                       >
                         <div
@@ -141,7 +140,7 @@ export function AppHeader() {
                           <p className="truncate text-xs text-slate-500">{email.subject}</p>
                         </div>
                         <span className="shrink-0 text-xs text-slate-400">{formatGmailTimestamp(email.receivedAt)}</span>
-                      </a>
+                      </Link>
                     );
                   })}
                 </div>
