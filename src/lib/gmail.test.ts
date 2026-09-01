@@ -7,6 +7,8 @@ import {
   base64UrlEncode,
   buildRawMessage,
   encodeHeaderWord,
+  extractPlainText,
+  htmlToText,
   isUnhandledEmail,
   mapWithConcurrency,
 } from "./gmail";
@@ -215,5 +217,75 @@ describe("describeGmailConnectError", () => {
     expect(describeGmailConnectError(new Error("Googleがrefresh_tokenを返しませんでした"))).toBe(
       "Googleがrefresh_tokenを返しませんでした",
     );
+  });
+});
+
+describe("htmlToText", () => {
+  it("<style>の中のCSSは本文として残さない", () => {
+    // サーバーは本文の先頭12,000文字しかAIに渡さない。CSSで先頭が埋まると、
+    // 日時が書いてあるのにAIまで届かず「見つかりませんでした」になっていた。
+    const text = htmlToText(
+      "<html><head><style>.x{color:#fff;font-size:14px}</style></head><body><p>9月3日 10:00 一次面接</p></body></html>",
+    );
+    expect(text).not.toContain("font-size");
+    expect(text).toContain("9月3日 10:00 一次面接");
+  });
+
+  it("<script>と<!--コメント-->も落とす", () => {
+    const text = htmlToText("<script>var a=1;</script><!-- 配信ID:12345 --><p>面接のご案内</p>");
+    expect(text).not.toContain("var a");
+    expect(text).not.toContain("配信ID");
+    expect(text).toContain("面接のご案内");
+  });
+
+  it("改行になるタグは改行にする(表組みの日時が1行に潰れないように)", () => {
+    const text = htmlToText("<tr><td>9月3日</td></tr><tr><td>9月10日</td></tr>");
+    expect(text.split("\n").map((line) => line.trim())).toEqual(["9月3日", "9月10日"]);
+  });
+
+  it("文字参照は元の文字に戻す", () => {
+    expect(htmlToText("<p>10:00&nbsp;&#12316;&nbsp;11:00 A&amp;B&#x30d3;ル</p>")).toBe("10:00 〜 11:00 A&Bビル");
+  });
+
+  it("範囲外の文字参照はそのまま残す(落とさない)", () => {
+    expect(htmlToText("<p>&#99999999;面接</p>")).toBe("&#99999999;面接");
+  });
+});
+
+describe("extractPlainText", () => {
+  const part = (mimeType: string, text: string) => ({ mimeType, body: { data: base64UrlEncode(text) } });
+
+  it("平文の部分があればそれを読む", () => {
+    const payload = {
+      mimeType: "multipart/alternative",
+      parts: [part("text/plain", "9月3日 10:00 一次面接"), part("text/html", "<p>読まない</p>")],
+    };
+    expect(extractPlainText(payload)).toBe("9月3日 10:00 一次面接");
+  });
+
+  it("平文がHTMLより後ろにあっても、平文を先に読む", () => {
+    // 添付付き(multipart/mixed)では、この並びになることがある。手前から順に
+    // 最初に見つかった方を返していた頃は、HTMLの方を読んでいた。
+    const payload = {
+      mimeType: "multipart/mixed",
+      parts: [
+        { mimeType: "multipart/related", parts: [part("text/html", "<p>HTML版</p>")] },
+        part("text/plain", "平文版"),
+      ],
+    };
+    expect(extractPlainText(payload)).toBe("平文版");
+  });
+
+  it("平文が空の時はHTMLを文章に直して読む", () => {
+    const payload = {
+      mimeType: "multipart/alternative",
+      parts: [part("text/plain", "   "), part("text/html", "<p>9月3日 10:00 一次面接</p>")],
+    };
+    expect(extractPlainText(payload)).toBe("9月3日 10:00 一次面接");
+  });
+
+  it("読めるものが無ければ空で返す", () => {
+    expect(extractPlainText(undefined)).toBe("");
+    expect(extractPlainText({ mimeType: "multipart/mixed", parts: [] })).toBe("");
   });
 });

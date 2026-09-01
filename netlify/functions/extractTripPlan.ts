@@ -1,6 +1,7 @@
 import type { Handler } from "@netlify/functions";
 
-/** メール・貼り付けた文章・写真から、旅行の日程に並べる項目を取り出す。
+/** メール・貼り付けた文章・写真から、予定として書き留める項目を取り出す。
+ * 旅行の日程だけでなく、面接・打ち合わせ・締切など、日時の決まった用件も取り出す。
  *
  * 判断のロジックは api/extractTripPlan.ts と同じものを写してある(このリポジトリは
  * NetlifyとVercelの両方に配信されており、サーバー関数は netlify/functions/ と api/ に
@@ -37,8 +38,13 @@ export interface ExtractedTripItem {
 export interface ExtractTripPlanBody {
   subject?: string;
   body?: string;
+  /** 差出人。会社名がここにしか無いメール(本文が「ご案内」だけ)でタイトルに使う。 */
+  from?: string;
   /** 「来月12日」のような書き方を実際の日付に直すための基準日(YYYY-MM-DD)。 */
   today?: string;
+  /** メールが届いた日(YYYY-MM-DD)。「明日」「来週の火曜」は読んだ日ではなく届いた日が
+   * 基準なので、基準日とは別に渡す。数日前のメールを開いた時に日付がずれるのを防ぐ。 */
+  mailDate?: string;
   /** 貼り付けられた文章(旅行会社のしおり、案内のメッセージ、ブログの抜粋など)。 */
   text?: string;
   /** 写真(チケット・パンフレット・画面の写しなど)。base64はデータURLの接頭辞を含めない。 */
@@ -70,40 +76,57 @@ const MAX_IMAGE_BASE64_CHARS = 5_000_000;
 /** Anthropicが受け取れる画像の形式(extractReceipt.ts と同じ)。 */
 const ALLOWED_MEDIA_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-export const SYSTEM_PROMPT = `あなたは、渡された資料から旅行の日程を取り出す担当です。
+export const SYSTEM_PROMPT = `あなたは、渡された資料から予定を取り出す担当です。
 
 資料は次のいずれか、または組み合わせです。
-- メール(航空券・新幹線・ホテル・レンタカーなどの予約確認や案内)
+- メール(面接・面談・説明会の案内、打ち合わせや来社の連絡、航空券・新幹線・ホテル・
+  レンタカーなどの予約確認や案内)
 - 貼り付けられた文章(旅行会社のしおり、案内のメッセージ、下調べのメモなど)
 - 写真(チケット、予約票、パンフレット、旅程表、画面の写し、手書きのメモなど)
 
-そこから、旅行の日程表に並べるべき項目を取り出してください。
+そこから、カレンダーや日程表に書き留めるべき項目を取り出してください。旅行のものだけ
+ではありません — 面接・面談・説明会・選考・来社・打ち合わせ・受診・提出や申し込みの
+締切など、その日時に本人が動くことになる予定はすべて取り出します。
 
 必ず次の形のJSONだけを返してください。説明文もコードフェンスも付けないでください。
 {"items":[{"date":"YYYY-MM-DD","startTime":"HH:mm","endTime":"HH:mm","title":"...","location":"...","endLocation":"...","type":"transport","memo":"...","amount":12540}]}
 
 ルール:
 - date は必ず YYYY-MM-DD 形式。年が書かれていない場合は、基準日以降で最も近い年とみなす。
+- 「明日」「本日」「来週の火曜」のような書き方は、[メールの受信日]が渡されていれば
+  その日を基準に直す(読んでいる日ではなく、届いた日が基準)。渡されていなければ[基準日]を使う。
 - 「1日目」「2日目」「初日」「最終日」のような書き方は、[旅行の期間]が渡されていれば
   その開始日から数えて実際の日付に直す。[旅行の期間]が無く、日付も読み取れない項目は入れない。
 - startTime は資料から分かる時だけ入れる。分からなければその項目から省く(推測で埋めない)。
 - endTime には終わりの時刻を入れる。移動なら到着時刻、宿泊ならチェックアウト時刻、
-  食事や観光なら終了時刻。書かれていなければ省く(所要時間から計算して埋めたりしない)。
-  日をまたぐ場合は endTime を省き、翌日ぶんを別の項目に分ける。
+  面接や打ち合わせなら終了予定時刻、食事や観光なら終了時刻。書かれていなければ省く
+  (所要時間から計算して埋めたりしない)。日をまたぐ場合は endTime を省き、翌日ぶんを
+  別の項目に分ける。
 - title は日程表で一目で分かる短さにする。例:「羽田→福岡 JAL123」「ホテルOOにチェックイン」
-- location は駅・空港・施設の名前が分かる時だけ入れる。移動(type: transport)では出発する
-  駅・空港・営業所の名前を入れる。
+  「株式会社OO 一次面接」。会社名や施設名が分かる時は必ず入れる。
+- location は駅・空港・会場・施設の名前が分かる時だけ入れる。移動(type: transport)では出発する
+  駅・空港・営業所の名前を入れる。オンラインの面接や打ち合わせでは「オンライン(Zoom)」の
+  ように手段を入れ、URLや会議IDは memo に入れる。
 - endLocation は移動の到着地(駅・空港)の名前が分かる時だけ入れる。「東京→新函館北斗」なら
   location は「東京駅」、endLocation は「新函館北斗駅」。移動以外では入れない。
 - type は次から選ぶ: transport(飛行機・列車・バス・レンタカーなどの移動), lodging(宿泊・
-  チェックイン/アウト), meal(食事の予約), sightseeing(観光・入場・見学の予約), other(その他)
-- memo には予約番号や座席番号など、当日必要になる短い情報だけを入れる。資料の丸写しはしない。
+  チェックイン/アウト), meal(食事の予約), sightseeing(観光・入場・見学の予約),
+  other(面接・面談・説明会・打ち合わせ・締切など、上に当てはまらないもの)
+- memo には予約番号・座席番号・会議のURL・持ち物・担当者の連絡先など、当日必要になる短い
+  情報だけを入れる。資料の丸写しはしない。
 - amount にはその項目の代金を、円の数字だけで入れる(「12,540円」なら 12540)。新幹線や
   航空券なら運賃、宿泊なら宿泊費。次の場合は入れない: 金額が書かれていない/旅程全体の
   合計しか書かれておらず、その項目ぶんが分からない/取消手数料や割引額など代金そのもの
   ではない金額。往復の合計しか無い場合は、片道に割り付けたりせず省く。
 - 往路と復路、チェックインとチェックアウトは、別々の項目に分ける。
-- 広告・規約・キャンセル規定・配信停止の案内など、当日の行動に関係しない内容は入れない。
+- 日程調整のメールで候補の日時が複数示されている場合は、候補それぞれを別の項目にして、
+  memo に「候補日時」と入れる(まだ確定していないことが分かるように)。どれか1つに絞ったり、
+  勝手に決めたりしない。
+- 提出・申し込み・回答の締切が書かれていれば、その日付の項目として入れる
+  (title は「OOの提出締切」のようにする)。
+- 件名にしか用件が書かれていない場合も、日時は本文から探して入れる。
+- 広告・規約・キャンセル規定・配信停止の案内・求人票の勤務時間や募集要項など、
+  その日に本人が動くことにならない内容は入れない。
 - 写真では、はっきり読み取れる文字だけを使う。かすれ・手ぶれ・見切れで読めない部分は
   推測で埋めず、その項目ごと省く。
 - 日付・エリア・予定が表や箇条書きで並んでいる形も読む。1日の欄に複数の予定が「・」や
@@ -113,7 +136,49 @@ export const SYSTEM_PROMPT = `あなたは、渡された資料から旅行の�
 - 移動手段の印(車・電車のマークなど)だけが書かれている欄からは、移動の項目を作らない。
   出発地と到着地が分かる時(「新横浜→鎌倉」など)だけ移動として起こす。
 - 資料に無い日程を補ったり、一般的なおすすめの観光地を足したりしない。
-- 旅行の日程が1つも見つからなければ {"items":[]} を返す。`;
+- 予定が1つも見つからなければ {"items":[]} を返す。`;
+
+/** 日付を YYYY-MM-DD に整える。読めない書き方なら undefined。
+ *
+ * 「2026-9-3」「2026/09/03」のように桁や区切りが違う形で返ってくることがあり、
+ * 形が違うというだけでその項目ごと捨てていた(日付は合っているのに1件も出ない、の一因)。 */
+export function normalizeDate(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = value.trim().match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (!match) return undefined;
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return undefined;
+  return `${match[1]}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+/** 時刻を HH:mm に整える。読めない書き方なら undefined。
+ *
+ * 「9:00」と1桁で返ってくることがあり、HH:mm しか通していなかった頃は時刻だけが
+ * 黙って落ちて、終日の予定として入っていた。 */
+export function normalizeTime(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return undefined;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return undefined;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+/** 金額を円の数値にする。読めなければ undefined。
+ *
+ * 数字だけで返すよう指示しても「12,540円」「¥12,540」で返ってくることがある。
+ * 0以下や数字にならないものは、読み違えたまま費用に積むと旅行の予算がずれるので落とす。 */
+export function normalizeAmount(value: unknown): number | undefined {
+  const raw =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value.replace(/[,，\s円¥￥]/g, ""))
+        : Number.NaN;
+  return Number.isFinite(raw) && raw > 0 ? Math.round(raw) : undefined;
+}
 
 /** モデルの応答からJSONを取り出して、日程として使える項目だけに絞る。
  *
@@ -137,15 +202,13 @@ export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
   for (const raw of items) {
     if (typeof raw !== "object" || raw === null) continue;
     const row = raw as Record<string, unknown>;
-    const date = typeof row.date === "string" ? row.date.trim() : "";
+    const date = normalizeDate(row.date);
     const title = typeof row.title === "string" ? row.title.trim() : "";
     // 日付とタイトルが無い項目は日程表に置きようがない。
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !title) continue;
-    const readTime = (value: unknown) =>
-      typeof value === "string" && /^\d{2}:\d{2}$/.test(value.trim()) ? value.trim() : undefined;
-    const startTime = readTime(row.startTime);
+    if (!date || !title) continue;
+    const startTime = normalizeTime(row.startTime);
     // 開始より前の終了時刻は読み違え。日をまたぐ移動は別項目に分けるよう指示している。
-    const endTimeRaw = readTime(row.endTime);
+    const endTimeRaw = normalizeTime(row.endTime);
     const endTime = endTimeRaw && startTime && endTimeRaw < startTime ? undefined : endTimeRaw;
     const type = SCHEDULE_TYPES.includes(row.type as ScheduleType) ? (row.type as ScheduleType) : "other";
     const readPlace = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : undefined);
@@ -153,10 +216,7 @@ export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
     // 到着地は移動だけのもの。宿や観光に付いてきた分は落とす(同じ場所が2度出るだけになる)。
     const endLocation = type === "transport" ? readPlace(row.endLocation) : undefined;
     const memo = typeof row.memo === "string" && row.memo.trim() ? row.memo.trim() : undefined;
-    // 金額は、正の数として読めるものだけを通す。文字混じりや0/マイナスは、
-    // 読み違えたまま費用に積むと旅行の予算がずれるので落とす。
-    const rawAmount = typeof row.amount === "number" ? row.amount : Number(row.amount);
-    const amount = Number.isFinite(rawAmount) && rawAmount > 0 ? Math.round(rawAmount) : undefined;
+    const amount = normalizeAmount(row.amount);
     cleaned.push({ date, title, startTime, endTime, location, endLocation, memo, type, amount });
   }
   // 日程表と同じ並び(日付→時刻)にして返す。画面側で並べ直さずに済む。
@@ -195,6 +255,10 @@ export function readImages(payload: ExtractTripPlanBody): {
 
 export function buildUserMessage(payload: ExtractTripPlanBody): string {
   const lines = [`[基準日] ${payload.today ?? "(不明)"}`];
+  // 「明日」「来週の火曜」を、読んだ日ではなくメールが届いた日から数えるための手がかり。
+  if (payload.mailDate) {
+    lines.push(`[メールの受信日] ${payload.mailDate}`);
+  }
   // 旅行の期間が分かっていれば、「2日目」のような書き方を実際の日付に直せる。
   if (payload.tripStart && payload.tripEnd) {
     lines.push(`[旅行の期間] ${payload.tripStart} 〜 ${payload.tripEnd}`);
@@ -202,6 +266,7 @@ export function buildUserMessage(payload: ExtractTripPlanBody): string {
   // メール由来のときだけ件名・本文を出す。文章や写真から読むときに空の
   // 「[件名] (件名なし)」を見せると、メールを読み違えたと受け取られかねない。
   if (payload.subject != null || payload.body != null) {
+    if (payload.from?.trim()) lines.push(`[差出人] ${payload.from.trim()}`);
     lines.push(`[件名] ${payload.subject ?? "(件名なし)"}`, "[本文]", (payload.body ?? "").slice(0, MAX_BODY_CHARS));
   }
   if (payload.text?.trim()) {

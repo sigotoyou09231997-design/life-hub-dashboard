@@ -120,6 +120,49 @@ describe("parseTripPlanResponse", () => {
     expect(parseTripPlanResponse('{"items":[{"date":"2026-09-12"')).toEqual([]);
     expect(parseTripPlanResponse("すみません、分かりませんでした")).toEqual([]);
   });
+
+  it("桁や区切りが違う日付も、整えてから使う", () => {
+    // 「2026-9-3」を形が違うというだけで捨てていた頃は、日付が合っているのに
+    // 1件も出ないことがあった。
+    const items = parseTripPlanResponse(
+      JSON.stringify({
+        items: [
+          { date: "2026-9-3", title: "一次面接", type: "other" },
+          { date: "2026/09/10", title: "二次面接", type: "other" },
+        ],
+      }),
+    );
+    expect(items.map((i) => i.date)).toEqual(["2026-09-03", "2026-09-10"]);
+  });
+
+  it("日付として成り立たないものは捨てる", () => {
+    const items = parseTripPlanResponse(
+      JSON.stringify({
+        items: [
+          { date: "2026-13-01", title: "面接", type: "other" },
+          { date: "2026-09-00", title: "面接", type: "other" },
+        ],
+      }),
+    );
+    expect(items).toEqual([]);
+  });
+
+  it("1桁の時刻も、整えてから使う", () => {
+    // 「9:00」を捨てていた頃は、時刻だけが黙って落ちて終日の予定として入っていた。
+    const items = parseTripPlanResponse(
+      JSON.stringify({
+        items: [{ date: "2026-09-03", startTime: "9:00", endTime: "10:30", title: "一次面接", type: "other" }],
+      }),
+    );
+    expect(items[0]).toMatchObject({ startTime: "09:00", endTime: "10:30" });
+  });
+
+  it("時刻として成り立たないものは捨てる", () => {
+    const items = parseTripPlanResponse(
+      JSON.stringify({ items: [{ date: "2026-09-03", startTime: "25:00", title: "面接", type: "other" }] }),
+    );
+    expect(items[0].startTime).toBeUndefined();
+  });
 });
 
 describe("終了時刻の読み取り", () => {
@@ -161,11 +204,18 @@ describe("金額の読み取り", () => {
     expect(parseAmount(12540.4)).toBe(12540);
   });
 
-  it("0・マイナス・数字でないものは捨てる", () => {
+  it("「12,540円」のような文字列も円の数字として読む", () => {
+    // 数字だけで返すよう指示していても、単位や桁区切りを付けて返してくることがある。
+    expect(parseAmount("12,540円")).toBe(12540);
+    expect(parseAmount("¥12,540")).toBe(12540);
+    expect(parseAmount("12540")).toBe(12540);
+  });
+
+  it("0・マイナス・数字にならないものは捨てる", () => {
     // 読み違えたまま費用に積むと、旅行の予算がずれる。
     expect(parseAmount(0)).toBeUndefined();
     expect(parseAmount(-500)).toBeUndefined();
-    expect(parseAmount("12,540円")).toBeUndefined();
+    expect(parseAmount("無料")).toBeUndefined();
     expect(parseAmount(undefined)).toBeUndefined();
   });
 });
@@ -205,6 +255,21 @@ describe("buildUserMessage", () => {
 
   it("長い貼り付け文章も頭から一定量だけ渡す", () => {
     expect(buildUserMessage({ text: "あ".repeat(40_000) }).length).toBeLessThan(21_000);
+  });
+
+  it("メールの受信日を渡す(「明日」を届いた日から数えられるように)", () => {
+    // 数日前のメールを開いた時に、読んだ日を基準にすると日付がその分ずれる。
+    const message = buildUserMessage({ today: "2026-09-01", mailDate: "2026-08-28", subject: "面接のご案内", body: "明日" });
+    expect(message).toContain("[メールの受信日] 2026-08-28");
+  });
+
+  it("受信日が無ければ、その欄は作らない", () => {
+    expect(buildUserMessage({ today: "2026-09-01", text: "しおり" })).not.toContain("[メールの受信日]");
+  });
+
+  it("差出人も渡す(会社名が差出人にしか無いメールのため)", () => {
+    const message = buildUserMessage({ today: "2026-09-01", from: "株式会社OO <saiyo@example.com>", subject: "面接のご案内" });
+    expect(message).toContain("[差出人] 株式会社OO <saiyo@example.com>");
   });
 });
 
@@ -296,6 +361,8 @@ describe("Netlify版とVercel版のずれ", () => {
       items: [{ date: "2026-09-19", startTime: "22:00", endTime: "06:30", title: "夜行バス", type: "transport" }],
     }),
     JSON.stringify({ items: [{ date: "2026-09-19", title: "のぞみ124号", type: "transport", amount: "12,540円" }] }),
+    JSON.stringify({ items: [{ date: "2026-9-3", startTime: "9:00", title: "一次面接", type: "other" }] }),
+    JSON.stringify({ items: [{ date: "2026-13-01", startTime: "25:00", title: "面接", type: "other" }] }),
     '```json\n{"items":[{"date":"2026-09-12","title":"移動","type":"flight"}]}\n```',
     '{"items":[{"date":"9/12","title":"移動"}]}',
     "読み取れませんでした",
@@ -322,8 +389,13 @@ describe("Netlify版とVercel版のずれ", () => {
 
   it("AIへの指示と、渡す内容の組み立ても同じ", () => {
     expect(VERCEL_SYSTEM_PROMPT).toBe(SYSTEM_PROMPT);
-    const payload = { today: "2026-08-25", subject: "予約確認", body: "本文" };
-    expect(vercelBuildUserMessage(payload)).toBe(buildUserMessage(payload));
+    const payloads = [
+      { today: "2026-08-25", subject: "予約確認", body: "本文" },
+      { today: "2026-09-01", mailDate: "2026-08-28", from: "株式会社OO", subject: "面接のご案内", body: "明日" },
+    ];
+    for (const payload of payloads) {
+      expect(vercelBuildUserMessage(payload)).toBe(buildUserMessage(payload));
+    }
   });
 
   it("写真の受け取りと、渡す中身の組み立ても同じ", () => {
