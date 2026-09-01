@@ -135,12 +135,12 @@ export async function exchangeAuthorizationCode(code: string): Promise<Authoriza
   });
 }
 
-/** メールの予約情報(航空券・ホテルなど)から、旅行の日程に並べる項目を読み取る
- * (netlify/functions/extractTripPlan.ts)。
+/** メールから、予定として書き留める項目を読み取る(netlify/functions/extractTripPlan.ts)。
+ * 面接・面談・打ち合わせの案内も、航空券・ホテルなどの予約確認も同じ入口で読む。
  *
- * 本文はここで取りに行く — 一覧が持っているのは抜粋(snippet)だけで、便名や予約番号、
- * チェックイン時刻はたいてい本文にしか無いため。読み取った内容はそのまま保存せず、
- * 必ず画面で確認・修正してから日程表に入れる。 */
+ * 本文はここで取りに行く — 一覧が持っているのは抜粋(snippet)だけで、日時や会場、便名や
+ * 予約番号はたいてい本文にしか無いため。読み取った内容はそのまま保存せず、
+ * 必ず画面で確認・修正してから日程表・予定に入れる。 */
 export async function extractTripPlanFromEmail(
   account: GmailAccount,
   email: SyncedEmail,
@@ -149,9 +149,17 @@ export async function extractTripPlanFromEmail(
   const body = await getMessageBody(fresh.accessToken, email.gmailMessageId);
   const result = await callFunction<{ items?: ExtractedTripItem[] }>("extractTripPlan", {
     subject: email.subject,
-    body,
+    // 差出人には会社名が入っていることが多い(本文が「面接のご案内」だけのメールでも
+    // 「株式会社OO 一次面接」という題を付けられる)。
+    from: email.from,
+    // 本文を取り出せないメール(画像だけ・添付だけ)でも、抜粋には日時が載っていることが
+    // ある。空の本文をそのまま渡すと、読めるものがあるのに0件で返ってしまう。
+    body: body || email.snippet,
     // 「来月12日」のような書き方を実際の日付に直すための基準日。
     today: todayStr(),
+    // 「明日」「来週の火曜」の基準は、読んでいる日ではなくメールが届いた日。
+    // 数日前のメールを開いた時に、その分だけ日付がずれるのを防ぐ。
+    mailDate: toDateStr(new Date(email.receivedAt)),
   });
   return result.items ?? [];
 }
@@ -583,19 +591,59 @@ export async function getMessageMeta(accessToken: string, id: string): Promise<G
   };
 }
 
-function extractPlainText(payload: any): string {
+/** HTMLのメールを、AIに渡せる文章にする。
+ *
+ * タグを空白に置き換えるだけだと、<style>の中のCSSや、配信元が仕込んだ見えない印まで
+ * 本文として残る。サーバー側は本文の先頭12,000文字しかAIに渡さない
+ * (netlify/functions/extractTripPlan.ts の MAX_BODY_CHARS)ので、CSSで先頭が埋まると
+ * 肝心の日時がAIまで届かず、日時が書いてあるのに「見つかりませんでした」になっていた。
+ * 改行になるタグを改行に直すのも同じ理由で、表組みの日時が1行に潰れると読み違えやすい。 */
+export function htmlToText(html: string): string {
+  return html
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(script|style|head)\b[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h[1-6]|table|blockquote)>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (whole, code) => codePointOr(Number(code), whole))
+    .replace(/&#x([0-9a-f]+);/gi, (whole, code) => codePointOr(parseInt(code, 16), whole))
+    // &amp; は最後に戻す(先に戻すと「&amp;lt;」が「<」まで戻ってしまう)。
+    .replace(/&amp;/gi, "&")
+    .replace(/[ \t\u3000]+/g, " ")
+    .replace(/\n[ \t]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** 文字参照を1文字に戻す。範囲外の数字はそのまま残す(String.fromCodePointが例外を投げる)。 */
+function codePointOr(code: number, fallback: string): string {
+  return Number.isInteger(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : fallback;
+}
+
+/** メールの本文。text/plain があればそれを、無ければHTMLを文章に直したものを返す。
+ *
+ * 平文を先に木全体から探すのが要点。手前から見て最初に見つかった部分を返していた頃は、
+ * 添付付き(multipart/mixed)のように平文がHTMLより後ろに置かれた組み立てで、
+ * HTMLの方を読んでいた。 */
+export function extractPlainText(payload: any): string {
+  const plain = readPart(payload, "text/plain");
+  if (plain.trim()) return plain;
+  return htmlToText(readPart(payload, "text/html"));
+}
+
+function readPart(payload: any, mimeType: string): string {
   if (!payload) return "";
-  if (payload.mimeType === "text/plain" && payload.body?.data) {
+  if (payload.mimeType === mimeType && payload.body?.data) {
     return base64UrlDecode(payload.body.data);
   }
-  if (payload.parts) {
-    for (const part of payload.parts) {
-      const text = extractPlainText(part);
-      if (text) return text;
-    }
-  }
-  if (payload.mimeType === "text/html" && payload.body?.data) {
-    return base64UrlDecode(payload.body.data).replace(/<[^>]+>/g, " ");
+  for (const part of payload.parts ?? []) {
+    const text = readPart(part, mimeType);
+    if (text.trim()) return text;
   }
   return "";
 }
