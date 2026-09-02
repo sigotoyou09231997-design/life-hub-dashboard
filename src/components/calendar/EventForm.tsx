@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import type { UpdateSpec } from "dexie";
 import { CalendarDays, Tag, Users } from "lucide-react";
 import { db } from "../../db/schema";
 import type { CalendarEvent, RepeatRule, ScheduleCategory } from "../../types";
 import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
+import { EventPeopleField } from "./EventPeopleField";
 import { Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { SegmentedField } from "../ui/SegmentedField";
@@ -64,6 +66,8 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   const [startTime, setStartTime] = useState(initial?.startTime ?? "");
   const [endTime, setEndTime] = useState(initial?.endTime ?? "");
   const [category, setCategory] = useState<ScheduleCategory>(initial?.category ?? "other");
+  // 「誰の予定か」。カテゴリとは別の軸で、こちらは何人でも付けられる(src/lib/eventPeople.ts)。
+  const [personIds, setPersonIds] = useState<string[]>(initial?.personIds ?? []);
   const [location, setLocation] = useState(initial?.location ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [notify, setNotify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
@@ -156,6 +160,10 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
       startTime: allDay ? undefined : startTime || undefined,
       endTime: allDay ? undefined : endTime || undefined,
       category,
+      // 全員外した時も空の配列のまま渡す。undefinedにすると同期に載る行から項目ごと
+      // 消え、Supabase側では「その列は触っていない」扱いになるので、外した操作が
+      // ほかの端末に伝わらない(src/lib/sync.ts の rowToSnake は undefined を飛ばす)。
+      personIds,
       location: location || undefined,
       memo: memo || undefined,
       // All-day events have no clock time to count down from, so a
@@ -183,7 +191,10 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
 
     const mode = initial?.id ? "updated" : "created";
     if (initial?.id) {
-      await db.calendarEvents.update(initial.id, stored);
+      // Dexieのupdateの型は「personIds.0」のような添字つきの鍵も受けられるように
+      // 書かれていて、配列を持つ行をまるごと渡す形はそのままでは通らない。ここで
+      // 渡しているのは行の置き換えそのもので意図どおりなので、型だけ合わせる。
+      await db.calendarEvents.update(initial.id, stored as UpdateSpec<CalendarEvent>);
     } else {
       await db.calendarEvents.add(stored);
     }
@@ -304,6 +315,7 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
             </option>
           ))}
         </Select>
+        <EventPeopleField value={personIds} onChange={setPersonIds} />
         <Input
           label="場所"
           optional

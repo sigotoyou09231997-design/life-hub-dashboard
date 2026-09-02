@@ -135,7 +135,10 @@ export async function applyEventToAccount(
   title: string,
 ): Promise<void> {
   await withAccountDb(account, async (other) => {
-    const { id: _localId, ...fields } = event;
+    // 「誰の予定か」(personIds)は持ち込まない。人の一覧はアカウントごとに別なので、
+    // こちらのidを渡しても相手側では誰も指さない。外しておけば、相手のアカウントで
+    // 付けた人はこちらを編集し直しても消えない(Dexieのupdateは渡した項目しか触らない)。
+    const { id: _localId, personIds: _personIds, ...fields } = event;
     const existing = await other.calendarEvents.where("linkId").equals(linkId).first();
     if (existing?.id) {
       await other.calendarEvents.update(existing.id, {

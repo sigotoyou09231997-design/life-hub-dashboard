@@ -1,0 +1,199 @@
+/* カレンダーの「誰の予定か」の印(src/lib/eventPeople.ts)。
+   予定を編集する画面の選択欄・カレンダー上の絞り込み・設定の管理欄で同じ見た目を使う。
+   人の色は --person という変数でチップごとに渡し、CSSはその1つだけを見る —
+   色の数だけクラスを書くと、パレットを足すたびにCSSも直すことになるため。 */
+
+.person-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.person-chip {
+  --person: #5e8bbc;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgb(15 23 42 / 0.1);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.6);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #475569;
+  line-height: 1.2;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.person-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--person) 45%, transparent);
+}
+
+/* 選んでいる状態。その人の色で塗るが、下地は薄く混ぜて文字が沈まないようにする
+   (写真の上に載る画面があるため、白の不透明度ではなく色の混合で作る)。 */
+.person-chip.is-on {
+  border-color: color-mix(in srgb, var(--person) 55%, transparent);
+  background: color-mix(in srgb, var(--person) 14%, #fff);
+  color: color-mix(in srgb, var(--person) 72%, #1f2937);
+}
+
+.person-chip__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: none;
+  border-radius: 999px;
+  background: var(--person);
+}
+
+/* 選んでいない時は点を輪郭だけにして、「押すと色が付く」ことが分かるようにする。 */
+.person-chip:not(.is-on) .person-chip__dot {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--person);
+}
+
+.person-chip--add {
+  border-style: dashed;
+  color: #64748b;
+}
+
+/* 名前を入れる欄。チップの列にそのまま混ぜるので、高さをチップに合わせる。 */
+.person-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.person-add input {
+  min-width: 7rem;
+  width: 8rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid rgb(15 23 42 / 0.14);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.8125rem;
+}
+
+.person-add input:focus-visible {
+  outline: none;
+  border-color: rgb(15 23 42 / 0.3);
+}
+
+.person-add button {
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+/* 予定の一覧に出す、押せない小さな印。 */
+.person-tag {
+  --person: #5e8bbc;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--person) 14%, #fff);
+  color: color-mix(in srgb, var(--person) 72%, #1f2937);
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.person-tag__dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  flex: none;
+  border-radius: 999px;
+  background: var(--person);
+}
+
+/* カレンダーの上の絞り込みの列。横に長くなったらそのまま流す。 */
+.person-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  scrollbar-width: none;
+}
+
+.person-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.person-filter > * {
+  flex: none;
+}
+
+.person-filter__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* 設定の中の管理欄。1人1行で、名前・色・削除。 */
+.person-manage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.person-manage__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.person-manage__row input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid rgb(15 23 42 / 0.14);
+  border-radius: 0.75rem;
+  background: #fff;
+  font-size: 0.875rem;
+}
+
+.person-manage__colors {
+  display: flex;
+  gap: 0.25rem;
+  flex: none;
+}
+
+.person-manage__color {
+  --person: #5e8bbc;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  background: var(--person);
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.08);
+}
+
+.person-manage__color.is-on {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--person);
+}
+
+.person-manage__remove {
+  flex: none;
+  padding: 0.4rem;
+  border-radius: 999px;
+  color: #cbd5e1;
+}
+
+.person-manage__remove:active {
+  background: #fef2f2;
+  color: #dc2626;
+}

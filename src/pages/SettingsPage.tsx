@@ -5,6 +5,7 @@ import { Bell, CalendarArrowUp, Database, Image as ImageIcon, Mail, PiggyBank, W
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
+import { EventPeopleManager } from "../components/settings/EventPeopleManager";
 import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
 import { exportBackup, importBackup } from "../lib/backup";
@@ -284,6 +285,8 @@ export default function SettingsPage() {
             />
           </div>
         </Card>
+
+        <EventPeopleManager />
 
         <Card className="system-section system-section--calendar">
           <div className="system-section__header">

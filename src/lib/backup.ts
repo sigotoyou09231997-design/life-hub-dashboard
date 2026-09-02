@@ -22,6 +22,9 @@ const BACKUP_TABLES = [
   "savingsGoals",
   "jobApplications",
   "categoryBudgets",
+  // 予定が持つのは人のid(CalendarEvent.personIds)だけなので、この一覧を含めないと
+  // 書き戻した先で「誰の予定か」が全部ただの色なしに戻る。
+  "eventPeople",
 ] as const;
 
 export async function exportBackup(): Promise<void> {

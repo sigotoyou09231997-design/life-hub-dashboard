@@ -24,6 +24,7 @@ import type {
   JobApplication,
   CategoryBudget,
   Attachment,
+  EventPerson,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -117,6 +118,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "jobApplications", indexes: "nextDate", fks: [], hasUpdatedAt: true },
   { name: "categoryBudgets", indexes: "category", fks: [], hasUpdatedAt: true },
   { name: "attachments", indexes: "ownerType, [ownerType+ownerId]", fks: [], hasUpdatedAt: true },
+  { name: "eventPeople", indexes: "", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -182,6 +184,7 @@ export class LifeHubDB extends Dexie {
   jobApplications!: EntityTable<JobApplication, "id">;
   categoryBudgets!: EntityTable<CategoryBudget, "id">;
   attachments!: EntityTable<Attachment, "id">;
+  eventPeople!: EntityTable<EventPerson, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -331,6 +334,15 @@ export class LifeHubDB extends Dexie {
     // フックを張る。既存のメモ・日記には触らない。
     this.version(18).stores({
       attachments: "id, ownerType, [ownerType+ownerId]",
+    });
+
+    // カレンダーの「誰の予定か」の名前と色(types/index.ts の EventPerson)。
+    // v10のblockedSendersと同じくTABLE_SCHEMASには加えず、ここで作って
+    // POST_MIGRATION_TABLE_SCHEMAS側からフックを張る。予定の側(calendarEvents)は
+    // personIdsを持つだけで索引は張らない — 絞り込みは読み込んだ配列の上で行うので、
+    // 索引を足すと移行が1つ増えるだけで得が無い。既存の予定には触らない。
+    this.version(19).stores({
+      eventPeople: "id",
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

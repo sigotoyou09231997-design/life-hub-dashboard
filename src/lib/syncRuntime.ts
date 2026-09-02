@@ -24,6 +24,7 @@ function loadSyncModule(): Promise<SyncModule> {
         module.registerSyncedTable(db.tripRoutePlaces, "trip_route_places");
         module.registerSyncedTable(db.diaryEntries, "diary_entries");
         module.registerSyncedTable(db.paypayTransactions, "paypay_transactions");
+        module.registerSyncedTable(db.eventPeople, "event_people");
         return module;
       })
       .catch((error) => {
