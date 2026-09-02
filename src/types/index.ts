@@ -77,6 +77,27 @@ export interface FixedCost {
 
 export type ScheduleCategory = "work" | "private" | "important" | "other";
 
+/**
+ * カレンダーの「誰の予定か」の印。仕事/プライベート/重要 のカテゴリとは別の軸で、
+ * こちらは本人が名前も色も自由に決められる(カテゴリは固定の4つ)。
+ *
+ * アカウント(src/lib/accounts.ts)とは別物。アカウントを切り替えると端末内のDBごと
+ * 入れ替わるので、1つのカレンダーに家族の予定を並べて色分けする用途には使えない。
+ * だから予定そのものに持たせる。
+ */
+export interface EventPerson {
+  id?: string;
+  name: string;
+  /** パレットの色id(src/lib/eventPeople.ts の PERSON_COLORS)。知らない値は既定色で描く。 */
+  color: string;
+  /** 並び順。カレンダーの点も、この順で最大3つまで出す。 */
+  sortOrder: number;
+  createdAt: number;
+  updatedAt?: number;
+  deviceId?: string;
+  userId?: string;
+}
+
 export interface CalendarEvent {
   id?: string;
   title: string;
@@ -104,6 +125,12 @@ export interface CalendarEvent {
   updatedAt?: number;
   deviceId?: string;
   userId?: string;
+  /** 「誰の予定か」。EventPerson.id の配列で、1件に何人でも付けられる
+   * (「家族旅行＝自分＋妻＋子供」のような予定を1件で表せるようにするため)。
+   * 名前ではなくidを持つので、あとで名前を変えても付け直さなくていい。
+   * 未設定・空は「誰のとも決めていない予定」で、今までどおりの見え方のまま
+   * (src/lib/eventPeople.ts)。 */
+  personIds?: string[];
   /** 同じ予定を複数のアカウントに入れた時、それらに共通で付ける印。これがあるから
    * 片方を直した時に、入れた先のアカウントの「同じ予定」を見つけて一緒に直せる
    * (src/lib/crossAccountEvents.ts)。1つのアカウントにしか無い予定には付かない。 */

@@ -1,4 +1,7 @@
+import { useLiveQuery } from "dexie-react-hooks";
 import type { CalendarEvent } from "../../types";
+import { db } from "../../db/schema";
+import { personColorHex, resolvePeople } from "../../lib/eventPeople";
 import { CalendarClock, CalendarRange, Clock, MapPin, Trash2 } from "lucide-react";
 import { spanLabel, spanTimeText } from "../../lib/eventSpan";
 import { Badge } from "../ui/Badge";
@@ -18,6 +21,10 @@ interface Props {
 }
 
 export function EventList({ events, onEdit, onDelete, emptyMessage = "予定はありません", onDate }: Props) {
+  // 「誰の予定か」の名前と色。1件ずつ引くとリストの行数だけ購読が増えるので、
+  // ここで1回だけ引いて各行へ配る。空の早期returnより前に置くこと(フックの規則)。
+  const people = useLiveQuery(() => db.eventPeople.toArray(), []) ?? [];
+
   if (events.length === 0) {
     return <EmptyState icon={CalendarClock} title={emptyMessage} />;
   }
@@ -31,6 +38,7 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
     <div className="space-y-2">
       {sorted.map((ev) => {
         const category = getScheduleCategory(ev.category);
+        const assigned = resolvePeople(ev, people);
         const span = spanLabel(ev, onDate);
         return (
           <ListRow key={ev.id} interactive className="p-0">
@@ -65,6 +73,16 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
                     </span>
                   )}
                   <Badge tone={category.tone}>{category.label}</Badge>
+                  {assigned.map((person) => (
+                    <span
+                      key={person.id}
+                      className="person-tag"
+                      style={{ ["--person" as string]: personColorHex(person) }}
+                    >
+                      <span className="person-tag__dot" aria-hidden="true" />
+                      {person.name}
+                    </span>
+                  ))}
                   {ev.repeat && ev.repeat !== "none" && <Badge tone="accent">繰り返し</Badge>}
                 </div>
               </div>

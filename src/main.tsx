@@ -15,6 +15,7 @@ import "./styles/photos.css";
 import "./styles/theme-warm.css";
 import "./styles/home-warm.css";
 import "./styles/pages-warm.css";
+import "./styles/event-people.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()

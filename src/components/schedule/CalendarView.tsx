@@ -1,5 +1,15 @@
+import { useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
 import type { CalendarEvent, Task } from "../../types";
+import { db } from "../../db/schema";
+import {
+  UNASSIGNED_FILTER,
+  collectPersonDotsInRange,
+  matchesPersonFilter,
+  personIdsOf,
+  sortPeople,
+} from "../../lib/eventPeople";
 import { formatDisplayDate, toDateStr } from "../../lib/date";
 import { collectSpanDates, collectSpanDatesInRange, occurringOn } from "../../lib/eventSpan";
 import { getHolidayMapForYear } from "../../lib/holidays";
@@ -8,6 +18,7 @@ import { EventList } from "../calendar/EventList";
 import { TaskItem } from "../tasks/TaskItem";
 import { toggleTaskCompletion, deleteTaskCascade } from "../tasks/TaskList";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
+import { PersonFilter } from "./PersonFilter";
 import { Card } from "../ui/Card";
 
 interface Props {
@@ -42,11 +53,25 @@ export function CalendarView({
   // (MonthViewが描く週の並びと同じ範囲)ぶんだけ将来の回も展開する。
   const gridStart = toDateStr(startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 }));
   const gridEnd = toDateStr(endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 }));
-  const eventDates = collectSpanDatesInRange(events, gridStart, gridEnd);
+
+  // 「誰の予定か」(src/lib/eventPeople.ts)。1人も登録していないうちは絞り込みも
+  // 色分けも出さないので、この機能を使わない人の画面は今までと変わらない。
+  const peopleResult = useLiveQuery(() => db.eventPeople.toArray(), []);
+  const people = sortPeople(peopleResult ?? []);
+  const [personFilter, setPersonFilter] = useState<string[]>([]);
+  // 消された人のidが選ばれたまま残ると、当てはまる予定が1件も無くなって
+  // 「全部消えた」ように見える。いま居る人だけに絞ってから使う。
+  const activeFilter = personFilter.filter(
+    (id) => id === UNASSIGNED_FILTER || people.some((person) => person.id === id),
+  );
+  const shownEvents = events.filter((event) => matchesPersonFilter(event, activeFilter));
+
+  const eventDates = collectSpanDatesInRange(shownEvents, gridStart, gridEnd);
+  const eventDotColors = collectPersonDotsInRange(shownEvents, people, gridStart, gridEnd);
   const taskDates = new Set(tasks.filter((t) => !t.completed && t.dueDate).map((t) => t.dueDate!));
   const tripDates = collectSpanDates(tripAgenda);
 
-  const dayEvents = occurringOn(events, selectedDate);
+  const dayEvents = occurringOn(shownEvents, selectedDate);
   const dayTasks = tasks.filter((t) => t.dueDate === selectedDate && !t.parentTaskId);
   const dayTripAgenda = occurringOn(tripAgenda, selectedDate);
   const selectedHoliday = getHolidayMapForYear(Number(selectedDate.slice(0, 4))).get(selectedDate);
@@ -54,12 +79,19 @@ export function CalendarView({
   return (
     <div className="calendar-workspace grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,.5fr)]">
       <Card className="calendar-workspace__month p-4 lg:p-6">
+        <PersonFilter
+          people={people}
+          value={personFilter}
+          onChange={setPersonFilter}
+          showUnassigned={events.some((event) => personIdsOf(event).length === 0)}
+        />
         <MonthView
           currentMonth={currentMonth}
           onMonthChange={onMonthChange}
           selectedDate={selectedDate}
           onSelectDate={onSelectDate}
           eventDates={eventDates}
+          eventDotColors={eventDotColors}
           taskDates={taskDates}
           tripDates={tripDates}
         />

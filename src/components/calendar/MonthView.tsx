@@ -22,6 +22,10 @@ interface Props {
   onSelectDate: (date: string) => void;
   /** Dates with at least one calendar event — shown as a blue dot. */
   eventDates: Set<string>;
+  /** 日付ごとの「誰の予定か」の色(src/lib/eventPeople.ts の collectPersonDotsInRange)。
+   * 渡された日はその色の点を並べ、渡されない日・人を1人も登録していない場合は
+   * eventDates による既定色の点1つに戻る。予定とタスクの区別は点の位置で残す。 */
+  eventDotColors?: Map<string, string[]>;
   /** Dates with at least one task due — shown as an orange dot. These are
    * fixed type markers, independent of each item's own category color
    * (which only appears in detail/list Badges). */
@@ -44,6 +48,7 @@ export function MonthView({
   selectedDate,
   onSelectDate,
   eventDates,
+  eventDotColors,
   taskDates,
   tripDates,
   minDate,
@@ -92,6 +97,7 @@ export function MonthView({
           const inMonth = isSameMonth(day, currentMonth);
           const selected = dateStr === selectedDate;
           const hasEvent = eventDates.has(dateStr);
+          const dotColors = eventDotColors?.get(dateStr) ?? [];
           const hasTask = taskDates.has(dateStr);
           const hasTrip = tripDates?.has(dateStr) ?? false;
           const holidayName = holidayMap.get(dateStr);
@@ -124,7 +130,13 @@ export function MonthView({
                 {format(day, "d")}
               </span>
               <span className="flex h-1.5 items-center gap-0.5">
-                <span className={`h-1 w-1 rounded-full ${hasEvent ? "bg-accent" : "bg-transparent"}`} />
+                {dotColors.length > 0 ? (
+                  dotColors.map((hex, i) => (
+                    <span key={`${hex}-${i}`} className="h-1 w-1 rounded-full" style={{ backgroundColor: hex }} />
+                  ))
+                ) : (
+                  <span className={`h-1 w-1 rounded-full ${hasEvent ? "bg-accent" : "bg-transparent"}`} />
+                )}
                 <span className={`h-1 w-1 rounded-full ${hasTask ? "bg-warning" : "bg-transparent"}`} />
                 <span className={`h-1 w-1 rounded-full ${hasTrip ? "bg-[#ea580c]" : "bg-transparent"}`} />
               </span>
