@@ -1106,6 +1106,99 @@ a.trip-leg-mode--link {
   text-decoration: none;
 }
 
+/* --- 駅を経由する区間 ------------------------------------------------------
+   電車で行く区間は「出発地 → 駅」と「駅 → 行き先(徒歩)」の2段に分ける。
+   どの駅で降りて、そこから何分歩くのかが、地図を開かなくても読めるようにする。 */
+.trip-leg-via {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+
+.trip-leg-via__pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: 999px;
+  background: var(--hub-surface);
+  color: rgba(13, 27, 49, 0.58);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trip-leg-via__pick.is-active {
+  border-color: transparent;
+  background: rgba(79, 111, 255, 0.12);
+  color: var(--accent, var(--hub-blue));
+}
+
+.trip-leg-via__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip-leg-via__step {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  color: rgba(13, 27, 49, 0.66);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.trip-leg-via__step span {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: rgba(13, 27, 49, 0.55);
+  font-size: 0.72rem;
+}
+
+.trip-leg-via__walk {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+  color: rgba(13, 27, 49, 0.7);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trip-leg-via__walk svg {
+  flex: none;
+  transition: transform 180ms ease-out;
+}
+
+.trip-leg-via__walk svg.is-open {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-leg-via__walk svg {
+    transition: none;
+  }
+}
+
 /* --- 日にちの切り替え ------------------------------------------------------
    長い旅行ほど列が伸びる。その日に回るぶんだけに絞れると、横に送る回数が減る。
    日付を決めていない場所は「日付なし」に集まるので、決めないままでも使える。 */

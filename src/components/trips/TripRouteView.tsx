@@ -20,7 +20,6 @@ import type { TripRoutePlace } from "../../types";
 import type { RouteSuggestion } from "../../lib/tripRouteSuggestions";
 import {
   buildMapEmbedUrl,
-  buildLegEmbedUrl,
   buildLegSearchUrl,
   buildRouteSearchUrl,
   buildFromHereSearchUrl,
@@ -29,7 +28,7 @@ import {
 import type { TravelMode } from "../../lib/googleMaps";
 import { formatShortDate } from "../../lib/date";
 import { TripRouteForm } from "./TripRouteForm";
-import { TripLegModes } from "./TripLegModes";
+import { TripLegRoute } from "./TripLegRoute";
 import { TripPlaceStation } from "./TripPlaceStation";
 
 interface Props {
@@ -377,41 +376,36 @@ export function TripRouteView({
                     </header>
 
                     {here ? (
-                      <div className="trip-route-card__map">
-                        <iframe
-                          key={`${here}-${shown[0].id}-${legMode(HERE_LEG)}`}
-                          title={`現在地から${shown[0].name}までの経路`}
-                          src={buildLegEmbedUrl(here, shown[0].address, legMode(HERE_LEG))}
-                          loading="lazy"
-                          referrerPolicy="no-referrer-when-downgrade"
-                        />
-                      </div>
-                    ) : (
-                      <p className="trip-route-card__state">
-                        {hereState === "asking"
-                          ? "現在地を確認しています…"
-                          : "現在地を取得できませんでした。下のリンクなら、Googleマップ側が現在地から案内します。"}
-                      </p>
-                    )}
-
-                    {here && (
-                      <TripLegModes
+                      <TripLegRoute
                         origin={here}
+                        originLabel="現在地"
                         destination={shown[0].address}
+                        destinationLabel={shown[0].name}
                         mode={legMode(HERE_LEG)}
                         onModeChange={(next) => changeLegMode(HERE_LEG, next)}
+                        mapClassName="trip-route-card__map"
+                        buildOpenUrl={(to, mode) => buildFromHereSearchUrl(to, mode)}
+                        openLabel="現在地からの案内をGoogleマップで開く"
+                        mapFirst
                       />
+                    ) : (
+                      <>
+                        <p className="trip-route-card__state">
+                          {hereState === "asking"
+                            ? "現在地を確認しています…"
+                            : "現在地を取得できませんでした。下のリンクなら、Googleマップ側が現在地から案内します。"}
+                        </p>
+                        <a
+                          className="trip-route-leg__open"
+                          href={buildFromHereSearchUrl(shown[0].address, legMode(HERE_LEG))}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          現在地からの案内をGoogleマップで開く
+                          <ExternalLink size={13} />
+                        </a>
+                      </>
                     )}
-
-                    <a
-                      className="trip-route-leg__open"
-                      href={buildFromHereSearchUrl(shown[0].address, legMode(HERE_LEG))}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      現在地からの案内をGoogleマップで開く
-                      <ExternalLink size={13} />
-                    </a>
                   </article>
                 </li>
 
@@ -509,30 +503,17 @@ export function TripRouteView({
                                 <p className="trip-route-leg__title">
                                   {place.name} → {next.name}
                                 </p>
-                                <TripLegModes
+                                <TripLegRoute
                                   origin={place.address}
+                                  originLabel={place.name}
                                   destination={next.address}
+                                  destinationLabel={next.name}
                                   mode={legMode(place.id ?? "")}
                                   onModeChange={(m) => changeLegMode(place.id ?? "", m)}
+                                  mapClassName="trip-route-leg__map"
+                                  buildOpenUrl={(to, mode) => buildLegSearchUrl(place.address, to, mode)}
+                                  openLabel="乗換と所要時間をGoogleマップで見る"
                                 />
-                                <div className="trip-route-leg__map">
-                                  <iframe
-                                    key={`${place.id}-${legMode(place.id ?? "")}`}
-                                    title={`${place.name}から${next.name}までの経路`}
-                                    src={buildLegEmbedUrl(place.address, next.address, legMode(place.id ?? ""))}
-                                    loading="lazy"
-                                    referrerPolicy="no-referrer-when-downgrade"
-                                  />
-                                </div>
-                                <a
-                                  className="trip-route-leg__open"
-                                  href={buildLegSearchUrl(place.address, next.address, legMode(place.id ?? ""))}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  乗換と所要時間をGoogleマップで見る
-                                  <ExternalLink size={13} />
-                                </a>
                               </div>
                             )}
                           </div>
