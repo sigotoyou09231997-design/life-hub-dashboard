@@ -12,6 +12,7 @@ import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../li
 import { pullBlockedSenders } from "../lib/blockedSenders";
 import { useTripCover } from "../hooks/useTripCover";
 import { getScheduleCategory } from "../lib/scheduleCategories";
+import { PersonTags } from "../components/calendar/PersonTags";
 import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { useHubMotion } from "../hooks/useHubMotion";
 import { toggleTaskCompletion } from "../components/tasks/TaskList";
@@ -94,6 +95,9 @@ export default function TopPage() {
     (event) => !timeToday(event) || minutesUntil(timeToday(event), now) !== null,
   );
   const nextEventMinutes = nextEvent ? minutesUntil(timeToday(nextEvent), now) : null;
+  // 「誰の予定か」の名前と色。付けた印はホームの「次の予定」にも出す
+  // (付けたのに一覧に出ないと、付いているのか分からないため)。
+  const eventPeople = useLiveQuery(() => db.eventPeople.toArray(), []) ?? [];
   const tasksResult = useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]);
   const todayTasks = (tasksResult ?? []).filter((task) => !task.parentTaskId);
   const doneCount = todayTasks.filter((task) => task.completed).length;
@@ -224,6 +228,7 @@ export default function TopPage() {
                     <span className="warm-list__copy">
                       <strong>{event.title}</strong>
                       <small>{event.location || category.label}</small>
+                      <PersonTags event={event} people={eventPeople} compact />
                     </span>
                     {countdown && <span className="warm-list__meta">{countdown}</span>}
                   </Link>

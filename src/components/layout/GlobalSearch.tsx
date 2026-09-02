@@ -7,6 +7,7 @@ import { countHits, searchEverything, type SearchGroup } from "../../lib/globalS
 import { Sheet } from "../ui/Sheet";
 import { Input } from "../ui/Input";
 import { EmptyState } from "../ui/EmptyState";
+import { PersonTags } from "../calendar/PersonTags";
 
 interface Props {
   open: boolean;
@@ -24,6 +25,10 @@ export function GlobalSearch({ open, onClose }: Props) {
   useEffect(() => {
     if (!open) setQuery("");
   }, [open]);
+
+  // 「誰の予定か」の名前と色。予定の行に印を出すのに使う。件数が少ない表なので、
+  // 探す語が入る前から読んでおいてよい。
+  const eventPeople = useLiveQuery(() => db.eventPeople.toArray(), []) ?? [];
 
   // 探す語が入って初めて読む — 開いただけで全テーブルを読みにいかない。
   const source = useLiveQuery(async () => {
@@ -85,6 +90,13 @@ export function GlobalSearch({ open, onClose }: Props) {
                 >
                   <p className="truncate text-sm font-medium text-slate-900">{hit.title}</p>
                   {hit.subtitle && <p className="truncate text-xs text-slate-500">{hit.subtitle}</p>}
+                  {/* 予定の行だけ「誰の予定か」を出す。探した結果の中でも、どれが誰の
+                      予定なのかが分かるように。 */}
+                  {hit.personIds && hit.personIds.length > 0 && (
+                    <span className="mt-1 block">
+                      <PersonTags event={{ personIds: hit.personIds }} people={eventPeople} compact />
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>

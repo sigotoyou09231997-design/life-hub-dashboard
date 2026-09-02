@@ -13,6 +13,9 @@ export interface SearchHit {
   date: string;
   /** 押したときの行き先。その機能の既存の画面へ返すだけで、専用の詳細は作らない。 */
   to: string;
+  /** 予定に付いている「誰の予定か」(src/lib/eventPeople.ts)。予定の行だけが持つ。
+   * 名前ではなくidを持つのは予定の行と同じで、名前は出す側が引き当てる。 */
+  personIds?: string[];
 }
 
 export interface SearchGroup {
@@ -85,6 +88,7 @@ export function searchEverything(query: string, source: SearchSource): SearchGro
       subtitle: joinParts([event.date, event.startTime, event.location]),
       date: event.date,
       to: "/schedule?view=list",
+      personIds: event.personIds,
     });
   }
 

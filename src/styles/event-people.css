@@ -93,6 +93,36 @@
   font-weight: 600;
 }
 
+/* 予定を出すところに並べる印のまとまり(src/components/calendar/PersonTags.tsx)。
+   1つのまとまりとして扱うので、行の中で人の名前だけが離れて折り返らない。 */
+.person-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+/* ホームの一覧・横断検索のような狭い行で使う小さい版。 */
+.person-tags--compact {
+  gap: 0.22rem;
+}
+
+.person-tags--compact .person-tag {
+  padding: 0.02rem 0.4rem;
+  font-size: 0.66rem;
+}
+
+.person-tags--compact .person-tag__dot {
+  width: 0.32rem;
+  height: 0.32rem;
+}
+
+/* ホームの行では、時刻と場所の下に1行として置く(横に足すと題が潰れるため)。 */
+.warm-list__copy .person-tags {
+  margin-top: 0.18rem;
+}
+
 /* 予定の一覧に出す、押せない小さな印。 */
 .person-tag {
   --person: #5e8bbc;

@@ -145,4 +145,17 @@ describe("searchEverything", () => {
     const groups = searchEverything("見つからない語", source());
     expect(groups).toEqual([]);
   });
+
+  // 「誰の予定か」を付けたのに、探した結果の行に出ないと付いているか分からない
+  // (2026-09-03の指摘)。名前ではなくidを渡し、出す側が引き当てる。
+  it("予定の行は「誰の予定か」を持って出てくる", () => {
+    const tagged = { ...event, personIds: ["p-me", "p-wife"] };
+    const groups = searchEverything("歯医者", source({ events: [tagged] }));
+    expect(groups.find((g) => g.kind === "event")!.hits[0].personIds).toEqual(["p-me", "p-wife"]);
+  });
+
+  it("印の無い予定の行には、誰も付いていないことが分かる形で出る", () => {
+    const groups = searchEverything("歯医者", source());
+    expect(groups.find((g) => g.kind === "event")!.hits[0].personIds).toBeUndefined();
+  });
 });
