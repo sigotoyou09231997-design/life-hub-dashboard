@@ -194,12 +194,16 @@ async function searchPlacePhoto(apiKey: string, query: string, diagnose = false)
   const shortfall = describePlacesShortfall(data);
   if (!diagnose) return { cover: null, note: shortfall };
 
-  const retry = await placesTextSearch(apiKey, query, "places.photos").catch(() => null);
+  // 何が「1件」として返ってきたのかまで見る。本当に目的の場所を引けているのに
+  // 写真だけ落ちているのか、そもそも別のものを引いているのかで打ち手が変わる。
+  const retry = await placesTextSearch(apiKey, query, "places.id,places.displayName,places.types,places.photos").catch(
+    () => null,
+  );
   const retryNote = !retry
-    ? "写真だけで頼み直す問い合わせ自体が失敗しました"
+    ? "頼み直す問い合わせ自体が失敗しました"
     : retry.ok
-      ? `写真だけで頼み直した答え: ${retry.text.slice(0, 300)}`
-      : `写真だけで頼み直すと ${retry.status}: ${retry.text.slice(0, 300)}`;
+      ? `頼み直した答え: ${retry.text.slice(0, 600)}`
+      : `頼み直すと ${retry.status}: ${retry.text.slice(0, 600)}`;
   return { cover: null, note: `${shortfall} ／ ${retryNote}` };
 }
 
