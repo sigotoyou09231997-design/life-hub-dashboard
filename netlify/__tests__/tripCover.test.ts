@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   SYSTEM_PROMPT,
+  describePlacesShortfall,
   fallbackPlaceQuery,
   isPlacePhotoName,
   parsePlaceQueryResponse,
@@ -8,6 +9,7 @@ import {
 } from "../functions/tripCover";
 import {
   SYSTEM_PROMPT as VERCEL_SYSTEM_PROMPT,
+  describePlacesShortfall as vercelDescribePlacesShortfall,
   fallbackPlaceQuery as vercelFallbackPlaceQuery,
   isPlacePhotoName as vercelIsPlacePhotoName,
   parsePlaceQueryResponse as vercelParsePlaceQueryResponse,
@@ -99,5 +101,27 @@ describe("Netlify版とVercel版が食い違っていないこと", () => {
     expect(vercelFallbackPlaceQuery("神奈川旅行", "")).toBe(fallbackPlaceQuery("神奈川旅行", ""));
     const sample = { places: [{ photos: [{ name: "places/x/photos/y", authorAttributions: [{ displayName: "A" }] }] }] };
     expect(vercelParsePlacesResponse(sample)).toEqual(parsePlacesResponse(sample));
+    expect(vercelDescribePlacesShortfall({ places: [] })).toBe(describePlacesShortfall({ places: [] }));
+  });
+});
+
+describe("describePlacesShortfall", () => {
+  // Google は「0件」も「写真の欄が空」も同じ 200 + cover:null で返してくる。
+  // 打ち手が違う（検索語を変える／FieldMaskや課金を疑う）ので、区別できないと詰む。
+  it("1件も返ってこなかった時", () => {
+    expect(describePlacesShortfall({ places: [] })).toContain("0件");
+    expect(describePlacesShortfall(null)).toContain("0件");
+  });
+
+  it("場所は返ってきたが写真が付いていない時", () => {
+    const message = describePlacesShortfall({ places: [{ displayName: { text: "鎌倉" } }, { photos: [] }] });
+    expect(message).toContain("2件");
+    expect(message).toContain("写真が付いていません");
+  });
+
+  it("写真はあるが識別子が想定外だった時は、その中身まで見せる", () => {
+    const message = describePlacesShortfall({ places: [{ photos: [{ name: "places/x/photos/だめな名前" }] }] });
+    expect(message).toContain("識別子が想定外");
+    expect(message).toContain("places/x/photos/");
   });
 });

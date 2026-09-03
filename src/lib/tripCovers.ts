@@ -122,6 +122,8 @@ interface TripCoverAnswer {
   cover?: { photo?: string; attribution?: string } | null;
   query?: string;
   error?: string;
+  /** 写真が取れなかった時に、サーバーがどこで落ちたかを短く言ってくる。 */
+  note?: string;
 }
 
 /** サーバーに聞く一手だけ。覚え書きは見ない・書かない。 */
@@ -188,7 +190,11 @@ export function describeCoverAnswer(data: TripCoverAnswer): TripCoverProbe {
     };
   }
   if (!data.cover?.photo) {
-    return { ok: false, message: `「${data.query || "?"}」で写真が見つかりませんでした。旅行名か行き先を具体的な地名にすると見つかりやすくなります。` };
+    const detail = data.note ? `（${data.note}）` : "";
+    return {
+      ok: false,
+      message: `「${data.query || "?"}」で写真が見つかりませんでした${detail}。旅行名か行き先を具体的な地名にすると見つかりやすくなります。`,
+    };
   }
   return {
     ok: true,

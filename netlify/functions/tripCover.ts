@@ -54,6 +54,10 @@ export interface TripCoverResponse {
   query?: string;
   cover?: TripCoverPhoto | null;
   error?: string;
+  /** 写真が取れなかった時に、どこで落ちたのかの短い説明。Googleは「0件」も
+   * 「写真の欄が空」も同じ 200 で返してくるので、これが無いと画面からは
+   * 見分けが付かない（設定画面の確認ボタンに出す）。 */
+  note?: string;
 }
 
 /** 中継してよい写真の識別子か。Places API が返す形以外は受け取らない
@@ -101,6 +105,27 @@ export function parsePlacesResponse(data: unknown): TripCoverPhoto | null {
   return null;
 }
 
+/** 写真が1枚も取れなかった時に、どこで落ちたのかを短く言う。
+ * 「そもそも1件も出ない」「Placesは答えたが写真の欄が空」「写真はあるが識別子が
+ * 想定外の形」の3つは原因も打ち手も違うのに、どれも 200 + cover:null で返ってくる。 */
+export function describePlacesShortfall(data: unknown): string {
+  const places = (data as { places?: unknown[] } | null)?.places;
+  if (!Array.isArray(places) || places.length === 0) return "Placesが0件でした";
+  let withPhotos = 0;
+  let sample = "";
+  for (const place of places) {
+    const photos = (place as { photos?: unknown[] }).photos;
+    if (!Array.isArray(photos) || photos.length === 0) continue;
+    withPhotos += 1;
+    if (!sample) {
+      const name = (photos[0] as { name?: unknown }).name;
+      if (typeof name === "string") sample = name.slice(0, 60);
+    }
+  }
+  if (withPhotos === 0) return `Places ${places.length}件のどれにも写真が付いていませんでした`;
+  return `Places ${places.length}件中${withPhotos}件に写真はありましたが、識別子が想定外の形でした（${sample}）`;
+}
+
 async function askPlaceQuery(apiKey: string, title: string, destination: string): Promise<string> {
   const res = await fetch(ANTHROPIC_ENDPOINT, {
     method: "POST",
@@ -127,7 +152,13 @@ async function askPlaceQuery(apiKey: string, title: string, destination: string)
   return parsePlaceQueryResponse(text);
 }
 
-async function searchPlacePhoto(apiKey: string, query: string): Promise<TripCoverPhoto | null> {
+interface PlaceSearchOutcome {
+  cover: TripCoverPhoto | null;
+  /** cover が null の時だけ入る、どこで落ちたのかの説明。 */
+  note?: string;
+}
+
+async function searchPlacePhoto(apiKey: string, query: string): Promise<PlaceSearchOutcome> {
   const res = await fetch(PLACES_SEARCH_ENDPOINT, {
     method: "POST",
     headers: {
@@ -141,7 +172,9 @@ async function searchPlacePhoto(apiKey: string, query: string): Promise<TripCove
     const text = await res.text().catch(() => "");
     throw new Error(`${res.status} ${text.slice(0, 200)}`);
   }
-  return parsePlacesResponse(await res.json());
+  const data = await res.json();
+  const cover = parsePlacesResponse(data);
+  return cover ? { cover } : { cover: null, note: describePlacesShortfall(data) };
 }
 
 function jsonResponse(statusCode: number, body: unknown) {
@@ -196,8 +229,8 @@ export const handler: Handler = async (event) => {
   if (!query) return jsonResponse(200, { configured: true, query: "", cover: null } satisfies TripCoverResponse);
 
   try {
-    const cover = await searchPlacePhoto(apiKey, query);
-    return jsonResponse(200, { configured: true, query, cover } satisfies TripCoverResponse);
+    const { cover, note } = await searchPlacePhoto(apiKey, query);
+    return jsonResponse(200, { configured: true, query, cover, note } satisfies TripCoverResponse);
   } catch (error) {
     return jsonResponse(200, {
       configured: true,
