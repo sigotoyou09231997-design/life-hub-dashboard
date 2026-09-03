@@ -154,7 +154,11 @@ export async function resolveTripCover(name: string, destination: string): Promi
     // 探しに行って失敗した時（Places APIをまだ有効にしていない等）は覚えない。
     // 覚えてしまうと、設定を直したあとも期限切れまで同梱の写真のままになる。
     if (data.error) return null;
-    const photo = data.configured && data.cover?.photo ? data.cover.photo : null;
+    // サーバーにキー（GOOGLE_MAPS_API_KEY）がまだ無い時も同じ。これは「この旅行の写真が
+    // 無かった」ではなく「まだ探しに行けていない」なので、覚えるとキーを入れた後も
+    // 3日間は同梱の写真のままになる。configured を言ってこない古い応答も同じ扱い。
+    if (data.configured !== true) return null;
+    const photo = data.cover?.photo ?? null;
     const entry: TripCoverEntry = { photo, attribution: data.cover?.attribution, at: Date.now() };
     writeEntry(key, entry);
     return toResolved(entry);

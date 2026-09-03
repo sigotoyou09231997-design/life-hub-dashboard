@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+/** @vitest-environment jsdom */
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   COVER_CACHE_TTL_MS,
   COVER_MISS_TTL_MS,
@@ -6,6 +7,7 @@ import {
   describeCoverAnswer,
   isFreshCoverEntry,
   parseCoverEntry,
+  resolveTripCover,
   tripCoverImage,
   tripCoverPhotoUrl,
 } from "./tripCovers";
@@ -86,5 +88,40 @@ describe("describeCoverAnswer", () => {
     });
     expect(probe.ok).toBe(true);
     expect(probe.url).toBe(tripCoverPhotoUrl("places/x/photos/y"));
+  });
+});
+
+describe("resolveTripCover の覚え書き", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  function answerWith(body: unknown): void {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(body), { status: 200 })),
+    );
+  }
+
+  it("サーバーにキーがまだ無い時は、見つからなかったことを覚えない", async () => {
+    // 覚えてしまうと、キーを入れて直したあとも3日間は同梱の写真のままになる。
+    answerWith({ configured: false });
+    expect(await resolveTripCover("神奈川旅行", "鎌倉")).toBeNull();
+    expect(localStorage.getItem(coverCacheKey("神奈川旅行", "鎌倉"))).toBeNull();
+  });
+
+  it("キーがあって写真が無かった時は、覚えて聞き直さない", async () => {
+    // こちらは本当に「その土地の写真が無い」ので、開くたびに課金される呼び出しを避ける。
+    answerWith({ configured: true, query: "どこか", cover: null });
+    expect(await resolveTripCover("どこか旅行", "")).toBeNull();
+    expect(parseCoverEntry(localStorage.getItem(coverCacheKey("どこか旅行", "")))?.photo).toBeNull();
+  });
+
+  it("写真が見つかったら、それを覚えて返す", async () => {
+    answerWith({ configured: true, query: "鎌倉", cover: { photo: "places/abc", attribution: "撮影者" } });
+    const resolved = await resolveTripCover("神奈川旅行", "鎌倉");
+    expect(resolved?.url).toBe(tripCoverPhotoUrl("places/abc"));
+    expect(parseCoverEntry(localStorage.getItem(coverCacheKey("神奈川旅行", "鎌倉")))?.photo).toBe("places/abc");
   });
 });
