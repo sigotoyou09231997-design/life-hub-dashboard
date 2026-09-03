@@ -3,6 +3,8 @@ import {
   SYSTEM_PROMPT,
   describePlacesShortfall,
   fallbackPlaceQuery,
+  firstPlaceId,
+  parsePlaceDetailsResponse,
   isPlacePhotoName,
   parsePlaceQueryResponse,
   parsePlacesResponse,
@@ -11,6 +13,8 @@ import {
   SYSTEM_PROMPT as VERCEL_SYSTEM_PROMPT,
   describePlacesShortfall as vercelDescribePlacesShortfall,
   fallbackPlaceQuery as vercelFallbackPlaceQuery,
+  firstPlaceId as vercelFirstPlaceId,
+  parsePlaceDetailsResponse as vercelParsePlaceDetailsResponse,
   isPlacePhotoName as vercelIsPlacePhotoName,
   parsePlaceQueryResponse as vercelParsePlaceQueryResponse,
   parsePlacesResponse as vercelParsePlacesResponse,
@@ -102,6 +106,9 @@ describe("Netlify版とVercel版が食い違っていないこと", () => {
     const sample = { places: [{ photos: [{ name: "places/x/photos/y", authorAttributions: [{ displayName: "A" }] }] }] };
     expect(vercelParsePlacesResponse(sample)).toEqual(parsePlacesResponse(sample));
     expect(vercelDescribePlacesShortfall({ places: [] })).toBe(describePlacesShortfall({ places: [] }));
+    expect(vercelFirstPlaceId({ places: [{ id: "ChIJabc" }] })).toBe(firstPlaceId({ places: [{ id: "ChIJabc" }] }));
+    const details = { photos: [{ name: "places/x/photos/y" }] };
+    expect(vercelParsePlaceDetailsResponse(details)).toEqual(parsePlaceDetailsResponse(details));
   });
 });
 
@@ -125,5 +132,38 @@ describe("describePlacesShortfall", () => {
     const message = describePlacesShortfall({ places: [{ photos: [{ name: "places/x/photos/だめな名前" }] }] });
     expect(message).toContain("識別子が想定外");
     expect(message).toContain("places/x/photos/");
+  });
+});
+
+describe("Text Search が写真を返さなかった時の取り直し", () => {
+  // 2026-09-04 に本番で見た形。東京タワーでも id・名前・種別だけ返って写真が落ちた。
+  const textSearchAnswer = {
+    places: [
+      {
+        id: "ChIJCewJkL2LGGAR3Qmk0vCTGkg",
+        displayName: { text: "東京タワー", languageCode: "ja" },
+      },
+    ],
+  };
+
+  it("名指しで取り直せるよう、場所の id を拾える", () => {
+    expect(firstPlaceId(textSearchAnswer)).toBe("ChIJCewJkL2LGGAR3Qmk0vCTGkg");
+  });
+
+  it("id が無い・URLに埋められない形なら拾わない", () => {
+    expect(firstPlaceId({ places: [{ displayName: { text: "東京タワー" } }] })).toBeNull();
+    expect(firstPlaceId({ places: [{ id: "../../secret" }] })).toBeNull();
+    expect(firstPlaceId(null)).toBeNull();
+  });
+
+  it("Place Details の答え（places で包まれていない）からも写真を選べる", () => {
+    const cover = parsePlaceDetailsResponse({
+      photos: [{ name: "places/ChIJabc/photos/AeJbb3c-1", authorAttributions: [{ displayName: "撮影者" }] }],
+    });
+    expect(cover).toEqual({ photo: "places/ChIJabc/photos/AeJbb3c-1", attribution: "撮影者" });
+  });
+
+  it("Place Details にも写真が無ければ null", () => {
+    expect(parsePlaceDetailsResponse({})).toBeNull();
   });
 });

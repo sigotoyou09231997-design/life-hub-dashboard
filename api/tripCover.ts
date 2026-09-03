@@ -21,6 +21,7 @@ const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
 /** 地名を1つ取り出すだけの短い仕事なので、速くて安いモデルを使う。 */
 const MODEL = "claude-haiku-4-5-20251001";
 const PLACES_SEARCH_ENDPOINT = "https://places.googleapis.com/v1/places:searchText";
+const PLACES_DETAILS_BASE = "https://places.googleapis.com/v1/places/";
 const PLACES_MEDIA_BASE = "https://places.googleapis.com/v1/";
 /** 表紙は横長で大きく出る(PCのヒーローで最大 900px 程度)ので、その倍を上限にする。 */
 const PHOTO_MAX_WIDTH_PX = 1600;
@@ -126,6 +127,24 @@ export function describePlacesShortfall(data: unknown): string {
   return `Places ${places.length}件中${withPhotos}件に写真はありましたが、識別子が想定外の形でした（${sample}）`;
 }
 
+/** Text Search の答えから、先頭の場所の id を取り出す。Place Details で写真を
+ * 取り直すのに要る。 */
+export function firstPlaceId(data: unknown): string | null {
+  const places = (data as { places?: unknown[] } | null)?.places;
+  if (!Array.isArray(places)) return null;
+  for (const place of places) {
+    const id = (place as { id?: unknown }).id;
+    // 場所の id は英数字と _ - だけ。URL に埋めるので、それ以外は通さない。
+    if (typeof id === "string" && /^[A-Za-z0-9_-]+$/.test(id)) return id;
+  }
+  return null;
+}
+
+/** Place Details の答え（places で包まれていない）から写真を1枚選ぶ。 */
+export function parsePlaceDetailsResponse(data: unknown): TripCoverPhoto | null {
+  return parsePlacesResponse({ places: [data] });
+}
+
 async function askPlaceQuery(apiKey: string, title: string, destination: string): Promise<string> {
   const res = await fetch(ANTHROPIC_ENDPOINT, {
     method: "POST",
@@ -172,15 +191,26 @@ async function placesTextSearch(apiKey: string, query: string, fieldMask: string
   return { ok: res.ok, status: res.status, text: await res.text().catch(() => "") };
 }
 
+/** 場所を1件名指しして、その写真だけをもらう。 */
+async function placeDetailsPhotos(apiKey: string, id: string) {
+  const res = await fetch(`${PLACES_DETAILS_BASE}${encodeURIComponent(id)}?languageCode=ja`, {
+    headers: { "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": "photos" },
+  });
+  return { ok: res.ok, status: res.status, text: await res.text().catch(() => "") };
+}
+
 /**
  * 表紙にする写真を1枚探す。
  *
- * diagnose を付けると、写真が取れなかった時に「写真の欄だけ」で頼み直して、
- * Googleの答えをそのまま note に載せる（設定画面の確認ボタン専用）。写真が無い時に
- * 毎回2回叩くと課金が倍になるので、普段の表示ではこの頼み直しはしない。
+ * Text Search に `places.photos` を頼んでも、id・名前・種別だけ返って写真の欄が
+ * 落ちてくることがある（2026-09-04 に本番で確認。東京タワーでも空だった）。
+ * その時は場所を名指しして Place Details から取り直す。
+ *
+ * diagnose を付けると、それでも取れなかった時に Google の答えをそのまま note に
+ * 載せる（設定画面の確認ボタン専用）。
  */
 async function searchPlacePhoto(apiKey: string, query: string, diagnose = false): Promise<PlaceSearchOutcome> {
-  const first = await placesTextSearch(apiKey, query, "places.displayName,places.photos");
+  const first = await placesTextSearch(apiKey, query, "places.id,places.displayName,places.photos");
   if (!first.ok) throw new Error(`${first.status} ${first.text.slice(0, 200)}`);
   let data: unknown = null;
   try {
@@ -192,19 +222,26 @@ async function searchPlacePhoto(apiKey: string, query: string, diagnose = false)
   if (cover) return { cover };
 
   const shortfall = describePlacesShortfall(data);
+  const id = firstPlaceId(data);
+  if (!id) return { cover: null, note: shortfall };
+
+  const details = await placeDetailsPhotos(apiKey, id).catch(() => null);
+  if (details?.ok) {
+    try {
+      const detailsCover = parsePlaceDetailsResponse(JSON.parse(details.text));
+      if (detailsCover) return { cover: detailsCover };
+    } catch {
+      // 読めなければ、写真は無かったものとして扱う。
+    }
+  }
   if (!diagnose) return { cover: null, note: shortfall };
 
-  // 何が「1件」として返ってきたのかまで見る。本当に目的の場所を引けているのに
-  // 写真だけ落ちているのか、そもそも別のものを引いているのかで打ち手が変わる。
-  const retry = await placesTextSearch(apiKey, query, "places.id,places.displayName,places.types,places.photos").catch(
-    () => null,
-  );
-  const retryNote = !retry
-    ? "頼み直す問い合わせ自体が失敗しました"
-    : retry.ok
-      ? `頼み直した答え: ${retry.text.slice(0, 600)}`
-      : `頼み直すと ${retry.status}: ${retry.text.slice(0, 600)}`;
-  return { cover: null, note: `${shortfall} ／ ${retryNote}` };
+  const detailsNote = !details
+    ? "Place Details の問い合わせ自体が失敗しました"
+    : details.ok
+      ? `Place Details(${id}): ${details.text.slice(0, 600)}`
+      : `Place Details(${id}) が ${details.status}: ${details.text.slice(0, 600)}`;
+  return { cover: null, note: `${shortfall} ／ ${detailsNote}` };
 }
 
 function jsonResponse(res: VercelResponse, statusCode: number, body: unknown) {
