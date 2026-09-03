@@ -122,7 +122,12 @@ export function describePlacesShortfall(data: unknown): string {
       if (typeof name === "string") sample = name.slice(0, 60);
     }
   }
-  if (withPhotos === 0) return `Places ${places.length}件のどれにも写真が付いていませんでした`;
+  if (withPhotos === 0) {
+    // 何が返ってきたのかを添える。FieldMask が効いていないのか、本当に写真が
+    // 無いだけなのかは、返ってきた欄の名前を見ないと分けられない。
+    const keys = Object.keys((places[0] as Record<string, unknown>) ?? {}).join(",") || "空";
+    return `Places ${places.length}件のどれにも写真が付いていませんでした（返ってきた欄: ${keys}）`;
+  }
   return `Places ${places.length}件中${withPhotos}件に写真はありましたが、識別子が想定外の形でした（${sample}）`;
 }
 

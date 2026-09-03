@@ -117,6 +117,8 @@ describe("describePlacesShortfall", () => {
     const message = describePlacesShortfall({ places: [{ displayName: { text: "鎌倉" } }, { photos: [] }] });
     expect(message).toContain("2件");
     expect(message).toContain("写真が付いていません");
+    // FieldMask が効いていないのか本当に写真が無いのかを分けるため、欄の名前まで見せる。
+    expect(message).toContain("displayName");
   });
 
   it("写真はあるが識別子が想定外だった時は、その中身まで見せる", () => {
