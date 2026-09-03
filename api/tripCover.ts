@@ -158,23 +158,49 @@ interface PlaceSearchOutcome {
   note?: string;
 }
 
-async function searchPlacePhoto(apiKey: string, query: string): Promise<PlaceSearchOutcome> {
+/** Text Search を1回叩いて、生のまま持ち帰る。FieldMask を変えて試せるように分けてある。 */
+async function placesTextSearch(apiKey: string, query: string, fieldMask: string) {
   const res = await fetch(PLACES_SEARCH_ENDPOINT, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "places.displayName,places.photos",
+      "X-Goog-FieldMask": fieldMask,
     },
     body: JSON.stringify({ textQuery: query, languageCode: "ja", maxResultCount: 3 }),
   });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${text.slice(0, 200)}`);
+  return { ok: res.ok, status: res.status, text: await res.text().catch(() => "") };
+}
+
+/**
+ * 表紙にする写真を1枚探す。
+ *
+ * diagnose を付けると、写真が取れなかった時に「写真の欄だけ」で頼み直して、
+ * Googleの答えをそのまま note に載せる（設定画面の確認ボタン専用）。写真が無い時に
+ * 毎回2回叩くと課金が倍になるので、普段の表示ではこの頼み直しはしない。
+ */
+async function searchPlacePhoto(apiKey: string, query: string, diagnose = false): Promise<PlaceSearchOutcome> {
+  const first = await placesTextSearch(apiKey, query, "places.displayName,places.photos");
+  if (!first.ok) throw new Error(`${first.status} ${first.text.slice(0, 200)}`);
+  let data: unknown = null;
+  try {
+    data = JSON.parse(first.text);
+  } catch {
+    throw new Error(`Googleの答えが読み取れませんでした: ${first.text.slice(0, 200)}`);
   }
-  const data = await res.json();
   const cover = parsePlacesResponse(data);
-  return cover ? { cover } : { cover: null, note: describePlacesShortfall(data) };
+  if (cover) return { cover };
+
+  const shortfall = describePlacesShortfall(data);
+  if (!diagnose) return { cover: null, note: shortfall };
+
+  const retry = await placesTextSearch(apiKey, query, "places.photos").catch(() => null);
+  const retryNote = !retry
+    ? "写真だけで頼み直す問い合わせ自体が失敗しました"
+    : retry.ok
+      ? `写真だけで頼み直した答え: ${retry.text.slice(0, 300)}`
+      : `写真だけで頼み直すと ${retry.status}: ${retry.text.slice(0, 300)}`;
+  return { cover: null, note: `${shortfall} ／ ${retryNote}` };
 }
 
 function jsonResponse(res: VercelResponse, statusCode: number, body: unknown) {
@@ -223,7 +249,8 @@ export default async (req: VercelRequest, res: VercelResponse) => {
   }
 
   try {
-    const { cover, note } = await searchPlacePhoto(apiKey, query);
+    const diagnose = req.query.diagnose === "1";
+    const { cover, note } = await searchPlacePhoto(apiKey, query, diagnose);
     return jsonResponse(res, 200, { configured: true, query, cover, note } satisfies TripCoverResponse);
   } catch (error) {
     return jsonResponse(res, 200, {
