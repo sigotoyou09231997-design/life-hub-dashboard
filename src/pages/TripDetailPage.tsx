@@ -41,6 +41,7 @@ import { useToast } from "../components/ui/ToastProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { useTripCover } from "../hooks/useTripCover";
+import { useTripWeather } from "../hooks/useTripWeather";
 import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
@@ -182,6 +183,8 @@ export default function TripDetailPage() {
   // 表紙写真。読み込み中や見つからない場合もフックは同じ回数呼ぶ必要があるので、
   // 下の早期returnより前に置く。
   const cover = useTripCover(tripResult?.trip?.name ?? "", tripResult?.trip?.destination ?? "");
+  // 天気も表紙と同じで、読み込み中でもフックの数を変えないよう早期returnより前で呼ぶ。
+  const weather = useTripWeather(tripResult?.trip?.destination ?? "");
 
   if (!tripId) return null;
 
@@ -296,6 +299,7 @@ export default function TripDetailPage() {
             <TripScheduleList
               dayList={dayList}
               items={schedule}
+              weather={weather}
               onEdit={(item) => setEditingSchedule(item)}
               onDelete={(id) => {
                 db.tripSchedule.delete(id);

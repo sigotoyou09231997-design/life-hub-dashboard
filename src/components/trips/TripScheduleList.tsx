@@ -2,6 +2,8 @@ import type { TripScheduleItem } from "../../types";
 import { formatDisplayDate } from "../../lib/date";
 import { occurringOn, spanLabel, spanTimeText } from "../../lib/eventSpan";
 import { getTripScheduleType } from "../../lib/tripCategories";
+import { forecastForDate, forecastHorizon, type TripWeather } from "../../lib/weather";
+import { TripDayWeather, TripWeatherBanner } from "./TripDayWeather";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { CalendarRange, Clock, MapPin, Plus, Trash2 } from "lucide-react";
@@ -14,6 +16,9 @@ interface Props {
   onLocationTap: (location: string, title: string) => void;
   /** その日を初期値にして「予定を追加」を開く。 */
   onAddForDate: (date: string) => void;
+  /** 行き先の天気予報。まだ引いている最中(undefined)・引けなかった場合は何も出さない
+   * (src/lib/weather.ts)。 */
+  weather?: TripWeather;
 }
 
 /**
@@ -24,18 +29,32 @@ interface Props {
  * 予定が無い日は1行の「予定を追加」に畳む。9日間の旅行だと空の日が縦に積み上がって
  * 延々スクロールすることになるため、空の日ほど小さく収まるようにしてある。
  */
-export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationTap, onAddForDate }: Props) {
+export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationTap, onAddForDate, weather }: Props) {
   if (dayList.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-400">旅行の日程を先に設定してください</p>;
   }
 
+  const forecasts = weather?.status === "ok" ? weather.days : [];
+  const horizon = forecastHorizon(forecasts);
+  // 16日より先はどのAPIでも予報が無い。旅行がそこまで届いている時だけ断りを出す。
+  const beyondHorizon = horizon != null && dayList[dayList.length - 1] > horizon;
+
   return (
     <div className="trip-day-list">
+      {weather?.status === "ok" && weather.place && (
+        <TripWeatherBanner
+          placeName={weather.place.name}
+          country={weather.place.country}
+          horizon={horizon}
+          beyondHorizon={beyondHorizon}
+        />
+      )}
       {dayList.map((date, i) => {
         // またがる日程(2泊の宿泊など)は、初日だけでなくその間の日すべてに出す。
         const dayItems = occurringOn(items, date).sort((a, b) =>
           (a.startTime ?? "").localeCompare(b.startTime ?? ""),
         );
+        const forecast = forecastForDate(forecasts, date);
 
         return (
           <section key={date} className={`trip-day${dayItems.length === 0 ? " trip-day--empty" : ""}`}>
@@ -46,6 +65,7 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
               <h3>
                 {i + 1}日目<span>・{formatDisplayDate(date)}</span>
               </h3>
+              {forecast && <TripDayWeather forecast={forecast} />}
               {dayItems.length > 0 && <b>{dayItems.length}件</b>}
             </header>
             {dayItems.length === 0 ? (
