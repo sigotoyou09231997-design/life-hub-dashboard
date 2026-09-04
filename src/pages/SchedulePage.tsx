@@ -16,6 +16,7 @@ import { TodayView } from "../components/schedule/TodayView";
 import { CalendarView } from "../components/schedule/CalendarView";
 import { ListView } from "../components/schedule/ListView";
 import { JobApplicationList } from "../components/jobs/JobApplicationList";
+import { JobDashboard } from "../components/jobs/JobDashboard";
 import { JobApplicationForm } from "../components/jobs/JobApplicationForm";
 import type { TripAgendaEntry } from "../components/schedule/TripAgendaList";
 import { useToast } from "../components/ui/ToastProvider";
@@ -180,12 +181,15 @@ export default function SchedulePage() {
         )}
 
         {tab === "jobs" && (
-          <JobApplicationList
-            applications={jobsResult ?? []}
-            onEdit={(application) => setEditingJob(application)}
-            onDelete={handleDeleteJob}
-            onAdd={() => setEditingJob("new")}
-          />
+          <div className="space-y-4">
+            <JobDashboard applications={jobsResult ?? []} />
+            <JobApplicationList
+              applications={jobsResult ?? []}
+              onEdit={(application) => setEditingJob(application)}
+              onDelete={handleDeleteJob}
+              onAdd={() => setEditingJob("new")}
+            />
+          </div>
         )}
           </div>
         )}
