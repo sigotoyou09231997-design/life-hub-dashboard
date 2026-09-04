@@ -36,9 +36,11 @@ import { AmountInput, Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { SwitchField } from "../components/ui/SwitchField";
 import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/ConfirmProvider";
 
 export default function SettingsPage() {
   const showToast = useToast();
+  const confirm = useConfirm();
 
   // 更新履歴の新着。読んだ印は画面を開いた時に進むので、ここでは数えるだけ。
   const [unreadCount] = useState(() => unreadChangelog(getSeenChangelogId()).length);
@@ -82,7 +84,7 @@ export default function SettingsPage() {
 
   async function handleDeleteGoal(goal: SavingsGoal) {
     if (!goal.id) return;
-    if (!confirm(`「${goal.name}」を削除します。よろしいですか?`)) return;
+    if (!(await confirm({ title: `「${goal.name}」を削除します。よろしいですか?` }))) return;
     await db.savingsGoals.delete(goal.id);
     if (goalDraft?.id === goal.id) setGoalDraft(null);
     showToast("貯金目標を削除しました");
@@ -120,7 +122,7 @@ export default function SettingsPage() {
 
   async function handleDeleteBudget(budget: CategoryBudget) {
     if (!budget.id) return;
-    if (!confirm(`「${budget.category}」の予算を削除します。よろしいですか?`)) return;
+    if (!(await confirm({ title: `「${budget.category}」の予算を削除します。よろしいですか?` }))) return;
     await db.categoryBudgets.delete(budget.id);
     if (budgetDraft?.id === budget.id) setBudgetDraft(null);
     showToast("予算を削除しました");
@@ -196,7 +198,11 @@ export default function SettingsPage() {
   async function handleImport(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!confirm("現在のデータをすべて置き換えて復元します。よろしいですか?")) {
+    const ok = await confirm({
+      title: "現在のデータをすべて置き換えて復元します。よろしいですか?",
+      confirmLabel: "復元する",
+    });
+    if (!ok) {
       e.target.value = "";
       return;
     }

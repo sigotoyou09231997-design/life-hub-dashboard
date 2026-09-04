@@ -25,6 +25,7 @@ import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
 import { MailPlanImport } from "./MailPlanImport";
 import { useToast } from "../ui/ToastProvider";
+import { useConfirm } from "../ui/ConfirmProvider";
 import { MonthView } from "../calendar/MonthView";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { updateMessageState } from "../../lib/gmailMessageState";
@@ -122,6 +123,7 @@ function SuggestionBanner({ icon, children, onDismiss, actionLabel, onAction }: 
 
 export function DraftReview({ email, account, onSent, variant = "pane" }: Props) {
   const showToast = useToast();
+  const confirm = useConfirm();
 
   // Wrapped in an object so `undefined` unambiguously means "still loading" —
   // .first() itself resolves to `undefined` when no draft exists yet, which
@@ -433,7 +435,12 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
       void unblockSenderRemote(account.email, normalizedEmail);
       showToast("ブロックを解除しました");
     } else {
-      if (!confirm(`${sender.email} からのメールを今後この一覧に表示しないようにしますか？(Gmail自体には影響しません)`)) return;
+      const ok = await confirm({
+        title: `${sender.email} からのメールを今後この一覧に表示しないようにしますか？`,
+        message: "Gmail自体には影響しません。",
+        confirmLabel: "表示しない",
+      });
+      if (!ok) return;
       const localId = await db.blockedSenders.add({ accountId: account.id, email: normalizedEmail, createdAt: Date.now() });
       void blockSenderRemote(account.email, normalizedEmail, localId);
       showToast("送信者をブロックしました");

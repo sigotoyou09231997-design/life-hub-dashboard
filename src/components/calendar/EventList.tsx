@@ -7,6 +7,7 @@ import { spanLabel, spanTimeText } from "../../lib/eventSpan";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
+import { useConfirm } from "../ui/ConfirmProvider";
 import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { isRepeating, repeatLabel } from "../../lib/repeatRule";
 
@@ -25,6 +26,7 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
   // 「誰の予定か」の名前と色。1件ずつ引くとリストの行数だけ購読が増えるので、
   // ここで1回だけ引いて各行へ配る。空の早期returnより前に置くこと(フックの規則)。
   const people = useLiveQuery(() => db.eventPeople.toArray(), []) ?? [];
+  const confirm = useConfirm();
 
   if (events.length === 0) {
     return <EmptyState icon={CalendarClock} title={emptyMessage} />;
@@ -79,8 +81,8 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  if (ev.id && confirm(`「${ev.title}」を削除しますか?`)) onDelete(ev.id);
+                onClick={async () => {
+                  if (ev.id && (await confirm({ title: `「${ev.title}」を削除しますか?` }))) onDelete(ev.id);
                 }}
                 aria-label="削除"
                 className="pointer-events-auto shrink-0 rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"

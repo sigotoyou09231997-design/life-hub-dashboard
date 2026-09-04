@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import type { TripRoutePlace } from "../../types";
 import type { RouteSuggestion } from "../../lib/tripRouteSuggestions";
 import { TripRouteView } from "./TripRouteView";
+import { ConfirmProvider } from "../ui/ConfirmProvider";
 
 vi.mock("../../db/schema", () => ({
   db: { tripRoutePlaces: { update: async () => {} } },
@@ -37,6 +38,8 @@ function renderView() {
       onEdit={() => {}}
       onDelete={() => {}}
     />,
+    // 削除の確認はアプリ内のシートで聞くので、その土台ごと描く。
+    { wrapper: ConfirmProvider },
   );
 }
 
@@ -86,6 +89,7 @@ describe("旅行のルート", () => {
         onEdit={() => {}}
         onDelete={() => {}}
       />,
+      { wrapper: ConfirmProvider },
     );
 
     // 既定は1日目(「すべて」は置いていない — その日に回る順として読めないため)。
@@ -114,6 +118,7 @@ describe("旅行のルート", () => {
         onEdit={() => {}}
         onDelete={() => {}}
       />,
+      { wrapper: ConfirmProvider },
     );
 
     expect(await screen.findByTitle("宿泊先の地図")).toBeTruthy();
@@ -146,6 +151,7 @@ describe("旅行のルート", () => {
         onEdit={() => {}}
         onDelete={() => {}}
       />,
+      { wrapper: ConfirmProvider },
     );
 
     await user.click(screen.getByRole("button", { name: /1日目/ }));
@@ -181,6 +187,7 @@ describe("旅行のルート", () => {
         onEdit={() => {}}
         onDelete={() => {}}
       />,
+      { wrapper: ConfirmProvider },
     );
 
     await user.click(screen.getByRole("button", { name: /2日目/ }));

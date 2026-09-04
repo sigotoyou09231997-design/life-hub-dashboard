@@ -4,6 +4,7 @@ import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { isRepeating, repeatLabel } from "../../lib/repeatRule";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
+import { useConfirm } from "../ui/ConfirmProvider";
 import { CalendarArrowDown, Check, Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -22,6 +23,7 @@ const PRIORITY_TONE = { high: "danger", medium: "warning", low: "neutral" } as c
 const PRIORITY_LABEL = { high: "高", medium: "中", low: "低" } as const;
 
 export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubtask, onPostpone, indent }: Props) {
+  const confirm = useConfirm();
   const subtasks = allTasks.filter((t) => t.parentTaskId === task.id);
   const overdue = !task.completed && isOverdue(task.dueDate, task.dueTime);
   const category = getScheduleCategory(task.category);
@@ -29,15 +31,15 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
   // 先の日付のタスクに出しても押す理由が無く、行のボタンが増えるだけになる。
   const canPostpone = Boolean(onPostpone) && !task.completed && isDueTodayOrEarlier(task.dueDate);
 
-  function handleDeleteClick() {
+  async function handleDeleteClick() {
     if (!task.id) return;
-    const message =
-      subtasks.length > 0
-        ? `「${task.title}」を削除しますか?配下のサブタスク(${subtasks.length}件)もすべて削除されます。`
-        : task.parentTaskId
-          ? `サブタスク「${task.title}」を削除しますか?`
-          : `「${task.title}」を削除しますか?`;
-    if (confirm(message)) onDelete(task.id);
+    const title = task.parentTaskId && subtasks.length === 0
+      ? `サブタスク「${task.title}」を削除しますか?`
+      : `「${task.title}」を削除しますか?`;
+    const message = subtasks.length > 0
+      ? `配下のサブタスク(${subtasks.length}件)もすべて削除されます。`
+      : undefined;
+    if (await confirm({ title, message })) onDelete(task.id);
   }
 
   return (

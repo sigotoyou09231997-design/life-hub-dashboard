@@ -39,6 +39,7 @@ import { DiaryList } from "../components/diary/DiaryList";
 import { DiaryForm } from "../components/diary/DiaryForm";
 import { EmptyState } from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/ConfirmProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { useTripCover } from "../hooks/useTripCover";
@@ -67,6 +68,7 @@ export default function TripDetailPage() {
   const tripId = id ?? "";
   const navigate = useNavigate();
   const showToast = useToast();
+  const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get("tab");
   const initialTab: Tab = VALID_TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "schedule";
@@ -220,7 +222,11 @@ export default function TripDetailPage() {
 
   async function handleDelete() {
     if (!trip?.id) return;
-    if (!confirm(`「${trip.name}」を削除しますか?関連するスケジュール・費用・持ち物・行きたい場所・日記もすべて削除されます。`)) return;
+    const ok = await confirm({
+      title: `「${trip.name}」を削除しますか?`,
+      message: "関連するスケジュール・費用・持ち物・行きたい場所・日記もすべて削除されます。",
+    });
+    if (!ok) return;
     await deleteTripCascade(trip.id);
     navigate("/trips");
   }
@@ -442,9 +448,13 @@ export default function TripDetailPage() {
             <TripDocumentList
               documents={documents}
               onEdit={(document) => setEditingDocument(document)}
-              onDelete={(document) => {
+              onDelete={async (document) => {
                 if (!document.id) return;
-                if (!confirm(`「${document.title}」を削除しますか?貼った写真も一緒に消えます。`)) return;
+                const ok = await confirm({
+                  title: `「${document.title}」を削除しますか?`,
+                  message: "貼った写真も一緒に消えます。",
+                });
+                if (!ok) return;
                 // 貼った写真は別のテーブルにあるので、一緒に落とす(src/lib/attachments.ts)。
                 void Promise.all([
                   db.tripDocuments.delete(document.id),

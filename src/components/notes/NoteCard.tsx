@@ -5,6 +5,7 @@ import { getNoteType, getNoteTypeDef } from "../../lib/noteTypes";
 import { PhotoStrip } from "../attachments/PhotoStrip";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
+import { useConfirm } from "../ui/ConfirmProvider";
 import { Pin, CheckSquare, CalendarPlus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -62,6 +63,7 @@ function NoteSummary({ note }: { note: Note }) {
 }
 
 export function NoteCard({ note, photos = [], onEdit, onDelete }: Props) {
+  const confirm = useConfirm();
   const type = getNoteType(note);
   const typeDef = getNoteTypeDef(type);
   const TypeIcon = typeDef.icon;
@@ -123,8 +125,8 @@ export function NoteCard({ note, photos = [], onEdit, onDelete }: Props) {
           )}
           <button
             type="button"
-            onClick={() => {
-              if (note.id && confirm(`「${note.title}」を削除しますか?`)) onDelete(note.id);
+            onClick={async () => {
+              if (note.id && (await confirm({ title: `「${note.title}」を削除しますか?` }))) onDelete(note.id);
             }}
             aria-label="削除"
             className="ml-auto flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-400 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"

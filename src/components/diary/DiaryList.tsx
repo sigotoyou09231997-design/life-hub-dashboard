@@ -8,6 +8,7 @@ import { buildMapEmbedUrl, buildMapSearchUrl, coordsQuery } from "../../lib/goog
 import { PhotoStrip } from "../attachments/PhotoStrip";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
+import { useConfirm } from "../ui/ConfirmProvider";
 
 interface Props {
   entries: DiaryEntry[];
@@ -44,6 +45,7 @@ export function DiaryList({ entries, onEdit, onDelete }: Props) {
   // 日記ぶんをまとめて読んでから配る(src/lib/attachments.ts)。
   const photos = useLiveQuery(() => db.attachments.where("ownerType").equals("diary").toArray(), []);
   const photosByEntry = groupByOwner(photos ?? []);
+  const confirm = useConfirm();
 
   return (
     <div className="diary-board">
@@ -84,10 +86,11 @@ export function DiaryList({ entries, onEdit, onDelete }: Props) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
-                          if (entry.id && confirm(`${formatDisplayDate(entry.date)}の日記を削除しますか?`)) {
-                            onDelete(entry.id);
-                          }
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: `${formatDisplayDate(entry.date)}の日記を削除しますか?`,
+                          });
+                          if (entry.id && ok) onDelete(entry.id);
                         }}
                         aria-label="削除"
                         className="diary-entry__remove"

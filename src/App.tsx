@@ -11,6 +11,7 @@ import { IS_ADDING_ACCOUNT } from "./lib/accounts";
 import { refreshViewportGap } from "./lib/viewport";
 import { finishAddAccount, rememberSignedInAccount } from "./lib/accountSwitch";
 import { ToastProvider } from "./components/ui/ToastProvider";
+import { ConfirmProvider } from "./components/ui/ConfirmProvider";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AmbientBackground } from "./components/layout/AmbientBackground";
 import { AppHeader } from "./components/layout/AppHeader";
@@ -49,6 +50,15 @@ function LazyRoute({ children }: { children: ReactNode }) {
     >
       {children}
     </Suspense>
+  );
+}
+
+/** 画面のどこからでも使う土台(トースト・確認ダイアログ)をまとめる。 */
+function AppProviders({ children }: { children: ReactNode }) {
+  return (
+    <ToastProvider>
+      <ConfirmProvider>{children}</ConfirmProvider>
+    </ToastProvider>
   );
 }
 
@@ -190,7 +200,7 @@ export default function App() {
   }
 
   return (
-    <ToastProvider>
+    <AppProviders>
       <AmbientBackground />
       <UpdateBanner />
       <div className="app-viewport">
@@ -238,6 +248,6 @@ export default function App() {
           <QuickActionBar />
         </div>
       </div>
-    </ToastProvider>
+    </AppProviders>
   );
 }

@@ -20,6 +20,7 @@ import { JobDashboard } from "../components/jobs/JobDashboard";
 import { JobApplicationForm } from "../components/jobs/JobApplicationForm";
 import type { TripAgendaEntry } from "../components/schedule/TripAgendaList";
 import { useToast } from "../components/ui/ToastProvider";
+import { useConfirm } from "../components/ui/ConfirmProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 
@@ -41,6 +42,7 @@ function tabFromView(view: string | null): Tab {
 
 export default function SchedulePage() {
   const showToast = useToast();
+  const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => tabFromView(searchParams.get("view")));
 
@@ -105,9 +107,9 @@ export default function SchedulePage() {
     db.calendarEvents.delete(id);
     showToast("削除しました");
   }
-  function handleDeleteJob(application: JobApplication) {
+  async function handleDeleteJob(application: JobApplication) {
     if (!application.id) return;
-    if (!confirm(`「${application.companyName}」を削除します。よろしいですか?`)) return;
+    if (!(await confirm({ title: `「${application.companyName}」を削除します。よろしいですか?` }))) return;
     // カレンダーへ入れた予定は消さない — 応募先の記録をやめても、その日に
     // 面接があった事実は予定表に残しておきたい(消したいなら予定の側で消せる)。
     db.jobApplications.delete(application.id);

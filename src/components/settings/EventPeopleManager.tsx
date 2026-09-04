@@ -14,6 +14,7 @@ import {
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { useToast } from "../ui/ToastProvider";
+import { useConfirm } from "../ui/ConfirmProvider";
 
 /**
  * 設定の「誰の予定か」。名前の変更・色の変更・削除をここでまとめて行う。
@@ -27,6 +28,7 @@ export function EventPeopleManager() {
   const people = sortPeople(peopleResult ?? []);
   const [draftName, setDraftName] = useState("");
   const showToast = useToast();
+  const confirm = useConfirm();
 
   async function add(): Promise<void> {
     const name = draftName.trim();
@@ -60,7 +62,12 @@ export function EventPeopleManager() {
 
   async function remove(person: EventPerson): Promise<void> {
     if (!person.id) return;
-    if (!confirm(`「${person.name}」を消しますか?\n付けてある予定は消えません(印だけ外れます)。`)) return;
+    const ok = await confirm({
+      title: `「${person.name}」を消しますか?`,
+      message: "付けてある予定は消えません(印だけ外れます)。",
+      confirmLabel: "消す",
+    });
+    if (!ok) return;
     const personId = person.id;
     await db.transaction("rw", db.eventPeople, db.calendarEvents, async () => {
       const affected = await db.calendarEvents.filter((event) => personIdsOf(event).includes(personId)).toArray();

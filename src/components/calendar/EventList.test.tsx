@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import type { CalendarEvent } from "../../types";
 import { EventList } from "./EventList";
+import { ConfirmProvider } from "../ui/ConfirmProvider";
 
 /** 9/27の10時に入って、9/29の11時に出る宿泊。 */
 const stay: CalendarEvent = {
@@ -27,7 +28,10 @@ const oneDay: CalendarEvent = {
 };
 
 function renderList(events: CalendarEvent[], onDate?: string) {
-  render(<EventList events={events} onEdit={() => {}} onDelete={() => {}} onDate={onDate} />);
+  // 削除の確認はアプリ内のシートで聞くので、その土台ごと描く。
+  render(<EventList events={events} onEdit={() => {}} onDelete={() => {}} onDate={onDate} />, {
+    wrapper: ConfirmProvider,
+  });
 }
 
 afterEach(cleanup);

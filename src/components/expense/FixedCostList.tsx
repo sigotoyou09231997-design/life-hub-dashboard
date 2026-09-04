@@ -6,6 +6,7 @@ import { Bell, CreditCard, Trash2 } from "lucide-react";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
+import { useConfirm } from "../ui/ConfirmProvider";
 
 interface Props {
   fixedCosts: FixedCost[];
@@ -17,6 +18,7 @@ export function FixedCostList({ fixedCosts, onEdit, onDelete }: Props) {
   // 金額を変えた記録は1件ずつ引かず、まとめて読んでから配る。
   const changes = useLiveQuery(() => db.fixedCostAmountChanges.toArray(), []);
   const latestByCost = groupChangesByFixedCost(changes ?? []);
+  const confirm = useConfirm();
 
   if (fixedCosts.length === 0) {
     return (
@@ -66,8 +68,8 @@ export function FixedCostList({ fixedCosts, onEdit, onDelete }: Props) {
               <span className="text-sm font-semibold text-slate-900">¥{f.amount.toLocaleString()}</span>
               <button
                 type="button"
-                onClick={() => {
-                  if (f.id && confirm(`「${f.title}」を削除しますか?`)) onDelete(f.id);
+                onClick={async () => {
+                  if (f.id && (await confirm({ title: `「${f.title}」を削除しますか?` }))) onDelete(f.id);
                 }}
                 aria-label="削除"
                 className="pointer-events-auto rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"

@@ -3,6 +3,7 @@ import type { Transaction } from "../../types";
 import { formatDisplayDate } from "../../lib/date";
 import { Card } from "../ui/Card";
 import { ListRow } from "../ui/ListRow";
+import { useConfirm } from "../ui/ConfirmProvider";
 
 interface Props {
   bonuses: Transaction[];
@@ -13,6 +14,8 @@ interface Props {
 
 /** 賞与の一覧。給与とは別の収入なので、給与タブの中で節を分けて置く。 */
 export function BonusList({ bonuses, onAdd, onEdit, onDelete }: Props) {
+  const confirm = useConfirm();
+
   return (
     <Card className="p-4 lg:p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -53,8 +56,8 @@ export function BonusList({ bonuses, onAdd, onEdit, onDelete }: Props) {
                   <span className="text-sm font-semibold text-success">+¥{bonus.amount.toLocaleString()}</span>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (bonus.id && confirm(`${formatDisplayDate(bonus.date)}の賞与を削除しますか?`)) {
+                    onClick={async () => {
+                      if (bonus.id && (await confirm({ title: `${formatDisplayDate(bonus.date)}の賞与を削除しますか?` }))) {
                         onDelete(bonus.id);
                       }
                     }}

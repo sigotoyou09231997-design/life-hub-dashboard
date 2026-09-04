@@ -10,6 +10,7 @@ import { Card } from "../ui/Card";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
 import { useToast } from "../ui/ToastProvider";
+import { useConfirm } from "../ui/ConfirmProvider";
 
 interface Props {
   onImport: () => void;
@@ -28,6 +29,7 @@ function yen(n: number): string {
  */
 export function PendingCardChargeList({ onImport }: Props) {
   const showToast = useToast();
+  const confirm = useConfirm();
   const charges = useLiveQuery(() => db.pendingCardCharges.toArray(), []);
   const transactions = useLiveQuery(() => db.transactions.toArray(), []);
 
@@ -56,7 +58,11 @@ export function PendingCardChargeList({ onImport }: Props) {
 
   async function handleDelete(charge: PendingCardCharge) {
     if (!charge.id) return;
-    if (!confirm(`「${charge.store || "カード利用"}」(${yen(charge.amount)})を一覧から消しますか?`)) return;
+    const ok = await confirm({
+      title: `「${charge.store || "カード利用"}」(${yen(charge.amount)})を一覧から消しますか?`,
+      confirmLabel: "一覧から消す",
+    });
+    if (!ok) return;
     await db.pendingCardCharges.delete(charge.id);
     showToast("削除しました");
   }

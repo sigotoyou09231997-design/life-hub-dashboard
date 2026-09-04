@@ -30,6 +30,7 @@ import { formatShortDate } from "../../lib/date";
 import { TripRouteForm } from "./TripRouteForm";
 import { TripLegRoute } from "./TripLegRoute";
 import { TripPlaceStation } from "./TripPlaceStation";
+import { useConfirm } from "../ui/ConfirmProvider";
 
 interface Props {
   tripId: string;
@@ -136,6 +137,7 @@ export function TripRouteView({
   onEdit,
   onDelete,
 }: Props) {
+  const confirm = useConfirm();
   /** 区間ごとの移動手段。1つにまとめて持っていた頃は、どこかで「車」に変えると
    * ほかの地図まで全部つられて変わり、「この区間は電車・ここは車」という見方が
    * できなかった(2026-08-26の指摘)。鍵は区間の始点の場所id(現在地からの区間は
@@ -456,8 +458,11 @@ export function TripRouteView({
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (place.id && confirm(`「${place.name}」をルートから削除しますか?`)) onDelete(place.id);
+                                onClick={async () => {
+                                  const ok = await confirm({
+                                    title: `「${place.name}」をルートから削除しますか?`,
+                                  });
+                                  if (place.id && ok) onDelete(place.id);
                                 }}
                                 aria-label="削除"
                                 className="trip-route-card__remove"

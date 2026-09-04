@@ -5,6 +5,7 @@ import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
+import { useConfirm } from "../ui/ConfirmProvider";
 import { Receipt, Trash2 } from "lucide-react";
 
 interface Props {
@@ -21,6 +22,7 @@ function yen(n: number): string {
 }
 
 export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies }: Props) {
+  const confirm = useConfirm();
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);
   const paidTotal = expenses.filter((e) => e.paid).reduce((sum, e) => sum + e.amount, 0);
   const remaining = budget != null ? budget - total : undefined;
@@ -88,8 +90,8 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (e.id && confirm(`「${e.title}」を削除しますか?`)) onDelete(e.id);
+                      onClick={async () => {
+                        if (e.id && (await confirm({ title: `「${e.title}」を削除しますか?` }))) onDelete(e.id);
                       }}
                       aria-label="削除"
                       className="pointer-events-auto rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"

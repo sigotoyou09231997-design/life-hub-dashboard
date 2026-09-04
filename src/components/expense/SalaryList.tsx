@@ -2,6 +2,7 @@ import type { SalaryEntry } from "../../types";
 import { Trash2, Wallet } from "lucide-react";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
+import { useConfirm } from "../ui/ConfirmProvider";
 
 interface Props {
   salaries: SalaryEntry[];
@@ -16,6 +17,8 @@ function formatMonth(month: string): string {
 }
 
 export function SalaryList({ salaries, onEdit, onDelete }: Props) {
+  const confirm = useConfirm();
+
   if (salaries.length === 0) {
     return (
       <EmptyState icon={Wallet} title="給与がまだ登録されていません" description="下のボタンから登録できます。" />
@@ -43,8 +46,10 @@ export function SalaryList({ salaries, onEdit, onDelete }: Props) {
               <span className="text-sm font-semibold text-slate-900">¥{s.amount.toLocaleString()}</span>
               <button
                 type="button"
-                onClick={() => {
-                  if (s.id && confirm(`「${formatMonth(s.month)}」の給与を削除しますか?`)) onDelete(s.id);
+                onClick={async () => {
+                  if (s.id && (await confirm({ title: `「${formatMonth(s.month)}」の給与を削除しますか?` }))) {
+                    onDelete(s.id);
+                  }
                 }}
                 aria-label="削除"
                 className="pointer-events-auto rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"

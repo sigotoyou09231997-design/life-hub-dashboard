@@ -6,6 +6,7 @@ import { forecastForDate, forecastHorizon, type TripWeather } from "../../lib/we
 import { TripDayWeather, TripWeatherBanner } from "./TripDayWeather";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
+import { useConfirm } from "../ui/ConfirmProvider";
 import { CalendarRange, Clock, MapPin, Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -30,6 +31,8 @@ interface Props {
  * 延々スクロールすることになるため、空の日ほど小さく収まるようにしてある。
  */
 export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationTap, onAddForDate, weather }: Props) {
+  const confirm = useConfirm();
+
   if (dayList.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-400">旅行の日程を先に設定してください</p>;
   }
@@ -120,8 +123,10 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
                         </div>
                         <button
                           type="button"
-                          onClick={() => {
-                            if (item.id && confirm(`「${item.title}」を削除しますか?`)) onDelete(item.id);
+                          onClick={async () => {
+                            if (item.id && (await confirm({ title: `「${item.title}」を削除しますか?` }))) {
+                              onDelete(item.id);
+                            }
                           }}
                           aria-label="削除"
                           className="pointer-events-auto shrink-0 rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
