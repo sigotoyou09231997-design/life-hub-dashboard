@@ -3,6 +3,7 @@
  *
  * レートは Frankfurter(https://frankfurter.app/)から取る。ECBの公表値が元で、
  * APIキーが要らず無料なので、天気と同じくブラウザから直に引ける。
+ * 取りに行く先は1つではない — 詳しくは RATE_SOURCES。
  * **取ったレートは手で上書きできる** — カードの実際のレートは、その日の
  * 公表値とはたいてい違うため(2026-09-04の本人の指示)。
  *
@@ -15,11 +16,15 @@
 import { db } from "../db/schema";
 import type { TripExpenseCurrency } from "../types";
 
-const ENDPOINT = "https://api.frankfurter.app/latest";
-
 /** レートは1日1回しか更新されない(ECBの公表)ので、半日覚えておけば足りる。 */
 const RATE_TTL_MS = 12 * 60 * 60 * 1000;
 const RATE_CACHE_PREFIX = "lifehub.fxRate.v1:";
+
+/** 1回の問い合わせを待つ上限。返らないホストで入力を止めないため。 */
+const REQUEST_TIMEOUT_MS = 7000;
+/** 一時的な失敗のときに引き直す回数(1なら「もう1回だけ」)。 */
+const RETRIES_PER_SOURCE = 1;
+const RETRY_DELAY_MS = 400;
 
 /** 円。この値のときは換算そのものを行わない。 */
 export const HOME_CURRENCY = "JPY";
@@ -86,6 +91,85 @@ export function parseRateResponse(json: unknown, currency: string): number | und
   return rate;
 }
 
+/**
+ * 予備の為替API(open.er-api.com)の応答。Frankfurter と形が違い、
+ * 元の通貨は `base` ではなく `base_code` に入る。
+ */
+export function parseErApiResponse(json: unknown, currency: string): number | undefined {
+  const body = json as { result?: unknown; base_code?: unknown; rates?: Record<string, unknown> } | null;
+  if (typeof body?.result === "string" && body.result !== "success") return undefined;
+  const rate = body?.rates?.[HOME_CURRENCY];
+  if (typeof rate !== "number" || !Number.isFinite(rate) || rate <= 0) return undefined;
+  if (typeof body?.base_code === "string" && body.base_code !== currency) return undefined;
+  return rate;
+}
+
+interface RateSource {
+  name: string;
+  url(currency: string): string;
+  parse(json: unknown, currency: string): number | undefined;
+}
+
+/**
+ * 上から順に試す。2026-09-04 の本番確認で api.frankfurter.app が 503 を返して
+ * 手入力に落ちたため、同じ Frankfurter の別ホストと、別提供元(er-api)を後ろに足した。
+ * どれも APIキーが要らず、ブラウザから直に引ける(CORS が開いている)。
+ */
+const RATE_SOURCES: RateSource[] = [
+  {
+    name: "frankfurter.app",
+    url: (currency) => `https://api.frankfurter.app/latest?from=${encodeURIComponent(currency)}&to=${HOME_CURRENCY}`,
+    parse: parseRateResponse,
+  },
+  {
+    name: "frankfurter.dev",
+    url: (currency) =>
+      `https://api.frankfurter.dev/v1/latest?base=${encodeURIComponent(currency)}&symbols=${HOME_CURRENCY}`,
+    parse: parseRateResponse,
+  },
+  {
+    name: "er-api",
+    url: (currency) => `https://open.er-api.com/v6/latest/${encodeURIComponent(currency)}`,
+    parse: parseErApiResponse,
+  },
+];
+
+/**
+ * もう一度引いて直る見込みがある失敗か。混雑(429)とサーバー側の不調(5xx)、
+ * それと通信そのものの失敗だけを引き直す。404 や 400 は何度やっても同じ。
+ */
+function isTransientStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** 1つの提供元から引く。取れなければ undefined(投げない)。 */
+async function fetchFromSource(source: RateSource, currency: string, retryDelayMs: number): Promise<number | undefined> {
+  for (let attempt = 0; attempt <= RETRIES_PER_SOURCE; attempt += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(source.url(currency), { signal: controller.signal });
+      if (!res.ok) {
+        // 直る見込みが無い失敗なら、この提供元はここで諦めて次へ回す。
+        if (!isTransientStatus(res.status)) return undefined;
+        throw new Error(`rate failed (${res.status})`);
+      }
+      // 200 が返ったのに読めない応答は、引き直しても同じなので次の提供元へ回す。
+      return source.parse(await res.json(), currency);
+    } catch (error) {
+      console.error(`[currency] ${source.name} failed (attempt ${attempt + 1}):`, error);
+      if (attempt < RETRIES_PER_SOURCE && retryDelayMs > 0) await delay(retryDelayMs);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return undefined;
+}
+
 /** 現地通貨の金額とレートから円を出す。円は小数を持たないので四捨五入する。 */
 export function toYen(originalAmount: number, rate: number): number {
   return Math.round(originalAmount * rate);
@@ -119,24 +203,28 @@ function writeCachedRate(currency: string, rate: number, now: number): void {
 /**
  * 1通貨あたりの円を取りに行く。取れなければ undefined を返す(投げない) —
  * その時は手でレートを入れてもらう形にして、入力そのものは止めない。
+ *
+ * 1回失敗しただけでは諦めない: 提供元ごとに1回引き直し、それでも駄目なら
+ * 次の提供元へ回す(RATE_SOURCES)。retryDelayMs はテストから0にするため。
  */
-export async function fetchRateToYen(currency: string, now: number = Date.now()): Promise<number | undefined> {
+export async function fetchRateToYen(
+  currency: string,
+  now: number = Date.now(),
+  { retryDelayMs = RETRY_DELAY_MS }: { retryDelayMs?: number } = {},
+): Promise<number | undefined> {
   if (!isRateFetchable(currency)) return undefined;
 
   const cached = readCachedRate(currency, now);
   if (cached != null) return cached;
 
-  try {
-    const res = await fetch(`${ENDPOINT}?from=${encodeURIComponent(currency)}&to=${HOME_CURRENCY}`);
-    if (!res.ok) throw new Error(`rate failed (${res.status})`);
-    const rate = parseRateResponse(await res.json(), currency);
-    if (rate == null) return undefined;
-    writeCachedRate(currency, rate, now);
-    return rate;
-  } catch (error) {
-    console.error("[currency] failed to fetch rate:", error);
-    return undefined;
+  for (const source of RATE_SOURCES) {
+    const rate = await fetchFromSource(source, currency, retryDelayMs);
+    if (rate != null) {
+      writeCachedRate(currency, rate, now);
+      return rate;
+    }
   }
+  return undefined;
 }
 
 /** 「€45.00」。円は扱わない(円の支出には通貨の行が付かないため)。 */

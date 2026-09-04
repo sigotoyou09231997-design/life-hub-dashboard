@@ -12,6 +12,7 @@ import {
   formatOriginalAmount,
   isCurrencyDraftComplete,
   isRateFetchable,
+  parseErApiResponse,
   parseRateResponse,
   readCachedRate,
   toYen,
@@ -19,6 +20,8 @@ import {
 } from "./currency";
 
 const RATE_OK = { amount: 1, base: "EUR", date: "2026-09-03", rates: { JPY: 171.5 } };
+/** 予備の提供元(open.er-api.com)の形。元の通貨が base ではなく base_code に入る。 */
+const ER_API_OK = { result: "success", base_code: "EUR", rates: { JPY: 171.5 } };
 
 function mockFetch(body: unknown, ok = true) {
   const fetchMock = vi.fn(async () => ({ ok, json: async () => body }) as unknown as Response);
@@ -124,13 +127,84 @@ describe("fetchRateToYen", () => {
         throw new Error("offline");
       }),
     );
-    expect(await fetchRateToYen("EUR")).toBeUndefined();
+    expect(await fetchRateToYen("EUR", Date.now(), { retryDelayMs: 0 })).toBeUndefined();
   });
 
   it("失敗したレートは覚えない", async () => {
     mockFetch({ base: "EUR", rates: {} });
     expect(await fetchRateToYen("EUR")).toBeUndefined();
     expect(readCachedRate("EUR")).toBeUndefined();
+  });
+
+  it("1回こけただけでは諦めず、同じ提供元に引き直す", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = vi.fn(async (_url: string) =>
+      fetchMock.mock.calls.length === 1
+        ? ({ ok: false, status: 503, json: async () => ({}) } as unknown as Response)
+        : ({ ok: true, json: async () => RATE_OK } as unknown as Response),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchRateToYen("EUR", Date.now(), { retryDelayMs: 0 })).toBe(171.5);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // 2回とも同じ提供元(最初のホスト)に引いている。
+    expect(fetchMock.mock.calls.every((call) => String(call[0]).includes("api.frankfurter.app"))).toBe(true);
+  });
+
+  it("引き直しても駄目なら、次の提供元に回る", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = vi.fn(async (url: string) =>
+      url.includes("api.frankfurter.app")
+        ? ({ ok: false, status: 503, json: async () => ({}) } as unknown as Response)
+        : ({ ok: true, json: async () => RATE_OK } as unknown as Response),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchRateToYen("EUR", Date.now(), { retryDelayMs: 0 })).toBe(171.5);
+    // 最初の提供元に2回(引き直しぶん)、そのあと次の提供元へ。
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(String(fetchMock.mock.calls[2][0])).toContain("api.frankfurter.dev");
+  });
+
+  it("直る見込みの無い失敗(404)は引き直さず、すぐ次の提供元へ回す", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = vi.fn(async (url: string) =>
+      url.includes("frankfurter")
+        ? ({ ok: false, status: 404, json: async () => ({}) } as unknown as Response)
+        : ({ ok: true, json: async () => ER_API_OK } as unknown as Response),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await fetchRateToYen("EUR", Date.now(), { retryDelayMs: 0 })).toBe(171.5);
+    // frankfurter の2ホストに1回ずつ(引き直さない)、そのあと予備の提供元。
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("どの提供元も駄目なら undefined(手入力に落ちる)", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchMock = mockFetch({}, false);
+    expect(await fetchRateToYen("EUR", Date.now(), { retryDelayMs: 0 })).toBeUndefined();
+    // ok:false は status を持たない(=0 扱い)ので引き直さず、3提供元を1回ずつ。
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("parseErApiResponse", () => {
+  it("予備の提供元の形(base_code)からも1通貨あたりの円を取り出す", () => {
+    expect(parseErApiResponse(ER_API_OK, "EUR")).toBe(171.5);
+  });
+
+  it("頼んだ通貨と違う応答は使わない", () => {
+    expect(parseErApiResponse(ER_API_OK, "USD")).toBeUndefined();
+  });
+
+  it("提供元が失敗を返していれば使わない", () => {
+    expect(parseErApiResponse({ ...ER_API_OK, result: "error" }, "EUR")).toBeUndefined();
+  });
+
+  it("円のレートが無い・数字でなければ undefined", () => {
+    expect(parseErApiResponse({ result: "success", base_code: "EUR", rates: { USD: 1.1 } }, "EUR")).toBeUndefined();
+    expect(parseErApiResponse(null, "EUR")).toBeUndefined();
   });
 });
 
