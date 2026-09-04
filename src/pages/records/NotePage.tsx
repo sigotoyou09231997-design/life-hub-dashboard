@@ -8,6 +8,7 @@ import { selectStandaloneDiaries } from "../../lib/diaryEntries";
 import { deleteAttachmentsFor } from "../../lib/attachments";
 import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
+import { PageFab } from "../../components/ui/PageFab";
 import { Sheet } from "../../components/ui/Sheet";
 import { Tabs } from "../../components/ui/Tabs";
 import { Button } from "../../components/ui/Button";
@@ -63,19 +64,7 @@ export default function NotePage() {
 
   return (
     <div className="spatial-page notes-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.notes}>
-      <PageHeader
-        title="メモ・リスト"
-        backTo="/"
-        right={
-          <button
-            onClick={() => (tab === "diary" ? setEditingDiary("new") : setAddTypeOpen(true))}
-            aria-label={tab === "diary" ? "日記を書く" : "メモ・リストを追加"}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-white shadow-sm transition-colors active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-          >
-            <Plus size={20} />
-          </button>
-        }
-      />
+      <PageHeader title="メモ・リスト" backTo="/" />
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[420px]">
         <Tabs
@@ -132,6 +121,15 @@ export default function NotePage() {
             </>
           ))}
       </div>
+
+      {/* 追加ボタンは他のページと同じ画面右下(src/components/ui/PageFab.tsx)。
+          日記タブにいるときは、選ばせずに日記の入力へ直行する。 */}
+      <PageFab
+        onClick={() => (tab === "diary" ? setEditingDiary("new") : setAddTypeOpen(true))}
+        label={tab === "diary" ? "日記を書く" : "メモ・リストを追加"}
+      >
+        <Plus size={24} />
+      </PageFab>
 
       <Sheet open={addTypeOpen} onClose={() => setAddTypeOpen(false)} title="何を追加しますか?">
         {/* 選ぶだけの画面なので、入力欄と同じ面ではなく「押す的」として見せる。 */}
