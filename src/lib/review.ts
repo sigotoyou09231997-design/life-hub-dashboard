@@ -10,7 +10,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { ja } from "date-fns/locale";
-import type { CalendarEvent, DiaryEntry, Note, Task, Transaction } from "../types";
+import type { CalendarEvent, DiaryEntry, DiaryMood, Note, Task, Transaction } from "../types";
 import { toDateStr } from "./date";
 
 export type ReviewSpan = "week" | "month";
@@ -227,6 +227,74 @@ export function monthlyExpenseTrend(
     result.push({ month, label: format(date, "M月", { locale: ja }), amount: totals.get(month) ?? 0 });
   }
   return result;
+}
+
+/** 気分を数にしたときの値。3段階しかないので、平均が2.5なら「good寄り」くらいの読み方をする。 */
+export const MOOD_SCORE: Record<DiaryMood, number> = { good: 3, normal: 2, bad: 1 };
+
+export interface MoodPoint {
+  /** 週なら YYYY-MM-DD(その日)、月なら YYYY-MM。 */
+  key: string;
+  /** 目盛りに出す文字。週は曜日、月は「8月」。 */
+  label: string;
+  /** その区間の気分の平均(1〜3)。気分を付けた日記が1件も無ければ null。 */
+  score: number | null;
+  /** 内訳。点に添える説明に使う。 */
+  counts: { good: number; normal: number; bad: number };
+}
+
+/** 月ごとの気分を並べる月数。支出の推移(TREND_MONTHS)と揃える。 */
+export const MOOD_TREND_MONTHS = TREND_MONTHS;
+
+/**
+ * 日記の気分の推移。
+ *
+ * 週を見ているときはその週の1日ずつ、月を見ているときは支出の推移と同じく
+ * 直近数か月ぶんを月単位で平均する。**気分(mood)を付けていない日記は数に入れない** —
+ * 付け忘れた日を「ふつう」として混ぜると、線が実態より平らになる。
+ * 1件も無い区間は score を null にして、線をそこで切る(0として底に落とすと
+ * 「その日はとても悪かった」ように見えてしまう)。
+ */
+export function moodTrend(
+  entries: DiaryEntry[],
+  period: ReviewPeriod,
+  months: number = MOOD_TREND_MONTHS,
+): MoodPoint[] {
+  const buckets = new Map<string, { total: number; count: number; counts: MoodPoint["counts"] }>();
+
+  const keyOf = (date: string) => (period.span === "week" ? date : date.slice(0, 7));
+  for (const entry of entries) {
+    if (!entry.mood || !entry.date) continue;
+    const key = keyOf(entry.date);
+    const bucket = buckets.get(key) ?? { total: 0, count: 0, counts: { good: 0, normal: 0, bad: 0 } };
+    bucket.total += MOOD_SCORE[entry.mood];
+    bucket.count += 1;
+    bucket.counts[entry.mood] += 1;
+    buckets.set(key, bucket);
+  }
+
+  const slots: { key: string; label: string }[] = [];
+  if (period.span === "week") {
+    for (const day of eachDayOfInterval({ start: parseISO(period.start), end: parseISO(period.end) })) {
+      slots.push({ key: toDateStr(day), label: format(day, "E", { locale: ja }) });
+    }
+  } else {
+    const anchor = startOfMonth(parseISO(period.start));
+    for (let back = months - 1; back >= 0; back--) {
+      const date = addMonths(anchor, -back);
+      slots.push({ key: format(date, "yyyy-MM"), label: format(date, "M月", { locale: ja }) });
+    }
+  }
+
+  return slots.map(({ key, label }) => {
+    const bucket = buckets.get(key);
+    return {
+      key,
+      label,
+      score: bucket ? bucket.total / bucket.count : null,
+      counts: bucket?.counts ?? { good: 0, normal: 0, bad: 0 },
+    };
+  });
 }
 
 /** 前の期間と比べた増減。前が0のときは割合を出さない(0からの増加は何%とも言えない)。 */

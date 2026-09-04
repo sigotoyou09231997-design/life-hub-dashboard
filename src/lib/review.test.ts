@@ -3,6 +3,7 @@ import type { CalendarEvent, DiaryEntry, Note, Task, Transaction } from "../type
 import {
   compareToPrevious,
   monthlyExpenseTrend,
+  moodTrend,
   resolveReviewPeriod,
   summarizeReview,
   taskCompletionDate,
@@ -185,6 +186,52 @@ describe("summarizeReview", () => {
     expect(summary.activeDays).toBe(0);
     expect(summary.expensePerDay).toBe(0);
     expect(summary.dailyExpenses).toHaveLength(7);
+  });
+});
+
+describe("moodTrend", () => {
+  function diary(date: string, mood?: DiaryEntry["mood"]): DiaryEntry {
+    return { date, body: "", mood, createdAt: epoch(date) };
+  }
+
+  it("週は1日ずつ、記録が無い日は線を切るために null にする", () => {
+    const period = resolveReviewPeriod("week", 0, BASE); // 2026-08-24〜08-30
+    const points = moodTrend([diary("2026-08-24", "good"), diary("2026-08-26", "bad")], period);
+    expect(points).toHaveLength(7);
+    expect(points[0].score).toBe(3);
+    expect(points[1].score).toBeNull();
+    expect(points[2].score).toBe(1);
+    expect(points[0].label).toBe("月");
+  });
+
+  it("同じ日に何件も書いた日は平均する", () => {
+    const period = resolveReviewPeriod("week", 0, BASE);
+    const points = moodTrend([diary("2026-08-24", "good"), diary("2026-08-24", "normal")], period);
+    expect(points[0].score).toBe(2.5);
+    expect(points[0].counts).toEqual({ good: 1, normal: 1, bad: 0 });
+  });
+
+  it("気分を付けていない日記は数に入れない", () => {
+    const period = resolveReviewPeriod("week", 0, BASE);
+    const points = moodTrend([diary("2026-08-24"), diary("2026-08-24", "bad")], period);
+    expect(points[0].score).toBe(1);
+    expect(points[0].counts).toEqual({ good: 0, normal: 0, bad: 1 });
+  });
+
+  it("月は見ている月を右端に、指定した数だけ月単位で平均する", () => {
+    const period = resolveReviewPeriod("month", 0, BASE); // 2026年8月
+    const points = moodTrend([diary("2026-07-03", "good"), diary("2026-07-20", "normal"), diary("2026-08-01", "bad")], period, 3);
+    expect(points.map((p) => p.key)).toEqual(["2026-06", "2026-07", "2026-08"]);
+    expect(points[0].score).toBeNull();
+    expect(points[1].score).toBe(2.5);
+    expect(points[2].score).toBe(1);
+    expect(points[2].label).toBe("8月");
+  });
+
+  it("期間の外に書いた日記は入ってこない", () => {
+    const period = resolveReviewPeriod("week", 0, BASE);
+    const points = moodTrend([diary("2026-08-23", "good")], period);
+    expect(points.every((p) => p.score === null)).toBe(true);
   });
 });
 

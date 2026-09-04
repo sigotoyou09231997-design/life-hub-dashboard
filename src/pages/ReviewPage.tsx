@@ -17,10 +17,13 @@ import { todayStr } from "../lib/date";
 import {
   compareToPrevious,
   monthlyExpenseTrend,
+  moodTrend,
   resolveReviewPeriod,
   summarizeReview,
+  MOOD_TREND_MONTHS,
   TREND_MONTHS,
   type MonthlyAmount,
+  type MoodPoint,
   type ReviewInput,
   type ReviewSpan,
   type ReviewSummary,
@@ -128,6 +131,129 @@ function MonthlyTrendBars({ trend, currentMonth }: { trend: MonthlyAmount[]; cur
   );
 }
 
+const MOOD_LANES = [
+  { score: 3, label: "よい", color: "#22a06b" },
+  { score: 2, label: "ふつう", color: "#9aa3af" },
+  { score: 1, label: "わるい", color: "#d97757" },
+];
+
+/** 平均に近い気分の色。2.5以上は「よい」寄り、1.5以下は「わるい」寄りとして塗る。 */
+function moodColor(score: number): string {
+  if (score >= 2.5) return MOOD_LANES[0].color;
+  if (score <= 1.5) return MOOD_LANES[2].color;
+  return MOOD_LANES[1].color;
+}
+
+function moodPointTitle(point: MoodPoint): string {
+  if (point.score == null) return `${point.label} 記録なし`;
+  const { good, normal, bad } = point.counts;
+  const parts = [good ? `よい${good}` : "", normal ? `ふつう${normal}` : "", bad ? `わるい${bad}` : ""].filter(Boolean);
+  return `${point.label} 平均${point.score.toFixed(1)}(${parts.join("・")})`;
+}
+
+/**
+ * 日記の気分の推移。3本の目安線の上に点を打ち、記録のある区間どうしだけを線でつなぐ。
+ *
+ * 棒グラフにしないのは、気分が3段階しか無いので棒だと高さの差が読めないため。
+ * 記録が無い区間は点を打たず線も切る — 0の棒を置くと「その日はとても悪かった」に見える。
+ */
+function MoodTrendChart({ points }: { points: MoodPoint[] }) {
+  const height = 120;
+  const padY = 14;
+  // 点は各区間の真ん中に置く。両端が枠に貼り付かないので、線の向きが読みやすい。
+  const step = 100 / points.length;
+  const xOf = (index: number) => step * index + step / 2;
+  const yOf = (score: number) => padY + ((3 - score) / 2) * (height - padY * 2);
+
+  // 記録の途切れで線を分ける。1点だけの区間は線にならないので点だけが残る。
+  const segments: { x: number; y: number }[][] = [];
+  let current: { x: number; y: number }[] = [];
+  points.forEach((point, index) => {
+    if (point.score == null) {
+      if (current.length > 1) segments.push(current);
+      current = [];
+      return;
+    }
+    current.push({ x: xOf(index), y: yOf(point.score) });
+  });
+  if (current.length > 1) segments.push(current);
+
+  return (
+    <div className="review-mood">
+      <div className="flex gap-2">
+        {/* 目盛りの文字は幅を固定する。下の日付の並びを同じ幅だけ右へずらして頭を揃えるため。 */}
+        <div className="flex w-9 shrink-0 flex-col justify-between py-[10px] text-[10px] text-slate-400" style={{ height }}>
+          {MOOD_LANES.map((lane) => (
+            <span key={lane.score}>{lane.label}</span>
+          ))}
+        </div>
+        <svg
+          className="min-w-0 flex-1"
+          viewBox={`0 0 100 ${height}`}
+          preserveAspectRatio="none"
+          style={{ height }}
+          role="img"
+          aria-label="日記の気分の推移"
+        >
+          {MOOD_LANES.map((lane) => (
+            <line
+              key={lane.score}
+              x1={0}
+              x2={100}
+              y1={yOf(lane.score)}
+              y2={yOf(lane.score)}
+              stroke="currentColor"
+              className="text-slate-300"
+              strokeWidth={0.4}
+              strokeDasharray="1.5 1.5"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {segments.map((segment, i) => (
+            <polyline
+              key={i}
+              points={segment.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="none"
+              stroke="currentColor"
+              className="text-slate-400"
+              strokeWidth={1.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {points.map((point, index) =>
+            point.score == null ? null : (
+              // viewBoxを横に引き伸ばしているので、円のままだと横長の楕円になる。
+              // 半径を持たない点として描くため、線端を丸めた長さ0の線で打つ。
+              <line
+                key={point.key}
+                x1={xOf(index)}
+                x2={xOf(index)}
+                y1={yOf(point.score)}
+                y2={yOf(point.score)}
+                stroke={moodColor(point.score)}
+                strokeWidth={7}
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              >
+                <title>{moodPointTitle(point)}</title>
+              </line>
+            ),
+          )}
+        </svg>
+      </div>
+      <div className="mt-1 flex pl-[calc(2.25rem+0.5rem)]">
+        {points.map((point) => (
+          <span key={point.key} className="min-w-0 flex-1 text-center text-[10px] text-slate-400">
+            {point.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ReviewPage() {
   const [span, setSpan] = useState<ReviewSpan>("week");
   // 期間ごとに別々に覚える — 週で3つ戻ってから月に切り替えたとき、3か月前に
@@ -162,6 +288,10 @@ export default function ReviewPage() {
   // 月ごと表示のときだけ、直近数か月の支出を並べて増減の流れを見せる。
   // 週ごとは上の日別の棒で足りるので出さない。
   const trend = span === "month" && dataResult ? monthlyExpenseTrend(dataResult.transactions, period) : null;
+  // 気分の推移は週・月のどちらでも出す(週はその週の1日ずつ、月は直近数か月の平均)。
+  // 気分を付けた日記が1つも無い期間はカードごと出さない — 点の無い枠だけが残るため。
+  const moodPoints = dataResult ? moodTrend(dataResult.diaryEntries, period) : null;
+  const hasMood = Boolean(moodPoints?.some((point) => point.score != null));
 
   const spanWord = span === "week" ? "週" : "月";
 
@@ -276,6 +406,19 @@ export default function ReviewPage() {
                   </p>
                 </div>
                 <MonthlyTrendBars trend={trend} currentMonth={period.start.slice(0, 7)} />
+              </Card>
+            )}
+
+            {moodPoints && hasMood && (
+              <Card className="review-mood-module col-span-2 p-5 lg:col-span-12 lg:p-6">
+                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                  <p className="text-sm font-semibold text-slate-700">日記の気分の推移</p>
+                  <p className="text-[11px] text-slate-500">
+                    {span === "week" ? period.label : `直近${MOOD_TREND_MONTHS}か月の平均`}
+                  </p>
+                </div>
+                <MoodTrendChart points={moodPoints} />
+                <p className="mt-3 text-[11px] text-slate-400">気分を付けていない日記は数に入れていません。</p>
               </Card>
             )}
 
