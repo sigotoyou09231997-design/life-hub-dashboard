@@ -308,6 +308,34 @@ export interface TripExpense {
   userId?: string;
 }
 
+/**
+ * 旅行の支出1件を、現地通貨でいくら払ったか(src/lib/currency.ts)。
+ *
+ * **円の金額は TripExpense.amount のまま。** ここは「€45 を 171.5円/€ で換算した」
+ * という内訳だけを持つ。合計・予算・予算超過の通知はどれも amount(円)を見ており、
+ * 通貨の行が無い支出は今までどおり円として扱われる。
+ *
+ * **同期の対象にしていない**(src/lib/syncRuntime.ts)。TripExpense 自体に通貨の列を
+ * 足すと、その列が無い Supabase 側で同期が失敗する(列の追加は人が本番で流すSQL)。
+ * 2026-09-04に本人の指示で、端末内の別テーブルに持つ形にした。
+ */
+export interface TripExpenseCurrency {
+  id?: string;
+  /** TripExpense.id。 */
+  expenseId: string;
+  /** ISOの通貨コード("EUR" など)。 */
+  currency: string;
+  /** 現地通貨で払った金額。 */
+  originalAmount: number;
+  /** 1通貨あたりの円。 */
+  rate: number;
+  /** レートの出どころ。手で入れ直したものは "manual"(カードの実際のレートは
+   * 公表値と違うことが多いので、上書きできるようにしてある)。 */
+  rateSource: "api" | "manual";
+  createdAt: number;
+  updatedAt?: number;
+}
+
 export type TripPackingCategory = "essentials" | "clothing" | "electronics" | "documents" | "other";
 
 export interface TripPackingItem {

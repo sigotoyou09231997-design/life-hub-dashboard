@@ -6,6 +6,7 @@ import { db } from "../db/schema";
 import type { Trip } from "../types";
 import { todayStr } from "../lib/date";
 import { deleteAttachmentsForAll } from "../lib/attachments";
+import { deleteCurrencyFor } from "../lib/currency";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
@@ -38,6 +39,13 @@ export async function deleteTripCascade(tripId: string) {
     .map((document) => document.id!)
     .filter(Boolean);
   await deleteAttachmentsForAll("tripDocument", documentIds);
+
+  // 現地通貨で入れた支出の内訳も別のテーブルなので、支出を消す前にidを控えて落とす
+  // (src/lib/currency.ts)。残すと、どの支出のものか辿れない行だけが貯まる。
+  const expenseIds = (await db.tripExpenses.where("tripId").equals(tripId).toArray())
+    .map((expense) => expense.id!)
+    .filter(Boolean);
+  await Promise.all(expenseIds.map((id) => deleteCurrencyFor(id)));
 
   await Promise.all([
     db.tripSchedule.where("tripId").equals(tripId).delete(),

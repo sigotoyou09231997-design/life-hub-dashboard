@@ -29,6 +29,9 @@ const BACKUP_TABLES = [
   // 場所リマインドはタスク・メモのidを指す別テーブル(types/index.ts の PlaceReminder)。
   // 指す先の tasks/notes はこの一覧に入っているので、一緒に戻さないと参照だけが切れる。
   "placeReminders",
+  // 現地通貨の内訳も、旅行の支出(tripExpenses)のidを指す別テーブル
+  // (types/index.ts の TripExpenseCurrency)。同じ理由で一緒に戻す。
+  "tripExpenseCurrencies",
 ] as const;
 
 export async function exportBackup(): Promise<void> {

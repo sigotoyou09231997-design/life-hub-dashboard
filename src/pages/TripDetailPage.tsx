@@ -14,6 +14,7 @@ import type {
 } from "../types";
 import { formatDisplayDate, tripDayList, tripDurationLabel, todayStr } from "../lib/date";
 import { deleteAttachmentsFor } from "../lib/attachments";
+import { currenciesByExpenseId, deleteCurrencyFor } from "../lib/currency";
 import { moveItem } from "../lib/noteTypes";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
@@ -93,6 +94,11 @@ export default function TripDetailPage() {
   const tripResult = useLiveQuery(async () => ({ trip: await db.trips.get(tripId) }), [tripId]);
   const schedule = useLiveQuery(() => db.tripSchedule.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
   const expenses = useLiveQuery(() => db.tripExpenses.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
+  // 現地通貨で入れた支出の内訳。件数が少ないので全件読んで表にする(src/lib/currency.ts)。
+  const expenseCurrencies = useLiveQuery(
+    () => db.tripExpenseCurrencies.toArray().then(currenciesByExpenseId),
+    [],
+  );
   const packing = useLiveQuery(() => db.tripPackingItems.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
   const routePlaces =
     useLiveQuery(
@@ -346,9 +352,12 @@ export default function TripDetailPage() {
             <TripExpenseList
               budget={trip.budget}
               expenses={expenses}
+              currencies={expenseCurrencies}
               onEdit={(expense) => setEditingExpense(expense)}
               onDelete={(id) => {
-                db.tripExpenses.delete(id);
+                // 現地通貨の内訳は別のテーブルにあるので、一緒に落とす
+                // (src/lib/currency.ts)。
+                void Promise.all([db.tripExpenses.delete(id), deleteCurrencyFor(id)]);
                 showToast("削除しました");
               }}
             />

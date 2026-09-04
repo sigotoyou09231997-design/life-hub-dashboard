@@ -29,6 +29,7 @@ import type {
   FixedCostAmountChange,
   PendingCardCharge,
   PlaceReminder,
+  TripExpenseCurrency,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -127,6 +128,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "fixedCostAmountChanges", indexes: "fixedCostId", fks: [], hasUpdatedAt: true },
   { name: "pendingCardCharges", indexes: "externalId, date", fks: [], hasUpdatedAt: true },
   { name: "placeReminders", indexes: "[ownerType+ownerId]", fks: [], hasUpdatedAt: true },
+  { name: "tripExpenseCurrencies", indexes: "expenseId", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -197,6 +199,7 @@ export class LifeHubDB extends Dexie {
   fixedCostAmountChanges!: EntityTable<FixedCostAmountChange, "id">;
   pendingCardCharges!: EntityTable<PendingCardCharge, "id">;
   placeReminders!: EntityTable<PlaceReminder, "id">;
+  tripExpenseCurrencies!: EntityTable<TripExpenseCurrency, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -388,6 +391,14 @@ export class LifeHubDB extends Dexie {
     // 既存のタスク・メモには触らない。
     this.version(23).stores({
       placeReminders: "id, [ownerType+ownerId]",
+    });
+
+    // 旅行の支出を現地通貨で入れたときの内訳(types/index.ts の TripExpenseCurrency)。
+    // TripExpense に通貨の列を足すと、その列が無い Supabase 側で同期が失敗するので、
+    // 別テーブルに逃がして端末の中だけに置く(同期の対象にしない)。円の金額
+    // (TripExpense.amount)は今までどおりなので、既存の支出には触らない。
+    this.version(24).stores({
+      tripExpenseCurrencies: "id, expenseId",
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

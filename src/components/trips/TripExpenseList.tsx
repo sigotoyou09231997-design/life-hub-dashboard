@@ -1,5 +1,6 @@
-import type { TripExpense } from "../../types";
+import type { TripExpense, TripExpenseCurrency } from "../../types";
 import { getTripExpenseCategory } from "../../lib/tripCategories";
+import { formatOriginalAmount } from "../../lib/currency";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
@@ -11,13 +12,15 @@ interface Props {
   expenses: TripExpense[];
   onEdit: (expense: TripExpense) => void;
   onDelete: (id: string) => void;
+  /** 現地通貨で入れた支出の内訳(支出id→行)。円で入れた支出には無い。 */
+  currencies?: Map<string, TripExpenseCurrency>;
 }
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
 }
 
-export function TripExpenseList({ budget, expenses, onEdit, onDelete }: Props) {
+export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies }: Props) {
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);
   const paidTotal = expenses.filter((e) => e.paid).reduce((sum, e) => sum + e.amount, 0);
   const remaining = budget != null ? budget - total : undefined;
@@ -54,6 +57,7 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete }: Props) {
         <div className="space-y-2">
           {expenses.map((e) => {
             const category = getTripExpenseCategory(e.category);
+            const foreign = e.id ? currencies?.get(e.id) : undefined;
             return (
               <ListRow key={e.id} interactive className="p-0">
                 <button
@@ -73,7 +77,15 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete }: Props) {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
-                    <span className="text-sm font-semibold text-slate-900">{yen(e.amount)}</span>
+                    <span className="flex flex-col items-end">
+                      <span className="text-sm font-semibold text-slate-900">{yen(e.amount)}</span>
+                      {/* 現地通貨で入れた支出だけ、払った通貨の金額も添える。 */}
+                      {foreign && (
+                        <span className="text-xs text-slate-400">
+                          {formatOriginalAmount(foreign.originalAmount, foreign.currency)}
+                        </span>
+                      )}
+                    </span>
                     <button
                       type="button"
                       onClick={() => {

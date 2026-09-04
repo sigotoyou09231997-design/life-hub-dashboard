@@ -773,3 +773,30 @@ textarea.field-shell {
 
 .place-reminder__empty { color: var(--hub-ink-3); }
 .place-reminder__error { color: var(--hub-red, #dc2626); }
+
+/* --- 旅行の費用: 現地通貨から円へ直した結果 -------------------------------
+   合計と予算に入るのは円の方なので、いくらになるかを保存前に見せておく。 */
+.trip-expense-form__converted {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.5rem;
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.82rem;
+}
+
+.trip-expense-form__converted strong {
+  color: var(--hub-ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-expense-form__converted span {
+  color: var(--hub-ink-3);
+  font-size: 0.75rem;
+}
