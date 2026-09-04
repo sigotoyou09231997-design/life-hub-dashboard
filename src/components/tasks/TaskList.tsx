@@ -1,7 +1,7 @@
 import { CheckSquare } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Task } from "../../types";
-import { advanceByRepeat } from "../../lib/date";
+import { advanceByRepeat, tomorrowStr } from "../../lib/date";
 import { TaskItem } from "./TaskItem";
 import { EmptyState } from "../ui/EmptyState";
 import { useToast } from "../ui/ToastProvider";
@@ -39,6 +39,13 @@ export async function toggleTaskCompletion(task: Task) {
   }
 }
 
+/** 期日を明日へずらす。編集画面を開かずに済ませるための操作なので、
+ * 期日以外(時刻・優先度・繰り返し)は触らない。 */
+export async function postponeTaskToTomorrow(task: Task) {
+  if (!task.id) return;
+  await db.tasks.update(task.id, { dueDate: tomorrowStr() });
+}
+
 export async function deleteTaskCascade(id: string) {
   const children = await db.tasks.where("parentTaskId").equals(id).toArray();
   await db.tasks.bulkDelete(children.map((c) => c.id!));
@@ -51,6 +58,11 @@ export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage }: Props) {
   async function handleDelete(id: string) {
     await deleteTaskCascade(id);
     showToast("削除しました");
+  }
+
+  async function handlePostpone(task: Task) {
+    await postponeTaskToTomorrow(task);
+    showToast("期日を明日にしました");
   }
 
   const topLevel = tasks.filter((t) => !t.parentTaskId);
@@ -78,6 +90,7 @@ export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage }: Props) {
           onEdit={onEdit}
           onDelete={handleDelete}
           onAddSubtask={onAddSubtask}
+          onPostpone={handlePostpone}
         />
       ))}
 
@@ -94,6 +107,7 @@ export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage }: Props) {
                 onEdit={onEdit}
                 onDelete={handleDelete}
                 onAddSubtask={onAddSubtask}
+                onPostpone={handlePostpone}
               />
             ))}
           </div>

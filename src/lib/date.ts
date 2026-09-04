@@ -119,6 +119,22 @@ export function advanceByRepeat(dateStr: string, repeat: RepeatRule): string {
   }
 }
 
+/** 「明日へ」のワンタップ先送りが置く日付。元の期日ではなく今日を基準にするので、
+ * 3日前から放置していたタスクを押しても、翌日という先の日付に着地する
+ * (元の期日を1日ずらすと、期限切れのままで押した意味が無くなる)。 */
+export function tomorrowStr(today: string = todayStr()): string {
+  const d = parseISO(today);
+  if (!isValid(d)) return today;
+  return toDateStr(addDays(d, 1));
+}
+
+/** ワンタップ先送りのボタンを出す対象か。期日があって、それが今日以前のもの
+ * (＝今日ぶんと期限切れ)だけに出す。先の予定に出しても押す理由が無い。 */
+export function isDueTodayOrEarlier(dueDate: string | undefined, today: string = todayStr()): boolean {
+  if (!dueDate) return false;
+  return dueDate <= today;
+}
+
 export function isOverdue(dueDate?: string, dueTime?: string): boolean {
   if (!dueDate) return false;
   const now = new Date();

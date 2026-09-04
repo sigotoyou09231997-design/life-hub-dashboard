@@ -1,9 +1,9 @@
 import type { Task } from "../../types";
-import { formatCompactDate, isOverdue } from "../../lib/date";
+import { formatCompactDate, isDueTodayOrEarlier, isOverdue } from "../../lib/date";
 import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { CalendarArrowDown, Check, Plus, Trash2 } from "lucide-react";
 
 interface Props {
   task: Task;
@@ -12,16 +12,21 @@ interface Props {
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   onAddSubtask: (parentId: string) => void;
+  /** 期日を明日へずらす。渡さなければ「明日へ」は出ない。 */
+  onPostpone?: (task: Task) => void;
   indent?: boolean;
 }
 
 const PRIORITY_TONE = { high: "danger", medium: "warning", low: "neutral" } as const;
 const PRIORITY_LABEL = { high: "高", medium: "中", low: "低" } as const;
 
-export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubtask, indent }: Props) {
+export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubtask, onPostpone, indent }: Props) {
   const subtasks = allTasks.filter((t) => t.parentTaskId === task.id);
   const overdue = !task.completed && isOverdue(task.dueDate, task.dueTime);
   const category = getScheduleCategory(task.category);
+  // 「明日へ」は、まだ終わっていない今日ぶん・期限切れのタスクにだけ出す。
+  // 先の日付のタスクに出しても押す理由が無く、行のボタンが増えるだけになる。
+  const canPostpone = Boolean(onPostpone) && !task.completed && isDueTodayOrEarlier(task.dueDate);
 
   function handleDeleteClick() {
     if (!task.id) return;
@@ -78,6 +83,16 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
         </button>
 
         <div className="flex shrink-0 items-center gap-1">
+          {canPostpone && (
+            <button
+              onClick={() => onPostpone!(task)}
+              aria-label={`「${task.title}」の期日を明日にする`}
+              className="flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-xs font-medium text-slate-500 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            >
+              <CalendarArrowDown size={14} />
+              明日へ
+            </button>
+          )}
           {!indent && (
             <button
               onClick={() => task.id && onAddSubtask(task.id)}

@@ -16,7 +16,7 @@ import { getHolidayMapForYear } from "../../lib/holidays";
 import { MonthView } from "../calendar/MonthView";
 import { EventList } from "../calendar/EventList";
 import { TaskItem } from "../tasks/TaskItem";
-import { toggleTaskCompletion, deleteTaskCascade } from "../tasks/TaskList";
+import { toggleTaskCompletion, deleteTaskCascade, postponeTaskToTomorrow } from "../tasks/TaskList";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
 import { PersonFilter } from "./PersonFilter";
 import { Card } from "../ui/Card";
@@ -132,6 +132,7 @@ export function CalendarView({
                   onEdit={onEditTask}
                   onDelete={deleteTaskCascade}
                   onAddSubtask={onAddSubtask}
+                  onPostpone={postponeTaskToTomorrow}
                 />
               ))}
             </div>

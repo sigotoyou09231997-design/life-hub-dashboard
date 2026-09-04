@@ -7,6 +7,8 @@ import {
   tripCountdownLabel,
   formatCompactDate,
   formatShortDate,
+  tomorrowStr,
+  isDueTodayOrEarlier,
 } from "./date";
 
 describe("isOverdue", () => {
@@ -191,5 +193,33 @@ describe("formatShortDate", () => {
   it("passes an unparseable value through untouched", () => {
     expect(formatShortDate("")).toBe("");
     expect(formatShortDate("いつか")).toBe("いつか");
+  });
+});
+
+describe("tomorrowStr", () => {
+  it("moves one day on from the given day, crossing month and year ends", () => {
+    expect(tomorrowStr("2026-08-22")).toBe("2026-08-23");
+    expect(tomorrowStr("2026-08-31")).toBe("2026-09-01");
+    expect(tomorrowStr("2026-12-31")).toBe("2027-01-01");
+    expect(tomorrowStr("2028-02-28")).toBe("2028-02-29");
+  });
+
+  it("passes an unusable value through untouched", () => {
+    expect(tomorrowStr("いつか")).toBe("いつか");
+  });
+});
+
+describe("isDueTodayOrEarlier", () => {
+  const today = "2026-08-22";
+
+  it("covers today and everything overdue", () => {
+    expect(isDueTodayOrEarlier("2026-08-22", today)).toBe(true);
+    expect(isDueTodayOrEarlier("2026-08-21", today)).toBe(true);
+    expect(isDueTodayOrEarlier("2025-12-31", today)).toBe(true);
+  });
+
+  it("leaves future and undated tasks out", () => {
+    expect(isDueTodayOrEarlier("2026-08-23", today)).toBe(false);
+    expect(isDueTodayOrEarlier(undefined, today)).toBe(false);
   });
 });
