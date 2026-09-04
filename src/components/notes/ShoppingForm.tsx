@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Note, ShoppingItem } from "../../types";
 import { moveItem } from "../../lib/noteTypes";
+import { frequentShoppingItems } from "../../lib/frequentShoppingItems";
 import { NOTE_CATEGORIES } from "../../lib/categories";
 import { Input, Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
@@ -11,7 +13,7 @@ import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Field } from "../ui/Field";
 import { CategorySelect } from "./CategorySelect";
-import { Check, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 interface Props {
   initial?: Note;
@@ -36,13 +38,28 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
   const plannedTotal = items.reduce((sum, i) => sum + (i.price ?? 0), 0);
   const purchasedTotal = items.filter((i) => i.purchased).reduce((sum, i) => sum + (i.price ?? 0), 0);
 
+  // 「よく買う品」は過去の買い物リストから数える(src/lib/frequentShoppingItems.ts)。
+  // 候補用のテーブルは作らない — 買った品はすでにノートの中に残っており、別に
+  // 覚えさせると「候補には出るが実際にはもう買っていない」ずれが生まれる。
+  const allNotes = useLiveQuery(() => db.notes.toArray(), []);
+  const suggestions = frequentShoppingItems(
+    allNotes ?? [],
+    items.map((i) => i.name),
+  );
+
   // Item add/edit/delete/reorder stay in local state only, exactly like the
   // title/category/pinned fields below — nothing is written to the DB until
   // "保存する" is submitted, so closing with "キャンセル" reverts everything.
   function addItem() {
     if (!newItemName.trim()) return;
-    setItems([...items, { id: crypto.randomUUID(), name: newItemName.trim(), purchased: false }]);
+    addItemNamed(newItemName);
     setNewItemName("");
+  }
+
+  function addItemNamed(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setItems((current) => [...current, { id: crypto.randomUUID(), name: trimmed, purchased: false }]);
   }
 
   function togglePurchased(id: string) {
@@ -224,6 +241,26 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
             ))}
           </div>
         )}
+
+          {suggestions.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-medium text-slate-400">よく買う品</p>
+              <div className="flex flex-wrap gap-1.5">
+                {suggestions.map((name) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => addItemNamed(name)}
+                    aria-label={`${name}を追加`}
+                    className="flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                  >
+                    <Plus size={12} />
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="mt-2 flex gap-2">
             <input
