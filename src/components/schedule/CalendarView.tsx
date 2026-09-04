@@ -13,6 +13,7 @@ import {
   sortPeople,
   type DayChip,
 } from "../../lib/eventPeople";
+import { collectFixedCostChipsInRange } from "../../lib/fixedCostCalendar";
 import { formatDisplayDate, toDateStr } from "../../lib/date";
 import { collectSpanDates, collectSpanDatesInRange, occurringOn } from "../../lib/eventSpan";
 import { getHolidayMapForYear } from "../../lib/holidays";
@@ -84,7 +85,14 @@ export function CalendarView({
   const eventDotColors = collectPersonDotsInRange(shownEvents, people, gridStart, gridEnd);
 
   // マスに出す帯(予定名)。点と違って件数の上限は無いので、予定の多い日はマスが伸びる。
-  const dayChips = mergeChips(collectDayChipsInRange(shownEvents, people, gridStart, gridEnd));
+  // 予定のあとに固定費の支払日を足す。固定費は「誰の」を持たないお金の情報なので、
+  // 別の色・別の線種で出し(src/lib/fixedCostCalendar.ts)、予定としては保存しない。
+  // 予定ではないので「誰の」の絞り込みの対象にもしない。
+  const fixedCosts = useLiveQuery(() => db.fixedCosts.toArray(), []);
+  const dayChips = mergeChips(
+    collectDayChipsInRange(shownEvents, people, gridStart, gridEnd),
+    collectFixedCostChipsInRange(fixedCosts ?? [], gridStart, gridEnd),
+  );
 
   const taskDates = new Set(tasks.filter((t) => !t.completed && t.dueDate).map((t) => t.dueDate!));
   const tripDates = collectSpanDates(tripAgenda);
