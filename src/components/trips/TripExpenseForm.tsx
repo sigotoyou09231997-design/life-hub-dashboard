@@ -11,6 +11,7 @@ import {
   fetchRateToYen,
   isRateFetchable,
   loadCurrencyDraft,
+  needsRateRefetch,
   saveCurrencyDraft,
   type TripExpenseCurrencyDraft,
 } from "../../lib/currency";
@@ -47,9 +48,30 @@ export function TripExpenseForm({ tripId, initial, onSaved, onCancel }: Props) {
   useEffect(() => {
     if (!initialId) return;
     let alive = true;
-    loadCurrencyDraft(initialId).then((draft) => {
-      if (alive) setCurrency(draft);
-    });
+    void (async () => {
+      const draft = await loadCurrencyDraft(initialId);
+      if (!alive) return;
+      setCurrency(draft);
+
+      // レートを取れないまま保存した費用は、開いたときにもう一度取りに行く
+      // (2026-09-04の指示)。手で入れたレートは上書きしない — そこは
+      // needsRateRefetch が見ている(src/lib/currency.ts)。
+      if (!needsRateRefetch(draft)) return;
+      setRateLoading(true);
+      const rate = await fetchRateToYen(draft.currency);
+      if (!alive) return;
+      setRateLoading(false);
+      if (rate == null) {
+        setRateError("レートを取れませんでした。手で入れてください。");
+        return;
+      }
+      // 取りに行っている間に人が打ち始めていたら、そちらを優先する。
+      setCurrency((current) =>
+        current.currency === draft.currency && current.rate === ""
+          ? { ...current, rate: String(rate), manual: false }
+          : current,
+      );
+    })();
     return () => {
       alive = false;
     };

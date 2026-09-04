@@ -347,11 +347,13 @@ export interface TripExpenseCurrency {
   currency: string;
   /** 現地通貨で払った金額。 */
   originalAmount: number;
-  /** 1通貨あたりの円。 */
+  /** 1通貨あたりの円。まだレートを取れていない行(rateSource が "pending")は 0。 */
   rate: number;
   /** レートの出どころ。手で入れ直したものは "manual"(カードの実際のレートは
-   * 公表値と違うことが多いので、上書きできるようにしてある)。 */
-  rateSource: "api" | "manual";
+   * 公表値と違うことが多いので、上書きできるようにしてある)。
+   * "pending" は「自動取得に失敗して、円の金額だけ手で入れた」状態 —
+   * 次にその費用の編集画面を開いた時に、もう一度取りに行く(2026-09-04の指示)。 */
+  rateSource: "api" | "manual" | "pending";
   createdAt: number;
   updatedAt?: number;
 }

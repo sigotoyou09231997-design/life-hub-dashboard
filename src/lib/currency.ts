@@ -263,10 +263,33 @@ export const EMPTY_CURRENCY_DRAFT: TripExpenseCurrencyDraft = {
 
 /** 下書きが換算できる形になっているか。 */
 export function isCurrencyDraftComplete(draft: TripExpenseCurrencyDraft): boolean {
-  if (draft.currency === HOME_CURRENCY) return false;
-  const amount = Number(draft.originalAmount);
+  if (!isCurrencyDraftStorable(draft)) return false;
   const rate = Number(draft.rate);
-  return draft.originalAmount !== "" && draft.rate !== "" && amount > 0 && rate > 0;
+  return draft.rate !== "" && rate > 0;
+}
+
+/**
+ * レートがまだ無くても、内訳として残しておく価値があるか
+ * (＝現地通貨と金額までは入っている)。
+ *
+ * レートを取れなかった時は、円の金額を手で入れてもらって支出そのものは保存する。
+ * 「€45 払った」という事実まで捨ててしまうと、次に開いた時に取り直す手がかりが
+ * 無くなるため(2026-09-04の指示)。
+ */
+export function isCurrencyDraftStorable(draft: TripExpenseCurrencyDraft): boolean {
+  if (draft.currency === HOME_CURRENCY) return false;
+  return draft.originalAmount !== "" && Number(draft.originalAmount) > 0;
+}
+
+/**
+ * この下書きは、開いた時にレートを取り直すべきか。
+ *
+ * 取り直すのは「まだ一度も入っていない」時だけ — 手で入れた値は上書きしない
+ * (カードの実際のレートは公表値と違うことが多く、直したものが正しい)。
+ */
+export function needsRateRefetch(draft: TripExpenseCurrencyDraft): boolean {
+  if (draft.currency === HOME_CURRENCY || draft.manual || draft.rate !== "") return false;
+  return isRateFetchable(draft.currency);
 }
 
 /** 下書きから円の金額を出す。換算できない形なら undefined。 */
@@ -281,7 +304,9 @@ export async function loadCurrencyDraft(expenseId: string): Promise<TripExpenseC
   return {
     currency: existing.currency,
     originalAmount: String(existing.originalAmount),
-    rate: String(existing.rate),
+    // レートを取れないまま保存した行(rate は 0)は「未入力」として読み直す —
+    // そうすると needsRateRefetch が拾って、開いた時に取り直せる。
+    rate: existing.rate > 0 ? String(existing.rate) : "",
     manual: existing.rateSource === "manual",
   };
 }
@@ -290,17 +315,18 @@ export async function loadCurrencyDraft(expenseId: string): Promise<TripExpenseC
 export async function saveCurrencyDraft(expenseId: string, draft: TripExpenseCurrencyDraft): Promise<void> {
   const existing = await db.tripExpenseCurrencies.where("expenseId").equals(expenseId).first();
 
-  if (!isCurrencyDraftComplete(draft)) {
+  if (!isCurrencyDraftStorable(draft)) {
     if (existing?.id) await db.tripExpenseCurrencies.delete(existing.id);
     return;
   }
 
+  const rate = draft.rate === "" ? 0 : Number(draft.rate);
   const next = {
     expenseId,
     currency: draft.currency,
     originalAmount: Number(draft.originalAmount),
-    rate: Number(draft.rate),
-    rateSource: draft.manual ? ("manual" as const) : ("api" as const),
+    rate: rate > 0 ? rate : 0,
+    rateSource: draft.manual ? ("manual" as const) : rate > 0 ? ("api" as const) : ("pending" as const),
   };
 
   if (existing?.id) {
