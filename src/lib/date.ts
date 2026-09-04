@@ -18,6 +18,7 @@ import {
   isThisYear,
 } from "date-fns";
 import { ja } from "date-fns/locale";
+import { parseWeekdayRepeat } from "./repeatRule";
 import type { RepeatRule } from "../types";
 
 export const DATE_FMT = "yyyy-MM-dd";
@@ -107,6 +108,15 @@ export function formatGmailTimestamp(epochMs: number): string {
 export function advanceByRepeat(dateStr: string, repeat: RepeatRule): string {
   const d = parseISO(dateStr);
   if (!isValid(d)) return dateStr;
+  const weekdays = parseWeekdayRepeat(repeat);
+  if (weekdays) {
+    // 選んだ曜日のうち、この日より後で最初に来るもの。1周(7日)見れば必ず当たる。
+    for (let i = 1; i <= 7; i++) {
+      const next = addDays(d, i);
+      if (weekdays.includes(next.getDay())) return toDateStr(next);
+    }
+    return dateStr;
+  }
   switch (repeat) {
     case "daily":
       return toDateStr(addDays(d, 1));

@@ -1,6 +1,7 @@
 import { addHours, format, parseISO } from "date-fns";
-import type { CalendarEvent, RepeatRule } from "../types";
+import type { CalendarEvent } from "../types";
 import { spanEndDate } from "./eventSpan";
+import { isRepeating, parseWeekdayRepeat } from "./repeatRule";
 import { todayStr } from "./date";
 
 /**
@@ -77,18 +78,25 @@ function nextDay(dateStr: string): string {
   return format(d, "yyyyMMdd");
 }
 
-const FREQ: Record<Exclude<RepeatRule, "none">, string> = {
+const FREQ: Record<"daily" | "weekly" | "monthly", string> = {
   daily: "DAILY",
   weekly: "WEEKLY",
   monthly: "MONTHLY",
 };
 
+/** RFC 5545 の BYDAY に使う曜日の略号。0=日〜6=土で、repeatRule.ts の並びと同じ。 */
+const ICS_WEEKDAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"] as const;
+
 /** 繰り返しの行。UNTIL は DTSTART と同じ形(終日なら日付、時刻付きなら浮動時間)で
  * 書かないと、取り込む側が弾く。 */
 function repeatRule(event: CalendarEvent, allDay: boolean): string | null {
   const repeat = event.repeat;
-  if (!repeat || repeat === "none") return null;
-  const parts = [`FREQ=${FREQ[repeat]}`];
+  if (!isRepeating(repeat)) return null;
+  const weekdays = parseWeekdayRepeat(repeat);
+  // 曜日指定は、取り込む側の標準どおり「毎週＋その曜日」として書き出す。
+  const parts = weekdays
+    ? [`FREQ=WEEKLY`, `BYDAY=${weekdays.map((d) => ICS_WEEKDAYS[d]).join(",")}`]
+    : [`FREQ=${FREQ[repeat as "daily" | "weekly" | "monthly"]}`];
   if (event.repeatUntil) {
     parts.push(`UNTIL=${allDay ? icsDate(event.repeatUntil) : `${icsDate(event.repeatUntil)}T235959`}`);
   }

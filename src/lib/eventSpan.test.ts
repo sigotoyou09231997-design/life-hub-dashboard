@@ -236,3 +236,47 @@ describe("collectSpanDatesInRange", () => {
     expect(nextMonth).toEqual(new Set(["2026-10-04", "2026-10-11", "2026-10-18", "2026-10-25"]));
   });
 });
+
+describe("曜日指定の繰り返し", () => {
+  // 2026-09-07 は月曜。"weekdays:1,3,5" = 月・水・金。
+  const monWedFri = { date: "2026-09-07", repeat: "weekdays:1,3,5" as const };
+
+  it("選んだ曜日の日にだけかかる", () => {
+    expect(occursOn(monWedFri, "2026-09-09")).toBe(true); // 水
+    expect(occursOn(monWedFri, "2026-09-11")).toBe(true); // 金
+    expect(occursOn(monWedFri, "2026-09-14")).toBe(true); // 翌週の月
+    expect(occursOn(monWedFri, "2026-09-10")).toBe(false); // 木
+    expect(occursOn(monWedFri, "2026-09-13")).toBe(false); // 日
+  });
+
+  it("開始日より前は、曜日が合っていても埋めない", () => {
+    expect(occursOn(monWedFri, "2026-09-04")).toBe(false); // 直前の金曜
+  });
+
+  it("繰り返しの終了日を過ぎたら止まる", () => {
+    const until = { ...monWedFri, repeatUntil: "2026-09-11" };
+    expect(occursOn(until, "2026-09-11")).toBe(true);
+    expect(occursOn(until, "2026-09-14")).toBe(false);
+  });
+
+  it("その回は1日ぶんとして数える(何日目かは常に1)", () => {
+    expect(spanDayIndex(monWedFri, "2026-09-09")).toBe(1);
+  });
+
+  it("曜日が1つも読めない指定は、繰り返さない単発として扱う", () => {
+    const broken = { date: "2026-09-07", repeat: "weekdays:" as never };
+    expect(occursOn(broken, "2026-09-14")).toBe(false);
+    expect(occursOn(broken, "2026-09-07")).toBe(true);
+  });
+
+  it("次の回を探すときも曜日を守る", () => {
+    expect(nextOccurrenceOnOrAfter(monWedFri, "2026-09-10")).toBe("2026-09-11");
+  });
+
+  it("カレンダーの点も、その月の該当曜日にだけ打つ", () => {
+    const dates = collectSpanDatesInRange([monWedFri], "2026-09-07", "2026-09-20");
+    expect(dates).toEqual(
+      new Set(["2026-09-07", "2026-09-09", "2026-09-11", "2026-09-14", "2026-09-16", "2026-09-18"]),
+    );
+  });
+});

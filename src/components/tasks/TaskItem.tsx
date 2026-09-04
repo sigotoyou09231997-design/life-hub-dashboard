@@ -1,6 +1,7 @@
 import type { Task } from "../../types";
 import { formatCompactDate, isDueTodayOrEarlier, isOverdue } from "../../lib/date";
 import { getScheduleCategory } from "../../lib/scheduleCategories";
+import { isRepeating, repeatLabel } from "../../lib/repeatRule";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { CalendarArrowDown, Check, Plus, Trash2 } from "lucide-react";
@@ -77,7 +78,7 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
                 {task.dueTime ? ` ${task.dueTime}` : ""}
               </Badge>
             )}
-            {task.repeat !== "none" && <Badge tone="accent">繰り返し</Badge>}
+            {isRepeating(task.repeat) && <Badge tone="accent">{repeatLabel(task.repeat)}</Badge>}
             <Badge tone={category.tone}>{category.label}</Badge>
           </div>
         </button>

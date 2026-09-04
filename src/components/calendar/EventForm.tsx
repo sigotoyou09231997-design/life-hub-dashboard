@@ -15,6 +15,8 @@ import { Field } from "../ui/Field";
 import { Button } from "../ui/Button";
 import { SwitchField } from "../ui/SwitchField";
 import { isMultiDay, normalizeEndDate, shiftEndDate, spanDays } from "../../lib/eventSpan";
+import { isRepeating } from "../../lib/repeatRule";
+import { RepeatField } from "./RepeatField";
 import { useToast } from "../ui/ToastProvider";
 import {
   applyEventToAccount,
@@ -48,13 +50,6 @@ const NOTIFY_OPTIONS = [
 const SPAN_OPTIONS = [
   { value: "timed", label: "時間を決める" },
   { value: "allday", label: "終日" },
-];
-
-const REPEAT_OPTIONS = [
-  { value: "none" as RepeatRule, label: "しない" },
-  { value: "daily" as RepeatRule, label: "毎日" },
-  { value: "weekly" as RepeatRule, label: "毎週" },
-  { value: "monthly" as RepeatRule, label: "毎月" },
 ];
 
 export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
@@ -256,8 +251,8 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
               : ""
           }
         />
-        <SegmentedField label="繰り返し" value={repeat} options={REPEAT_OPTIONS} onChange={setRepeat} />
-        {repeat !== "none" && (
+        <RepeatField value={repeat} onChange={setRepeat} />
+        {isRepeating(repeat) && (
           <DateField
             label="繰り返しの終了日"
             optional

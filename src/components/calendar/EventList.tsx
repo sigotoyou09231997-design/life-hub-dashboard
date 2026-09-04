@@ -8,6 +8,7 @@ import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
 import { getScheduleCategory } from "../../lib/scheduleCategories";
+import { isRepeating, repeatLabel } from "../../lib/repeatRule";
 
 interface Props {
   events: CalendarEvent[];
@@ -73,7 +74,7 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
                   )}
                   <Badge tone={category.tone}>{category.label}</Badge>
                   <PersonTags event={ev} people={people} />
-                  {ev.repeat && ev.repeat !== "none" && <Badge tone="accent">繰り返し</Badge>}
+                  {isRepeating(ev.repeat) && <Badge tone="accent">{repeatLabel(ev.repeat)}</Badge>}
                 </div>
               </div>
               <button

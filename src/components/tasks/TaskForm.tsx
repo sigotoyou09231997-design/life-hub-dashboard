@@ -6,6 +6,7 @@ import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { SegmentedField } from "../ui/SegmentedField";
+import { RepeatField } from "../calendar/RepeatField";
 import { DateField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
@@ -22,13 +23,6 @@ const PRIORITY_OPTIONS = [
   { value: "high" as Priority, label: "高" },
   { value: "medium" as Priority, label: "中" },
   { value: "low" as Priority, label: "低" },
-];
-
-const REPEAT_OPTIONS = [
-  { value: "none" as RepeatRule, label: "しない" },
-  { value: "daily" as RepeatRule, label: "毎日" },
-  { value: "weekly" as RepeatRule, label: "毎週" },
-  { value: "monthly" as RepeatRule, label: "毎月" },
 ];
 
 export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
@@ -109,7 +103,7 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
       </FormPanel>
 
       <FormPanel caption="繰り返しと分類" icon={Repeat}>
-        <SegmentedField label="繰り返し" value={repeat} options={REPEAT_OPTIONS} onChange={setRepeat} />
+        <RepeatField value={repeat} onChange={setRepeat} />
         <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value as ScheduleCategory)}>
           {SCHEDULE_CATEGORIES.map((c) => (
             <option key={c.value} value={c.value}>

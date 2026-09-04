@@ -138,7 +138,11 @@ export interface CalendarEvent {
 }
 
 export type Priority = "low" | "medium" | "high";
-export type RepeatRule = "none" | "daily" | "weekly" | "monthly";
+/** 曜日を複数選ぶ繰り返し。"weekdays:1,3,5"(0=日〜6=土)の形で、決め打ちの選択肢と
+ * 同じ1つの文字列の中に収める — 予定・タスクの repeat は Supabase 側も text 列
+ * 1つなので、別項目に分けると列の追加(SQL)が要る(src/lib/repeatRule.ts)。 */
+export type WeekdayRepeat = `weekdays:${string}`;
+export type RepeatRule = "none" | "daily" | "weekly" | "monthly" | WeekdayRepeat;
 
 export interface Task {
   id?: string;

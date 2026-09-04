@@ -1,5 +1,6 @@
 import { addDays, addMonths, differenceInCalendarDays, isValid, parseISO } from "date-fns";
 import { formatShortDate, toDateStr, tripDayList } from "./date";
+import { isRepeating, parseWeekdayRepeat } from "./repeatRule";
 import type { RepeatRule } from "../types";
 
 /**
@@ -80,7 +81,7 @@ function repeatHorizon(span: DateSpan): string {
  */
 export function occurrenceStartOn(span: DateSpan, date: string): string | undefined {
   if (baseOccursOn(span, date)) return span.date;
-  if (!span.repeat || span.repeat === "none" || !valid(span.date) || !valid(date)) return undefined;
+  if (!isRepeating(span.repeat) || !valid(span.date) || !valid(date)) return undefined;
 
   const horizon = repeatHorizon(span);
   if (date > horizon) return undefined;
@@ -89,6 +90,14 @@ export function occurrenceStartOn(span: DateSpan, date: string): string | undefi
   const duration = spanDays(span);
   const daysSinceStart = differenceInCalendarDays(parseISO(date), start);
   if (daysSinceStart <= 0) return undefined; // 開始日より前は繰り返しでは埋めない
+
+  const weekdays = parseWeekdayRepeat(span.repeat);
+  if (weekdays) {
+    // 選んだ曜日そのものが1回ぶん。dailyと同じで、またがる予定を曜日指定で繰り返す
+    // 組み合わせは考えず、当たった日を単発の回として扱う(そうしないと「毎週月・水」の
+    // 2泊の予定が、週の大半を覆って読めなくなる)。
+    return weekdays.includes(parseISO(date).getDay()) ? date : undefined;
+  }
 
   if (span.repeat === "daily") {
     // 毎日ちょうど1回ずつ始まるので、開始日より後はすべて繰り返しの範囲に入る
@@ -127,7 +136,7 @@ export function occursOn(span: DateSpan, date: string): boolean {
 export function nextOccurrenceOnOrAfter(span: DateSpan, fromDate: string): string | undefined {
   if (occursOn(span, fromDate)) return fromDate;
   if (span.date > fromDate) return span.date;
-  if (!span.repeat || span.repeat === "none" || !valid(fromDate)) return undefined;
+  if (!isRepeating(span.repeat) || !valid(fromDate)) return undefined;
   const horizon = repeatHorizon(span);
   let cursor = fromDate;
   while (cursor <= horizon) {
