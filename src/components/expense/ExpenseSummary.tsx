@@ -100,18 +100,27 @@ export function ExpenseSummary({ onAddSalary }: Props) {
   if (loading) return showSkeleton ? <ListSkeleton rows={2} /> : null;
 
   if (!data) {
-    // 給与未登録のときはこのカード1枚しか出ない。左上に寄せたまま画面の大半を
+    // 給与未登録のときはこのカードが主役。左上に寄せたまま画面の大半を
     // 背景のまま残さないよう、中央に置いて下まで伸ばす(.is-empty-fill、index.css)。
+    // 財布の現金は給料日の期間とは関係なく数えられるので、給与が0件でもここに
+    // 出しておく(2026-09-04の本番確認)。給与を1件入れるまで現金カードごと
+    // 隠れていて、現金だけ記録したい時に入口が無かった。
     return (
       <div className="finance-empty is-empty-fill mx-auto max-w-4xl">
-        <Card className="finance-balance-module flex flex-col p-6 lg:p-8">
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">使えるお金</p>
-            <p className="mt-4 text-4xl font-medium tabular-nums tracking-[-0.05em] text-navy lg:text-6xl">¥ ---</p>
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-slate-600">給与を登録すると、今月使える金額を自動計算します。</p>
-          </div>
-          <Button className="mt-6 w-fit" onClick={onAddSalary}>給与を登録する</Button>
-        </Card>
+        {/* 2枚をこの囲いでまとめて、囲いごと高さいっぱいに伸ばす。
+            .is-empty-fill は「最後の子だけ伸ばす」ので、現金カードを直下に
+            置くと現金カードの方が間延びしてしまう。伸ばすのは上のカード。 */}
+        <div className="flex flex-1 flex-col gap-3">
+          <Card className="finance-balance-module flex flex-1 flex-col justify-center p-6 lg:p-8">
+            <div>
+              <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">使えるお金</p>
+              <p className="mt-4 text-4xl font-medium tabular-nums tracking-[-0.05em] text-navy lg:text-6xl">¥ ---</p>
+              <p className="mt-3 max-w-lg text-sm leading-relaxed text-slate-600">給与を登録すると、今月使える金額を自動計算します。</p>
+            </div>
+            <Button className="mt-6 w-fit" onClick={onAddSalary}>給与を登録する</Button>
+          </Card>
+          <CashBalanceCard />
+        </div>
       </div>
     );
   }
