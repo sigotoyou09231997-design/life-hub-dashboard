@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
-import { ImagePlus } from "lucide-react";
+import { CalendarPlus, ImagePlus } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Note } from "../../types";
 import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
+import { detectNotePlan } from "../../lib/notePlanSuggestion";
+import { formatDisplayDate } from "../../lib/date";
+import { useToast } from "../ui/ToastProvider";
 import { PhotoField } from "../attachments/PhotoField";
 import { Input, Textarea } from "../ui/Input";
 import { SwitchField } from "../ui/SwitchField";
@@ -33,6 +36,18 @@ export function MemoForm({ initial, onSaved, onCancel }: Props) {
   const [pinned, setPinned] = useState(initial?.pinned ?? false);
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
   const [saving, setSaving] = useState(false);
+  const showToast = useToast();
+  // 「今はしない」を押した提案。このフォームを開いている間だけ覚える —
+  // 本文を書き換えれば別の日付になり得るので、覚え続ける値ではない。
+  const [dismissedPlan, setDismissedPlan] = useState<string | null>(null);
+  const [addedPlan, setAddedPlan] = useState<string | null>(null);
+
+  // 依頼のとおり、判定するのは本文をこの画面で変えたときだけ。開いただけの
+  // 既存メモに提案を出すと、昔書いたメモを見るたびに同じ提案が出続ける。
+  const bodyChanged = body !== (initial?.body ?? "");
+  const plan = bodyChanged ? detectNotePlan(body) : null;
+  const planKey = plan ? `${plan.date}${plan.time ?? ""}` : null;
+  const showPlan = Boolean(plan) && planKey !== dismissedPlan && planKey !== addedPlan;
 
   // 貼ってある写真は本文と別のテーブルに置いてあるので、開いたときに読み直す
   // (src/lib/attachments.ts)。
@@ -47,6 +62,23 @@ export function MemoForm({ initial, onSaved, onCancel }: Props) {
       alive = false;
     };
   }, [initialId]);
+
+  /** 提案から予定を1件作る。メモの方は触らない — 予定に入れたからといって、
+   * 書いたメモを消したり書き換えたりする理由は無い。 */
+  async function handleAddPlan() {
+    if (!plan) return;
+    await db.calendarEvents.add({
+      title: title.trim() || "メモから追加した予定",
+      date: plan.date,
+      startTime: plan.time,
+      allDay: !plan.time,
+      memo: `メモ「${title.trim() || "無題"}」から追加`,
+      category: "other",
+      createdAt: Date.now(),
+    });
+    setAddedPlan(planKey);
+    showToast("予定に追加しました");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -102,6 +134,26 @@ export function MemoForm({ initial, onSaved, onCancel }: Props) {
           onChange={(e) => setBody(e.target.value)}
           rows={memoBodyRows(body)}
         />
+        {showPlan && plan && (
+          <div className="rounded-xl border border-accent/30 bg-accent/5 p-3">
+            <p className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+              <CalendarPlus size={14} />
+              予定に追加しますか?
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              本文に「{plan.hint}」とあります。{formatDisplayDate(plan.date)}
+              {plan.time ? ` ${plan.time}` : "(終日)"}で追加します。
+            </p>
+            <div className="mt-2.5 flex gap-2">
+              <Button type="button" onClick={handleAddPlan}>
+                予定に追加
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setDismissedPlan(planKey)}>
+                今はしない
+              </Button>
+            </div>
+          </div>
+        )}
       </FormPanel>
 
       <FormPanel caption="写真" icon={ImagePlus}>
