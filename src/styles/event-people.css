@@ -227,3 +227,67 @@
   background: #fef2f2;
   color: #dc2626;
 }
+
+/* ---------------------------------------------------------------------------
+   月表示のマスに出す、予定名入りの帯(src/lib/eventPeople.ts の collectDayChipsInRange)
+
+   点だけだと「その日に何かある」しか分からないので、TimeTree のように予定名を
+   そのままマスに入れる。件数の上限は設けない(本人の指示)ので、予定の多い日は
+   マスの高さがその分伸びる。帯の色は人の色をそのまま渡す(--chip-color)。
+   --------------------------------------------------------------------------- */
+
+.spatial-calendar__cell--chips {
+  align-items: stretch;
+  padding-inline: 0.16rem;
+}
+
+/* 日付の丸と点の列は、帯が左寄せでも今までどおり中央に置く。 */
+.spatial-calendar__cell--chips > span:nth-child(1),
+.spatial-calendar__cell--chips > span:nth-child(2) {
+  align-self: center;
+}
+
+.spatial-calendar__holiday {
+  padding-inline: 0.14rem;
+  color: #d05f52;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: left;
+}
+
+.spatial-calendar__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  margin-top: 1px;
+}
+
+.spatial-calendar__chip {
+  --chip-color: #5e8bbc;
+  overflow: hidden;
+  padding: 0.05rem 0.2rem;
+  border-left: 2px solid var(--chip-color);
+  border-radius: 0.16rem;
+  background: color-mix(in srgb, var(--chip-color) 17%, #fff);
+  color: color-mix(in srgb, var(--chip-color) 62%, #1f2937);
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 固定費の支払日は予定ではないので、同じ形のまま一段控えめにする。 */
+.spatial-calendar__chip.is-fixed-cost {
+  border-left-style: dotted;
+  font-weight: 500;
+}
+
+@media (min-width: 1024px) {
+  .spatial-calendar__chip {
+    font-size: 0.68rem;
+  }
+}

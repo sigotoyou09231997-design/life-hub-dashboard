@@ -184,3 +184,70 @@ export function collectPersonDotsInRange(
   }
   return out;
 }
+
+/** 月表示のマスに出す、予定名入りの帯1本ぶん。 */
+export interface DayChip {
+  /** 同じ日に同じ予定が2回出ることは無いが、繰り返しの回ごとに別の行になるので日付も混ぜる。 */
+  key: string;
+  label: string;
+  /** 帯に塗る色(#rrggbb)。 */
+  color: string;
+  /** 並び順にだけ使う開始時刻(HH:mm)。終日・時刻なしは後ろへ。 */
+  startTime?: string;
+  /** 予定そのものか、予定ではない情報(固定費の支払日など)か。見せ方を変える。 */
+  kind: "event" | "fixedCost";
+}
+
+/** その日の並び。時刻の早い順 → 時刻なし → 同じなら名前順。 */
+export function sortDayChips(chips: DayChip[]): DayChip[] {
+  return [...chips].sort(
+    (a, b) =>
+      (a.startTime ?? "99:99").localeCompare(b.startTime ?? "99:99") ||
+      a.label.localeCompare(b.label, "ja"),
+  );
+}
+
+/**
+ * 月表示のマスに出す帯を、日付ごとに集める。点(collectPersonDotsInRange)と同じ
+ * 日付の展開の仕方で、色に加えて予定名も持たせたもの。
+ *
+ * 帯の色は「その予定に付いている人のうち、一覧で先に来る人」の色1つだけにする。
+ * 複数人の予定を色の数だけ帯に割ると、1件が何本もの帯に見えて件数が読めなくなるため
+ * (点は色を並べるだけなので、そちらは今までどおり全員ぶん出る)。
+ *
+ * 件数の上限は設けない(依頼のとおり、その日に入っている予定は全部出す)。
+ */
+export function collectDayChipsInRange(
+  events: CalendarEvent[],
+  people: EventPerson[],
+  rangeStart: string,
+  rangeEnd: string,
+): Map<string, DayChip[]> {
+  const order = sortPeople(people);
+  const byDate = new Map<string, DayChip[]>();
+
+  for (const event of events) {
+    if (!event.date) continue;
+    const assigned = resolvePeople(event, order);
+    const color = assigned.length > 0 ? personColorHex(assigned[0]) : UNASSIGNED_DOT_COLOR;
+    let cursor = rangeStart > event.date ? rangeStart : event.date;
+    while (cursor <= rangeEnd) {
+      if (occursOn(event, cursor)) {
+        const chips = byDate.get(cursor) ?? [];
+        chips.push({
+          key: `${event.id ?? event.title}-${cursor}`,
+          label: event.title,
+          color,
+          startTime: event.allDay ? undefined : event.startTime,
+          kind: "event",
+        });
+        byDate.set(cursor, chips);
+      }
+      cursor = toDateStr(addDays(parseISO(cursor), 1));
+    }
+  }
+
+  const out = new Map<string, DayChip[]>();
+  for (const [date, chips] of byDate) out.set(date, sortDayChips(chips));
+  return out;
+}

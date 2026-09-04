@@ -5,6 +5,7 @@ import {
   PERSON_COLORS,
   UNASSIGNED_DOT_COLOR,
   UNASSIGNED_FILTER,
+  collectDayChipsInRange,
   collectPersonDotsInRange,
   getPersonColor,
   matchesPersonFilter,
@@ -175,5 +176,79 @@ describe("カレンダーの点", () => {
       "2026-09-30",
     );
     expect(dots.size).toBe(0);
+  });
+});
+
+describe("月表示の帯(予定名)", () => {
+  it("その日の予定を、時刻の早い順に全部出す(件数の上限は設けない)", () => {
+    const chips = collectDayChipsInRange(
+      [
+        event({ id: "a", title: "夕食", date: "2026-09-10", startTime: "19:00" }),
+        event({ id: "b", title: "打ち合わせ", date: "2026-09-10", startTime: "10:00" }),
+        event({ id: "c", title: "終日のこと", date: "2026-09-10", allDay: true, startTime: "08:00" }),
+        event({ id: "d", title: "歯医者", date: "2026-09-10", startTime: "14:00" }),
+      ],
+      people,
+      "2026-09-01",
+      "2026-09-30",
+    );
+    // 終日は時刻を持っていても後ろに置く(その日いっぱいの予定なので順番に意味がない)。
+    expect(chips.get("2026-09-10")?.map((c) => c.label)).toEqual([
+      "打ち合わせ",
+      "歯医者",
+      "夕食",
+      "終日のこと",
+    ]);
+  });
+
+  it("帯の色は、付いている人のうち一覧で先に来る人の色1つ", () => {
+    const chips = collectDayChipsInRange(
+      [event({ id: "a", personIds: ["p-kid", "p-me"] })],
+      people,
+      "2026-09-01",
+      "2026-09-30",
+    );
+    expect(chips.get("2026-09-10")?.[0].color).toBe(personColorHex(me));
+  });
+
+  it("誰も付いていない予定は既定色", () => {
+    const chips = collectDayChipsInRange([event({ id: "a" })], people, "2026-09-01", "2026-09-30");
+    expect(chips.get("2026-09-10")?.[0].color).toBe(UNASSIGNED_DOT_COLOR);
+  });
+
+  it("またぐ予定は、かかっている日すべてに帯が出る", () => {
+    const chips = collectDayChipsInRange(
+      [event({ id: "a", title: "出張", date: "2026-09-10", endDate: "2026-09-12" })],
+      people,
+      "2026-09-01",
+      "2026-09-30",
+    );
+    expect([...chips.keys()].sort()).toEqual(["2026-09-10", "2026-09-11", "2026-09-12"]);
+  });
+
+  it("繰り返す予定は、枠のぶんだけ将来の回にも帯が出る", () => {
+    const chips = collectDayChipsInRange(
+      [event({ id: "a", title: "ゴミ出し", date: "2026-09-01", repeat: "weekly" })],
+      people,
+      "2026-09-01",
+      "2026-09-30",
+    );
+    expect([...chips.keys()].sort()).toEqual([
+      "2026-09-01",
+      "2026-09-08",
+      "2026-09-15",
+      "2026-09-22",
+      "2026-09-29",
+    ]);
+  });
+
+  it("枠の外の予定は出さない", () => {
+    const chips = collectDayChipsInRange(
+      [event({ id: "a", date: "2026-08-10" })],
+      people,
+      "2026-09-01",
+      "2026-09-30",
+    );
+    expect(chips.size).toBe(0);
   });
 });

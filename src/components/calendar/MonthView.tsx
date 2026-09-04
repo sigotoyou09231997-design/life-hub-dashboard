@@ -10,10 +10,11 @@ import {
   isToday,
   format,
 } from "date-fns";
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatMonthTitle, toDateStr } from "../../lib/date";
 import { getHolidayMapForYears } from "../../lib/holidays";
+import type { DayChip } from "../../lib/eventPeople";
 
 interface Props {
   currentMonth: Date;
@@ -34,6 +35,10 @@ interface Props {
    * fixed to the trips area's own identity color regardless of the current
    * screen's accent, so it reads as "trip data" wherever it shows up. */
   tripDates?: Set<string>;
+  /** 日付ごとの帯(予定名つき)。渡された日はマスの中に予定名を並べる
+   * (src/lib/eventPeople.ts の collectDayChipsInRange)。渡さない画面
+   * (予定を選ぶだけの小さなカレンダーなど)は、今までどおり点だけになる。 */
+  dayChips?: Map<string, DayChip[]>;
   /** Dates before this (YYYY-MM-DD) render unselectable — e.g. a constraint the
    * AI found stated in an email ("8月17日以降で") that a manually-picked
    * replacement date shouldn't be able to violate. */
@@ -51,8 +56,12 @@ export function MonthView({
   eventDotColors,
   taskDates,
   tripDates,
+  dayChips,
   minDate,
 }: Props) {
+  // 帯を出す月表示では、マスの高さは中身に合わせて伸びる(件数の上限を設けないため)。
+  // 帯を渡していない画面は今までどおり固定の高さのまま。
+  const withChips = dayChips != null;
   const gridStart = startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 });
   const gridEnd = endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 });
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
@@ -102,6 +111,7 @@ export function MonthView({
           const hasTrip = tripDates?.has(dateStr) ?? false;
           const holidayName = holidayMap.get(dateStr);
           const disabled = Boolean(minDate) && dateStr < minDate!;
+          const chips = dayChips?.get(dateStr) ?? [];
 
           return (
             <button
@@ -110,7 +120,7 @@ export function MonthView({
               onClick={() => !disabled && onSelectDate(dateStr)}
               disabled={disabled}
               title={disabled ? `${minDate}以降のみ選択できます` : holidayName}
-              className={`spatial-calendar__cell relative flex min-h-[66px] flex-col items-center gap-0.5 border-b border-r border-white/20 py-1.5 transition-colors hover:bg-white/15 disabled:cursor-not-allowed lg:min-h-[82px] ${selected ? "is-selected bg-white/20" : ""} ${isToday(day) ? "is-today" : ""}`}
+              className={`spatial-calendar__cell relative flex min-h-[66px] flex-col items-center gap-0.5 border-b border-r border-white/20 py-1.5 transition-colors hover:bg-white/15 disabled:cursor-not-allowed lg:min-h-[82px] ${withChips ? "spatial-calendar__cell--chips" : ""} ${selected ? "is-selected bg-white/20" : ""} ${isToday(day) ? "is-today" : ""}`}
             >
               <span
                 className={`flex h-8 w-8 items-center justify-center rounded-full text-sm transition-all ${
@@ -129,20 +139,44 @@ export function MonthView({
               >
                 {format(day, "d")}
               </span>
+              {/* 帯を出す画面では、予定の色の点は帯と同じことを二度言うので出さない。
+                  タスク・旅行は帯にしていないので、点のまま残す。 */}
               <span className="flex h-1.5 items-center gap-0.5">
-                {dotColors.length > 0 ? (
-                  dotColors.map((hex, i) => (
-                    <span key={`${hex}-${i}`} className="h-1 w-1 rounded-full" style={{ backgroundColor: hex }} />
-                  ))
-                ) : (
-                  <span className={`h-1 w-1 rounded-full ${hasEvent ? "bg-accent" : "bg-transparent"}`} />
-                )}
+                {!withChips &&
+                  (dotColors.length > 0 ? (
+                    dotColors.map((hex, i) => (
+                      <span key={`${hex}-${i}`} className="h-1 w-1 rounded-full" style={{ backgroundColor: hex }} />
+                    ))
+                  ) : (
+                    <span className={`h-1 w-1 rounded-full ${hasEvent ? "bg-accent" : "bg-transparent"}`} />
+                  ))}
                 <span className={`h-1 w-1 rounded-full ${hasTask ? "bg-warning" : "bg-transparent"}`} />
                 <span className={`h-1 w-1 rounded-full ${hasTrip ? "bg-[#ea580c]" : "bg-transparent"}`} />
               </span>
-              <span className="block h-[28px] w-full overflow-hidden px-0.5 text-center text-[10px] font-semibold leading-[13px] text-red-500">
-                {inMonth && holidayName ? holidayName : ""}
-              </span>
+
+              {withChips ? (
+                <>
+                  {inMonth && holidayName && <span className="spatial-calendar__holiday">{holidayName}</span>}
+                  {chips.length > 0 && (
+                    <span className="spatial-calendar__chips">
+                      {chips.map((chip) => (
+                        <span
+                          key={chip.key}
+                          className={`spatial-calendar__chip ${chip.kind === "fixedCost" ? "is-fixed-cost" : ""}`}
+                          style={{ "--chip-color": chip.color } as CSSProperties}
+                          title={chip.label}
+                        >
+                          {chip.label}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="block h-[28px] w-full overflow-hidden px-0.5 text-center text-[10px] font-semibold leading-[13px] text-red-500">
+                  {inMonth && holidayName ? holidayName : ""}
+                </span>
+              )}
             </button>
           );
         })}

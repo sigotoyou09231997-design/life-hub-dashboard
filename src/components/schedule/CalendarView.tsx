@@ -5,10 +5,13 @@ import type { CalendarEvent, Task } from "../../types";
 import { db } from "../../db/schema";
 import {
   UNASSIGNED_FILTER,
+  collectDayChipsInRange,
   collectPersonDotsInRange,
   matchesPersonFilter,
   personIdsOf,
+  sortDayChips,
   sortPeople,
+  type DayChip,
 } from "../../lib/eventPeople";
 import { formatDisplayDate, toDateStr } from "../../lib/date";
 import { collectSpanDates, collectSpanDatesInRange, occurringOn } from "../../lib/eventSpan";
@@ -33,6 +36,17 @@ interface Props {
   onDeleteEvent: (id: string) => void;
   onEditTask: (t: Task) => void;
   onAddSubtask: (parentId: string) => void;
+}
+
+/** 日付ごとの帯を1つにまとめる。渡した順に積む(先に渡したものが上に来る)。 */
+function mergeChips(...sources: Map<string, DayChip[]>[]): Map<string, DayChip[]> {
+  const merged = new Map<string, DayChip[]>();
+  for (const source of sources) {
+    for (const [date, chips] of source) {
+      merged.set(date, [...(merged.get(date) ?? []), ...sortDayChips(chips)]);
+    }
+  }
+  return merged;
 }
 
 export function CalendarView({
@@ -68,6 +82,10 @@ export function CalendarView({
 
   const eventDates = collectSpanDatesInRange(shownEvents, gridStart, gridEnd);
   const eventDotColors = collectPersonDotsInRange(shownEvents, people, gridStart, gridEnd);
+
+  // マスに出す帯(予定名)。点と違って件数の上限は無いので、予定の多い日はマスが伸びる。
+  const dayChips = mergeChips(collectDayChipsInRange(shownEvents, people, gridStart, gridEnd));
+
   const taskDates = new Set(tasks.filter((t) => !t.completed && t.dueDate).map((t) => t.dueDate!));
   const tripDates = collectSpanDates(tripAgenda);
 
@@ -94,6 +112,7 @@ export function CalendarView({
           eventDotColors={eventDotColors}
           taskDates={taskDates}
           tripDates={tripDates}
+          dayChips={dayChips}
         />
       </Card>
 
