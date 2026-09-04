@@ -133,7 +133,10 @@ export default function App() {
     // そのあとで「あとで」(スヌーズ)の出し直しを見る — 順番が逆だと、出したそばから
     // ここで閉じてしまう。Service Workerが止められて待てなかったぶんの受け皿
     // (src/lib/snoozedNotifications.ts)。
-    void clearShownPushNotifications().then(() => flushDueSnoozedNotifications());
+    void (async () => {
+      await clearShownPushNotifications();
+      await flushDueSnoozedNotifications();
+    })();
   }, []);
 
   // ページ切り替え時の「読み込み中…」表示を体感上ほぼ無くすため、ログイン後の暇な
