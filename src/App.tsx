@@ -4,6 +4,7 @@ import type { Session } from "@supabase/auth-js";
 import { ensureDefaultSettings } from "./db/schema";
 import { auth, isSupabaseConfigured } from "./lib/supabase";
 import { clearShownPushNotifications } from "./lib/pushNotifications";
+import { flushDueSnoozedNotifications } from "./lib/snoozedNotifications";
 import { startSync, stopSync } from "./lib/syncRuntime";
 import { ensureDataOwner } from "./lib/dataOwner";
 import { IS_ADDING_ACCOUNT } from "./lib/accounts";
@@ -128,7 +129,10 @@ export default function App() {
     ensureDefaultSettings();
     // アプリを開いた時点でGmailプッシュ通知はもう本人が確認できる状態なので、端末の通知
     // センターに残っている分(ブロック後に届いた古い通知を含む)をここでまとめて閉じる。
-    void clearShownPushNotifications();
+    // そのあとで「あとで」(スヌーズ)の出し直しを見る — 順番が逆だと、出したそばから
+    // ここで閉じてしまう。Service Workerが止められて待てなかったぶんの受け皿
+    // (src/lib/snoozedNotifications.ts)。
+    void clearShownPushNotifications().then(() => flushDueSnoozedNotifications());
   }, []);
 
   // ページ切り替え時の「読み込み中…」表示を体感上ほぼ無くすため、ログイン後の暇な
