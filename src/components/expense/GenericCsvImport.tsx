@@ -4,6 +4,7 @@ import type { TransactionType } from "../../types";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "../../lib/categories";
 import { parseCsvRows, decodeCsvFileAuto, decodeCsvFileAs, buildPreview, type CsvEncoding } from "../../lib/csv";
 import { mapCsvRowsToTransactions, type ColumnMapping } from "../../lib/genericCsvImport";
+import { planPendingImport, type PendingChargeDraft } from "../../lib/pendingCardCharges";
 import { Card } from "../ui/Card";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/Button";
@@ -12,6 +13,15 @@ import { useToast } from "../ui/ToastProvider";
 
 interface Props {
   onClose: () => void;
+  /**
+   * 取り込み先。
+   *
+   * - "transactions"(既定) … そのまま支出・収入として記録する。
+   * - "pendingCard" … カードの「まだ引き落とされていない利用」として取り込む
+   *   (src/lib/pendingCardCharges.ts)。列の指定のしかたは同じなので、
+   *   画面はこの1つを使い回す。
+   */
+  destination?: "transactions" | "pendingCard";
 }
 
 type Step = "upload" | "mapping" | "result";
@@ -32,7 +42,8 @@ function columnLabel(i: number, header: string[] | null): string {
   return name ? `${name}(列${i + 1})` : `列${i + 1}`;
 }
 
-export function GenericCsvImport({ onClose }: Props) {
+export function GenericCsvImport({ onClose, destination = "transactions" }: Props) {
+  const toPendingCard = destination === "pendingCard";
   const showToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -162,19 +173,46 @@ export function GenericCsvImport({ onClose }: Props) {
     setImporting(true);
     setError(null);
     try {
-      const existing = await db.transactions.toArray();
-      const seen = new Set(existing.filter((t) => t.externalId).map((t) => t.externalId!));
       let imported = 0;
       let duplicates = 0;
-      for (const row of liveResult.rows) {
-        if (seen.has(row.externalId)) {
-          duplicates++;
-          continue;
+
+      if (toPendingCard) {
+        // カードの未確定利用として取り込む。支出の行(expense)だけを対象にする —
+        // 返金・キャッシュバックの行を「これから引き落とされる額」に混ぜない。
+        const drafts: PendingChargeDraft[] = liveResult.rows
+          .filter((row) => row.transaction.type === "expense")
+          .map((row) => ({
+            externalId: row.externalId,
+            date: row.transaction.date,
+            amount: row.transaction.amount,
+            store: row.transaction.store,
+            memo: row.transaction.memo,
+          }));
+        const plan = planPendingImport(drafts, await db.pendingCardCharges.toArray());
+        const now = Date.now();
+        if (plan.added.length > 0) {
+          await db.pendingCardCharges.bulkAdd(
+            plan.added.map((draft) => ({ ...draft, importedAt: now, createdAt: now })),
+          );
         }
-        seen.add(row.externalId);
-        await db.transactions.add({ ...row.transaction, createdAt: Date.now() });
-        imported++;
+        imported = plan.added.length;
+        // 収入の行は「取り込めなかった」ではなく、この取り込みの対象外なので
+        // 重複とは分けて数えない — 下の合計(total)との差として見えればよい。
+        duplicates = plan.duplicates;
+      } else {
+        const existing = await db.transactions.toArray();
+        const seen = new Set(existing.filter((t) => t.externalId).map((t) => t.externalId!));
+        for (const row of liveResult.rows) {
+          if (seen.has(row.externalId)) {
+            duplicates++;
+            continue;
+          }
+          seen.add(row.externalId);
+          await db.transactions.add({ ...row.transaction, createdAt: Date.now() });
+          imported++;
+        }
       }
+
       setResult({
         total: liveResult.rows.length,
         imported,
@@ -194,7 +232,9 @@ export function GenericCsvImport({ onClose }: Props) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
-          銀行明細・クレジットカード明細など、任意のCSVファイルを取り込めます。取り込む前に、どの列が日付・金額かを次の画面で指定します。
+          {toPendingCard
+            ? "カード会社の利用明細CSVを取り込みます。まだ引き落とされていない利用として記録し、「使えるお金」から先に引きます。取り込む前に、どの列が日付・金額かを次の画面で指定します。"
+            : "銀行明細・クレジットカード明細など、任意のCSVファイルを取り込めます。取り込む前に、どの列が日付・金額かを次の画面で指定します。"}
         </p>
         <Button
           variant="secondary"

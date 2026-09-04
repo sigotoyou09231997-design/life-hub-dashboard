@@ -35,6 +35,36 @@ export interface PayPayLedgerEntry {
   userId?: string;
 }
 
+/**
+ * クレジットカードの「使ったが、まだ引き落とされていない」利用1件。
+ *
+ * カードは使ってから引き落としまで日数が空くので、支出(Transaction)として記録する
+ * 前の分が「現在使える残額」に入ってこない。その差を埋めるために、カード会社の
+ * 明細CSVから未確定のぶんだけをここへ取り込み、残額の計算で先に引く
+ * (src/lib/pendingCardCharges.ts)。
+ *
+ * **確定したかどうかはこの行に持たない。** 同じ買い物の Transaction があるかを
+ * その都度見て決める — 印を持つと、支出の側を消したときにここだけ「確定済み」の
+ * まま取り残されて、二度と残額に戻ってこなくなる。
+ *
+ * **同期の対象にしていない**(src/lib/syncRuntime.ts)。取り込みは明細CSVを持っている
+ * 端末で行うもので、Supabase側に受け皿の表を作る(人が本番で流すSQL)必要も無い。
+ */
+export interface PendingCardCharge {
+  id?: string;
+  /** 取り込みの重複よけ。同じCSVを2回読んでも増えない(PayPay取込と同じ考え方)。 */
+  externalId: string;
+  /** 利用日(引き落とし日ではない)。YYYY-MM-DD。 */
+  date: string;
+  /** 利用金額(円)。 */
+  amount: number;
+  store?: string;
+  memo?: string;
+  importedAt: number;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 /** One itemized deduction line from a payslip, e.g. { label: "厚生年金保険料", amount: 25000 }. */
 export interface SalaryDeductionItem {
   label: string;

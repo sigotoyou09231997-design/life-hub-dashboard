@@ -27,6 +27,7 @@ import type {
   EventPerson,
   TripDocument,
   FixedCostAmountChange,
+  PendingCardCharge,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -123,6 +124,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "eventPeople", indexes: "", fks: [], hasUpdatedAt: true },
   { name: "tripDocuments", indexes: "tripId", fks: [], hasUpdatedAt: true },
   { name: "fixedCostAmountChanges", indexes: "fixedCostId", fks: [], hasUpdatedAt: true },
+  { name: "pendingCardCharges", indexes: "externalId, date", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -191,6 +193,7 @@ export class LifeHubDB extends Dexie {
   eventPeople!: EntityTable<EventPerson, "id">;
   tripDocuments!: EntityTable<TripDocument, "id">;
   fixedCostAmountChanges!: EntityTable<FixedCostAmountChange, "id">;
+  pendingCardCharges!: EntityTable<PendingCardCharge, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -366,6 +369,13 @@ export class LifeHubDB extends Dexie {
     // 加えず、POST_MIGRATION_TABLE_SCHEMAS側からフックを張る。既存の固定費には触らない。
     this.version(21).stores({
       fixedCostAmountChanges: "id, fixedCostId",
+    });
+
+    // カードの未確定利用(types/index.ts の PendingCardCharge)。取り込んだ端末の中だけに
+    // 置く(同期の対象にしない)。v10のblockedSendersと同じくTABLE_SCHEMASには加えず、
+    // POST_MIGRATION_TABLE_SCHEMAS側からフックを張る。既存の支出には触らない。
+    this.version(22).stores({
+      pendingCardCharges: "id, externalId, date",
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

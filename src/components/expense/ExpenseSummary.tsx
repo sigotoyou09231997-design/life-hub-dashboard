@@ -115,7 +115,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
     );
   }
 
-  const { period, totalFixedCosts, actualSpending, remaining, perDayUsable } = data;
+  const { period, totalFixedCosts, actualSpending, pendingCardSpending, remaining, perDayUsable } = data;
 
   // 目標が1件も無ければ null が返り、この節ごと出さない — 貯金を強制しない。
   const savingsPlan = planSavingsGoals(savingsGoals ?? [], remaining);
@@ -141,6 +141,13 @@ export function ExpenseSummary({ onAddSalary }: Props) {
           <span>{formatDisplayDate(toDateStr(period.periodStart))}から</span>
           <span>使用済み {yen(actualSpending)}</span>
         </div>
+        {/* カードの引き落とし前の利用も残額から先に引いている。何を引いたのか
+            分からないと「計算が合わない」に見えるので、その内訳をここに出す。 */}
+        {pendingCardSpending > 0 && (
+          <p className="mt-1.5 text-xs text-slate-500">
+            うち、引き落とし前のカード利用 {yen(pendingCardSpending)} を含みます
+          </p>
+        )}
       </Card>
 
       <Card className="finance-summary-module col-span-2 p-5 lg:col-span-5 lg:p-7">

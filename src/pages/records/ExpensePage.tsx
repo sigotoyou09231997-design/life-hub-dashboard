@@ -22,6 +22,7 @@ import { SalaryForm } from "../../components/expense/SalaryForm";
 import { SalaryDeductionBreakdown } from "../../components/expense/SalaryDeductionBreakdown";
 import { SalaryCsvImport } from "../../components/expense/SalaryCsvImport";
 import { PayPayImport } from "../../components/expense/PayPayImport";
+import { PendingCardChargeList } from "../../components/expense/PendingCardChargeList";
 import { GenericCsvImport } from "../../components/expense/GenericCsvImport";
 import { TransactionCsvExport } from "../../components/expense/TransactionCsvExport";
 import { useToast } from "../../components/ui/ToastProvider";
@@ -44,7 +45,7 @@ function receiptToDraftTransaction(receipt: ExtractedReceipt): Transaction {
   };
 }
 
-type Tab = "summary" | "salary" | "fixed" | "history" | "paypay";
+type Tab = "summary" | "salary" | "fixed" | "history" | "card" | "paypay";
 
 export default function ExpensePage() {
   const showToast = useToast();
@@ -53,6 +54,7 @@ export default function ExpensePage() {
   const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | "new" | null>(null);
   const [editingSalary, setEditingSalary] = useState<SalaryEntry | "new" | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [cardCsvImportOpen, setCardCsvImportOpen] = useState(false);
   const [csvExportOpen, setCsvExportOpen] = useState(false);
   const [salaryCsvImportOpen, setSalaryCsvImportOpen] = useState(false);
   const [receiptScanOpen, setReceiptScanOpen] = useState(false);
@@ -102,6 +104,7 @@ export default function ExpensePage() {
             { value: "salary", label: "給与" },
             { value: "fixed", label: "固定費" },
             { value: "history", label: "履歴" },
+            { value: "card", label: "カード" },
             { value: "paypay", label: "PayPay" },
           ]}
           value={tab}
@@ -194,6 +197,8 @@ export default function ExpensePage() {
           </div>
         )}
 
+        {tab === "card" && <PendingCardChargeList onImport={() => setCardCsvImportOpen(true)} />}
+
         {tab === "paypay" && <PayPayImport />}
       </div>
 
@@ -258,6 +263,16 @@ export default function ExpensePage() {
             }}
             onCancel={() => setEditingSalary(null)}
           />
+        )}
+      </Sheet>
+
+      <Sheet
+        open={cardCsvImportOpen}
+        onClose={() => setCardCsvImportOpen(false)}
+        title="カードの利用明細を取込"
+      >
+        {cardCsvImportOpen && (
+          <GenericCsvImport destination="pendingCard" onClose={() => setCardCsvImportOpen(false)} />
         )}
       </Sheet>
 

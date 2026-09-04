@@ -2,20 +2,25 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/schema";
 import { resolveCurrentPeriod, calculatePayPeriodBudget, type CurrentPayPeriod } from "../lib/payPeriod";
 import { toDateStr, todayStr } from "../lib/date";
+import { unsettledTotal } from "../lib/pendingCardCharges";
 
 export interface PayPeriodBudget {
   period: CurrentPayPeriod;
   totalFixedCosts: number;
   actualSpending: number;
+  /** カードで使ったが、まだ支出として記録されていないぶん(src/lib/pendingCardCharges.ts)。
+   * actualSpending に足したうえで残額を出しているので、画面はこの内訳を出せばよい。 */
+  pendingCardSpending: number;
   remaining: number;
   perDayUsable: number;
 }
 
 export function usePayPeriodBudget(): { data: PayPeriodBudget | null; loading: boolean } {
   const result = useLiveQuery(async () => {
-    const [salaries, allFixedCosts] = await Promise.all([
+    const [salaries, allFixedCosts, pendingCharges] = await Promise.all([
       db.salaries.toArray(),
       db.fixedCosts.toArray(),
+      db.pendingCardCharges.toArray(),
     ]);
 
     const period = resolveCurrentPeriod(salaries, new Date());
@@ -35,14 +40,20 @@ export function usePayPeriodBudget(): { data: PayPeriodBudget | null; loading: b
       .filter((f) => f.active)
       .reduce((sum, f) => sum + f.amount, 0);
 
+    // カードで使ったが、まだ支出として記録されていないぶんも先に引く。
+    // 突き合わせは期の中だけでなく全支出に対して行う — 利用日が期の中でも、
+    // 支出として記録した日付が期の外に置かれていることがあるため。
+    const allTransactions = await db.transactions.toArray();
+    const pendingCardSpending = unsettledTotal(pendingCharges, allTransactions, periodStartStr);
+
     const { remaining, perDayUsable } = calculatePayPeriodBudget({
       salaryAmount: period.salaryAmount,
       totalFixedCosts,
-      actualSpending,
+      actualSpending: actualSpending + pendingCardSpending,
       daysUntilNextPayday: period.daysUntilNextPayday,
     });
 
-    return { period, totalFixedCosts, actualSpending, remaining, perDayUsable };
+    return { period, totalFixedCosts, actualSpending, pendingCardSpending, remaining, perDayUsable };
   }, []);
 
   return { data: result ?? null, loading: result === undefined };
