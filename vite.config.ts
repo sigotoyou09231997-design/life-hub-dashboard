@@ -63,6 +63,18 @@ export default defineConfig({
             type: "image/svg+xml",
           },
         ],
+        // アプリアイコンの長押し(iOSはホーム画面、Androidはランチャー)から出る近道。
+        // 行き先の ?new=... は App 側で受けて、その画面を開いた直後にフォームを開く
+        // (SchedulePage.tsx / records/ExpensePage.tsx)。印は開いた時点で消すので、
+        // 戻る・再読み込みでフォームが開き直すことはない。
+        // アイコンは付けない — このアプリの手持ちはSVGだけで、ショートカットの
+        // アイコンにSVGを使えない環境があり、その場合は指定ごと無視されるより
+        // アプリ本体のアイコンで代替される方が確実なため。
+        shortcuts: [
+          { name: "支出を追加", short_name: "支出", url: "/records/expense?new=expense" },
+          { name: "予定を追加", short_name: "予定", url: "/schedule?new=event" },
+          { name: "タスクを追加", short_name: "タスク", url: "/schedule?new=task" },
+        ],
       },
     }),
   ],

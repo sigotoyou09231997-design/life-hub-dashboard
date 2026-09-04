@@ -40,7 +40,7 @@ function tabFromView(view: string | null): Tab {
 
 export default function SchedulePage() {
   const showToast = useToast();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => tabFromView(searchParams.get("view")));
 
   // TopPage's 予定/タスク tiles and AppHeader's overdue-task notices link to
@@ -56,6 +56,19 @@ export default function SchedulePage() {
   const [editingEvent, setEditingEvent] = useState<EditingEvent>(null);
   const [editingTask, setEditingTask] = useState<EditingTask>(null);
   const [editingJob, setEditingJob] = useState<EditingJob>(null);
+
+  // アプリアイコン長押しのショートカット(vite.config.ts の manifest.shortcuts)から
+  // ?new=event / ?new=task で来たときは、その追加フォームを開いた状態で始める。
+  // 開いたら印はURLから消す — 残すと、閉じたあとの再読み込みや戻るでまた開く。
+  useEffect(() => {
+    const requested = searchParams.get("new");
+    if (requested !== "event" && requested !== "task") return;
+    if (requested === "event") setEditingEvent("new");
+    else setEditingTask({ mode: "new" });
+    const rest = new URLSearchParams(searchParams);
+    rest.delete("new");
+    setSearchParams(rest, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const jobsResult = useLiveQuery(() => db.jobApplications.toArray(), []);
   const eventsResult = useLiveQuery(() => db.calendarEvents.toArray(), []);

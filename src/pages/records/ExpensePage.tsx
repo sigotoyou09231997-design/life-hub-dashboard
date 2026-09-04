@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction, FixedCost, SalaryEntry } from "../../types";
@@ -55,6 +56,21 @@ export default function ExpensePage() {
   const [csvExportOpen, setCsvExportOpen] = useState(false);
   const [salaryCsvImportOpen, setSalaryCsvImportOpen] = useState(false);
   const [receiptScanOpen, setReceiptScanOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // アプリアイコン長押しのショートカット(vite.config.ts の manifest.shortcuts)から
+  // ?new=expense で来たときは、収支の追加フォームを開いた状態で始める。合わせて
+  // 履歴タブへ移す — 保存したあとに何が増えたのかが見える場所で終わるようにする。
+  // 開いたら印はURLから消す(残すと、閉じたあとの再読み込みや戻るでまた開く)。
+  useEffect(() => {
+    if (searchParams.get("new") !== "expense") return;
+    setTab("history");
+    setEditingTransaction("new");
+    const rest = new URLSearchParams(searchParams);
+    rest.delete("new");
+    setSearchParams(rest, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   // レシート読み取りからの下書きは、idを持たないオブジェクトとして開く(新規追加)。
   const isTransactionDraft = typeof editingTransaction === "object" && editingTransaction !== null && !editingTransaction.id;
 
