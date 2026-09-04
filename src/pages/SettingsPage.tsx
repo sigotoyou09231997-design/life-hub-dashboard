@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
-import { Bell, CalendarArrowUp, Database, Image as ImageIcon, Mail, PiggyBank, Wallet } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Bell, CalendarArrowUp, Database, Image as ImageIcon, Mail, PiggyBank, Sparkles, Wallet } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
@@ -23,7 +24,11 @@ import {
   NOTIFICATION_CATEGORIES,
   type NotificationCategory,
 } from "../lib/pushNotifications";
+import { CHANGELOG, unreadChangelog } from "../lib/changelog";
+import { getSeenChangelogId } from "../lib/changelogSeen";
+import { formatDisplayDate } from "../lib/date";
 import { PageHeader } from "../components/ui/PageHeader";
+import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { ListRow } from "../components/ui/ListRow";
 import { Button } from "../components/ui/Button";
@@ -34,6 +39,9 @@ import { useToast } from "../components/ui/ToastProvider";
 
 export default function SettingsPage() {
   const showToast = useToast();
+
+  // 更新履歴の新着。読んだ印は画面を開いた時に進むので、ここでは数えるだけ。
+  const [unreadCount] = useState(() => unreadChangelog(getSeenChangelogId()).length);
 
   useEffect(() => {
     ensureDefaultSettings();
@@ -257,6 +265,25 @@ export default function SettingsPage() {
       <PageHeader title="設定" backTo="/" />
 
       <div className="system-control-panel settings-account-grid grid gap-3 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
+        <Card className="system-section system-section--changelog lg:col-span-2">
+          <div className="system-section__header">
+            <div className="system-section__identity"><span><Sparkles size={17} /></span><div><h2>更新履歴</h2></div></div>
+            {unreadCount > 0 && <Badge tone="accent">新着 {unreadCount}件</Badge>}
+          </div>
+          <p className="system-section__description text-xs text-slate-500">
+            このアプリに入った変更を、使う人から見た形でまとめています。
+            最終更新 {formatDisplayDate(CHANGELOG[0].date)}。
+          </p>
+          <div className="system-section__actions">
+            <Link
+              to="/changelog"
+              className="app-button inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-none border border-white/60 bg-white/35 px-4 py-2.5 text-sm font-medium text-accent shadow-[inset_0_1px_0_rgba(255,255,255,.6)] transition-all duration-200 ease-out hover:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+            >
+              何が変わったかを見る
+            </Link>
+          </div>
+        </Card>
+
         <Card className="system-section system-section--data">
           <div className="system-section__header">
             <div className="system-section__identity"><span><Database size={17} /></span><div><h2>データ管理</h2></div></div>

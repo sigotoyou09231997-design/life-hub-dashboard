@@ -248,3 +248,72 @@
     transition: none;
   }
 }
+
+/* ==========================================================================
+   更新履歴 (/changelog)
+
+   日記と同じ「日付の見出し + その日の面」の組み立て。専用の色は足さず、
+   hub.css の --hub-* をそのまま使う。
+   ========================================================================== */
+
+.changelog-date {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.changelog-date h2 {
+  margin: 0;
+  color: var(--hub-ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.changelog-date span {
+  color: rgba(13, 27, 49, 0.5);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.changelog-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.changelog-entry__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.changelog-entry__area {
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: rgba(13, 27, 49, 0.6);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.changelog-entry__title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  color: var(--hub-ink);
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.changelog-entry__title svg {
+  flex: none;
+  color: var(--accent, var(--hub-blue));
+}
+
+.changelog-entry__body {
+  margin: 0;
+  color: rgba(13, 27, 49, 0.78);
+  font-size: 0.88rem;
+  line-height: 1.7;
+}

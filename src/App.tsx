@@ -27,6 +27,7 @@ const TripsPage = lazy(() => import("./pages/TripsPage"));
 const TripDetailPage = lazy(() => import("./pages/TripDetailPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const AccountPage = lazy(() => import("./pages/AccountPage"));
+const ChangelogPage = lazy(() => import("./pages/ChangelogPage"));
 const ReviewPage = lazy(() => import("./pages/ReviewPage"));
 const ExpensePage = lazy(() => import("./pages/records/ExpensePage"));
 const NotePage = lazy(() => import("./pages/records/NotePage"));
@@ -211,6 +212,7 @@ export default function App() {
               <Route path="/records/habits" element={<Navigate to="/" replace />} />
               <Route path="/settings" element={<LazyRoute><SettingsPage /></LazyRoute>} />
               <Route path="/account" element={<LazyRoute><AccountPage /></LazyRoute>} />
+              <Route path="/changelog" element={<LazyRoute><ChangelogPage /></LazyRoute>} />
               <Route path="/gmail" element={<LazyRoute><GmailPage /></LazyRoute>} />
               <Route path="/gmail/mail/:emailId" element={<LazyRoute><GmailMailPage /></LazyRoute>} />
               <Route path="/gmail/callback" element={<LazyRoute><GmailCallbackPage /></LazyRoute>} />

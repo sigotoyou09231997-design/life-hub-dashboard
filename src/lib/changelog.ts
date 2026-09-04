@@ -1,0 +1,164 @@
+/**
+ * アプリの更新履歴(お知らせ)。
+ *
+ * 元ネタはこのリポジトリのコミットだが、そのまま出すと開発の都合(内部の作り直し・
+ * 連携の設定など)まで並んでしまうので、**使う人から見て何が変わったか**だけを
+ * 手で書いてある。機能を足したら、いちばん上の日付の節に1行足すこと。
+ *
+ * 「新しいお知らせがある」の判定はいちばん上の項目の id で行う
+ * (src/lib/changelogSeen.ts)。id は日付+連番で、あとから並べ替えないこと。
+ */
+
+export interface ChangelogEntry {
+  id: string;
+  /** YYYY-MM-DD。 */
+  date: string;
+  title: string;
+  /** どの画面の話か。「お金管理」「予定・タスク」など、画面の名前をそのまま。 */
+  area: string;
+  description: string;
+}
+
+/** 新しいものが上。 */
+export const CHANGELOG: ChangelogEntry[] = [
+  {
+    id: "2026-09-04-09",
+    date: "2026-09-04",
+    area: "旅行",
+    title: "旅行の予算が危なくなったら通知します",
+    description:
+      "旅行の支出が予算の8割に届いたとき・超えたときに、端末へ通知します。設定の「バックグラウンド通知」から個別に止められます。",
+  },
+  {
+    id: "2026-09-04-08",
+    date: "2026-09-04",
+    area: "通知",
+    title: "通知を「あとで」で鳴らし直せます",
+    description:
+      "予定・タスクの通知に「10分後」「1時間後」のボタンが付きました。押すといったん閉じて、その時間が来たらもう一度出ます。",
+  },
+  {
+    id: "2026-09-04-07",
+    date: "2026-09-04",
+    area: "予定・タスク",
+    title: "月表示のマスに予定名が並びます",
+    description:
+      "点だけだった月表示に、予定名を色付きの帯で出すようにしました。色は「誰の予定か」のまま。固定費の支払日も同じマスに出ます。",
+  },
+  {
+    id: "2026-09-04-06",
+    date: "2026-09-04",
+    area: "就活",
+    title: "選考状況をまとめて見られます",
+    description: "就活タブの上に、応募数・選考中・内定・内定率と、段階ごとの件数が出るようになりました。",
+  },
+  {
+    id: "2026-09-04-05",
+    date: "2026-09-04",
+    area: "お金管理",
+    title: "店名からカテゴリを推測します",
+    description:
+      "支出の手入力で店名を入れると、その店で前に選んだカテゴリを自動で入れます。違うときはその場で選び直せます。",
+  },
+  {
+    id: "2026-09-04-04",
+    date: "2026-09-04",
+    area: "お金管理",
+    title: "財布の現金も残高として追えます",
+    description:
+      "サマリーに「財布の現金」を足しました。数えた額を入れておくと、そのあとに現金で記録した支出・収入を足し引きして出します。",
+  },
+  {
+    id: "2026-09-04-03",
+    date: "2026-09-04",
+    area: "メモ・リスト",
+    title: "「1年前の今日」を振り返れます",
+    description: "日記タブの上に、同じ月日に書いた過去の日記が出るようになりました。無い日は何も出ません。",
+  },
+  {
+    id: "2026-09-04-02",
+    date: "2026-09-04",
+    area: "全体",
+    title: "タブの白い枠がずれていたのを直しました",
+    description: "お金管理と旅行詳細で、選んでいるタブの白い背景が別の場所に浮いていた問題を直しました。",
+  },
+  {
+    id: "2026-09-04-01",
+    date: "2026-09-04",
+    area: "お金管理",
+    title: "カードの引き落とし前の利用を先取りで引きます",
+    description:
+      "カードのCSVを取り込むと、引き落とし前の利用ぶんも「使えるお金」から先に引くようになりました。内訳はサマリーに出ます。",
+  },
+  {
+    id: "2026-09-03-03",
+    date: "2026-09-03",
+    area: "お金管理",
+    title: "領収書メールから支出を拾います",
+    description: "注文確認・領収書のメールから、金額と店名を読み取って支出の登録を提案します。",
+  },
+  {
+    id: "2026-09-03-02",
+    date: "2026-09-03",
+    area: "お金管理",
+    title: "固定費の値上げに気づけます",
+    description: "固定費の金額を変えると前の額を控えとして残し、いつ・いくらから上がったかが分かるようになりました。",
+  },
+  {
+    id: "2026-09-03-01",
+    date: "2026-09-03",
+    area: "予定・タスク",
+    title: "予定に「誰の予定か」を付けられます",
+    description:
+      "家族などの名前と色を登録して、予定に付けられるようになりました。カレンダーはその色で分かれ、絞り込みもできます。",
+  },
+  {
+    id: "2026-09-02-01",
+    date: "2026-09-02",
+    area: "旅行",
+    title: "ルートに最寄り駅からの徒歩が出ます",
+    description: "旅行のルートを1日目から見せ、場所ごとに最寄り駅からの徒歩と、電車の区間を分けて出すようにしました。",
+  },
+  {
+    id: "2026-09-01-01",
+    date: "2026-09-01",
+    area: "Gmail",
+    title: "メールからの予定の読み取りが良くなりました",
+    description:
+      "本文の奥にある日時も候補として拾い、同じ予定が2件に分かれて出るのをまとめました。過ぎた日付は出しません。",
+  },
+  {
+    id: "2026-08-31-01",
+    date: "2026-08-31",
+    area: "全体",
+    title: "見た目を暖色・写真ベースに刷新しました",
+    description: "全画面を新しいデザインに切り替え、そのあと地の色を白に寄せました。",
+  },
+];
+
+/** いちばん新しいお知らせの id。空なら null。 */
+export function latestChangelogId(): string | null {
+  return CHANGELOG[0]?.id ?? null;
+}
+
+/** 日付ごとにまとめる(新しい順)。 */
+export function groupChangelogByDate(entries: ChangelogEntry[] = CHANGELOG): { date: string; items: ChangelogEntry[] }[] {
+  const groups: { date: string; items: ChangelogEntry[] }[] = [];
+  for (const entry of entries) {
+    const last = groups[groups.length - 1];
+    if (last && last.date === entry.date) last.items.push(entry);
+    else groups.push({ date: entry.date, items: [entry] });
+  }
+  return groups;
+}
+
+/** まだ見ていないお知らせ。一度も開いていない(seen が null)ときは、いちばん新しい
+ * 1件だけを新着として扱う — 初めて開いた人に全部を「新着」として見せても、
+ * どれが新しいのか分からないため。 */
+export function unreadChangelog(seenId: string | null, entries: ChangelogEntry[] = CHANGELOG): ChangelogEntry[] {
+  if (entries.length === 0) return [];
+  if (seenId === null) return entries.slice(0, 1);
+  const index = entries.findIndex((entry) => entry.id === seenId);
+  // 覚えている id が見つからない(古い版で消えた等)ときは、新着なしとして扱う。
+  return index < 0 ? [] : entries.slice(0, index);
+}
