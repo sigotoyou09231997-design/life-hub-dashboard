@@ -5,6 +5,7 @@ import type { Transaction, TransactionType } from "../../types";
 import { todayStr } from "../../lib/date";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "../../lib/categories";
 import { collectStoreSamples, guessCategoryFromStore } from "../../lib/storeCategory";
+import { knownProjectTags, loadProjectTag, saveProjectTag } from "../../lib/projectTags";
 import { Wallet, Store } from "lucide-react";
 import { Input, Textarea, AmountInput } from "../ui/Input";
 import { Select } from "../ui/Select";
@@ -38,7 +39,26 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [date, setDate] = useState(initial?.date ?? todayStr());
   const [isFixed, setIsFixed] = useState(initial?.isFixed ?? false);
+  const [projectTag, setProjectTag] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // 案件タグは収支の行と別のテーブルにあるので、開いたときに読み直す
+  // (src/lib/projectTags.ts)。
+  const initialId = initial?.id;
+  useEffect(() => {
+    if (!initialId) return;
+    let alive = true;
+    loadProjectTag(initialId).then((tag) => {
+      if (alive) setProjectTag(tag);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [initialId]);
+
+  // 今までに使った案件名。入力欄の候補に出す(決まった一覧は持たない)。
+  const projectTagRows = useLiveQuery(() => db.transactionProjectTags.toArray(), []);
+  const tagSuggestions = knownProjectTags(projectTagRows ?? []);
 
   // 店名からカテゴリを推測する材料。過去の支出はそう多くないので全件から作る。
   const pastTransactions = useLiveQuery(() => db.transactions.toArray(), []);
@@ -86,11 +106,16 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
+    // 新しい記録にはまだidが無く、案件タグの貼り先を決められない。保存して得た
+    // idに向けて、そのあとで書く(src/lib/projectTags.ts)。
+    let transactionId: string;
     if (initial?.id) {
-      await db.transactions.update(initial.id, record);
+      transactionId = initial.id;
+      await db.transactions.update(transactionId, record);
     } else {
-      await db.transactions.add(record);
+      transactionId = String(await db.transactions.add(record));
     }
+    await saveProjectTag(transactionId, projectTag);
     setSaving(false);
     onSaved();
   }
@@ -172,6 +197,22 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
       )}
 
       <FormPanel>
+        {/* 個人開発の案件ごとの収支を、年末にまとめて書き出すための印
+            (src/lib/projectTags.ts)。付けたものだけが案件別の集計に出る。 */}
+        <Input
+          label="案件"
+          optional
+          value={projectTag}
+          onChange={(e) => setProjectTag(e.target.value)}
+          placeholder="例: Aサイト制作"
+          list="project-tag-options"
+          hint="付けた収支だけ、年間の案件別エクスポートに出ます。"
+        />
+        <datalist id="project-tag-options">
+          {tagSuggestions.map((tag) => (
+            <option key={tag} value={tag} />
+          ))}
+        </datalist>
         <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
       </FormPanel>
 

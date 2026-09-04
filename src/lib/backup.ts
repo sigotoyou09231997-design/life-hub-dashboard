@@ -32,6 +32,9 @@ const BACKUP_TABLES = [
   // 現地通貨の内訳も、旅行の支出(tripExpenses)のidを指す別テーブル
   // (types/index.ts の TripExpenseCurrency)。同じ理由で一緒に戻す。
   "tripExpenseCurrencies",
+  // 案件タグも transactions のidを指す別テーブル(types/index.ts の
+  // TransactionProjectTag)。同期していない代わりに、ここで端末間を運べるようにする。
+  "transactionProjectTags",
 ] as const;
 
 export async function exportBackup(): Promise<void> {

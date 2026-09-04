@@ -30,6 +30,7 @@ import type {
   PendingCardCharge,
   PlaceReminder,
   TripExpenseCurrency,
+  TransactionProjectTag,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -129,6 +130,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "pendingCardCharges", indexes: "externalId, date", fks: [], hasUpdatedAt: true },
   { name: "placeReminders", indexes: "[ownerType+ownerId]", fks: [], hasUpdatedAt: true },
   { name: "tripExpenseCurrencies", indexes: "expenseId", fks: [], hasUpdatedAt: true },
+  { name: "transactionProjectTags", indexes: "transactionId, tag", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -200,6 +202,7 @@ export class LifeHubDB extends Dexie {
   pendingCardCharges!: EntityTable<PendingCardCharge, "id">;
   placeReminders!: EntityTable<PlaceReminder, "id">;
   tripExpenseCurrencies!: EntityTable<TripExpenseCurrency, "id">;
+  transactionProjectTags!: EntityTable<TransactionProjectTag, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -399,6 +402,14 @@ export class LifeHubDB extends Dexie {
     // (TripExpense.amount)は今までどおりなので、既存の支出には触らない。
     this.version(24).stores({
       tripExpenseCurrencies: "id, expenseId",
+    });
+
+    // 支出・収入に付ける案件タグ(types/index.ts の TransactionProjectTag)。
+    // Transaction に列を足すと、その列が無い Supabase 側で同期が失敗するので、
+    // 別テーブルに逃がして端末の中だけに置く(同期の対象にしない)。
+    // 既存の支出・収入には触らない — タグの付いていないものは今までどおり。
+    this.version(25).stores({
+      transactionProjectTags: "id, transactionId, tag",
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

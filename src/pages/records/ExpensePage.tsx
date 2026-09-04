@@ -6,6 +6,7 @@ import type { Transaction, FixedCost, SalaryEntry } from "../../types";
 import { monthRange, todayStr } from "../../lib/date";
 import { EXPENSE_CATEGORIES } from "../../lib/categories";
 import { selectBonuses } from "../../lib/bonus";
+import { deleteProjectTagFor } from "../../lib/projectTags";
 import type { ExtractedReceipt } from "../../lib/receiptScan";
 import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
@@ -147,7 +148,7 @@ export default function ExpensePage() {
                     onAdd={() => setEditingBonus("new")}
                     onEdit={(bonus) => setEditingBonus(bonus)}
                     onDelete={(id) => {
-                      db.transactions.delete(id);
+                      void Promise.all([db.transactions.delete(id), deleteProjectTagFor(id)]);
                       showToast("削除しました");
                     }}
                   />
@@ -174,7 +175,9 @@ export default function ExpensePage() {
                 transactions={transactions ?? []}
                 onEdit={(t) => setEditingTransaction(t)}
                 onDelete={(id) => {
-                  db.transactions.delete(id);
+                  // 案件タグは別のテーブルにあるので、一緒に落とす
+                  // (src/lib/projectTags.ts)。残すと年間集計に幽霊の行が出る。
+                  void Promise.all([db.transactions.delete(id), deleteProjectTagFor(id)]);
                   showToast("削除しました");
                 }}
               />

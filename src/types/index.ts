@@ -19,6 +19,26 @@ export interface Transaction {
   userId?: string;
 }
 
+/**
+ * 支出・収入1件に付ける案件タグ(src/lib/projectTags.ts)。
+ *
+ * 個人開発の案件ごとの収支を、確定申告のために年間でまとめるためのもの。
+ * タグは自由入力の文字列で、決まった一覧は持たない(2026-09-04の回答)。
+ *
+ * **同期の対象にしていない**(src/lib/syncRuntime.ts)。Transaction 自体に列を足すと、
+ * その列が無い Supabase 側で同期が失敗する(列の追加は人が本番で流すSQL)。
+ * そのため**タグは付けた端末にしか無い** — 年間集計を出す端末は1つに決めておくこと。
+ */
+export interface TransactionProjectTag {
+  id?: string;
+  /** Transaction.id。 */
+  transactionId: string;
+  /** 案件の名前。1件の収支につき1つ。 */
+  tag: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 /** One row from an imported PayPay transaction history CSV, kept for
  * balance tracking even when it doesn't become a household Transaction
  * (e.g. wallet charges, bank withdrawals, point-to-balance conversions). */
