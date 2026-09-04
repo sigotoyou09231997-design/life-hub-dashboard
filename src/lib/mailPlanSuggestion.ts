@@ -194,7 +194,7 @@ const PLAN_KEYWORDS = [
  * 抜粋の頭に出てくる売り文句だけを並べる。 */
 const PROMO_KEYWORDS = ["セール", "キャンペーン", "クーポン", "割引", "抽選", "メルマガ", "無料プレゼント"];
 
-function isPromoText(text: string): boolean {
+export function isPromoText(text: string): boolean {
   const normalized = normalizeText(text);
   return PROMO_KEYWORDS.some((word) => normalized.includes(word));
 }

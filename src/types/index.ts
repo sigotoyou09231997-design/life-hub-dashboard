@@ -380,6 +380,10 @@ export interface SyncedEmail {
    * 何も無かった場合は空文字が入る(何度も取りに行かないため)。索引は要らないので
    * Dexieのバージョンは上げていない。 */
   planText?: string;
+  /** 「支出に追加しますか?」の提案に対して「あとで」を押した(または追加した)時刻。
+   * 以後そのメールは支出の候補として出さない。planSuggestionDismissedAt と同じで、
+   * この端末だけの覚え書き・索引は不要のためDexieのバージョンは上げていない。 */
+  expenseSuggestionDismissedAt?: number;
   /** 「就活タブの進捗を進めますか?」の提案に対して「あとで」を押した(または
    * 反映した)時刻。以後そのメールは提案として出さない。planSuggestionDismissedAt
    * と同じで、この端末だけの覚え書き・索引は不要のためDexieのバージョンは上げていない。 */

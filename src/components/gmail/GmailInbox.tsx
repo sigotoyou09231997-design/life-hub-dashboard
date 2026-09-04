@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router-dom";
-import { Ban, CalendarPlus, Check, Mail, Search } from "lucide-react";
+import { Ban, CalendarPlus, Check, Mail, Receipt, Search } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../../lib/gmail";
@@ -10,6 +10,7 @@ import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { updateMessageState } from "../../lib/gmailMessageState";
 import { pickPlanSuggestions, planSuggestionHint } from "../../lib/mailPlanSuggestion";
+import { expenseSuggestionHint, pickExpenseSuggestions } from "../../lib/expenseMailSuggestion";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
@@ -22,7 +23,7 @@ interface Props {
   account: GmailAccount;
 }
 
-type StatusFilter = "all" | "plan" | "important" | "drafted" | "sent" | "read";
+type StatusFilter = "all" | "plan" | "expense" | "important" | "drafted" | "sent" | "read";
 
 /** メールを開いて戻ってきた時に、一覧の見え方(検索語・絞り込み・スクロール位置)を戻すための控え。
  *
@@ -110,8 +111,14 @@ export function GmailInbox({ account }: Props) {
   const planSuggestions = visibleEmails ? pickPlanSuggestions(visibleEmails) : undefined;
   const planSuggestionIds = new Set((planSuggestions ?? []).map((email) => email.id));
 
+  // 注文確認・領収書らしいメール。予定候補と同じで、AIは呼ばず端末の中の文字合わせだけ
+  // (src/lib/expenseMailSuggestion.ts)。
+  const expenseSuggestions = visibleEmails ? pickExpenseSuggestions(visibleEmails) : undefined;
+  const expenseSuggestionIds = new Set((expenseSuggestions ?? []).map((email) => email.id));
+
   const statusFilteredEmails = visibleEmails?.filter((email) => {
     if (statusFilter === "plan") return planSuggestionIds.has(email.id);
+    if (statusFilter === "expense") return expenseSuggestionIds.has(email.id);
     // 重要タブは、既読にしても返信しても残す — 後で見返すために付ける印なので、
     // 他のタブのように状態が進んだら消える、という扱いにはしない。
     if (statusFilter === "important") return !!email.importantAt;
@@ -229,6 +236,9 @@ export function GmailInbox({ account }: Props) {
               ...(planSuggestions && planSuggestions.length > 0
                 ? ([["plan", `予定候補 ${planSuggestions.length}`]] as const)
                 : []),
+              ...(expenseSuggestions && expenseSuggestions.length > 0
+                ? ([["expense", `支出候補 ${expenseSuggestions.length}`]] as const)
+                : []),
               ["important", "重要"],
               ["drafted", "AI下書き"],
               ["sent", "送信済み"],
@@ -306,7 +316,9 @@ export function GmailInbox({ account }: Props) {
                       {email.subject}
                     </p>
                     <p className="mt-0.5 truncate text-xs text-slate-500">{email.snippet}</p>
-                    {(email.status !== "unprocessed" || planSuggestionIds.has(email.id)) && (
+                    {(email.status !== "unprocessed" ||
+                      planSuggestionIds.has(email.id) ||
+                      expenseSuggestionIds.has(email.id)) && (
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         {email.status !== "unprocessed" && (
                           <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
@@ -315,6 +327,12 @@ export function GmailInbox({ account }: Props) {
                           <span className="inline-flex items-center gap-1 rounded-full bg-accent-light px-2 py-0.5 text-xs font-medium text-accent">
                             <CalendarPlus size={12} />
                             {planSuggestionHint(email) || "予定候補"}
+                          </span>
+                        )}
+                        {expenseSuggestionIds.has(email.id) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                            <Receipt size={12} />
+                            {expenseSuggestionHint(email) || "支出候補"}
                           </span>
                         )}
                       </div>

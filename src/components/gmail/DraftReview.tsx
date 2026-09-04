@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban, Briefcase, CalendarPlus, Copy, Mail, MailOpen, Star } from "lucide-react";
+import { Ban, Briefcase, CalendarPlus, Copy, Mail, MailOpen, Receipt, Star } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
@@ -29,6 +29,8 @@ import { MonthView } from "../calendar/MonthView";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { updateMessageState } from "../../lib/gmailMessageState";
 import { isPlanSuggestion, planSuggestionHint } from "../../lib/mailPlanSuggestion";
+import { expenseSuggestionHint, isExpenseSuggestion } from "../../lib/expenseMailSuggestion";
+import { MailExpenseImport } from "./MailExpenseImport";
 import { detectJobStageSuggestion } from "../../lib/jobMailSuggestion";
 import { getJobStage } from "../../lib/jobApplications";
 import { AttachmentPicker } from "./AttachmentPicker";
@@ -172,10 +174,17 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   const [replyExpanded, setReplyExpanded] = useState(false);
   // このメールから旅行計画(日程・ルート)・予定・タスクを作る画面(MailPlanImport)を開いているか。
   const [planImportOpen, setPlanImportOpen] = useState(false);
+  // このメールから支出を1件作る画面(MailExpenseImport)を開いているか。
+  const [expenseImportOpen, setExpenseImportOpen] = useState(false);
 
   async function handleDismissPlanSuggestion() {
     if (!email.id) return;
     await db.syncedEmails.update(email.id, { planSuggestionDismissedAt: Date.now() });
+  }
+
+  async function handleDismissExpenseSuggestion() {
+    if (!email.id) return;
+    await db.syncedEmails.update(email.id, { expenseSuggestionDismissedAt: Date.now() });
   }
 
   // 就活タブの応募先。選考結果らしいメールを開いたときに、その会社の進捗を
@@ -648,7 +657,27 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   );
 
   const planImportSheet = (
-    <MailPlanImport email={email} account={account} open={planImportOpen} onClose={() => setPlanImportOpen(false)} />
+    <>
+      <MailPlanImport email={email} account={account} open={planImportOpen} onClose={() => setPlanImportOpen(false)} />
+      <MailExpenseImport email={email} open={expenseImportOpen} onClose={() => setExpenseImportOpen(false)} />
+    </>
+  );
+
+  /** 注文確認・領収書らしいメールに出す提案。読み取りは端末の中の文字合わせだけで、
+   * AIは呼ばない(src/lib/expenseMailSuggestion.ts)。押すまで支出は増えない。
+   * 「あとで」を押すと、このメールにはもう出さない。 */
+  const expenseSuggestionBanner = isExpenseSuggestion(email) && (
+    <SuggestionBanner
+      icon={<Receipt size={16} className="mt-0.5 shrink-0 text-accent" />}
+      onDismiss={handleDismissExpenseSuggestion}
+      actionLabel="支出に追加"
+      onAction={() => setExpenseImportOpen(true)}
+    >
+      買い物の控えのようです。支出に追加しますか?
+      {expenseSuggestionHint(email) && (
+        <em className="ml-1.5 not-italic text-xs text-slate-500">({expenseSuggestionHint(email)})</em>
+      )}
+    </SuggestionBanner>
   );
 
   /** 日時が書かれていそうなメールに出す提案。読み取り(AI)はここでは走らせず、
@@ -720,6 +749,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         {senderRow}
 
         {planSuggestionBanner}
+        {expenseSuggestionBanner}
 
         {jobStageSuggestionBanner}
 
@@ -852,6 +882,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         </div>
         <div className="mt-3 shrink-0">{senderRow}</div>
         {planSuggestionBanner && <div className="mt-3 shrink-0">{planSuggestionBanner}</div>}
+        {expenseSuggestionBanner && <div className="mt-3 shrink-0">{expenseSuggestionBanner}</div>}
         {jobStageSuggestionBanner && <div className="mt-3 shrink-0">{jobStageSuggestionBanner}</div>}
         <div className="my-4 shrink-0 border-t border-white/40" />
         {originalBodyNote}
