@@ -25,6 +25,10 @@ function loadSyncModule(): Promise<SyncModule> {
         module.registerSyncedTable(db.diaryEntries, "diary_entries");
         module.registerSyncedTable(db.paypayTransactions, "paypay_transactions");
         module.registerSyncedTable(db.eventPeople, "event_people");
+        // 2026-09-04、本人が supabase/sql/021・022 を本番で流したという連絡を受けて登録した。
+        // テーブルが先、登録があと(逆順だと無いテーブルへ upsert して同期が止まる)。
+        module.registerSyncedTable(db.tripExpenseCurrencies, "trip_expense_currencies");
+        module.registerSyncedTable(db.transactionProjectTags, "transaction_project_tags");
         return module;
       })
       .catch((error) => {
