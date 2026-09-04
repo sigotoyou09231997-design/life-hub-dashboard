@@ -87,6 +87,22 @@ export function resolveCurrentPeriod(salaries: SalaryEntry[], today: Date = new 
   };
 }
 
+export interface PayPeriodProgress {
+  /** 期の初日から today までの日数(today を含むので、給料日当日は1)。 */
+  elapsedDays: number;
+  /** today から次の給料日までの残り日数。 */
+  remainingDays: number;
+}
+
+/** 期のどこまで来たか。使いすぎの予測(src/lib/categoryBudget.ts の forecastFor)が、
+ * 「1日あたりいくら使っているか」を出すのに使う。 */
+export function payPeriodProgress(period: CurrentPayPeriod, today: Date = new Date()): PayPeriodProgress {
+  return {
+    elapsedDays: differenceInCalendarDays(stripTime(today), period.periodStart) + 1,
+    remainingDays: Math.max(0, period.daysUntilNextPayday),
+  };
+}
+
 export interface PayPeriodBudgetInput {
   salaryAmount: number;
   totalFixedCosts: number;

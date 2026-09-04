@@ -3,7 +3,13 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction } from "../../types";
 import { formatDisplayDate, toDateStr, todayStr } from "../../lib/date";
-import { overBudgetCategories, spendingByCategory, summarizeCategoryBudgets } from "../../lib/categoryBudget";
+import {
+  forecastOverBudget,
+  overBudgetCategories,
+  spendingByCategory,
+  summarizeCategoryBudgets,
+} from "../../lib/categoryBudget";
+import { payPeriodProgress } from "../../lib/payPeriod";
 import { planSavingsGoals } from "../../lib/savingsGoal";
 import { usePayPeriodBudget } from "../../hooks/usePayPeriodBudget";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
@@ -78,6 +84,13 @@ export function ExpenseSummary({ onAddSalary }: Props) {
   const budgetStatuses = summarizeCategoryBudgets(categoryBudgets ?? [], byCategory);
   const budgetedCategories = new Set(budgetStatuses.map((s) => s.category));
   const overBudget = overBudgetCategories(budgetStatuses);
+  // まだ超えてはいないが、このペースだと給料日までに超えそうなカテゴリ。
+  // 超えたあとの警告(overBudget)と重ならないよう、forecastFor 側で除いてある。
+  const progress = data ? payPeriodProgress(data.period) : null;
+  const forecasts = progress
+    ? forecastOverBudget(budgetStatuses, progress.elapsedDays, progress.remainingDays)
+    : [];
+  const forecastByCategory = new Map(forecasts.map((f) => [f.category, f]));
   // 予算を付けたカテゴリは全部出し、残りは今までと同じく多い順に。上の予算ぶんだけ
   // 行が増えるので、下の内訳は6件のまま据え置く。
   const unbudgetedBreakdown = categoryBreakdown.filter(([category]) => !budgetedCategories.has(category)).slice(0, 6);
@@ -220,6 +233,12 @@ export function ExpenseSummary({ onAddSalary }: Props) {
           </p>
         )}
 
+        {forecasts.length > 0 && (
+          <p className="mb-3 text-xs font-medium text-warning">
+            このペースだと {forecasts.map((f) => f.category).join("・")} が給料日までに超えそうです
+          </p>
+        )}
+
         {categoryBreakdown.length === 0 && budgetStatuses.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500">今期の支出記録はありません</p>
         ) : (
@@ -236,10 +255,22 @@ export function ExpenseSummary({ onAddSalary }: Props) {
                 </div>
                 <ProgressBar
                   value={status.ratio}
-                  colorClass={status.over ? "bg-danger" : status.nearLimit ? "bg-warning" : "bg-success"}
+                  colorClass={
+                    status.over
+                      ? "bg-danger"
+                      : status.nearLimit || forecastByCategory.has(status.category)
+                        ? "bg-warning"
+                        : "bg-success"
+                  }
                 />
                 <p className={`mt-1 text-[11px] ${status.over ? "text-danger" : "text-slate-400"}`}>
                   {status.over ? `${yen(-status.remaining)} 超過` : `あと ${yen(status.remaining)}`}
+                  {forecastByCategory.has(status.category) && (
+                    <span className="text-warning">
+                      {" "}
+                      ・このペースだと {yen(forecastByCategory.get(status.category)!.projected)} の見込み
+                    </span>
+                  )}
                 </p>
               </div>
             ))}

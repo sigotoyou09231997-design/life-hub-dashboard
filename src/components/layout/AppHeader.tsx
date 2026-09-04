@@ -147,6 +147,28 @@ export function AppHeader() {
               </div>
             )}
 
+            {signals.budgetForecasts.length > 0 && (
+              <div>
+                <p className="mb-2 text-sm font-medium text-warning">このままだと予算を超えそう</p>
+                <div className="space-y-2">
+                  {signals.budgetForecasts.map((forecast) => (
+                    <Link
+                      key={forecast.category}
+                      to="/records/expense"
+                      onClick={() => setNotifOpen(false)}
+                      className="glass-row block rounded-xl p-3 text-left transition-colors active:bg-white/70"
+                    >
+                      <p className="text-sm font-medium text-slate-900">{forecast.category}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        今のペースだと ¥{forecast.projected.toLocaleString()}(上限 ¥
+                        {forecast.budget.toLocaleString()})
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {signals.overdueTasks.length > 0 && (
               <div>
                 <p className="mb-2 text-sm font-medium text-danger">期限切れのタスク</p>

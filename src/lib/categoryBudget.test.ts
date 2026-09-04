@@ -1,4 +1,53 @@
 import { describe, expect, it } from "vitest";
+import { FORECAST_MIN_ELAPSED_DAYS, forecastFor, forecastOverBudget, statusFor } from "./categoryBudget";
+
+describe("forecastFor", () => {
+  const budget = { category: "食費", monthlyAmount: 30_000, createdAt: 0 };
+
+  it("今のペースで期末まで使ったときの見込みを出す", () => {
+    // 10日で15,000円 = 1日1,500円。30日で45,000円の見込み → 15,000円のはみ出し。
+    const forecast = forecastFor(statusFor(budget, 15_000), 10, 20);
+    expect(forecast.projected).toBe(45_000);
+    expect(forecast.projectedOver).toBe(15_000);
+    expect(forecast.willExceed).toBe(true);
+  });
+
+  it("見込みが上限に収まるなら知らせない", () => {
+    // 10日で8,000円 = 30日で24,000円。上限30,000円に収まる。
+    expect(forecastFor(statusFor(budget, 8_000), 10, 20).willExceed).toBe(false);
+  });
+
+  it("すでに超えているカテゴリは対象にしない(予測ではなく事実として別に出す)", () => {
+    expect(forecastFor(statusFor(budget, 31_000), 10, 20).willExceed).toBe(false);
+  });
+
+  it("期の頭すぎるうちは予測しない", () => {
+    const early = forecastFor(statusFor(budget, 15_000), FORECAST_MIN_ELAPSED_DAYS - 1, 28);
+    expect(early.willExceed).toBe(false);
+    expect(early.projected).toBe(15_000);
+  });
+
+  it("給料日当日(残り0日)は予測しない", () => {
+    expect(forecastFor(statusFor(budget, 15_000), 30, 0).willExceed).toBe(false);
+  });
+
+  it("上限を決めていない行は対象にしない", () => {
+    const noLimit = { category: "その他", monthlyAmount: 0, createdAt: 0 };
+    expect(forecastFor(statusFor(noLimit, 5_000), 10, 20).willExceed).toBe(false);
+  });
+});
+
+describe("forecastOverBudget", () => {
+  it("超えそうなカテゴリだけを、はみ出しの大きい順に返す", () => {
+    const statuses = [
+      statusFor({ category: "食費", monthlyAmount: 30_000, createdAt: 0 }, 15_000), // 見込み45,000 → +15,000
+      statusFor({ category: "趣味", monthlyAmount: 10_000, createdAt: 0 }, 4_000), // 見込み12,000 → +2,000
+      statusFor({ category: "日用品", monthlyAmount: 20_000, createdAt: 0 }, 2_000), // 見込み6,000 → 収まる
+    ];
+    const forecasts = forecastOverBudget(statuses, 10, 20);
+    expect(forecasts.map((f) => f.category)).toEqual(["食費", "趣味"]);
+  });
+});
 import type { CategoryBudget, Transaction } from "../types";
 import {
   NEAR_LIMIT_RATIO,
