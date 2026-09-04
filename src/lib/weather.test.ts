@@ -2,13 +2,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   describeWeather,
-  destinationQuery,
   fetchTripWeather,
   forecastForDate,
   forecastHorizon,
-  geocodePlace,
   parseForecastResponse,
-  parseGeocodeResponse,
   resetWeatherCache,
 } from "./weather";
 
@@ -46,27 +43,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("destinationQuery", () => {
-  it("そのまま地名なら、そのまま渡す", () => {
-    expect(destinationQuery("京都")).toBe("京都");
-  });
-
-  it("複数の行き先は、先頭だけを渡す(検索は1語しか受け取れないため)", () => {
-    expect(destinationQuery("京都・大阪")).toBe("京都");
-    expect(destinationQuery("京都、奈良")).toBe("京都");
-    expect(destinationQuery("Paris / Lyon")).toBe("Paris");
-  });
-
-  it("かっこ書きの注釈は落とす", () => {
-    expect(destinationQuery("パリ（フランス）")).toBe("パリ");
-    expect(destinationQuery("Hanoi (Vietnam)")).toBe("Hanoi");
-  });
-
-  it("空白だけなら空", () => {
-    expect(destinationQuery("   ")).toBe("");
-  });
-});
-
 describe("describeWeather", () => {
   it("天気コードを日本語とアイコンに直す", () => {
     expect(describeWeather(0)).toEqual({ label: "快晴", icon: "sun" });
@@ -77,27 +53,6 @@ describe("describeWeather", () => {
   it("知らないコード・欠けている場合は既定に寄せる", () => {
     expect(describeWeather(1234).label).toBe("—");
     expect(describeWeather(undefined).label).toBe("—");
-  });
-});
-
-describe("parseGeocodeResponse", () => {
-  it("先頭の1件を取る", () => {
-    expect(parseGeocodeResponse(GEOCODE_OK)).toEqual({
-      name: "京都市",
-      latitude: 35.0116,
-      longitude: 135.7681,
-      country: "日本",
-    });
-  });
-
-  it("見つからなかった応答は undefined", () => {
-    expect(parseGeocodeResponse({})).toBeUndefined();
-    expect(parseGeocodeResponse({ results: [] })).toBeUndefined();
-    expect(parseGeocodeResponse(null)).toBeUndefined();
-  });
-
-  it("緯度経度が数字でなければ採らない", () => {
-    expect(parseGeocodeResponse({ results: [{ name: "どこか", latitude: "35" }] })).toBeUndefined();
   });
 });
 
@@ -143,30 +98,6 @@ describe("forecastForDate / forecastHorizon", () => {
   it("予報が出せる最終日が分かる", () => {
     expect(forecastHorizon(days)).toBe("2026-09-11");
     expect(forecastHorizon([])).toBeUndefined();
-  });
-});
-
-describe("geocodePlace", () => {
-  it("いちど引いた地名は端末に覚えて、二度と問い合わせない", async () => {
-    const fetchMock = mockFetch({ geocode: GEOCODE_OK });
-    expect((await geocodePlace("京都"))?.name).toBe("京都市");
-    expect((await geocodePlace("京都"))?.name).toBe("京都市");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("見つからなかったことも覚える(引き直しても結果は変わらないため)", async () => {
-    const fetchMock = mockFetch({ geocode: { results: [] } });
-    expect(await geocodePlace("ここではないどこか")).toBeUndefined();
-    expect(await geocodePlace("ここではないどこか")).toBeUndefined();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("覚えた内容は期限を過ぎたら引き直す", async () => {
-    const fetchMock = mockFetch({ geocode: GEOCODE_OK });
-    const now = Date.now();
-    await geocodePlace("京都", now);
-    await geocodePlace("京都", now + 91 * 24 * 60 * 60 * 1000);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 

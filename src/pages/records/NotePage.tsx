@@ -7,6 +7,7 @@ import { NOTE_TYPE_DEFS, getNoteType } from "../../lib/noteTypes";
 import { selectOnThisDay, selectStandaloneDiaries } from "../../lib/diaryEntries";
 import { todayStr } from "../../lib/date";
 import { deleteAttachmentsFor } from "../../lib/attachments";
+import { deletePlaceRemindersFor } from "../../lib/placeReminders";
 import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { PageFab } from "../../components/ui/PageFab";
@@ -66,8 +67,9 @@ export default function NotePage() {
   }
 
   function handleDelete(id: string) {
-    // 貼った写真は別のテーブルにあるので、一緒に落とす(src/lib/attachments.ts)。
-    void Promise.all([db.notes.delete(id), deleteAttachmentsFor("note", id)]);
+    // 貼った写真と場所リマインドは別のテーブルにあるので、一緒に落とす
+    // (src/lib/attachments.ts / src/lib/placeReminders.ts)。
+    void Promise.all([db.notes.delete(id), deleteAttachmentsFor("note", id), deletePlaceRemindersFor("note", id)]);
     showToast("削除しました");
   }
 

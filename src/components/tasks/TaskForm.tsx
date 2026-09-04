@@ -1,8 +1,15 @@
-import { useState } from "react";
-import { CheckSquare, Clock, Repeat } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckSquare, Clock, MapPin, Repeat } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Task, Priority, RepeatRule, ScheduleCategory } from "../../types";
 import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
+import {
+  EMPTY_PLACE_REMINDER_DRAFT,
+  loadPlaceReminderDraft,
+  savePlaceReminderDraft,
+  type PlaceReminderDraft,
+} from "../../lib/placeReminders";
+import { PlaceReminderField } from "../reminders/PlaceReminderField";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { SegmentedField } from "../ui/SegmentedField";
@@ -33,7 +40,22 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
   const [notify, setNotify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
   const [repeat, setRepeat] = useState<RepeatRule>(initial?.repeat ?? "none");
   const [category, setCategory] = useState<ScheduleCategory>(initial?.category ?? "other");
+  const [placeReminder, setPlaceReminder] = useState<PlaceReminderDraft>(EMPTY_PLACE_REMINDER_DRAFT);
   const [saving, setSaving] = useState(false);
+
+  // 場所リマインドはタスクの行と別のテーブルにあるので、開いたときに読み直す
+  // (src/lib/placeReminders.ts)。
+  const initialId = initial?.id;
+  useEffect(() => {
+    if (!initialId) return;
+    let alive = true;
+    loadPlaceReminderDraft("task", initialId).then((draft) => {
+      if (alive) setPlaceReminder(draft);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [initialId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,11 +77,16 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
+    // 新しいタスクにはまだidが無く、リマインドの貼り先を決められない。保存して得た
+    // idに向けて、そのあとで書く(src/lib/placeReminders.ts)。
+    let taskId: string;
     if (initial?.id) {
-      await db.tasks.update(initial.id, record);
+      taskId = initial.id;
+      await db.tasks.update(taskId, record);
     } else {
-      await db.tasks.add(record);
+      taskId = String(await db.tasks.add(record));
     }
+    await savePlaceReminderDraft("task", taskId, placeReminder);
     setSaving(false);
     onSaved();
   }
@@ -100,6 +127,10 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
           <option value="30">30分前</option>
           <option value="60">1時間前</option>
         </Select>
+      </FormPanel>
+
+      <FormPanel caption="場所で知らせる" icon={MapPin}>
+        <PlaceReminderField value={placeReminder} onChange={setPlaceReminder} />
       </FormPanel>
 
       <FormPanel caption="繰り返しと分類" icon={Repeat}>

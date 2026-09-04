@@ -563,6 +563,48 @@ export interface CategoryBudget {
   userId?: string;
 }
 
+/** 場所リマインドを付けられる相手。タスクと、メモ・リスト(買い物リストを含む)。 */
+export type PlaceReminderOwnerType = "task" | "note";
+
+/** その場所に「入ったら」か「出たら」か。 */
+export type PlaceReminderTrigger = "enter" | "leave";
+
+/**
+ * 「駅に着いたら買い物リストを見る」のような、場所をきっかけにしたリマインド1件。
+ *
+ * **アプリを開いている間しか判定できない。** ブラウザ・PWAには地点監視(Geofencing)の
+ * 仕組みが無く(Androidは2018年に取り下げ、iOS Safariには元から無い)、Service Worker
+ * からは位置情報が取れない。つまり「アプリを閉じている間に、駅に着いたら通知」は
+ * どの端末でも作れない。ここが見るのは、アプリを開いた時と、開いている間の定期的な
+ * 現在地だけ(src/lib/placeReminders.ts)。2026-09-04に本人がこの範囲で了解している。
+ *
+ * **同期の対象にしていない**(src/lib/syncRuntime.ts)。タスク・メモの側に緯度経度の列を
+ * 足すには Supabase の列追加(人が本番で流すSQL)が要るので、別のテーブルに逃がして
+ * 端末の中だけに置く。付けた端末でだけ鳴る。
+ */
+export interface PlaceReminder {
+  id?: string;
+  ownerType: PlaceReminderOwnerType;
+  /** Task.id / Note.id。 */
+  ownerId: string;
+  /** 場所の名前(通知の本文に出す)。「東京駅」など。 */
+  label: string;
+  latitude: number;
+  longitude: number;
+  /** この距離まで近づいたら「入った」とみなす(m)。 */
+  radiusMeters: number;
+  trigger: PlaceReminderTrigger;
+  /**
+   * 直近に現在地を見たとき、範囲の中にいたか。入った/出たは、この前回の値と
+   * 見比べて決める。undefined は「まだ一度も見ていない」。
+   */
+  inside?: boolean;
+  /** 直近で知らせた時刻(epoch ms)。境目を行き来しても鳴り続けないための印。 */
+  lastNotifiedAt?: number;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 export interface Settings {
   id?: string;
   monthlyIncome: number;

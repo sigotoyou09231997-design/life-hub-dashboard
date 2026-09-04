@@ -26,6 +26,9 @@ const BACKUP_TABLES = [
   // 予定が持つのは人のid(CalendarEvent.personIds)だけなので、この一覧を含めないと
   // 書き戻した先で「誰の予定か」が全部ただの色なしに戻る。
   "eventPeople",
+  // 場所リマインドはタスク・メモのidを指す別テーブル(types/index.ts の PlaceReminder)。
+  // 指す先の tasks/notes はこの一覧に入っているので、一緒に戻さないと参照だけが切れる。
+  "placeReminders",
 ] as const;
 
 export async function exportBackup(): Promise<void> {

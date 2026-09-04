@@ -17,6 +17,7 @@ import { AppHeader } from "./components/layout/AppHeader";
 import { DesktopSidebar } from "./components/layout/DesktopSidebar";
 import { QuickActionBar } from "./components/layout/QuickActionBar";
 import { usePageMotion } from "./hooks/usePageMotion";
+import { usePlaceReminderWatch } from "./hooks/usePlaceReminderWatch";
 
 import AuthGatePage from "./pages/AuthGatePage";
 import TopPage from "./pages/TopPage";
@@ -55,6 +56,9 @@ export default function App() {
   const location = useLocation();
   // HOME以外の全ページに、HOMEと同じ出現アニメーションとスクロール連動を与える。
   const pageMotionRef = usePageMotion<HTMLDivElement>(location.pathname);
+  // 場所リマインドの見張り。下の早期returnより前に置く(フックの数を変えないため)。
+  // リマインドが1件も無いうちは位置情報に触らないので、使っていない人には何も起きない。
+  usePlaceReminderWatch();
   // 画面を切り替えたら、画面下に貼りつくもの(追従ナビ・追加ボタン)の位置を測り直す。
   // iOSは、キーボードが出ている入力欄が画面ごと消えると focusout を出さないことが
   // あり、そのままだと短いままの画面の高さが残って、ナビとボタンが画面の途中に

@@ -12,27 +12,19 @@
  * 天気の欄ごと畳む — 間違った土地の天気を出すより、出さない方がよい。
  */
 
-const GEOCODE_ENDPOINT = "https://geocoding-api.open-meteo.com/v1/search";
+import { geocodePlace, type GeocodedPlace } from "./geocoding";
+
+export type { GeocodedPlace };
+
 const FORECAST_ENDPOINT = "https://api.open-meteo.com/v1/forecast";
 
 /** Open-Meteoが一度に返せる日数の上限。 */
 export const FORECAST_DAYS = 16;
 
-/** 地名→緯度経度は変わらないので長めに覚える。 */
-const GEOCODE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 /** 予報は1日に何度も変わるものではないが、朝と夜で違うくらいには動く。 */
 const FORECAST_TTL_MS = 3 * 60 * 60 * 1000;
 
-const GEOCODE_CACHE_PREFIX = "lifehub.weatherPlace.v1:";
 const FORECAST_CACHE_PREFIX = "lifehub.weatherForecast.v1:";
-
-export interface GeocodedPlace {
-  name: string;
-  latitude: number;
-  longitude: number;
-  /** 「日本」「フランス」など。同じ地名が各国にあるので、何を引いたか見せるために持つ。 */
-  country?: string;
-}
 
 export interface DailyForecast {
   date: string; // YYYY-MM-DD
@@ -103,32 +95,6 @@ const UNKNOWN_WEATHER: WeatherLook = { label: "—", icon: "cloud" };
 export function describeWeather(code: number | undefined): WeatherLook {
   if (code == null) return UNKNOWN_WEATHER;
   return WEATHER_CODES[code] ?? UNKNOWN_WEATHER;
-}
-
-/**
- * 行き先の自由文から、地名として引ける1語を切り出す。
- *
- * Trip.destination には「京都・大阪」「パリ（フランス）」のように複数・注釈つきで
- * 入ることがある。Open-Meteoの地名検索は1語しか受け取れないので、区切りの手前だけを
- * 渡す。全部渡して0件になるより、先頭の地名で引けた方が役に立つ。
- */
-export function destinationQuery(destination: string): string {
-  const head = destination.split(/[・、,，/／\s（(]/)[0] ?? "";
-  return head.trim();
-}
-
-/** 地名検索の応答から、いちばん確からしい1件だけ取る。 */
-export function parseGeocodeResponse(json: unknown): GeocodedPlace | undefined {
-  const results = (json as { results?: unknown[] } | null)?.results;
-  if (!Array.isArray(results) || results.length === 0) return undefined;
-  const top = results[0] as { name?: unknown; latitude?: unknown; longitude?: unknown; country?: unknown };
-  if (typeof top?.latitude !== "number" || typeof top?.longitude !== "number") return undefined;
-  return {
-    name: typeof top.name === "string" ? top.name : "",
-    latitude: top.latitude,
-    longitude: top.longitude,
-    country: typeof top.country === "string" ? top.country : undefined,
-  };
 }
 
 /** 予報の応答(列ごとの配列)を、1日1件の並びに直す。 */
@@ -203,23 +169,6 @@ function forecastCacheKey(place: GeocodedPlace): string {
 
 /** 同じ画面の中で同じ行き先を何度も引かないための、その場かぎりの控え。 */
 const inFlight = new Map<string, Promise<TripWeather>>();
-
-export async function geocodePlace(destination: string, now: number = Date.now()): Promise<GeocodedPlace | undefined> {
-  const query = destinationQuery(destination);
-  if (!query) return undefined;
-
-  const key = `${GEOCODE_CACHE_PREFIX}${query}`;
-  const cached = readCache<GeocodedPlace | null>(key, GEOCODE_TTL_MS, now);
-  // 「引いたが見つからなかった」も覚える(null)。毎回引き直しても結果は変わらないため。
-  if (cached !== undefined) return cached ?? undefined;
-
-  const url = `${GEOCODE_ENDPOINT}?name=${encodeURIComponent(query)}&count=1&language=ja&format=json`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`geocode failed (${res.status})`);
-  const place = parseGeocodeResponse(await res.json());
-  writeCache(key, place ?? null, now);
-  return place;
-}
 
 export async function fetchForecast(place: GeocodedPlace, now: number = Date.now()): Promise<DailyForecast[]> {
   const key = forecastCacheKey(place);

@@ -2,6 +2,7 @@ import { CheckSquare } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Task } from "../../types";
 import { advanceByRepeat, tomorrowStr } from "../../lib/date";
+import { deletePlaceRemindersFor } from "../../lib/placeReminders";
 import { TaskItem } from "./TaskItem";
 import { EmptyState } from "../ui/EmptyState";
 import { useToast } from "../ui/ToastProvider";
@@ -50,6 +51,9 @@ export async function deleteTaskCascade(id: string) {
   const children = await db.tasks.where("parentTaskId").equals(id).toArray();
   await db.tasks.bulkDelete(children.map((c) => c.id!));
   await db.tasks.delete(id);
+  // 場所リマインドは別のテーブルにあるので、一緒に落とす
+  // (src/lib/placeReminders.ts)。残すと、消したタスクのために鳴り続ける。
+  await Promise.all([...children.map((c) => deletePlaceRemindersFor("task", c.id!)), deletePlaceRemindersFor("task", id)]);
 }
 
 export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage }: Props) {

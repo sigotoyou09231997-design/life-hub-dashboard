@@ -705,3 +705,71 @@ textarea.field-shell {
 .choice-grid--three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .choice-grid--three .choice-grid__option { padding-inline: 0.4rem; }
 .choice-grid--three .choice-grid__option strong { font-size: 0.98rem; }
+
+/* --- 場所リマインド(タスク・買い物リスト) ---------------------------------
+   場所の決め方が2つある(現在地・地名で探す)ので、どちらも1行に収めて縦に積む。 */
+.place-reminder__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.place-reminder__coords {
+  color: var(--hub-ink-3);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.place-reminder__search {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.place-reminder__results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.place-reminder__results button {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--hub-edge);
+  border-radius: var(--hub-r-sm);
+  background: rgba(255, 255, 255, 0.7);
+  text-align: left;
+  transition: background-color 0.18s var(--hub-ease);
+}
+
+.place-reminder__results button:hover {
+  background: var(--hub-inset);
+}
+
+.place-reminder__results strong {
+  color: var(--hub-ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.place-reminder__results span {
+  color: var(--hub-ink-3);
+  font-size: 0.75rem;
+}
+
+.place-reminder__empty,
+.place-reminder__error {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+}
+
+.place-reminder__empty { color: var(--hub-ink-3); }
+.place-reminder__error { color: var(--hub-red, #dc2626); }

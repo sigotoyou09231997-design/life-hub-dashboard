@@ -1,10 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Note, ShoppingItem } from "../../types";
 import { moveItem } from "../../lib/noteTypes";
 import { frequentShoppingItems } from "../../lib/frequentShoppingItems";
 import { NOTE_CATEGORIES } from "../../lib/categories";
+import {
+  EMPTY_PLACE_REMINDER_DRAFT,
+  loadPlaceReminderDraft,
+  savePlaceReminderDraft,
+  type PlaceReminderDraft,
+} from "../../lib/placeReminders";
+import { PlaceReminderField } from "../reminders/PlaceReminderField";
 import { Input, Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { ListRow } from "../ui/ListRow";
@@ -33,7 +40,22 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
   const [pinned, setPinned] = useState(initial?.pinned ?? false);
   const [items, setItems] = useState<ShoppingItem[]>(initial?.shoppingItems ?? []);
   const [newItemName, setNewItemName] = useState("");
+  const [placeReminder, setPlaceReminder] = useState<PlaceReminderDraft>(EMPTY_PLACE_REMINDER_DRAFT);
   const [saving, setSaving] = useState(false);
+
+  // 場所リマインドはノートの行と別のテーブルにあるので、開いたときに読み直す
+  // (src/lib/placeReminders.ts)。
+  const initialId = initial?.id;
+  useEffect(() => {
+    if (!initialId) return;
+    let alive = true;
+    loadPlaceReminderDraft("note", initialId).then((draft) => {
+      if (alive) setPlaceReminder(draft);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [initialId]);
 
   const plannedTotal = items.reduce((sum, i) => sum + (i.price ?? 0), 0);
   const purchasedTotal = items.filter((i) => i.purchased).reduce((sum, i) => sum + (i.price ?? 0), 0);
@@ -101,11 +123,16 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
       updatedAt: now,
     };
 
+    // 新しいリストにはまだidが無く、リマインドの貼り先を決められない。保存して得た
+    // idに向けて、そのあとで書く(src/lib/placeReminders.ts)。
+    let noteId: string;
     if (initial?.id) {
-      await db.notes.put({ ...record, id: initial.id });
+      noteId = initial.id;
+      await db.notes.put({ ...record, id: noteId });
     } else {
-      await db.notes.add(record);
+      noteId = String(await db.notes.add(record));
     }
+    await savePlaceReminderDraft("note", noteId, placeReminder);
     setSaving(false);
     onSaved();
   }
@@ -135,6 +162,11 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
           placeholder="例: 買い物, 仕事"
         />
         <SwitchField label="ピン留めする" hint="一覧のいちばん上に出します。" checked={pinned} onChange={setPinned} />
+      </FormPanel>
+
+      {/* 「駅に着いたら買い物リストを見る」のための場所リマインド。 */}
+      <FormPanel caption="場所で知らせる">
+        <PlaceReminderField value={placeReminder} onChange={setPlaceReminder} />
       </FormPanel>
 
       <div className="shopping-total">
