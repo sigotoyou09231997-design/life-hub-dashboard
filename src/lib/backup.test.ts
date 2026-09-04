@@ -188,6 +188,51 @@ describe("バックアップの復元", () => {
     expect(mocks.stores.get("trips")).toEqual([]);
   });
 
+  it("為替レートを rate という名前で持っていた頃のファイルは、exchangeRate に付け替えて復元する", async () => {
+    const file = fakeFile(
+      JSON.stringify({
+        version: 2,
+        data: {
+          tripExpenseCurrencies: [
+            { id: "c1", expenseId: "e1", currency: "EUR", originalAmount: 45, rate: 171.5, rateSource: "api", createdAt: 0 },
+            // レートを取れないまま保存した行(rate が無い/0)も、0 として形を揃える。
+            { id: "c2", expenseId: "e2", currency: "USD", originalAmount: 20, rateSource: "pending", createdAt: 0 },
+          ],
+        },
+      }),
+    );
+
+    const { importBackup } = await import("./backup");
+    await importBackup(file);
+
+    const rows = mocks.stores.get("tripExpenseCurrencies") as Record<string, unknown>[];
+    // 古い名前が残っていると、次にその行を編集した時に Supabase の
+    // trip_expense_currencies.exchange_rate(not null)へ入らず、同期の送信が止まる。
+    expect(rows.every((row) => !("rate" in row))).toBe(true);
+    expect(rows[0].exchangeRate).toBe(171.5);
+    expect(rows[1].exchangeRate).toBe(0);
+  });
+
+  it("すでに exchangeRate で書き出されたファイルは、そのまま復元する", async () => {
+    const file = fakeFile(
+      JSON.stringify({
+        version: 2,
+        data: {
+          tripExpenseCurrencies: [
+            { id: "c1", expenseId: "e1", currency: "EUR", originalAmount: 45, exchangeRate: 171.5, rateSource: "api", createdAt: 0 },
+          ],
+        },
+      }),
+    );
+
+    const { importBackup } = await import("./backup");
+    await importBackup(file);
+
+    expect(mocks.stores.get("tripExpenseCurrencies")).toEqual([
+      { id: "c1", expenseId: "e1", currency: "EUR", originalAmount: 45, exchangeRate: 171.5, rateSource: "api", createdAt: 0 },
+    ]);
+  });
+
   it("貯金目標が1つだった頃のファイルは、設定の目標額を1件目の目標として引き継ぐ", async () => {
     const file = fakeFile(
       JSON.stringify({

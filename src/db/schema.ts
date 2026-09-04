@@ -412,6 +412,26 @@ export class LifeHubDB extends Dexie {
       transactionProjectTags: "id, transactionId, tag",
     });
 
+    // 為替レートの持ち主の名前を rate → exchangeRate に付け替える。
+    // v24 で作った時は端末の中だけのテーブルだったので名前は自由だったが、
+    // 2026-09-04 に本人が supabase/sql/021 を本番で流し、その列名が exchange_rate に
+    // なった。sync.ts は camelToSnake で列名を作る(rate → rate)ので、名前が食い違うと
+    // 「列 rate が無い」＋「exchange_rate は not null」で upsert が失敗し、
+    // drainQueue が break して**他のテーブルぶんの送信まで止まる**。
+    // 直せるのはアプリ側だけ(SQLはもう流れている)なので、こちらを合わせる。
+    // 索引は "id, expenseId" のままなので stores は据え置き、中身だけ書き換える。
+    this.version(26)
+      .stores({})
+      .upgrade(async (tx) => {
+        await tx
+          .table("tripExpenseCurrencies")
+          .toCollection()
+          .modify((row: { rate?: number; exchangeRate?: number }) => {
+            if (row.exchangeRate === undefined) row.exchangeRate = row.rate ?? 0;
+            delete row.rate;
+          });
+      });
+
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに
     // UUIDを補うフックを全テーブルへ登録する(Dexie公式が示すUUID主キーの標準パターン)。
     for (const schema of HOOKED_TABLE_SCHEMAS) {

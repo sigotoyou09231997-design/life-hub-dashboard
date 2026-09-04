@@ -347,8 +347,11 @@ export interface TripExpenseCurrency {
   currency: string;
   /** 現地通貨で払った金額。 */
   originalAmount: number;
-  /** 1通貨あたりの円。まだレートを取れていない行(rateSource が "pending")は 0。 */
-  rate: number;
+  /** 1通貨あたりの円。まだレートを取れていない行(rateSource が "pending")は 0。
+   * 名前が `rate` ではなく `exchangeRate` なのは Supabase 側の列名に合わせるため —
+   * sync.ts の camelToSnake は `rate` を `rate` にしかせず、021 が作った
+   * trip_expense_currencies.exchange_rate に入らない(下の Dexie v26 で改名済み)。 */
+  exchangeRate: number;
   /** レートの出どころ。手で入れ直したものは "manual"(カードの実際のレートは
    * 公表値と違うことが多いので、上書きできるようにしてある)。
    * "pending" は「自動取得に失敗して、円の金額だけ手で入れた」状態 —

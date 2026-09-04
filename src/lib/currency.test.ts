@@ -248,8 +248,8 @@ describe("formatOriginalAmount", () => {
 describe("currenciesByExpenseId", () => {
   it("支出idで引ける表にする", () => {
     const rows: TripExpenseCurrency[] = [
-      { id: "c1", expenseId: "e1", currency: "EUR", originalAmount: 45, rate: 171.5, rateSource: "api", createdAt: 0 },
-      { id: "c2", expenseId: "e2", currency: "USD", originalAmount: 20, rate: 150, rateSource: "manual", createdAt: 0 },
+      { id: "c1", expenseId: "e1", currency: "EUR", originalAmount: 45, exchangeRate: 171.5, rateSource: "api", createdAt: 0 },
+      { id: "c2", expenseId: "e2", currency: "USD", originalAmount: 20, exchangeRate: 150, rateSource: "manual", createdAt: 0 },
     ];
     const map = currenciesByExpenseId(rows);
     expect(map.get("e1")?.currency).toBe("EUR");

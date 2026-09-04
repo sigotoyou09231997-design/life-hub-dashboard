@@ -60,6 +60,24 @@ export async function exportBackup(): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+/**
+ * 2026-09-04 より前に書き出したバックアップの通貨内訳は、レートを `rate` という名前で
+ * 持っている(Dexie v26 で `exchangeRate` に改名した)。そのまま書き戻すと、
+ * その行を次に編集した時に Supabase の trip_expense_currencies へ
+ * 「exchange_rate 無し」で upsert してしまい、not null に弾かれる。
+ * sync.ts の drainQueue は1件失敗するとそこで break するので、**他のテーブルぶんの
+ * 送信まで止まる**。読み込む時点で新しい名前に直しておく。
+ */
+function migrateCurrencyRateField(rows: unknown[] | undefined): unknown[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => {
+    if (!row || typeof row !== "object") return row;
+    const { rate, ...rest } = row as { rate?: number; exchangeRate?: number };
+    if (rest.exchangeRate !== undefined) return rest;
+    return { ...rest, exchangeRate: rate ?? 0 };
+  });
+}
+
 export async function importBackup(file: File): Promise<void> {
   const text = await file.text();
   const payload = JSON.parse(text);
@@ -68,6 +86,7 @@ export async function importBackup(file: File): Promise<void> {
   // 前に書き出したファイルに残るgoals/habits/habitLogsは、受け皿のテーブルごと無くなって
   // いるのでそのまま無視される。
   const d = payload.data ?? {};
+  d.tripExpenseCurrencies = migrateCurrencyRateField(d.tripExpenseCurrencies);
 
   await db.transaction("rw", BACKUP_TABLES.map((table) => db.table(table)), async () => {
     await Promise.all(BACKUP_TABLES.map((table) => db.table(table).clear()));

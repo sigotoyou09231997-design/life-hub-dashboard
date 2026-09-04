@@ -304,9 +304,9 @@ export async function loadCurrencyDraft(expenseId: string): Promise<TripExpenseC
   return {
     currency: existing.currency,
     originalAmount: String(existing.originalAmount),
-    // レートを取れないまま保存した行(rate は 0)は「未入力」として読み直す —
+    // レートを取れないまま保存した行(exchangeRate は 0)は「未入力」として読み直す —
     // そうすると needsRateRefetch が拾って、開いた時に取り直せる。
-    rate: existing.rate > 0 ? String(existing.rate) : "",
+    rate: existing.exchangeRate > 0 ? String(existing.exchangeRate) : "",
     manual: existing.rateSource === "manual",
   };
 }
@@ -325,7 +325,7 @@ export async function saveCurrencyDraft(expenseId: string, draft: TripExpenseCur
     expenseId,
     currency: draft.currency,
     originalAmount: Number(draft.originalAmount),
-    rate: rate > 0 ? rate : 0,
+    exchangeRate: rate > 0 ? rate : 0,
     rateSource: draft.manual ? ("manual" as const) : rate > 0 ? ("api" as const) : ("pending" as const),
   };
 
