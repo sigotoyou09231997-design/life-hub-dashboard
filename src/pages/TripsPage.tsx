@@ -32,11 +32,19 @@ export async function deleteTripCascade(tripId: string) {
   // (src/lib/attachments.ts)。
   await deleteAttachmentsForAll("diary", diaryIds);
 
+  // 書類ポケットも、貼った写真が別のテーブルにあるので先にidを控えてから消す
+  // (日記と同じ理由。src/lib/attachments.ts)。
+  const documentIds = (await db.tripDocuments.where("tripId").equals(tripId).toArray())
+    .map((document) => document.id!)
+    .filter(Boolean);
+  await deleteAttachmentsForAll("tripDocument", documentIds);
+
   await Promise.all([
     db.tripSchedule.where("tripId").equals(tripId).delete(),
     db.tripExpenses.where("tripId").equals(tripId).delete(),
     db.tripPackingItems.where("tripId").equals(tripId).delete(),
     db.tripRoutePlaces.where("tripId").equals(tripId).delete(),
+    db.tripDocuments.where("tripId").equals(tripId).delete(),
   ]);
   await db.trips.delete(tripId);
 }

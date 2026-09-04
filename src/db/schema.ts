@@ -25,6 +25,7 @@ import type {
   CategoryBudget,
   Attachment,
   EventPerson,
+  TripDocument,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -119,6 +120,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "categoryBudgets", indexes: "category", fks: [], hasUpdatedAt: true },
   { name: "attachments", indexes: "ownerType, [ownerType+ownerId]", fks: [], hasUpdatedAt: true },
   { name: "eventPeople", indexes: "", fks: [], hasUpdatedAt: true },
+  { name: "tripDocuments", indexes: "tripId", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -185,6 +187,7 @@ export class LifeHubDB extends Dexie {
   categoryBudgets!: EntityTable<CategoryBudget, "id">;
   attachments!: EntityTable<Attachment, "id">;
   eventPeople!: EntityTable<EventPerson, "id">;
+  tripDocuments!: EntityTable<TripDocument, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -343,6 +346,15 @@ export class LifeHubDB extends Dexie {
     // 索引を足すと移行が1つ増えるだけで得が無い。既存の予定には触らない。
     this.version(19).stores({
       eventPeople: "id",
+    });
+
+    // 旅行の書類ポケット(types/index.ts の TripDocument)。パスポート番号や予約の控えが
+    // 入るので、同期の対象にはしない(src/lib/syncRuntime.ts) — 端末の中だけに置く。
+    // 写真はメモ・日記と同じ attachments テーブルへ ownerType "tripDocument" で貼るので、
+    // ここで作るのはこの1つだけでよい。v10のblockedSendersと同じくTABLE_SCHEMASには
+    // 加えず、POST_MIGRATION_TABLE_SCHEMAS側からフックを張る。既存の旅行には触らない。
+    this.version(20).stores({
+      tripDocuments: "id, tripId",
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

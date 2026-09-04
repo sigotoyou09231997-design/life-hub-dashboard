@@ -3,9 +3,18 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { NotebookPen, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
-import type { TripScheduleItem, TripExpense, TripPackingItem, TripRoutePlace, TripStatus, DiaryEntry } from "../types";
+import type {
+  TripScheduleItem,
+  TripExpense,
+  TripPackingItem,
+  TripRoutePlace,
+  TripStatus,
+  TripDocument,
+  DiaryEntry,
+} from "../types";
 import { formatDisplayDate, tripDayList, tripDurationLabel, todayStr } from "../lib/date";
 import { deleteAttachmentsFor } from "../lib/attachments";
+import { moveItem } from "../lib/noteTypes";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
@@ -23,6 +32,8 @@ import { TripRouteView } from "../components/trips/TripRouteView";
 import { TripRouteForm } from "../components/trips/TripRouteForm";
 import { TripQuickPlanForm } from "../components/trips/TripQuickPlanForm";
 import { TripPlanScanForm } from "../components/trips/TripPlanScanForm";
+import { TripDocumentForm } from "../components/trips/TripDocumentForm";
+import { TripDocumentList } from "../components/trips/TripDocumentList";
 import { DiaryList } from "../components/diary/DiaryList";
 import { DiaryForm } from "../components/diary/DiaryForm";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -36,9 +47,9 @@ import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
 import { toRouteSuggestions } from "../lib/tripRouteSuggestions";
 import type { RouteSuggestion } from "../lib/tripRouteSuggestions";
 
-type Tab = "schedule" | "expense" | "packing" | "route" | "diary";
+type Tab = "schedule" | "expense" | "packing" | "route" | "diary" | "documents";
 
-const VALID_TABS: Tab[] = ["schedule", "expense", "packing", "route", "diary"];
+const VALID_TABS: Tab[] = ["schedule", "expense", "packing", "route", "diary", "documents"];
 
 /** 右下の＋(まとめて追加)を出すタブ。 */
 const QUICK_PLAN_TABS: Tab[] = ["schedule", "expense", "route"];
@@ -66,6 +77,7 @@ export default function TripDetailPage() {
   const [editingPacking, setEditingPacking] = useState<TripPackingItem | "new" | null>(null);
   const [editingRoute, setEditingRoute] = useState<TripRoutePlace | "new" | null>(null);
   const [editingDiary, setEditingDiary] = useState<DiaryEntry | "new" | null>(null);
+  const [editingDocument, setEditingDocument] = useState<TripDocument | "new" | null>(null);
   /** 日程・費用・ルートをまとめて入れるシートを開いているか。 */
   const [quickPlanOpen, setQuickPlanOpen] = useState(false);
   /** 「＋」で開いたシートの中身。手で打つ(form)か、写真・文章から読み取る(scan)か。 */
@@ -85,6 +97,17 @@ export default function TripDetailPage() {
     useLiveQuery(
       () =>
         db.tripRoutePlaces
+          .where("tripId")
+          .equals(tripId)
+          .toArray()
+          .then((rows) => rows.sort((a, b) => a.sortOrder - b.sortOrder)),
+      [tripId],
+    ) ?? [];
+
+  const documents =
+    useLiveQuery(
+      () =>
+        db.tripDocuments
           .where("tripId")
           .equals(tripId)
           .toArray()
@@ -139,6 +162,20 @@ export default function TripDetailPage() {
     if (rows.length === 0) return;
     await db.tripRoutePlaces.bulkAdd(rows);
     showToast(rows.length > 1 ? `${rows.length}件をルートに入れました` : "ルートに入れました");
+  }
+
+  /** 書類の並べ替え。ルートと同じで、入れ替えたあと1始まりの連番に振り直す —
+   * 抜けたまま持つと、あとから足した行の位置が決まらなくなる。 */
+  async function reorderDocuments(index: number, direction: -1 | 1) {
+    const next = moveItem(documents, index, direction);
+    if (next === documents) return;
+    await Promise.all(
+      next.map((document, position) =>
+        document.sortOrder === position + 1
+          ? Promise.resolve()
+          : db.tripDocuments.update(document.id!, { sortOrder: position + 1 }),
+      ),
+    );
   }
 
   const showSkeleton = useDelayedFlag(tripResult === undefined);
@@ -220,6 +257,7 @@ export default function TripDetailPage() {
             { value: "packing", label: "持ち物" },
             { value: "route", label: "ルート" },
             { value: "diary", label: "日記" },
+            { value: "documents", label: "書類" },
           ]}
           value={tab}
           onChange={setTab}
@@ -385,7 +423,49 @@ export default function TripDetailPage() {
             )}
           </>
         )}
+
+        {tab === "documents" && (
+          <>
+            <TripDocumentList
+              documents={documents}
+              onEdit={(document) => setEditingDocument(document)}
+              onDelete={(document) => {
+                if (!document.id) return;
+                if (!confirm(`「${document.title}」を削除しますか?貼った写真も一緒に消えます。`)) return;
+                // 貼った写真は別のテーブルにあるので、一緒に落とす(src/lib/attachments.ts)。
+                void Promise.all([
+                  db.tripDocuments.delete(document.id),
+                  deleteAttachmentsFor("tripDocument", document.id),
+                ]);
+                showToast("削除しました");
+              }}
+              onReorder={(index, direction) => void reorderDocuments(index, direction)}
+            />
+            <Button className="mt-4 w-full" onClick={() => setEditingDocument("new")}>
+              書類を追加
+            </Button>
+          </>
+        )}
       </div>
+
+      <Sheet
+        open={editingDocument !== null}
+        onClose={() => setEditingDocument(null)}
+        title={editingDocument === "new" ? "書類を追加" : "書類を編集"}
+      >
+        {editingDocument && (
+          <TripDocumentForm
+            tripId={tripId}
+            initial={editingDocument === "new" ? undefined : editingDocument}
+            count={documents.length}
+            onSaved={() => {
+              setEditingDocument(null);
+              showToast("保存しました");
+            }}
+            onCancel={() => setEditingDocument(null)}
+          />
+        )}
+      </Sheet>
 
       <Sheet open={editingTrip} onClose={() => setEditingTrip(false)} title="旅行を編集">
         <TripForm

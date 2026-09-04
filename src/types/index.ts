@@ -437,8 +437,32 @@ export interface SavingsGoal {
   userId?: string;
 }
 
-/** 写真を貼れる相手。今はメモと日記だけ。 */
-export type AttachmentOwnerType = "note" | "diary";
+/**
+ * 旅行の書類ポケット1件(パスポート番号・予約確認番号・宿の住所など)。
+ *
+ * 写真はメモ・日記と同じ attachments テーブルへ、ownerType "tripDocument" で貼る
+ * (src/lib/attachments.ts)。
+ *
+ * **同期の対象にしていない**(src/lib/syncRuntime.ts)。旅行の他のデータと違って
+ * ここに入るのは身分証の番号や予約の控えなので、端末の中だけに置く。
+ * 同じ理由でバックアップ(src/lib/backup.ts)にも入れていない。
+ */
+export interface TripDocument {
+  id?: string;
+  tripId: string;
+  /** 何の控えか(「パスポート」「宿の予約」)。 */
+  title: string;
+  /** 番号・住所などの本文。写真だけ貼って本文は空、でもよい。 */
+  body?: string;
+  /** 並び順。1始まりの連番で詰めて持ち、並べ替えのたびに振り直す
+   * (tripRoutePlaces と同じ持ち方)。 */
+  sortOrder: number;
+  createdAt: number;
+  updatedAt?: number;
+}
+
+/** 写真を貼れる相手。メモ・日記に加えて、旅行の書類ポケット。 */
+export type AttachmentOwnerType = "note" | "diary" | "tripDocument";
 
 /** メモ・日記に貼った写真1枚。
  *

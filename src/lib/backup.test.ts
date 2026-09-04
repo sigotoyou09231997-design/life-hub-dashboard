@@ -49,8 +49,9 @@ const mocks = vi.hoisted(() => {
     "savingsGoals",
     "jobApplications",
     "categoryBudgets",
-    // バックアップには入らないが、復元のあとで辿れなくなった写真を落とすために読む。
+    // バックアップには入らないが、復元のあとで辿れなくなった写真・書類を落とすために読む。
     "attachments",
+    "tripDocuments",
   ]) {
     stores.set(name, []);
   }
@@ -81,6 +82,8 @@ vi.mock("../db/schema", () => {
       savingsGoals: fakeTable("savingsGoals"),
       notes: fakeTable("notes"),
       diaryEntries: fakeTable("diaryEntries"),
+      trips: fakeTable("trips"),
+      tripDocuments: fakeTable("tripDocuments"),
       attachments: fakeTable("attachments"),
       transaction: async (_mode: string, _tables: unknown[], callback: () => Promise<void>) => callback(),
     },
@@ -249,5 +252,27 @@ describe("バックアップの復元", () => {
     await importBackup(file);
 
     expect(mocks.stores.get("attachments")!.map((row) => row.id)).toEqual(["p1", "p3"]);
+  });
+
+  it("旅行の書類は復元しても残るが、行き先の旅行ごと消えたぶんは写真ごと落とす", async () => {
+    // 書類(パスポート番号など)はバックアップに入れていないので復元では戻らない。
+    // 端末に残っているぶんはそのまま使えるべきだが、旅行の側が入れ替わって
+    // 辿れなくなった書類は、どの画面からも開けないので落とす。
+    mocks.stores.set("tripDocuments", [
+      { id: "doc-1", tripId: "trip-1", title: "パスポート", sortOrder: 1 },
+      { id: "doc-2", tripId: "消えた旅行", title: "宿の予約", sortOrder: 1 },
+    ]);
+    mocks.stores.set("attachments", [
+      { id: "p1", ownerType: "tripDocument", ownerId: "doc-1" },
+      { id: "p2", ownerType: "tripDocument", ownerId: "doc-2" },
+    ]);
+
+    const file = fakeFile(JSON.stringify({ version: 2, data: { trips: [{ id: "trip-1", name: "沖縄" }] } }));
+
+    const { importBackup } = await import("./backup");
+    await importBackup(file);
+
+    expect(mocks.stores.get("tripDocuments")!.map((row) => row.id)).toEqual(["doc-1"]);
+    expect(mocks.stores.get("attachments")!.map((row) => row.id)).toEqual(["p1"]);
   });
 });

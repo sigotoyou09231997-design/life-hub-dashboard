@@ -1,4 +1,5 @@
 import { db } from "../db/schema";
+import type { AttachmentOwnerType } from "../types";
 import { legacySavingsGoalFrom } from "./savingsGoal";
 
 // バックアップに含めるテーブル。Gmail連携(gmailAccounts/syncedEmails/draftReplies)と
@@ -69,23 +70,40 @@ export async function importBackup(file: File): Promise<void> {
 }
 
 /**
- * メモ・日記に貼った写真は端末の中だけのもので、バックアップには入っていない
- * (types/index.ts の Attachment — JSONにBlobを入れても空になるため)。復元で
- * メモ・日記が入れ替わると、貼り先が消えた写真だけが残って場所を取り続けるので、
- * 辿れなくなったぶんをここで落とす。
+ * メモ・日記・旅行の書類に貼った写真は端末の中だけのもので、バックアップには
+ * 入っていない(types/index.ts の Attachment — JSONにBlobを入れても空になるため)。
+ * 復元で貼り先が入れ替わると、辿れない写真だけが残って場所を取り続けるので、
+ * ここで落とす。
  *
- * 同じ端末で書き出した同じファイルを戻したときは、メモ・日記のidも同じまま
- * 戻ってくるので、貼ってあった写真はそのまま残る。
+ * 旅行の書類(tripDocuments)そのものもバックアップに入れていないので、復元しても
+ * 消えずに残る。ただし旅行(trips)の側は入れ替わるため、行き先を失った書類が
+ * できることがある。それも一緒に落とす — どの画面からも開けない行になるため。
+ *
+ * 同じ端末で書き出した同じファイルを戻したときは、メモ・日記・旅行のidも同じまま
+ * 戻ってくるので、貼ってあったものはそのまま残る。
  */
 async function pruneOrphanAttachments(): Promise<void> {
-  const [notes, diaries, attachments] = await Promise.all([
+  const [notes, diaries, trips, documents] = await Promise.all([
     db.notes.toArray(),
     db.diaryEntries.toArray(),
-    db.attachments.toArray(),
+    db.trips.toArray(),
+    db.tripDocuments.toArray(),
   ]);
-  const alive = {
+
+  // 先に、行き先を失った書類を消す。そのあとで写真を見ないと、いま消した書類に
+  // 貼ってあった写真が「生きている貼り先」として残ってしまう。
+  const aliveTrips = new Set(trips.map((trip) => trip.id));
+  const strandedDocuments = documents.filter((document) => !aliveTrips.has(document.tripId));
+  if (strandedDocuments.length > 0) {
+    await db.tripDocuments.bulkDelete(strandedDocuments.map((document) => document.id!).filter(Boolean));
+  }
+  const strandedIds = new Set(strandedDocuments.map((document) => document.id));
+
+  const attachments = await db.attachments.toArray();
+  const alive: Record<AttachmentOwnerType, Set<string | undefined>> = {
     note: new Set(notes.map((note) => note.id)),
     diary: new Set(diaries.map((entry) => entry.id)),
+    tripDocument: new Set(documents.filter((d) => !strandedIds.has(d.id)).map((d) => d.id)),
   };
   const orphans = attachments
     .filter((row) => row.id && !alive[row.ownerType].has(row.ownerId))
