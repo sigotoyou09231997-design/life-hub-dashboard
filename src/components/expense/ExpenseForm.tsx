@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction, TransactionType } from "../../types";
 import { todayStr } from "../../lib/date";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "../../lib/categories";
+import { collectStoreSamples, guessCategoryFromStore } from "../../lib/storeCategory";
 import { Wallet, Store } from "lucide-react";
 import { Input, Textarea, AmountInput } from "../ui/Input";
 import { Select } from "../ui/Select";
@@ -38,11 +40,32 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
   const [isFixed, setIsFixed] = useState(initial?.isFixed ?? false);
   const [saving, setSaving] = useState(false);
 
+  // 店名からカテゴリを推測する材料。過去の支出はそう多くないので全件から作る。
+  const pastTransactions = useLiveQuery(() => db.transactions.toArray(), []);
+  const storeSamples = collectStoreSamples(pastTransactions ?? []);
+  const guess = type === "expense" ? guessCategoryFromStore(storeSamples, store) : null;
+
+  // 自分でカテゴリを選んだあとは推測で上書きしない。編集中の記録も、既に選んだ
+  // カテゴリがあるので触らない。
+  const categoryTouched = useRef(initial != null);
+  const appliedGuessFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (categoryTouched.current || !guess) return;
+    if (appliedGuessFor.current === guess.category) return;
+    appliedGuessFor.current = guess.category;
+    setCategory(guess.category);
+  }, [guess?.category]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const categories = type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
 
   function handleTypeChange(next: TransactionType) {
     setType(next);
     setCategory(next === "expense" ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0]);
+  }
+
+  function handleCategoryChange(next: string) {
+    categoryTouched.current = true;
+    setCategory(next);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -93,7 +116,7 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
           min={1}
           autoFocus
         />
-        <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value)}>
+        <Select label="カテゴリ" value={category} onChange={(e) => handleCategoryChange(e.target.value)}>
           {categories.map((c) => (
             <option key={c} value={c}>
               {c}
@@ -112,13 +135,33 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
               </option>
             ))}
           </Select>
-          <Input
-            label="店舗"
-            optional
-            value={store}
-            onChange={(e) => setStore(e.target.value)}
-            placeholder="例: いつものスーパー"
-          />
+          <div>
+            <Input
+              label="店舗"
+              optional
+              value={store}
+              onChange={(e) => setStore(e.target.value)}
+              placeholder="例: いつものスーパー"
+            />
+            {/* 過去に同じ店で選んだカテゴリ。まだ自分で選んでいなければ上のカテゴリに
+                入れてあり、選んだあとは押して入れ替えられるようにする。 */}
+            {guess && (
+              guess.category === category ? (
+                <p className="mt-1.5 text-xs text-slate-500">
+                  「{guess.matchedStore}」の過去{guess.matchedCount}件から
+                  <span className="font-semibold text-slate-700">{guess.category}</span>にしています
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleCategoryChange(guess.category)}
+                  className="mt-1.5 text-xs font-medium text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                >
+                  「{guess.matchedStore}」では{guess.category}が多いです。{guess.category}にする
+                </button>
+              )
+            )}
+          </div>
           <SwitchField
             label="固定費の支払いとして記録する"
             hint="使えるお金の計算から外します。"
