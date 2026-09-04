@@ -107,8 +107,8 @@ export async function unsubscribeFromPush(): Promise<void> {
 }
 
 /** バックグラウンド通知の種類。checkGmailAndNotify.ts/checkAppUpdate.ts/
- * checkRemindersAndNotify.ts/checkBudgetAndNotify.tsが、この端末の購読
- * (push_subscriptions.disabled_categories)に含まれる種類だけ送信を飛ばす。 */
+ * checkRemindersAndNotify.ts/checkBudgetAndNotify.ts/checkTripBudgetAndNotify.tsが、
+ * この端末の購読(push_subscriptions.disabled_categories)に含まれる種類だけ送信を飛ばす。 */
 export const NOTIFICATION_CATEGORIES = [
   { key: "gmail", label: "Gmailの新着" },
   { key: "app_update", label: "アプリの更新" },
@@ -116,6 +116,7 @@ export const NOTIFICATION_CATEGORIES = [
   { key: "tasks", label: "タスクの期限" },
   { key: "fixed_costs", label: "固定費の支払日" },
   { key: "budget", label: "使いすぎ・予算オーバー" },
+  { key: "trip_budget", label: "旅行の予算オーバー" },
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number]["key"];
