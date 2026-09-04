@@ -105,6 +105,9 @@ export function payPeriodProgress(period: CurrentPayPeriod, today: Date = new Da
 
 export interface PayPeriodBudgetInput {
   salaryAmount: number;
+  /** その期に入った賞与(src/lib/bonus.ts)。給与と同じく使えるお金に足す。
+   * 賞与を登録していなければ0。 */
+  bonusAmount?: number;
   totalFixedCosts: number;
   actualSpending: number;
   daysUntilNextPayday: number;
@@ -116,7 +119,8 @@ export interface PayPeriodBudgetResult {
 }
 
 export function calculatePayPeriodBudget(input: PayPeriodBudgetInput): PayPeriodBudgetResult {
-  const remaining = input.salaryAmount - input.totalFixedCosts - input.actualSpending;
+  const remaining =
+    input.salaryAmount + (input.bonusAmount ?? 0) - input.totalFixedCosts - input.actualSpending;
   const perDayUsable =
     input.daysUntilNextPayday > 0 ? remaining / input.daysUntilNextPayday : remaining;
   return { remaining, perDayUsable };

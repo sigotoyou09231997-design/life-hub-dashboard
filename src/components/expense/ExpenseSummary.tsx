@@ -116,7 +116,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
     );
   }
 
-  const { period, totalFixedCosts, actualSpending, pendingCardSpending, remaining, perDayUsable } = data;
+  const { period, totalFixedCosts, actualSpending, pendingCardSpending, bonusAmount, remaining, perDayUsable } = data;
 
   // 目標が1件も無ければ null が返り、この節ごと出さない — 貯金を強制しない。
   const savingsPlan = planSavingsGoals(savingsGoals ?? [], remaining);
@@ -156,6 +156,8 @@ export function ExpenseSummary({ onAddSalary }: Props) {
         <div className="mt-5 divide-y divide-white/35">
           {[
             ["今回の給与", period.hasSalaryForPeriod ? yen(period.salaryAmount) : "未入力"],
+            // 賞与は給与と同じく使えるお金に足しているので、0円のときは行ごと出さない。
+            ...(bonusAmount > 0 ? [["今期の賞与", yen(bonusAmount)]] : []),
             ["固定費合計", yen(totalFixedCosts)],
             ["記録した収入", yen(totalIncome)],
             ["記録した支出", yen(totalExpense)],

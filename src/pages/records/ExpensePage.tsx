@@ -5,6 +5,7 @@ import { db } from "../../db/schema";
 import type { Transaction, FixedCost, SalaryEntry } from "../../types";
 import { monthRange, todayStr } from "../../lib/date";
 import { EXPENSE_CATEGORIES } from "../../lib/categories";
+import { selectBonuses } from "../../lib/bonus";
 import type { ExtractedReceipt } from "../../lib/receiptScan";
 import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
@@ -18,6 +19,8 @@ import { ReceiptScanForm } from "../../components/expense/ReceiptScanForm";
 import { FixedCostList } from "../../components/expense/FixedCostList";
 import { FixedCostForm } from "../../components/expense/FixedCostForm";
 import { SalaryList } from "../../components/expense/SalaryList";
+import { BonusForm } from "../../components/expense/BonusForm";
+import { BonusList } from "../../components/expense/BonusList";
 import { SalaryForm } from "../../components/expense/SalaryForm";
 import { SalaryDeductionBreakdown } from "../../components/expense/SalaryDeductionBreakdown";
 import { SalaryCsvImport } from "../../components/expense/SalaryCsvImport";
@@ -53,6 +56,7 @@ export default function ExpensePage() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | "new" | null>(null);
   const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | "new" | null>(null);
   const [editingSalary, setEditingSalary] = useState<SalaryEntry | "new" | null>(null);
+  const [editingBonus, setEditingBonus] = useState<Transaction | "new" | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
   const [cardCsvImportOpen, setCardCsvImportOpen] = useState(false);
   const [csvExportOpen, setCsvExportOpen] = useState(false);
@@ -83,6 +87,8 @@ export default function ExpensePage() {
   );
   const fixedCosts = useLiveQuery(() => db.fixedCosts.toArray(), []);
   const salaries = useLiveQuery(() => db.salaries.toArray(), []);
+  // 賞与は日付で絞らず全件から拾う。月をまたいで見返すもので、件数も年に数件しかない。
+  const bonuses = useLiveQuery(() => db.transactions.toArray().then(selectBonuses), []);
   const showSalarySkeleton = useDelayedFlag(salaries === undefined);
   const showHistorySkeleton = useDelayedFlag(transactions === undefined);
   const showFixedSkeleton = useDelayedFlag(fixedCosts === undefined);
@@ -129,6 +135,19 @@ export default function ExpensePage() {
                     onEdit={(s) => setEditingSalary(s)}
                     onDelete={(id) => {
                       db.salaries.delete(id);
+                      showToast("削除しました");
+                    }}
+                  />
+                </div>
+                {/* 賞与は給与とは別の収入。中身は「収入 / ボーナス」の収支なので、
+                    履歴タブにも同じ1件として並ぶ(src/lib/bonus.ts)。 */}
+                <div className="mt-4">
+                  <BonusList
+                    bonuses={bonuses ?? []}
+                    onAdd={() => setEditingBonus("new")}
+                    onEdit={(bonus) => setEditingBonus(bonus)}
+                    onDelete={(id) => {
+                      db.transactions.delete(id);
                       showToast("削除しました");
                     }}
                   />
@@ -262,6 +281,23 @@ export default function ExpensePage() {
               showToast("保存しました");
             }}
             onCancel={() => setEditingSalary(null)}
+          />
+        )}
+      </Sheet>
+
+      <Sheet
+        open={editingBonus !== null}
+        onClose={() => setEditingBonus(null)}
+        title={editingBonus === "new" ? "賞与を登録" : "賞与を編集"}
+      >
+        {editingBonus && (
+          <BonusForm
+            initial={editingBonus === "new" ? undefined : editingBonus}
+            onSaved={() => {
+              setEditingBonus(null);
+              showToast("保存しました");
+            }}
+            onCancel={() => setEditingBonus(null)}
           />
         )}
       </Sheet>

@@ -110,9 +110,16 @@ export function resolveBudgetPeriod(salaries: SalaryRow[], today: string): Budge
   };
 }
 
-/** 画面側のcalculatePayPeriodBudgetと同じ式。残額 = 給与 - 固定費 - 記録した支出。 */
-export function calculateRemaining(salaryAmount: number, totalFixedCosts: number, actualSpending: number): number {
-  return salaryAmount - totalFixedCosts - actualSpending;
+/** 画面側のcalculatePayPeriodBudgetと同じ式。
+ * 残額 = 給与 + その期に入った賞与 - 固定費 - 記録した支出。
+ * 賞与は「収入 / ボーナス」の収支として入る(src/lib/bonus.ts)。 */
+export function calculateRemaining(
+  salaryAmount: number,
+  totalFixedCosts: number,
+  actualSpending: number,
+  bonusAmount = 0,
+): number {
+  return salaryAmount + bonusAmount - totalFixedCosts - actualSpending;
 }
 
 /**
@@ -171,7 +178,7 @@ async function processUser(
   const period = resolveBudgetPeriod((salaryRows ?? []) as SalaryRow[], today);
   if (!period) return;
 
-  const [fixedResult, spendingResult] = await Promise.all([
+  const [fixedResult, spendingResult, bonusResult] = await Promise.all([
     supabase.from("fixed_costs").select("amount").eq("user_id", userId).eq("active", true).is("deleted_at", null),
     supabase
       .from("transactions")
@@ -182,11 +189,22 @@ async function processUser(
       .gte("date", period.periodStart)
       .lte("date", today)
       .is("deleted_at", null),
+    // その期に入った賞与。画面側(src/lib/bonus.ts)と同じで、収入のうちカテゴリが
+    // 「ボーナス」のものだけを使えるお金に足す。
+    supabase
+      .from("transactions")
+      .select("amount")
+      .eq("user_id", userId)
+      .eq("type", "income")
+      .eq("category", "ボーナス")
+      .gte("date", period.periodStart)
+      .lte("date", today)
+      .is("deleted_at", null),
   ]);
-  if (fixedResult.error || spendingResult.error) {
+  if (fixedResult.error || spendingResult.error || bonusResult.error) {
     console.error(
       `[checkBudgetAndNotify] failed to load amounts for ${userId}:`,
-      fixedResult.error?.message ?? spendingResult.error?.message,
+      fixedResult.error?.message ?? spendingResult.error?.message ?? bonusResult.error?.message,
     );
     return;
   }
@@ -196,6 +214,7 @@ async function processUser(
     period.salaryAmount,
     sum(fixedResult.data as { amount: number }[] | null),
     sum(spendingResult.data as { amount: number }[] | null),
+    sum(bonusResult.data as { amount: number }[] | null),
   );
 
   if (!shouldNotifyBudgetOver(period, remaining)) return;
