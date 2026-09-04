@@ -88,6 +88,90 @@
   white-space: pre-wrap;
 }
 
+/* --- 1年前の今日 -----------------------------------------------------------
+   同じ月日に書いた過去の日記。日記の一覧より前に1枚だけ置く。
+   一覧の1件(.diary-entry)より軽く見せたいので、面の中に行を積むだけにする。 */
+.diary-onthisday {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-bottom: 1.15rem;
+}
+
+.diary-onthisday__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent, var(--hub-blue));
+}
+
+.diary-onthisday__head h2 {
+  margin: 0;
+  color: var(--hub-ink);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.diary-onthisday__head span {
+  margin-left: auto;
+  color: rgba(13, 27, 49, 0.5);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.diary-onthisday__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.diary-onthisday__list button {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+  text-align: left;
+}
+
+.diary-onthisday__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.diary-onthisday__date {
+  color: rgba(13, 27, 49, 0.62);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.diary-onthisday__trip {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(13, 27, 49, 0.06);
+  color: rgba(13, 27, 49, 0.55);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* 何日ぶんも積むと一覧が読めなくなるので、本文は2行で止める。 */
+.diary-onthisday__body {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgba(13, 27, 49, 0.82);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 /* --- そのとき居た場所 ------------------------------------------------------ */
 .diary-entry__spot {
   display: flex;

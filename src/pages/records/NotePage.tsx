@@ -4,7 +4,8 @@ import { NotebookPen, Plus } from "lucide-react";
 import { db } from "../../db/schema";
 import type { DiaryEntry, Note, NoteType } from "../../types";
 import { NOTE_TYPE_DEFS, getNoteType } from "../../lib/noteTypes";
-import { selectStandaloneDiaries } from "../../lib/diaryEntries";
+import { selectOnThisDay, selectStandaloneDiaries } from "../../lib/diaryEntries";
+import { todayStr } from "../../lib/date";
 import { deleteAttachmentsFor } from "../../lib/attachments";
 import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
@@ -18,6 +19,7 @@ import { MemoForm } from "../../components/notes/MemoForm";
 import { ChecklistForm } from "../../components/notes/ChecklistForm";
 import { ShoppingForm } from "../../components/notes/ShoppingForm";
 import { DiaryList } from "../../components/diary/DiaryList";
+import { OnThisDay } from "../../components/diary/OnThisDay";
 import { DiaryForm } from "../../components/diary/DiaryForm";
 import { useToast } from "../../components/ui/ToastProvider";
 import { ListSkeleton } from "../../components/ui/ListSkeleton";
@@ -43,6 +45,13 @@ export default function NotePage() {
 
   const diaryEntries = useLiveQuery(() => db.diaryEntries.toArray().then(selectStandaloneDiaries), []);
   const showDiarySkeleton = useDelayedFlag(diaryEntries === undefined);
+
+  // 「1年前の今日」は旅行中に書いたものも含めて拾う(振り返りたいのはその日であって、
+  // 旅行の中か外かではない)ので、絞り込む前の全件から出す。
+  const onThisDay = useLiveQuery(
+    () => db.diaryEntries.toArray().then((all) => selectOnThisDay(all, todayStr())),
+    [],
+  );
 
   const editingType = editing ? (editing.mode === "new" ? editing.type : getNoteType(editing.note)) : null;
   const editingInitial = editing?.mode === "edit" ? editing.note : undefined;
@@ -89,6 +98,10 @@ export default function NotePage() {
               onDelete={handleDelete}
             />
           ))}
+
+        {tab === "diary" && !showDiarySkeleton && (
+          <OnThisDay items={onThisDay ?? []} onOpen={(item) => setEditingDiary(item.entry)} />
+        )}
 
         {tab === "diary" &&
           (showDiarySkeleton ? (
