@@ -18,3 +18,10 @@ _to_delete/
 # Cowork の状態は ../.cowork/apps/<アプリ名>/ に集約した（2026-08-31）。
 # ここに再びできても追跡しない。
 .cowork/
+
+# 連携用のローカル設定・作業メモ（アプリ本体ではない）
+.agents/
+.codex/
+AGENTS.md
+.claude/skills/gmail-reply-style/
+指示書_*.md
