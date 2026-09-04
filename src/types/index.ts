@@ -75,6 +75,30 @@ export interface FixedCost {
   userId?: string;
 }
 
+/**
+ * 固定費の金額を変えた記録1件(値上げに後から気づくためのもの)。
+ *
+ * 金額そのものは FixedCost.amount が持ち続ける。ここに残すのは「いつ、いくらから
+ * いくらになったか」だけで、いま払っている額の出どころにはならない。
+ *
+ * **同期の対象にしていない**(src/lib/syncRuntime.ts)。fixed_costs 側に履歴の列を
+ * 足すには Supabase の列追加(人が本番で流すSQL)が要るため、まずは端末の中だけで
+ * 貯める形にしてある。別の端末で金額を変えたぶんは、その端末の履歴にしか残らない。
+ */
+export interface FixedCostAmountChange {
+  id?: string;
+  /** FixedCost.id。 */
+  fixedCostId: string;
+  /** 変更前の金額(円)。 */
+  previousAmount: number;
+  /** 変更後の金額(円)。 */
+  amount: number;
+  /** 変えた時刻(epoch ms)。 */
+  changedAt: number;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 export type ScheduleCategory = "work" | "private" | "important" | "other";
 
 /**

@@ -26,6 +26,7 @@ import type {
   Attachment,
   EventPerson,
   TripDocument,
+  FixedCostAmountChange,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -121,6 +122,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "attachments", indexes: "ownerType, [ownerType+ownerId]", fks: [], hasUpdatedAt: true },
   { name: "eventPeople", indexes: "", fks: [], hasUpdatedAt: true },
   { name: "tripDocuments", indexes: "tripId", fks: [], hasUpdatedAt: true },
+  { name: "fixedCostAmountChanges", indexes: "fixedCostId", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -188,6 +190,7 @@ export class LifeHubDB extends Dexie {
   attachments!: EntityTable<Attachment, "id">;
   eventPeople!: EntityTable<EventPerson, "id">;
   tripDocuments!: EntityTable<TripDocument, "id">;
+  fixedCostAmountChanges!: EntityTable<FixedCostAmountChange, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -355,6 +358,14 @@ export class LifeHubDB extends Dexie {
     // 加えず、POST_MIGRATION_TABLE_SCHEMAS側からフックを張る。既存の旅行には触らない。
     this.version(20).stores({
       tripDocuments: "id, tripId",
+    });
+
+    // 固定費の金額を変えた記録(types/index.ts の FixedCostAmountChange)。
+    // fixed_costs 側に列を足すと人が本番でSQLを流す必要があるので、まずは端末の中
+    // だけに貯める(同期の対象にしない)。v10のblockedSendersと同じくTABLE_SCHEMASには
+    // 加えず、POST_MIGRATION_TABLE_SCHEMAS側からフックを張る。既存の固定費には触らない。
+    this.version(21).stores({
+      fixedCostAmountChanges: "id, fixedCostId",
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

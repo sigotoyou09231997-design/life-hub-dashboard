@@ -1,7 +1,10 @@
 import { useState } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
-import type { FixedCost } from "../../types";
+import type { FixedCost, FixedCostAmountChange } from "../../types";
 import { FIXED_COST_CATEGORIES } from "../../lib/categories";
+import { changeDiff, changeDiffLabel, recordAmountChange, sortChanges } from "../../lib/fixedCostHistory";
+import { formatDisplayDate, toDateStr } from "../../lib/date";
 import { Input, AmountInput } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { SwitchField } from "../ui/SwitchField";
@@ -32,6 +35,16 @@ export function FixedCostForm({ initial, onSaved, onCancel }: Props) {
   const [notify, setNotify] = useState(initial?.notifyDaysBefore?.toString() ?? "");
   const [saving, setSaving] = useState(false);
 
+  // 金額を変えた記録。この端末で変えたぶんだけ残る(同期していないため)。
+  const initialId = initial?.id;
+  const changes = useLiveQuery<FixedCostAmountChange[]>(
+    () =>
+      initialId
+        ? db.fixedCostAmountChanges.where("fixedCostId").equals(initialId).toArray().then(sortChanges)
+        : Promise.resolve([]),
+    [initialId],
+  );
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const numericAmount = Number(amount);
@@ -52,6 +65,9 @@ export function FixedCostForm({ initial, onSaved, onCancel }: Props) {
 
     if (initial?.id) {
       await db.fixedCosts.update(initial.id, record);
+      // 金額が動いた保存だけ、前の額を履歴に残す(src/lib/fixedCostHistory.ts)。
+      // 値上げに後から気づくためのもので、いま払っている額は record 側が持つ。
+      await recordAmountChange(initial.id, initial.amount, numericAmount);
     } else {
       await db.fixedCosts.add(record);
     }
@@ -117,6 +133,32 @@ export function FixedCostForm({ initial, onSaved, onCancel }: Props) {
           ))}
         </Select>
       </FormPanel>
+
+      {changes && changes.length > 0 && (
+        <FormPanel caption="金額の変わりかた">
+          <ul className="space-y-2">
+            {changes.map((change) => {
+              const diff = changeDiff(change);
+              return (
+                <li key={change.id} className="flex items-baseline justify-between gap-3 text-xs">
+                  <span className="shrink-0 text-slate-400">
+                    {formatDisplayDate(toDateStr(new Date(change.changedAt)))}
+                  </span>
+                  <span className="min-w-0 text-right tabular-nums text-slate-600">
+                    ¥{change.previousAmount.toLocaleString()} → ¥{change.amount.toLocaleString()}{" "}
+                    <span className={diff > 0 ? "font-semibold text-danger" : "font-semibold text-success"}>
+                      {changeDiffLabel(change)}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-[11px] text-slate-400">
+            この端末で金額を変えたぶんだけ残ります(他の端末での変更は入りません)。
+          </p>
+        </FormPanel>
+      )}
 
       <FormActions>
         <Button type="button" variant="secondary" onClick={onCancel}>
