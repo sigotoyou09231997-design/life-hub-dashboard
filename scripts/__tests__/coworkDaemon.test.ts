@@ -25,7 +25,18 @@ function fakeWorkspace() {
     chmodSync(p, 0o755);
   };
 
-  write("claude", ["#!/usr/bin/env bash", 'echo \'{"type":"result","result":"何もありませんでした"}\'', "exit 0", ""].join("\n"));
+  // 渡された引数を残す。--add-dir が抜けると、実装はできても状態ファイル
+  // (.cowork/apps/<アプリ>/) に書けず「実装済みの記録が残らない」が起きるため。
+  write(
+    "claude",
+    [
+      "#!/usr/bin/env bash",
+      `printf '%s\\n' "$@" > ${JSON.stringify(join(root, "claude-args.txt"))}`,
+      'echo \'{"type":"result","result":"何もありませんでした"}\'',
+      "exit 0",
+      "",
+    ].join("\n"),
+  );
   write("launchctl", ["#!/usr/bin/env bash", 'echo "Aqua"', ""].join("\n"));
   // Terminal.app の代わり。do script と同じく「開いて即戻る」ようにする。
   // 通知(display notification)で呼ばれた時は何もしない。
@@ -112,6 +123,12 @@ describe.skipIf(!hasWorkspace)("ワークスペースの Cowork 常駐", () => {
       expect(text).toContain("実行が終了しました（exit=0）");
       expect(text).not.toContain("ターミナルのウィンドウで実行中");
       expect(readFileSync(join(appStateDir(root, APP), "headless-out.txt"), "utf8")).toContain("何もありませんでした");
+      // 状態フォルダを書き込み先として許可して起動していること。
+      // これが抜けていた頃は、実装は終わるのに state.tsv / pending.md が更新されず、
+      // 次の実行が同じ依頼をやり直していた。
+      const args = readFileSync(join(root, "claude-args.txt"), "utf8").split("\n");
+      expect(args).toContain("--add-dir");
+      expect(args).toContain(appStateDir(root, APP));
     } finally {
       try {
         process.kill(-proc.pid!, "SIGKILL");
