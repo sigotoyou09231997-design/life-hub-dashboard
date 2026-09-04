@@ -5,6 +5,7 @@ import {
   COVER_MISS_TTL_MS,
   coverCacheKey,
   describeCoverAnswer,
+  isDeniedError,
   isFreshCoverEntry,
   parseCoverEntry,
   resolveTripCover,
@@ -111,6 +112,18 @@ describe("resolveTripCover の覚え書き", () => {
     expect(localStorage.getItem(coverCacheKey("神奈川旅行", "鎌倉"))).toBeNull();
   });
 
+  it("権限が無いと断られた時は、覚えて聞き直さない（AIの呼び出し費用を止める）", async () => {
+    answerWith({ configured: true, query: "鎌倉", cover: null, error: "403 PERMISSION_DENIED" });
+    expect(await resolveTripCover("神奈川旅行", "鎌倉")).toBeNull();
+    expect(parseCoverEntry(localStorage.getItem(coverCacheKey("神奈川旅行", "鎌倉")))?.photo).toBeNull();
+  });
+
+  it("たまたまの失敗は覚えない（次に開いた時にもう一度試す）", async () => {
+    answerWith({ configured: true, query: "鎌倉", cover: null, error: "500 Internal Server Error" });
+    expect(await resolveTripCover("神奈川旅行", "鎌倉")).toBeNull();
+    expect(localStorage.getItem(coverCacheKey("神奈川旅行", "鎌倉"))).toBeNull();
+  });
+
   it("キーがあって写真が無かった時は、覚えて聞き直さない", async () => {
     // こちらは本当に「その土地の写真が無い」ので、開くたびに課金される呼び出しを避ける。
     answerWith({ configured: true, query: "どこか", cover: null });
@@ -123,5 +136,17 @@ describe("resolveTripCover の覚え書き", () => {
     const resolved = await resolveTripCover("神奈川旅行", "鎌倉");
     expect(resolved?.url).toBe(tripCoverPhotoUrl("places/abc"));
     expect(parseCoverEntry(localStorage.getItem(coverCacheKey("神奈川旅行", "鎌倉")))?.photo).toBe("places/abc");
+  });
+});
+
+describe("isDeniedError", () => {
+  it("設定が足りずに断られた形を見分ける", () => {
+    expect(isDeniedError('403 {"error":{"status":"PERMISSION_DENIED"}}')).toBe(true);
+    expect(isDeniedError("Places API has not been used in project 123 before")).toBe(true);
+  });
+
+  it("たまたまの失敗は見分けない（次にまた試したいので）", () => {
+    expect(isDeniedError("500 Internal Server Error")).toBe(false);
+    expect(isDeniedError("network timeout")).toBe(false);
   });
 });

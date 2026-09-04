@@ -126,6 +126,12 @@ interface TripCoverAnswer {
   note?: string;
 }
 
+/** 「設定が足りていないので断られた」たぐいの失敗か。聞き直しても結果が変わらない
+ * ので、これだけは覚えて呼び出し回数を抑える。 */
+export function isDeniedError(message: string): boolean {
+  return /403|PERMISSION_DENIED|API_KEY|SERVICE_DISABLED|has not been used|is disabled/i.test(message);
+}
+
 /** サーバーに聞く一手だけ。覚え書きは見ない・書かない。 */
 async function fetchTripCover(name: string, destination: string): Promise<TripCoverAnswer> {
   const res = await fetch("/api/tripCover", {
@@ -155,7 +161,13 @@ export async function resolveTripCover(name: string, destination: string): Promi
     const data = await fetchTripCover(name, destination);
     // 探しに行って失敗した時（Places APIをまだ有効にしていない等）は覚えない。
     // 覚えてしまうと、設定を直したあとも期限切れまで同梱の写真のままになる。
-    if (data.error) return null;
+    // ただし「権限が無い」と断られた時だけは別で、覚える。開くたびに聞き直しても
+    // 答えは変わらないのに、そのたびに地名を読み取るAIを1回呼んで費用だけかかるため。
+    // 設定を直した時は、設定画面の確認ボタン（probeTripCover）が覚え直す。
+    if (data.error) {
+      if (isDeniedError(data.error)) writeEntry(key, { photo: null, at: Date.now() });
+      return null;
+    }
     // サーバーにキー（GOOGLE_MAPS_API_KEY）がまだ無い時も同じ。これは「この旅行の写真が
     // 無かった」ではなく「まだ探しに行けていない」なので、覚えるとキーを入れた後も
     // 3日間は同梱の写真のままになる。configured を言ってこない古い応答も同じ扱い。
