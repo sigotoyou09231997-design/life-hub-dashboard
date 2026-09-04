@@ -18,6 +18,7 @@ import { Badge } from "../ui/Badge";
 import { ProgressBar } from "../ui/ProgressBar";
 import { Button } from "../ui/Button";
 import { ListSkeleton } from "../ui/ListSkeleton";
+import { CashBalanceCard } from "./CashBalanceCard";
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
@@ -208,6 +209,8 @@ export function ExpenseSummary({ onAddSalary }: Props) {
           )}
         </Card>
       )}
+
+      <CashBalanceCard />
 
       {[
         ["1日あたり使える金額", yen(perDayUsable)],

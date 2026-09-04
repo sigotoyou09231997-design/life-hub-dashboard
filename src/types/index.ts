@@ -572,6 +572,11 @@ export interface Settings {
   /** Manually-confirmed PayPay balance, anchored at paypayBalanceUpdatedAt. */
   paypayBalance: number;
   paypayBalanceUpdatedAt: number;
+  /** 財布の中の現金。PayPay残高と同じで、手入力した額を起点(cashBalanceUpdatedAt)に、
+   * それ以降に記録した「現金」の収支を足し引きして推定する。
+   * 起点を入れる前から使っている端末では未設定(undefined)になり得る。 */
+  cashBalance?: number;
+  cashBalanceUpdatedAt?: number;
   /** Auto-generates an AI draft for each newly-synced email (GmailInbox's
    * handleSync). Deliberately separate from any push/notification setting —
    * this only controls draft generation, never sending; sending still always

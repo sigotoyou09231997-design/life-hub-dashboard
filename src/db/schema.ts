@@ -415,6 +415,8 @@ export async function ensureDefaultSettings(): Promise<Settings> {
     savingsGoalMonthly: 0,
     paypayBalance: 0,
     paypayBalanceUpdatedAt: 0,
+    cashBalance: 0,
+    cashBalanceUpdatedAt: 0,
     autoDraftEnabled: false,
   };
   const id = await db.settings.add(defaults);
