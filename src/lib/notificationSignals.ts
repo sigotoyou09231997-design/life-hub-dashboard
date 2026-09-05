@@ -17,8 +17,10 @@ export interface NotificationSignals {
   gmailUnprocessed: SyncedEmail[];
   overdueTasks: Task[];
   /** まだ超えていないが、今のペースだと給料日までに超えそうなカテゴリ予算。
-   * カテゴリ予算はこの端末の中にしか無いので(同期の対象外)、サーバーから送る
-   * Web Push では出せない。ここはアプリを開いた時に気づけるようにするためのもの。 */
+   * 2026-09-05 に category_budgets を同期の対象にしたので、同じ内容は
+   * サーバーからの Web Push でも届く(netlify/functions/checkBudgetAndNotify.ts)。
+   * 式も足切りも src/lib/categoryBudget.ts の forecastFor に揃えてあり、
+   * ここで見える警告と届く通知は食い違わない。 */
   budgetForecasts: CategoryBudgetForecast[];
   total: number;
 }

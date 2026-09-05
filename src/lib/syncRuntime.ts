@@ -29,6 +29,10 @@ function loadSyncModule(): Promise<SyncModule> {
         // テーブルが先、登録があと(逆順だと無いテーブルへ upsert して同期が止まる)。
         module.registerSyncedTable(db.tripExpenseCurrencies, "trip_expense_currencies");
         module.registerSyncedTable(db.transactionProjectTags, "transaction_project_tags");
+        // 2026-09-05、本人が supabase/sql/024 を本番で流したという連絡を受けて登録した。
+        // これで、アプリを開いていない日でも使いすぎ予測を Web Push で送れる
+        // (netlify/functions/checkBudgetAndNotify.ts から上限が見えるようになるため)。
+        module.registerSyncedTable(db.categoryBudgets, "category_budgets");
         return module;
       })
       .catch((error) => {

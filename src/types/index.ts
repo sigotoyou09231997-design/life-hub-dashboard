@@ -602,7 +602,9 @@ export interface Attachment {
 
 /** カテゴリごとの使いすぎの目安(「食費は月3万円まで」)。全体の予算(給与 - 固定費)は
  * 今までどおり給与から計算するもので、これはそれとは別に持つ追加の上限。
- * 端末内のみ — 同期の対象にはしていない(src/lib/syncRuntime.ts)。 */
+ * 2026-09-05 から**同期の対象**(supabase/sql/024_category_budgets.sql の
+ * category_budgets / src/lib/syncRuntime.ts)。上限がサーバーから見えるので、
+ * アプリを開いていない日でも使いすぎ予測を Web Push で送れる。 */
 export interface CategoryBudget {
   id?: string;
   /** 支出のカテゴリ名(src/lib/categories.ts の EXPENSE_CATEGORIES と同じ文字列)。 */
