@@ -36,6 +36,11 @@ const NotePage = lazy(() => import("./pages/records/NotePage"));
 const GmailPage = lazy(() => import("./pages/GmailPage"));
 const GmailMailPage = lazy(() => import("./pages/GmailMailPage"));
 const GmailCallbackPage = lazy(() => import("./pages/GmailCallbackPage"));
+const SharedTripPage = lazy(() => import("./pages/SharedTripPage"));
+
+/** 共有リンクで開く閲覧専用ページ。ログインの壁の外に出す唯一のページ
+ * (/auth/callback と同じ扱い)。src/lib/tripShare.ts。 */
+const SHARED_TRIP_PREFIX = "/share/trip/";
 
 function LazyRoute({ children }: { children: ReactNode }) {
   return (
@@ -82,16 +87,21 @@ export default function App() {
   // overflow-hiddenのままだと、長い本文/AI返信文が内部スクロール領域に閉じ込められ、
   // スクロールしないと全文が見えなくなってしまうため(2026-08-15 修正)。
   const isGmailListRoute = location.pathname === "/gmail";
+  // 共有リンクで開いた人は、この端末のアカウントとも端末内データとも関係がない。
+  // ログイン確認・同期・既定設定の作成をどれも行わず、下でこのページだけを出す。
+  const isSharedTripRoute = location.pathname.startsWith(SHARED_TRIP_PREFIX);
 
   // undefined = still checking, null = confirmed logged out, Session = logged in.
   // Gates the entire app behind account registration/login — nothing (TOP, data,
   // any route) renders without a session. /auth/callback is exempt: it's the
   // landing page for the Google OAuth redirect itself, reached precisely while
   // still logged out, so gating it too would make that login path unreachable.
+  // /share/trip/:token also stays outside the gate — it is the shared itinerary
+  // itself, meant to be opened by someone who has no account here at all.
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [syncReady, setSyncReady] = useState(false);
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
+    if (!isSupabaseConfigured || isSharedTripRoute) return;
     let active = true;
     let transition = 0;
     const applySession = async (next: Session | null) => {
@@ -141,6 +151,8 @@ export default function App() {
   const isAuthCallbackRoute = location.pathname === "/auth/callback";
 
   useEffect(() => {
+    // 共有リンクの人の端末に、この人のものではない設定やDBを作らない。
+    if (isSharedTripRoute) return;
     ensureDefaultSettings();
     // アプリを開いた時点でGmailプッシュ通知はもう本人が確認できる状態なので、端末の通知
     // センターに残っている分(ブロック後に届いた古い通知を含む)をここでまとめて閉じる。
@@ -157,6 +169,7 @@ export default function App() {
   // タイミング(requestIdleCallback)で全lazyページのJSチャンクを先読みしておく。
   // 初回起動直後の重要な描画とは competing しないよう、あえて即時ではなくidle時に行う。
   useEffect(() => {
+    if (isSharedTripRoute) return;
     if (isSupabaseConfigured && !(session && syncReady)) return;
     const prefetch = () => {
       void import("./pages/SchedulePage");
@@ -175,7 +188,22 @@ export default function App() {
     } else {
       window.setTimeout(prefetch, 1000);
     }
-  }, [isSupabaseConfigured, session, syncReady]);
+  }, [isSharedTripRoute, isSupabaseConfigured, session, syncReady]);
+
+  // 共有リンク。アプリの外枠(ヘッダー・サイドバー・追従ナビ)も、ログインの確認も
+  // 通さずに、しおり1枚だけを出す(src/pages/SharedTripPage.tsx)。
+  if (isSharedTripRoute) {
+    return (
+      <Suspense fallback={<div className="shared-trip" />}>
+        <Routes location={location}>
+          <Route path="/share/trip/:token" element={<SharedTripPage />} />
+          {/* 合鍵の付いていない /share/trip/ も、同じ「共有は終了しました」に落とす
+              (どのRouteにも当たらないと真っ白な画面になるため)。 */}
+          <Route path="*" element={<SharedTripPage />} />
+        </Routes>
+      </Suspense>
+    );
+  }
 
   if (isSupabaseConfigured && (session === undefined || (session && !syncReady)) && !isAuthCallbackRoute) {
     // 一瞬でも未ログイン画面がちらつくのを避けるための空白 — セッション確認は

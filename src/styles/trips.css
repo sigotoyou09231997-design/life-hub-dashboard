@@ -1768,3 +1768,103 @@ a.trip-leg-mode--link {
     transition: none;
   }
 }
+
+/* ==========================================================================
+   共有リンクで開く閲覧専用ページ (/share/trip/:token) — 2026-09-05
+
+   アプリ本体ではなく「渡された1枚のしおり」なので、ヘッダー・サイドバー・
+   タブ・追加ボタンをどれも持たない。地と面は theme-warm.css の --warm-* を
+   そのまま使い、この画面のために新しい色を足さない。
+   ========================================================================== */
+
+.shared-trip {
+  min-height: 100vh;
+  background: var(--warm-ground);
+  padding-bottom: 3rem;
+}
+
+.shared-trip__hero {
+  padding: 2.5rem 1.25rem 1.75rem;
+  background: var(--warm-ground-2);
+  border-bottom: 1px solid var(--warm-line);
+}
+
+.shared-trip__eyebrow {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  color: var(--warm-ink-3);
+}
+
+.shared-trip__hero h1 {
+  margin-top: 0.35rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--warm-ink);
+}
+
+.shared-trip__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--warm-ink-2);
+}
+
+.shared-trip__body {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 0;
+}
+
+.shared-trip__section + .shared-trip__section {
+  margin-top: 1.75rem;
+}
+
+.shared-trip__section > h2 {
+  margin-bottom: 0.6rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--warm-ink);
+}
+
+.shared-trip__empty {
+  font-size: 0.8125rem;
+  color: var(--warm-ink-3);
+}
+
+/* 読み込み中・共有終了・通信できない、の3つの知らせ。 */
+.shared-trip__notice {
+  padding: 3rem 1.25rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--warm-ink-3);
+}
+
+.shared-trip__notice-card {
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+}
+
+.shared-trip__notice-card h1 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--warm-ink);
+}
+
+.shared-trip__notice-card p {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--warm-ink-2);
+}
+
+.shared-trip__footer {
+  max-width: 46rem;
+  margin: 2.5rem auto 0;
+  padding: 0 1.25rem;
+  font-size: 0.75rem;
+  color: var(--warm-ink-3);
+}

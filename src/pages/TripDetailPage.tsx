@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { NotebookPen, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { NotebookPen, Pencil, Plus, Share2, Sparkles, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
 import type {
   TripScheduleItem,
@@ -34,6 +34,7 @@ import { TripRouteForm } from "../components/trips/TripRouteForm";
 import { TripQuickPlanForm } from "../components/trips/TripQuickPlanForm";
 import { TripPlanScanForm } from "../components/trips/TripPlanScanForm";
 import { TripDocumentForm } from "../components/trips/TripDocumentForm";
+import { TripShareSheet } from "../components/trips/TripShareSheet";
 import { TripDocumentList } from "../components/trips/TripDocumentList";
 import { DiaryList } from "../components/diary/DiaryList";
 import { DiaryForm } from "../components/diary/DiaryForm";
@@ -74,6 +75,8 @@ export default function TripDetailPage() {
   const initialTab: Tab = VALID_TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "schedule";
   const [tab, setTab] = useState<Tab>(initialTab);
   const [editingTrip, setEditingTrip] = useState(false);
+  /** 共有の設定シートを開いているか(src/components/trips/TripShareSheet.tsx)。 */
+  const [sharingTrip, setSharingTrip] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<TripScheduleItem | "new" | null>(null);
   /** 「この日に予定を追加」から開いた時の日付。下部の「予定を追加」からは付かない(null)。 */
   const [scheduleDatePreset, setScheduleDatePreset] = useState<string | null>(null);
@@ -239,6 +242,13 @@ export default function TripDetailPage() {
         backTo="/trips"
         right={
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setSharingTrip(true)}
+              aria-label="しおりを共有"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            >
+              <Share2 size={18} />
+            </button>
             <button
               onClick={() => setEditingTrip(true)}
               aria-label="旅行を編集"
@@ -488,6 +498,10 @@ export default function TripDetailPage() {
             onCancel={() => setEditingDocument(null)}
           />
         )}
+      </Sheet>
+
+      <Sheet open={sharingTrip} onClose={() => setSharingTrip(false)} title="しおりを共有">
+        {sharingTrip && <TripShareSheet tripId={tripId} tripName={trip.name} onClose={() => setSharingTrip(false)} />}
       </Sheet>
 
       <Sheet open={editingTrip} onClose={() => setEditingTrip(false)} title="旅行を編集">

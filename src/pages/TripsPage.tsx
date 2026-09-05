@@ -7,6 +7,7 @@ import type { Trip } from "../types";
 import { todayStr } from "../lib/date";
 import { deleteAttachmentsForAll } from "../lib/attachments";
 import { deleteCurrencyFor } from "../lib/currency";
+import { endTripShare } from "../lib/tripShare";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
@@ -55,6 +56,14 @@ export async function deleteTripCascade(tripId: string) {
     db.tripDocuments.where("tripId").equals(tripId).delete(),
   ]);
   await db.trips.delete(tripId);
+
+  // 共有していた旅行なら、その合鍵も落とす(src/lib/tripShare.ts)。これは端末内では
+  // なく Supabase にしか無いので、消し損ねると中身の無いリンクだけが残る。
+  // 通信できない時に消せなくても旅行の削除そのものは終わっているので、待たない・
+  // 失敗しても止めない — その場合リンクは「共有は終了しました」になる(旅行が無いため)。
+  void endTripShare(tripId).catch((error) => {
+    console.error("[share] failed to drop the share of a deleted trip:", error);
+  });
 }
 
 /**
