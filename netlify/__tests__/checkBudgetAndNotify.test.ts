@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBudgetForecastPayload,
   buildBudgetOverPayload,
   calculateRemaining,
+  forecastOverCategories,
+  FORECAST_MIN_ELAPSED_DAYS,
   jstTodayStr,
   resolveBudgetPeriod,
   shouldNotifyBudgetOver,
   type BudgetPeriod,
+  type CategoryBudgetRow,
   type SalaryRow,
 } from "../functions/checkBudgetAndNotify";
 
@@ -113,5 +117,76 @@ describe("buildBudgetOverPayload", () => {
   it("words the payday line differently on the payday itself", () => {
     const payload = JSON.parse(buildBudgetOverPayload(-1000, 0));
     expect(payload.body).toBe("今日が次の給料日です。");
+  });
+});
+
+describe("forecastOverCategories", () => {
+  const BUDGETS: CategoryBudgetRow[] = [{ category: "食費", monthly_amount: 30000 }];
+  const spent = (amount: number, category = "食費") => new Map([[category, amount]]);
+
+  it("flags a category whose pace projects past the limit before the next payday", () => {
+    // 10日で15,000円 → 1日1,500円 → 30日で45,000円。上限30,000円を15,000円超える見込み。
+    const [forecast] = forecastOverCategories(BUDGETS, spent(15_000), 10, 20);
+    expect(forecast.projected).toBe(45_000);
+    expect(forecast.projectedOver).toBe(15_000);
+  });
+
+  it("stays quiet when the pace lands inside the limit", () => {
+    expect(forecastOverCategories(BUDGETS, spent(8_000), 10, 20)).toEqual([]);
+  });
+
+  it("leaves categories that already went over to the 'over budget' notification", () => {
+    expect(forecastOverCategories(BUDGETS, spent(31_000), 10, 20)).toEqual([]);
+  });
+
+  it("waits until enough of the period has passed to judge a pace", () => {
+    expect(forecastOverCategories(BUDGETS, spent(15_000), FORECAST_MIN_ELAPSED_DAYS - 1, 28)).toEqual([]);
+    expect(forecastOverCategories(BUDGETS, spent(15_000), FORECAST_MIN_ELAPSED_DAYS, 28)).toHaveLength(1);
+  });
+
+  it("says nothing on the payday itself, when there is nothing left to forecast", () => {
+    expect(forecastOverCategories(BUDGETS, spent(15_000), 30, 0)).toEqual([]);
+  });
+
+  it("skips rows with no real limit set", () => {
+    expect(forecastOverCategories([{ category: "食費", monthly_amount: 0 }], spent(5_000), 10, 20)).toEqual([]);
+  });
+
+  it("treats a category with no spending yet as fine", () => {
+    expect(forecastOverCategories(BUDGETS, new Map(), 10, 20)).toEqual([]);
+  });
+
+  it("puts the biggest overshoot first", () => {
+    const budgets: CategoryBudgetRow[] = [
+      { category: "食費", monthly_amount: 30000 },
+      { category: "交際費", monthly_amount: 10000 },
+    ];
+    const result = forecastOverCategories(
+      budgets,
+      new Map([
+        ["食費", 15_000], // 見込み 45,000 → 15,000 超過
+        ["交際費", 8_000], // 見込み 24,000 → 14,000 超過
+      ]),
+      10,
+      20,
+    );
+    expect(result.map((f) => f.category)).toEqual(["食費", "交際費"]);
+  });
+});
+
+describe("buildBudgetForecastPayload", () => {
+  const FOOD = { category: "食費", budget: 30000, spent: 15000, projected: 45000, projectedOver: 15000 };
+
+  it("names the category and shows the projection against the limit", () => {
+    const payload = JSON.parse(buildBudgetForecastPayload([FOOD], 20));
+    expect(payload.title).toBe("このペースだと 食費 が給料日までに超えそうです");
+    expect(payload.body).toBe("食費は ¥45,000 の見込み(予算 ¥30,000)。次の給料日まであと20日です。");
+    expect(payload.url).toBe("/records/expense");
+  });
+
+  it("counts the rest rather than listing every category", () => {
+    const other = { category: "交際費", budget: 10000, spent: 8000, projected: 24000, projectedOver: 14000 };
+    const payload = JSON.parse(buildBudgetForecastPayload([FOOD, other], 5));
+    expect(payload.title).toBe("このペースだと 食費・ほか1件 が給料日までに超えそうです");
   });
 });

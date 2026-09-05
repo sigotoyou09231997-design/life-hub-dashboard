@@ -21,6 +21,12 @@ export interface SalaryRow {
   amount: number;
 }
 
+/** supabase/sql/024_category_budgets.sql の1行(必要な列だけ)。 */
+export interface CategoryBudgetRow {
+  category: string;
+  monthly_amount: number;
+}
+
 // このアプリは個人利用の日本語専用アプリという前提(CLAUDE.md)。日付はすべて端末の
 // ローカル時刻のままタイムゾーン情報を持たずに保存されているため、
 // checkRemindersAndNotify.tsと同じ割り切りでJST固定として扱う。
@@ -143,6 +149,68 @@ export function buildBudgetOverPayload(remaining: number, daysUntilNextPayday: n
   });
 }
 
+/** 予測を出し始めるまでに必要な日数。画面側(src/lib/categoryBudget.ts)と同じ値。
+ * 期の初日に5,000円使っただけで「このペースだと15万円」と言い出さないための足切り。 */
+export const FORECAST_MIN_ELAPSED_DAYS = 3;
+
+export interface CategoryForecast {
+  category: string;
+  budget: number;
+  spent: number;
+  /** 今のペースのまま次の給料日まで使い続けたときの、期の合計見込み(円)。 */
+  projected: number;
+  /** 見込みが上限をいくら超えるか(円)。 */
+  projectedOver: number;
+}
+
+/**
+ * 「今のペースで使い続けると給料日までに超えそう」なカテゴリ。
+ * 式も足切りも画面側の forecastFor(src/lib/categoryBudget.ts)と同じにしてある —
+ * ここだけ違うと、アプリを開いて出ている警告と届く通知が食い違う。
+ *
+ * すでに超えているカテゴリは外す。そちらは予測ではなく事実で、全体の残額が
+ * マイナスなら「予算を超えています」の側が担当する。
+ *
+ * @param elapsedDays   期の初日から今日までの日数(今日を含む)。
+ * @param remainingDays 今日から次の給料日までの残り日数。
+ */
+export function forecastOverCategories(
+  budgets: CategoryBudgetRow[],
+  spentByCategory: Map<string, number>,
+  elapsedDays: number,
+  remainingDays: number,
+): CategoryForecast[] {
+  if (elapsedDays < FORECAST_MIN_ELAPSED_DAYS || remainingDays <= 0) return [];
+  const forecasts: CategoryForecast[] = [];
+  for (const row of budgets) {
+    const budget = Math.max(0, Number(row.monthly_amount));
+    if (budget <= 0) continue;
+    const spent = spentByCategory.get(row.category) ?? 0;
+    if (spent > budget) continue; // すでに超えている
+    const projected = Math.round((spent / elapsedDays) * (elapsedDays + remainingDays));
+    const projectedOver = projected - budget;
+    if (projectedOver <= 0) continue;
+    forecasts.push({ category: row.category, budget, spent, projected, projectedOver });
+  }
+  // はみ出しの大きい順 — 先に手を打ちたいものを文面の先頭に置く。
+  return forecasts.sort((a, b) => b.projectedOver - a.projectedOver);
+}
+
+/** 通知の文面。画面(ExpenseSummary)の「このペースだと 〇〇 が給料日までに超えそうです」に
+ * 言い回しを合わせてある。 */
+export function buildBudgetForecastPayload(forecasts: CategoryForecast[], daysUntilNextPayday: number): string {
+  const yen = (value: number) => `¥${Math.round(value).toLocaleString()}`;
+  const top = forecasts[0];
+  const others = forecasts.length > 1 ? `ほか${forecasts.length - 1}件` : "";
+  const names = [top.category, others].filter(Boolean).join("・");
+  const days = daysUntilNextPayday > 0 ? `次の給料日まであと${daysUntilNextPayday}日です。` : "今日が次の給料日です。";
+  return JSON.stringify({
+    title: `このペースだと ${names} が給料日までに超えそうです`,
+    body: `${top.category}は ${yen(top.projected)} の見込み(予算 ${yen(top.budget)})。${days}`,
+    url: "/records/expense",
+  });
+}
+
 async function sendToUser(supabase: SupabaseClient, subs: PushSubscriptionRow[], payload: string): Promise<void> {
   for (const sub of subs) {
     if ((sub.disabled_categories ?? []).includes(CATEGORY)) continue;
@@ -157,6 +225,31 @@ async function sendToUser(supabase: SupabaseClient, subs: PushSubscriptionRow[],
       }
     }
   }
+}
+
+interface ExpenseRow {
+  amount: number;
+  category: string;
+  is_fixed: boolean;
+}
+
+/**
+ * カテゴリ予算。**024 をまだ流していない環境では、このテーブルがまだ無い。**
+ * その場合はエラーを飲んで空で返す — ここで止めると、テーブルの有無だけで
+ * 「予算を超えています」の通知(024 と無関係に動いていたもの)まで巻き添えで
+ * 止まってしまう。行が無いのと同じ扱いにして、予測だけ黙る。
+ */
+async function loadCategoryBudgets(supabase: SupabaseClient, userId: string): Promise<CategoryBudgetRow[]> {
+  const { data, error } = await supabase
+    .from("category_budgets")
+    .select("category, monthly_amount")
+    .eq("user_id", userId)
+    .is("deleted_at", null);
+  if (error) {
+    console.warn(`[checkBudgetAndNotify] category_budgets unavailable for ${userId}:`, error.message);
+    return [];
+  }
+  return (data ?? []) as CategoryBudgetRow[];
 }
 
 async function processUser(
@@ -180,12 +273,14 @@ async function processUser(
 
   const [fixedResult, spendingResult, bonusResult] = await Promise.all([
     supabase.from("fixed_costs").select("amount").eq("user_id", userId).eq("active", true).is("deleted_at", null),
+    // is_fixed で絞らずに取る — 全体の残額は固定費として記録した支出を数えないが、
+    // カテゴリ別の集計は数える(画面側の spendingByCategory と同じ)。1回の問い合わせで
+    // 両方を出せるように、絞り込みはこちら側でやる。
     supabase
       .from("transactions")
-      .select("amount")
+      .select("amount, category, is_fixed")
       .eq("user_id", userId)
       .eq("type", "expense")
-      .eq("is_fixed", false)
       .gte("date", period.periodStart)
       .lte("date", today)
       .is("deleted_at", null),
@@ -210,15 +305,35 @@ async function processUser(
   }
 
   const sum = (rows: { amount: number }[] | null) => (rows ?? []).reduce((total, row) => total + Number(row.amount), 0);
+  const expenses = (spendingResult.data ?? []) as ExpenseRow[];
   const remaining = calculateRemaining(
     period.salaryAmount,
     sum(fixedResult.data as { amount: number }[] | null),
-    sum(spendingResult.data as { amount: number }[] | null),
+    sum(expenses.filter((row) => !row.is_fixed)),
     sum(bonusResult.data as { amount: number }[] | null),
   );
 
-  if (!shouldNotifyBudgetOver(period, remaining)) return;
-  await sendToUser(supabase, subs, buildBudgetOverPayload(remaining, period.daysUntilNextPayday));
+  // 1回の実行で送るのは1通まで。すでに超えているという「事実」の方を優先し、
+  // それが無いときだけ「このままだと超えそう」という予測を出す。
+  if (shouldNotifyBudgetOver(period, remaining)) {
+    await sendToUser(supabase, subs, buildBudgetOverPayload(remaining, period.daysUntilNextPayday));
+    return;
+  }
+
+  const budgets = await loadCategoryBudgets(supabase, userId);
+  if (budgets.length === 0) return;
+  const spentByCategory = new Map<string, number>();
+  for (const row of expenses) {
+    spentByCategory.set(row.category, (spentByCategory.get(row.category) ?? 0) + Number(row.amount));
+  }
+  const forecasts = forecastOverCategories(
+    budgets,
+    spentByCategory,
+    diffDays(period.periodStart, today) + 1,
+    Math.max(0, period.daysUntilNextPayday),
+  );
+  if (forecasts.length === 0) return;
+  await sendToUser(supabase, subs, buildBudgetForecastPayload(forecasts, period.daysUntilNextPayday));
 }
 
 const handlerImpl: Handler = async () => {
@@ -268,5 +383,9 @@ const handlerImpl: Handler = async () => {
  * Web Pushで知らせる。予定・タスクのように「いつ通知するか」が行ごとに決まっている
  * ものと違い、残額は毎分変わり得るので、送りすぎないよう実行そのものを1日1回にして
  * ある(通知済みの印をどこかに持つ必要が無く、テーブルを増やさずに済む)。
+ *
+ * まだ超えていない時は、カテゴリ別予算(category_budgets)を見て「このペースだと
+ * 給料日までに超えそう」なものがあれば、超える前に知らせる。1回の実行で送るのは
+ * どちらか1通だけ。
  */
 export const handler = schedule("0 23 * * *", handlerImpl);
