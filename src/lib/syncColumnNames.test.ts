@@ -62,6 +62,12 @@ const LOCAL_FIELDS: Record<string, { file: string; fields: string[] }> = {
     // types/index.ts の TransactionProjectTag
     fields: ["id", "transactionId", "tag", "createdAt", "updatedAt"],
   },
+  category_budgets: {
+    file: "024_category_budgets.sql",
+    // types/index.ts の CategoryBudget。まだ syncRuntime には登録していない
+    // (024 を本番で流した連絡を受けてから)が、食い違いは流す前に見つけたいので先に書く。
+    fields: ["id", "category", "monthlyAmount", "createdAt", "updatedAt"],
+  },
 };
 
 describe("同期テーブルの列名が、アプリ側の項目名と噛み合っている", () => {
