@@ -260,6 +260,8 @@ export default function GmailPage() {
                   options={accounts.map((a) => ({ value: String(a.id), label: a.email }))}
                   value={selectedAccountId ?? ""}
                   onChange={(v) => setSelectedAccountId(v)}
+                  // ここだけ文字を小さくする。ラベルがメールアドレスで、長さが
+                  // 決まらない唯一のタブのため(大きさは他の画面と同じ)。
                   dense
                 />
               </div>

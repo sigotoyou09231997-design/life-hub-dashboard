@@ -286,7 +286,6 @@ export default function TripDetailPage() {
           ]}
           value={tab}
           onChange={setTab}
-          large
         />
       </div>
 

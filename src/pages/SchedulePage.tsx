@@ -130,8 +130,6 @@ export default function SchedulePage() {
           ]}
           value={tab}
           onChange={setTab}
-          // 4つ並ぶと「カレンダー」が狭い画面で折り返すので、小さい文字にする。
-          dense
         />
       </div>
 

@@ -31,14 +31,25 @@ interface Props<T extends string> {
   options: TabOption<T>[];
   value: T;
   onChange: (value: T) => void;
-  /** text-sm fits 2-3 columns; text-[11px] keeps 5 columns from wrapping at 320px */
+  /**
+   * 中身の長さが決まらないタブ（Gmailのアカウント＝メールアドレス、CSV取り込みの
+   * 「1列(符号で判定)」など）だけ、文字を小さくする。**大きさ（高さ・余白）は
+   * 変えない** — 画面ごとにタブの見た目が違って見える原因がここだったので、
+   * 逃がしてよいのは文字の大きさだけにしてある（2026-09-05の依頼）。
+   */
   dense?: boolean;
-  /** その画面を移動する主役のタブ用。押しやすいように背を高く、文字も大きくする（dense より優先） */
-  large?: boolean;
   className?: string;
 }
 
-export function Tabs<T extends string>({ options, value, onChange, dense = false, large = false, className = "" }: Props<T>) {
+/**
+ * 画面やシートの中身を切り替えるタブ。**大きさは1種類しかない。**
+ *
+ * 2026-09-05まで dense(min-h-9 + 11px) / 既定(min-h-9 + 14px) / large(min-h-12 + 14px)
+ * の3つがあり、どれを使うかが画面ごとに揃っていなかった（お金管理は dense、
+ * メモ・リストは既定、旅行詳細は large）。同じ「タブ切り替え」が画面ごとに違って
+ * 見えるので、大きさは large だった形に一本化した。
+ */
+export function Tabs<T extends string>({ options, value, onChange, dense = false, className = "" }: Props<T>) {
   const activeIndex = Math.max(0, options.findIndex((option) => option.value === value));
   const { cols, rows, col, row } = tabIndicatorLayout(options.length, activeIndex);
   return (
@@ -66,11 +77,9 @@ export function Tabs<T extends string>({ options, value, onChange, dense = false
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(opt.value)}
-            className={`relative z-10 font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
-              large ? "min-h-12 py-3 text-sm" : "min-h-9 py-2"
-            } ${large ? "" : dense ? "text-[11px]" : "text-sm"} ${
-              selected ? "font-semibold text-accent" : "text-slate-500 hover:text-slate-700"
-            }`}
+            className={`relative z-10 min-h-12 px-1 py-3 font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
+              dense ? "text-[11px]" : "text-sm"
+            } ${selected ? "font-semibold text-accent" : "text-slate-500 hover:text-slate-700"}`}
           >
             {opt.label}
           </button>

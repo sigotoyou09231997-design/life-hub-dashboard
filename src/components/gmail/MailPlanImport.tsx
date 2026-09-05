@@ -324,12 +324,13 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
         <div className="space-y-4">
           <Tabs options={PLAN_GROUPS} value={group} onChange={changeGroup} />
 
-          {/* 旅行計画の中のどこに入れるか。上段と同じ重さで並べないよう、見出し付きの
-              小さいタブにする(CSV取り込みの「金額の形式」と同じ形)。 */}
+          {/* 旅行計画の中のどこに入れるか。上段と同じ重さで並べないよう、見出しを付けて
+              一段下げる(CSV取り込みの「金額の形式」と同じ形)。タブそのものの大きさは
+              アプリ中どこでも同じ(2026-09-05に一本化。src/components/ui/Tabs.tsx)。 */}
           {group === "trip" && (
             <div>
               <span className="mb-1.5 block text-sm font-medium text-slate-600">旅行計画のどこに入れる</span>
-              <Tabs options={TRIP_SECTIONS} value={tripSection} onChange={changeTripSection} dense />
+              <Tabs options={TRIP_SECTIONS} value={tripSection} onChange={changeTripSection} />
             </div>
           )}
 

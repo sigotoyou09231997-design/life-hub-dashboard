@@ -340,7 +340,6 @@ export function GenericCsvImport({ onClose, destination = "transactions" }: Prop
           ]}
           value={amountKind}
           onChange={(v) => setAmountKind(v)}
-          dense
         />
       </div>
 
@@ -362,7 +361,6 @@ export function GenericCsvImport({ onClose, destination = "transactions" }: Prop
               ]}
               value={positiveType}
               onChange={(v) => setPositiveType(v)}
-              dense
             />
           </div>
         </>

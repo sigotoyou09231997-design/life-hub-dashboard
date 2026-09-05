@@ -116,7 +116,6 @@ export default function ExpensePage() {
           ]}
           value={tab}
           onChange={setTab}
-          dense
         />
       </div>
 

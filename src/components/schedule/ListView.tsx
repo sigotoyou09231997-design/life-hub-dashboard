@@ -86,7 +86,6 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
         ]}
         value={typeFilter}
         onChange={setTypeFilter}
-        dense
       />
 
       {typeFilter === "task" && (
