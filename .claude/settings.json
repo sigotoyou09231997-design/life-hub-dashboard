@@ -44,7 +44,10 @@
       "Bash(git status:*)",
       "Bash(bash ../scripts/lifehub-shots.sh:*)",
       "Bash(bash \"/Users/apple/Desktop/WEBアプリ用/scripts/lifehub-shots.sh\":*)",
-      "Bash(bash scripts/lifehub-shots.sh:*)"
+      "Bash(bash scripts/lifehub-shots.sh:*)",
+      "Bash(bash ../scripts/cowork-commit-state.sh:*)",
+      "Bash(bash \"/Users/apple/Desktop/WEBアプリ用/scripts/cowork-commit-state.sh\":*)",
+      "Bash(bash scripts/cowork-commit-state.sh:*)"
     ]
   }
 }

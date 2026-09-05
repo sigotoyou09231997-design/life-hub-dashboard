@@ -12,19 +12,8 @@ export const WATCH = join(SCRIPTS, "cowork-watch.sh");
 // リポジトリ単体で clone した場合はワークスペースが無いので、その時だけ飛ばす
 export const hasWorkspace = existsSync(DAEMON) && existsSync(RUNNER) && existsSync(WATCH);
 
-/**
- * `.cowork/` の状態だけをコミットする係。
- *
- * 本来の置き場所は他と同じ `<ワークスペース>/scripts/` だが、2026-09-05 の時点では
- * まだ `todoアプリ/docs/cowork/` に置いてある。裏（無人）実行は `--add-dir` で渡された
- * 「アプリのフォルダ」と「.cowork/apps/<アプリ名>/」にしか書けず、scripts/ に
- * 新しいファイルを作れなかったため（依頼「裏実行で承認が下りない件_原因と対応.md」）。
- * scripts/ へ移したら、下の `?:` は消して SCRIPTS 側だけにしてよい。
- */
-const COMMIT_STATE_IN_SCRIPTS = join(SCRIPTS, "cowork-commit-state.sh");
-export const COMMIT_STATE = existsSync(COMMIT_STATE_IN_SCRIPTS)
-  ? COMMIT_STATE_IN_SCRIPTS
-  : join(process.cwd(), "docs/cowork/cowork-commit-state.sh");
+/** `.cowork/` の状態だけをコミットする係。他の cowork-*.sh と同じ scripts/ にある。 */
+export const COMMIT_STATE = join(SCRIPTS, "cowork-commit-state.sh");
 export const hasCommitState = existsSync(COMMIT_STATE);
 
 /**
