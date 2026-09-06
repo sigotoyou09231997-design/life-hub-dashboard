@@ -40,6 +40,15 @@ const updateSW = registerSW({
 });
 setUpdateApplier(updateSW);
 
+// index.html の先頭の台本が「真っ白になったので取り置きを捨てて読み込み直した」印を
+// 残している。ここまで来た＝立ち上がったので、その印を消す(同じタブで後日また
+// 古いHTMLを掴んだ時に、もう一度立て直せるように)。
+try {
+  sessionStorage.removeItem("lifehub:stale-html-recovered");
+} catch {
+  // プライベートウィンドウなどで読み書きできなくても、立ち上がりには関係ない。
+}
+
 // 画面下に貼りつくもの(追従ボタン・シート・知らせ)の位置直し。iOSが画面の高さを
 // 戻し損ねている間だけ、その差を --viewport-gap として配る(src/lib/viewport.ts)。
 trackViewportGap();

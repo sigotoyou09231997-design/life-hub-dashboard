@@ -2,6 +2,83 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+
+    <!-- 前の版のHTMLがブラウザ(やService Workerの取り置き)に残ったまま新しい版が出ると、
+         そのHTMLはもう無いJSファイル(/assets/index-<古い印>.js)を読みに行く。読めなければ
+         **画面は真っ白のまま、何の知らせも出ない** — 2026-09-06に実際に起きた
+         (Vercelの「全部index.htmlに流す」設定が、無いファイルにもindex.htmlを返していたため、
+         MIME違いで弾かれた。vercel.json 側も /assets/ を除いて404が返るように直してある)。
+         この台本は、そうなった時だけ取り置きを捨てて1回だけ読み込み直す。読み込む物より先に
+         置くこと(この位置)。sessionStorageの印で、直らない場合に繰り返さないようにしている。 -->
+    <script>
+      (function () {
+        var KEY = "lifehub:stale-html-recovered";
+        var recovering = false;
+        function alreadyTried() {
+          try {
+            return !!sessionStorage.getItem(KEY);
+          } catch (e) {
+            return false;
+          }
+        }
+        function recover(why) {
+          if (recovering || alreadyTried()) return;
+          recovering = true;
+          try {
+            sessionStorage.setItem(KEY, why);
+          } catch (e) {}
+          var jobs = [];
+          if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+            jobs.push(
+              navigator.serviceWorker
+                .getRegistrations()
+                .then(function (list) {
+                  return Promise.all(
+                    list.map(function (registration) {
+                      return registration.unregister();
+                    }),
+                  );
+                })
+                .catch(function () {}),
+            );
+          }
+          if (window.caches) {
+            jobs.push(
+              caches
+                .keys()
+                .then(function (keys) {
+                  return Promise.all(
+                    keys.map(function (key) {
+                      return caches.delete(key);
+                    }),
+                  );
+                })
+                .catch(function () {}),
+            );
+          }
+          Promise.all(jobs).then(function () {
+            location.reload();
+          });
+        }
+        // 読み込みに失敗したJS。MIME違いで弾かれた場合もここに来る。
+        window.addEventListener(
+          "error",
+          function (event) {
+            var el = event.target;
+            if (el && el.tagName === "SCRIPT" && el.src) recover("script");
+          },
+          true,
+        );
+        // 何も起きないまま真っ白なとき(上に引っかからない止まり方)の受け皿。
+        // 「セッション確認中」の空白は #root の中に要素があるので、ここには来ない。
+        window.addEventListener("DOMContentLoaded", function () {
+          window.setTimeout(function () {
+            var root = document.getElementById("root");
+            if (root && root.childElementCount === 0) recover("blank");
+          }, 10000);
+        });
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
