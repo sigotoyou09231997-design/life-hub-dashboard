@@ -815,19 +815,79 @@
     border-radius: 0 !important;
   }
 
-  /* マスの中も端まで使う。マスの間の隙間・マスの内側の余白・帯そのものの余白を
-     それぞれ詰めて、予定名の帯がマスの幅いっぱいに伸びるようにする（TimeTree と
-     同じ、帯が横いっぱいに並ぶ見え方）。帯が広いぶん、名前も長く読める。 */
+  /* ここから下は、スマホの月表示を TimeTree の見た目に合わせるための調整
+     （本人の指示: 「タイムツリーと全く同じにして」）。寸法は送ってもらった
+     TimeTree のスクリーンショットから実測した値に揃えてある。 */
+
+  /* マスの間の隙間を無くし、週の区切りは横一本の細い線にする（TimeTree と同じ）。
+     1行の高さは、帯が3本入るところまで上げる。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__days {
-    gap: 1px;
+    gap: 0;
+  }
+
+  .spatial-page .calendar-workspace__month .spatial-calendar__cell {
+    min-height: 5.5rem;
+    border-top: 1px solid var(--warm-line);
+    border-radius: 0;
   }
 
   .spatial-page .calendar-workspace__month .spatial-calendar__cell--chips {
-    padding-inline: 0.06rem;
+    padding-inline: 0.08rem;
   }
 
+  /* 週の区切り線はマスの上辺で引くので、曜日の見出しの下線は二重線になる。外す。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__weekdays {
+    border-bottom: 0;
+  }
+
+  /* 選んだ日は、TimeTree と同じ「マスの薄い塗り」だけにする（枠線は引かない）。
+     行が高くなったぶん、細い枠で囲うと縦長の箱が浮いて見えるため。どの日を選んだかは
+     日付の丸（青）で分かる。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__cell.is-selected {
+    background: var(--warm-surface-sunk);
+    box-shadow: none;
+  }
+
+  /* 帯は、左の縦線を外した「塗りだけの角丸」にする（TimeTree と同じ形）。
+     文字は実測に合わせて約8.3px。同じ幅に同じ字数（6文字前後）が入る。
+     固定費の支払日だけは予定と区別が要るので、点線の縦線を残す。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__chip {
-    padding-inline: 0.12rem;
+    padding: 0.06rem 0.18rem;
+    border-left: 0;
+    border-radius: 0.18rem;
+    font-size: 0.52rem;
+    line-height: 1.5;
+  }
+
+  .spatial-page .calendar-workspace__month .spatial-calendar__chip.is-fixed-cost {
+    border-left: 2px dotted var(--chip-color);
+  }
+
+  /* 祝日名も、赤い帯に白抜きの文字にする（TimeTree と同じ）。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__holiday {
+    overflow: hidden;
+    padding: 0.06rem 0.18rem;
+    border-radius: 0.18rem;
+    background: #e8384f;
+    color: #fff;
+    font-size: 0.52rem;
+    font-weight: 600;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* 土は青、日は赤（TimeTree と同じ）。曜日の見出しと、その月の日付だけに効かせる —
+     今日・選択中・祝日・他の月の日は、それぞれの色をそのまま残す（上の色分けで
+     上書きすると、選んだ日がどこか分からなくなるため）。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__weekdays > div:nth-child(6),
+  .spatial-page .calendar-workspace__month .spatial-calendar__days > button:nth-child(7n + 6) > span.text-slate-700 {
+    color: #2f6fd0;
+  }
+
+  .spatial-page .calendar-workspace__month .spatial-calendar__weekdays > div:nth-child(7),
+  .spatial-page .calendar-workspace__month .spatial-calendar__days > button:nth-child(7n) > span.text-slate-700 {
+    color: #d64562;
   }
 
   /* 月の見出し（◀ 2026年9月 ▶）と「誰の」の絞り込みは、マスと違って端に貼りつくと
