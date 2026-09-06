@@ -801,6 +801,26 @@
   .spatial-page .spatial-module {
     border-radius: var(--warm-r-md) !important;
   }
+
+  /* 月表示のカレンダーだけ、ページの左右の余白（.spatial-page-content の
+     padding-inline: .75rem）を打ち消して画面の端まで広げる。1マスが広いほど
+     予定名の帯が途中で切れずに読めるため（TimeTree と同じ幅の使い方）。
+     画面の端に着けるので左右の枠線と角丸は外す — 端では見えないうえ、角だけ
+     丸いと画面から切れた紙のように見えるため。詳細カード（その日の予定・タスク）は
+     今までどおりページの余白の内側に置く。 */
+  .spatial-page .calendar-workspace__month {
+    margin-inline: -0.75rem;
+    padding: 0.8rem 0.2rem;
+    border-inline: 0;
+    border-radius: 0 !important;
+  }
+
+  /* 月の見出し（◀ 2026年9月 ▶）と「誰の」の絞り込みは、マスと違って端に貼りつくと
+     窮屈なので、内側で余白を戻す。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__header,
+  .spatial-page .calendar-workspace__month .person-filter {
+    padding-inline: 0.55rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

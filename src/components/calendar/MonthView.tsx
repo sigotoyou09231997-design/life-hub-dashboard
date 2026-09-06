@@ -72,7 +72,10 @@ export function MonthView({
 
   return (
     <div className="spatial-calendar">
-      <div className="mb-3 flex items-center justify-between">
+      {/* スマホでは月表示のカードを画面いっぱいまで広げる(src/styles/pages-warm.css)。
+          マスは端まで使ってよいが、この見出しだけは端に貼りつくと窮屈なので、
+          そちらで内側の余白を戻せるよう名前を付けておく。 */}
+      <div className="spatial-calendar__header mb-3 flex items-center justify-between">
         <button
           type="button"
           onClick={() => onMonthChange(subMonths(currentMonth, 1))}
