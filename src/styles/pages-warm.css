@@ -810,9 +810,24 @@
      今までどおりページの余白の内側に置く。 */
   .spatial-page .calendar-workspace__month {
     margin-inline: -0.75rem;
-    padding: 0.8rem 0.2rem;
+    padding: 0.8rem 0.1rem;
     border-inline: 0;
     border-radius: 0 !important;
+  }
+
+  /* マスの中も端まで使う。マスの間の隙間・マスの内側の余白・帯そのものの余白を
+     それぞれ詰めて、予定名の帯がマスの幅いっぱいに伸びるようにする（TimeTree と
+     同じ、帯が横いっぱいに並ぶ見え方）。帯が広いぶん、名前も長く読める。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__days {
+    gap: 1px;
+  }
+
+  .spatial-page .calendar-workspace__month .spatial-calendar__cell--chips {
+    padding-inline: 0.06rem;
+  }
+
+  .spatial-page .calendar-workspace__month .spatial-calendar__chip {
+    padding-inline: 0.12rem;
   }
 
   /* 月の見出し（◀ 2026年9月 ▶）と「誰の」の絞り込みは、マスと違って端に貼りつくと
