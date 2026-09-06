@@ -162,32 +162,36 @@
    直接持っているので、`.spatial-page` を頭に付けて詳細度で上回る。
    ------------------------------------------------------------------------ */
 
+/* 2026-09-06: 1つの溝に詰めて白いつまみを滑らせる形をやめ、丸ボタンを1つずつ
+   離して並べる（本人「ボタンは、それぞれ分けて表示がいい」）。お金管理のように
+   6個あって2段に折り返すと、溝の中で行が割れて見えたのが理由。 */
 .spatial-page .spatial-tabs {
+  border: none;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.spatial-page .spatial-tabs button {
   border: 1px solid var(--warm-line);
   border-radius: 999px;
   background: var(--warm-surface-sunk);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-}
-
-.spatial-page .spatial-tabs__indicator {
-  border: 1px solid var(--warm-line);
-  border-radius: 999px;
-  background: var(--warm-surface);
-  box-shadow: var(--warm-shadow);
-}
-
-.spatial-page .spatial-tabs button {
   color: var(--warm-ink-2);
   font-weight: 600;
 }
 
 .spatial-page .spatial-tabs button:hover {
+  background: var(--warm-surface);
   color: var(--warm-ink);
 }
 
 .spatial-page .spatial-tabs button[aria-selected="true"] {
+  background: var(--warm-surface);
+  box-shadow: var(--warm-shadow);
   color: var(--page-tone, var(--warm-ink));
   font-weight: 700;
 }

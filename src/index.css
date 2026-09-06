@@ -708,8 +708,10 @@ body .text-base { font-size: 1.05rem; }
   background: linear-gradient(145deg, rgba(255,255,255,.19), rgba(230,240,248,.13));
   box-shadow: inset 0 1px 0 rgba(255,255,255,.38), 0 7px 20px rgba(40,61,87,.045);
 }
-.spatial-tabs { overflow: hidden; border-color: rgba(255,255,255,.38); border-radius: .72rem; background: rgba(218,232,243,.27); box-shadow: inset 0 1px 0 rgba(255,255,255,.38), 0 9px 26px rgba(36,56,81,.065); backdrop-filter: blur(18px) saturate(125%); -webkit-backdrop-filter: blur(18px) saturate(125%); }
-.spatial-tabs__indicator { border-color: rgba(255,255,255,.43); border-radius: .5rem; background: linear-gradient(145deg, rgba(247,251,254,.45), rgba(219,233,244,.31)); box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 7px 18px rgba(53,78,108,.07); }
+/* タブは1つずつ独立したボタン(2026-09-06)。入れ物側には面を持たせない */
+.spatial-tabs { background: none; box-shadow: none; }
+.spatial-tabs__tab { border-color: rgba(255,255,255,.38); border-radius: .72rem; background: rgba(218,232,243,.27); box-shadow: inset 0 1px 0 rgba(255,255,255,.38), 0 9px 26px rgba(36,56,81,.065); backdrop-filter: blur(18px) saturate(125%); -webkit-backdrop-filter: blur(18px) saturate(125%); }
+.spatial-tabs__tab.is-selected { border-color: rgba(255,255,255,.43); background: linear-gradient(145deg, rgba(247,251,254,.45), rgba(219,233,244,.31)); box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 7px 18px rgba(53,78,108,.07); }
 .spatial-empty { min-height: 0; padding-block: 1.15rem; }
 .spatial-sheet-backdrop { background: rgba(29,45,66,.2); backdrop-filter: blur(3px); }
 .spatial-sheet { border-color: rgba(255,255,255,.52); background: linear-gradient(145deg, rgba(228,239,247,.78), rgba(204,222,237,.67)); box-shadow: 0 30px 90px rgba(24,42,64,.26), inset 0 1px 0 rgba(255,255,255,.68); }
@@ -1176,14 +1178,18 @@ body .text-base { font-size: 1.05rem; }
 
 /* --- 入力・タブ・ボタン -------------------------------------------------- */
 .spatial-tabs {
+  background: none;
+  box-shadow: none;
+}
+
+.spatial-tabs__tab {
   border-radius: var(--hub-r-sm);
   border-color: var(--hub-edge);
   background: rgba(255, 255, 255, 0.78);
   box-shadow: var(--hub-shadow-inset), 0 10px 26px rgba(10, 24, 46, 0.08);
 }
 
-.spatial-tabs__indicator {
-  border-radius: calc(var(--hub-r-sm) - 4px);
+.spatial-tabs__tab.is-selected {
   border-color: var(--hub-hairline);
   background: #ffffff;
   box-shadow: 0 4px 12px rgba(10, 24, 46, 0.12);
@@ -1564,11 +1570,6 @@ body .text-sm { line-height: 1.5; }
 .glass-nav a[aria-current="page"] svg,
 .glass-nav a.is-active svg {
   transform: translateY(-1px) scale(1.08);
-}
-
-/* タブのつまみは、減速するだけでなく最後にわずかに行き過ぎてから収まる。 */
-.spatial-tabs__indicator {
-  transition: transform 360ms var(--press-ease) !important;
 }
 
 /* ボタン。単色の塗りではなく、上端が明るい微妙な階調と内側のハイライトを持たせ、

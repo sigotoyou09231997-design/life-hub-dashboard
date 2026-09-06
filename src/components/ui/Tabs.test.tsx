@@ -1,22 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { tabIndicatorLayout } from "./Tabs";
+import { tabGridLayout } from "./Tabs";
 
-describe("tabIndicatorLayout", () => {
+describe("tabGridLayout", () => {
   it("5個までは1段に並ぶ", () => {
-    expect(tabIndicatorLayout(4, 2)).toEqual({ cols: 4, rows: 1, col: 2, row: 0 });
-    expect(tabIndicatorLayout(5, 4)).toEqual({ cols: 5, rows: 1, col: 4, row: 0 });
+    expect(tabGridLayout(2)).toEqual({ cols: 2, rows: 1 });
+    expect(tabGridLayout(4)).toEqual({ cols: 4, rows: 1 });
+    expect(tabGridLayout(5)).toEqual({ cols: 5, rows: 1 });
   });
 
-  it("6個は3列×2段になり、2段目のタブは行も進む", () => {
-    expect(tabIndicatorLayout(6, 0)).toEqual({ cols: 3, rows: 2, col: 0, row: 0 });
-    expect(tabIndicatorLayout(6, 2)).toEqual({ cols: 3, rows: 2, col: 2, row: 0 });
-    // お金管理の「カード」= 5番目。折り返して2段目の2列目に来る
-    expect(tabIndicatorLayout(6, 4)).toEqual({ cols: 3, rows: 2, col: 1, row: 1 });
-    expect(tabIndicatorLayout(6, 5)).toEqual({ cols: 3, rows: 2, col: 2, row: 1 });
+  it("6個は3列×2段になる（お金管理のタブ）", () => {
+    expect(tabGridLayout(6)).toEqual({ cols: 3, rows: 2 });
   });
 
-  it("見つからないタブ(-1)や範囲外でもはみ出さない", () => {
-    expect(tabIndicatorLayout(6, -1)).toEqual({ cols: 3, rows: 2, col: 0, row: 0 });
-    expect(tabIndicatorLayout(6, 99)).toEqual({ cols: 3, rows: 2, col: 2, row: 1 });
+  it("表に無い数でも3列で並べる", () => {
+    expect(tabGridLayout(7)).toEqual({ cols: 3, rows: 3 });
+    expect(tabGridLayout(0)).toEqual({ cols: 3, rows: 1 });
   });
 });
