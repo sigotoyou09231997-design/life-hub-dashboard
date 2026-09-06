@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
 
     <!-- 前の版のHTMLがブラウザ(やService Workerの取り置き)に残ったまま新しい版が出ると、
-         そのHTMLはもう無いJSファイル(/assets/index-<古い印>.js)を読みに行く。読めなければ
+         そのHTMLは、もう無いJSファイル(assets の中の、古い名前のついた index-….js)を読みに行く。読めなければ
          **画面は真っ白のまま、何の知らせも出ない** — 2026-09-06に実際に起きた
          (Vercelの「全部index.htmlに流す」設定が、無いファイルにもindex.htmlを返していたため、
          MIME違いで弾かれた。vercel.json 側も /assets/ を除いて404が返るように直してある)。
