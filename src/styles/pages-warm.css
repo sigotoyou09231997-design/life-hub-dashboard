@@ -852,11 +852,48 @@
      文字は実測に合わせて約8.3px。同じ幅に同じ字数（6文字前後）が入る。
      固定費の支払日だけは予定と区別が要るので、点線の縦線を残す。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__chip {
-    padding: 0.06rem 0.18rem;
+    padding: 0.02rem 0.18rem;
     border-left: 0;
     border-radius: 0.18rem;
     font-size: 0.52rem;
-    line-height: 1.5;
+    line-height: 1.25;
+    text-align: center;
+  }
+
+  /* 帯どうしの間隔も実測に合わせる（帯は薄く、間は広く）。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__chips {
+    gap: 0.22rem;
+    margin-top: 0;
+  }
+
+  /* 日付から帯までの距離も TimeTree と同じにする。今までは日付の丸が32px、
+     その下に点の行があって、帯が始まるまで50px空いていた（TimeTree は21px）。
+     丸を文字の大きさぎりぎりまで詰め、マスの上下の余白と点の行も薄くする。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__cell {
+    gap: 0;
+    padding-block: 0.12rem;
+  }
+
+  .spatial-page .calendar-workspace__month .spatial-calendar__cell > span:nth-child(1) {
+    width: 1rem;
+    height: 1rem;
+    font-size: 0.75rem;
+  }
+
+  .spatial-page .calendar-workspace__month .spatial-calendar__cell > span:nth-child(2) {
+    height: 0.2rem;
+  }
+
+  /* 今日の印は、マスの下端に浮かせた点をやめて、日付を黒丸で囲む（TimeTree と同じ）。
+     行が高くなったぶん、下端の点は日付から離れて別のものに見えていた。選んだ日は
+     青い丸とマスの薄い塗りなので、今日と見分けはつく。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__cell.is-today:not(.is-selected)::after {
+    content: none;
+  }
+
+  .spatial-page .calendar-workspace__month .spatial-calendar__cell.is-today:not(.is-selected) > span:nth-child(1) {
+    background: var(--warm-ink);
+    color: #fff;
   }
 
   .spatial-page .calendar-workspace__month .spatial-calendar__chip.is-fixed-cost {
@@ -866,13 +903,15 @@
   /* 祝日名も、赤い帯に白抜きの文字にする（TimeTree と同じ）。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__holiday {
     overflow: hidden;
-    padding: 0.06rem 0.18rem;
+    margin-bottom: 0.22rem;
+    padding: 0.02rem 0.18rem;
     border-radius: 0.18rem;
     background: #e8384f;
     color: #fff;
     font-size: 0.52rem;
     font-weight: 600;
-    line-height: 1.5;
+    line-height: 1.25;
+    text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
