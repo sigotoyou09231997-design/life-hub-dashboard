@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
@@ -12,14 +12,21 @@ import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../li
 import { pullBlockedSenders } from "../lib/blockedSenders";
 import { useTripCover } from "../hooks/useTripCover";
 import { getScheduleCategory } from "../lib/scheduleCategories";
+import { getHolidayMapForYears } from "../lib/holidays";
+import { groupWeekAhead, hasWeekAheadItems, weekAheadDates } from "../lib/weekAhead";
 import { PersonTags } from "../components/calendar/PersonTags";
 import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { useHubMotion } from "../hooks/useHubMotion";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 import { toggleTaskCompletion } from "../components/tasks/TaskList";
 
 const EVENT_PREVIEW_LIMIT = 3;
 const TASK_PREVIEW_LIMIT = 3;
 const GMAIL_PREVIEW_LIMIT = 3;
+/** ホーム下段の「今週これから」。PC幅だけに出す(スマホは今のままでいい、という指示)。
+ *  明日から7日ぶんを1列ずつ並べ、1日に出すのは3件まで。 */
+const WEEK_AHEAD_DAYS = 7;
+const WEEK_AHEAD_PER_DAY = 3;
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
 /** ヒーローの写真。時間帯ごとに、光の向きが合う暖色の室内カットを1枚ずつ。
@@ -111,6 +118,25 @@ export default function TopPage() {
   const previewTasks = sortedTasks.slice(0, TASK_PREVIEW_LIMIT);
 
   const { data: budget } = usePayPeriodBudget();
+
+  // 「今週これから」— 明日から7日ぶん。PC幅でしか出さないので、スマホでは
+  // 予定の全件走査そのものを走らせない(useIsDesktop で問い合わせごと止める)。
+  const isDesktop = useIsDesktop();
+  const weekDates = useMemo(() => (isDesktop ? weekAheadDates(today, WEEK_AHEAD_DAYS) : []), [today, isDesktop]);
+  // 何日かにまたがる予定・繰り返しの予定は date の索引では引けないので、
+  // 上の「今日の予定」と同じく全部見てから絞る(src/lib/eventSpan.ts)。
+  const weekEvents = useLiveQuery(
+    () =>
+      weekDates.length === 0
+        ? Promise.resolve<CalendarEvent[]>([])
+        : db.calendarEvents.filter((event) => weekDates.some((date) => occursOn(event, date))).toArray(),
+    [isDesktop, today],
+  );
+  const weekDays = useMemo(() => groupWeekAhead(weekEvents ?? [], weekDates), [weekEvents, weekDates]);
+  const weekHolidays = useMemo(
+    () => (weekDates.length === 0 ? new Map<string, string>() : getHolidayMapForYears([...new Set(weekDates.map((d) => Number(d.slice(0, 4))))])),
+    [weekDates],
+  );
 
   // ブロック中の送信者リストは端末ごとのローカル(db.blockedSenders)で、汎用同期エンジンの
   // 対象外。取り込みは受信トレイ(/gmail)とメール画面でしか走っていなかったので、PCで
@@ -351,6 +377,53 @@ export default function TopPage() {
           </Link>
         </article>
       </div>
+
+      {/* 今週これから(PC幅だけ)。上の「次の予定」は今日ぶんしか出さないので、
+          ここが明日から先を受け持つ。1件も無い週はカードごと出さない — 空の枠が
+          7列並ぶだけになり、かえって画面が寂しくなるため。 */}
+      {isDesktop && hasWeekAheadItems(weekDays) && (
+        <article className="warm-card warm-week" data-reveal="8">
+          <CardHead title="今週これから" to="/schedule?view=calendar" />
+          <div className="warm-week__grid">
+            {weekDays.map((day) => {
+              const dayDate = parseISO(day.date);
+              const weekday = dayDate.getDay();
+              const holiday = weekHolidays.get(day.date);
+              const shown = day.items.slice(0, WEEK_AHEAD_PER_DAY);
+              const rest = day.items.length - shown.length;
+              const tone = holiday || weekday === 0 ? "is-sun" : weekday === 6 ? "is-sat" : "";
+              return (
+                <div key={day.date} className={`warm-week__day ${shown.length === 0 ? "is-quiet" : ""}`}>
+                  <p className={`warm-week__date ${tone}`}>
+                    <b>{format(dayDate, "M/d")}</b>
+                    <span>{format(dayDate, "EEE", { locale: ja })}</span>
+                  </p>
+                  {holiday && <p className="warm-week__holiday">{holiday}</p>}
+                  {shown.length > 0 ? (
+                    <ul className="warm-week__items">
+                      {shown.map((event) => (
+                        <li key={`${event.id}-${day.date}`} className="warm-week__item">
+                          <i
+                            className={`warm-dot warm-dot--${getScheduleCategory(event.category).tone}`}
+                            aria-hidden="true"
+                          />
+                          <span className="warm-week__copy">
+                            <strong>{event.title}</strong>
+                            <small>{spanTimeText(event, day.date)}</small>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="warm-week__none">予定なし</p>
+                  )}
+                  {rest > 0 && <p className="warm-week__more">ほか {rest} 件</p>}
+                </div>
+              );
+            })}
+          </div>
+        </article>
+      )}
     </div>
   );
 }

@@ -35,7 +35,14 @@ export function useHubMotion<T extends HTMLElement>() {
 
     if (reduceMotion) {
       targets.forEach((element) => element.classList.add("is-revealed"));
-      return;
+      // 後から現れる面(下記)も、動きを減らす設定では即座に見えるようにする。
+      const revealLater = new MutationObserver(() => {
+        root.querySelectorAll<HTMLElement>("[data-reveal]:not(.is-revealed)").forEach((element) =>
+          element.classList.add("is-revealed"),
+        );
+      });
+      revealLater.observe(root, { childList: true, subtree: true });
+      return () => revealLater.disconnect();
     }
 
     const observer = new IntersectionObserver(
@@ -54,6 +61,19 @@ export function useHubMotion<T extends HTMLElement>() {
       { threshold: 0.05, rootMargin: "0px 0px -6% 0px" },
     );
     targets.forEach((element) => observer.observe(element));
+
+    // 後から現れる面も見張る。ここは mount 時に1回 querySelectorAll するだけだったので、
+    // 「データが届いてから初めて出てくるカード」(ホームPC幅の『今週これから』など)は
+    // 一度も観測されず、opacity:0 のまま DOM にあるのに見えない状態で残っていた
+    // (2026-09-07に実際に踏んだ)。下の保険も targets しか見ないので効かない。
+    const added = new MutationObserver(() => {
+      root.querySelectorAll<HTMLElement>("[data-reveal]:not(.is-revealed)").forEach((element) => {
+        if (targets.includes(element)) return;
+        targets.push(element);
+        observer.observe(element);
+      });
+    });
+    added.observe(root, { childList: true, subtree: true });
 
     // 交差が一度も発火しなかったときの保険。HOMEは9枚中6枚が opacity:0 から
     // 始まるので、発火しないと画面が真っ白なまま残る。usePageMotion と同じ
@@ -106,6 +126,7 @@ export function useHubMotion<T extends HTMLElement>() {
 
     return () => {
       window.clearInterval(failsafe);
+      added.disconnect();
       observer.disconnect();
       detach();
       window.removeEventListener("resize", handleResize);

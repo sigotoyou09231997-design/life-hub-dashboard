@@ -470,6 +470,113 @@ a.warm-card {
   }
 }
 
+/* ---- 今週これから（PC幅だけ。TopPage が useIsDesktop で出し分ける） --------
+   上の「次の予定」は今日ぶんしか出さないので、PC幅では画面の下半分が空いていた
+   （2026-09-07、本人の指示「TOPページのPC時が寂しいから、情報量多くしたい」）。
+   明日から7日ぶんを1列ずつ、横に並べて受け持つ。 */
+
+.warm-week__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-top: 0.55rem;
+}
+
+.warm-week__day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  /* 7列が同じ高さで並ぶように下限を決める。列ごとに高さが変わると、日付の行が
+     そろわず「週の並び」に見えない。 */
+  min-height: 7.5rem;
+  min-width: 0;
+  padding: 0.55rem 0.5rem 0.6rem;
+  border-radius: var(--warm-r-lg, 0.85rem);
+  background: var(--warm-surface-sunk);
+}
+
+/* 予定の無い日は、地の色を薄くして「その日は空いている」が一目で分かるようにする。
+   透明にはしない — 7列のうち何列かだけ箱が消えると、並びが歯抜けに見えるため。 */
+.warm-week__day.is-quiet { background: color-mix(in srgb, var(--warm-surface-sunk) 45%, transparent); }
+
+.warm-week__date {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  margin: 0;
+  color: var(--warm-ink-2);
+}
+
+.warm-week__date b {
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--warm-ink);
+}
+
+.warm-week__date span { font-size: 0.66rem; }
+
+/* 土は青、日と祝日は赤（月表示のカレンダーと同じ色分け）。 */
+.warm-week__date.is-sat b, .warm-week__date.is-sat span { color: #2f6fd0; }
+.warm-week__date.is-sun b, .warm-week__date.is-sun span { color: #d64562; }
+
+.warm-week__holiday {
+  margin: 0;
+  overflow: hidden;
+  color: #d64562;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.warm-week__items {
+  display: grid;
+  gap: 0.32rem;
+  margin: 0.1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.warm-week__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.34rem;
+  min-width: 0;
+}
+
+.warm-week__item .warm-dot { margin-top: 0.34rem; }
+
+.warm-week__copy { min-width: 0; }
+
+/* 予定名は2行まで。1行に切ると「打ち合わせ（…」ばかりになって何の予定か分からず、
+   かといって無制限だと列の高さが日ごとにばらつくため。 */
+.warm-week__copy strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--warm-ink);
+}
+
+.warm-week__copy small {
+  display: block;
+  font-size: 0.63rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--warm-ink-3);
+}
+
+.warm-week__none,
+.warm-week__more {
+  margin: 0.1rem 0 0;
+  font-size: 0.64rem;
+  color: var(--warm-ink-3);
+}
+
 @media (min-width: 768px) {
   .warm-lists { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
