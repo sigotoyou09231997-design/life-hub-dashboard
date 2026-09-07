@@ -875,17 +875,26 @@
      丸を文字の大きさぎりぎりまで詰め、マスの上下の余白と点の行も薄くする。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__cell {
     gap: 0;
-    padding-block: 0.12rem;
+    padding-block: 3px 2px;
   }
 
+  /* 日付の文字は TimeTree の実測どおり10px（丸は14px）。ここが2割大きいだけで、
+     マスの上のほうだけ文字が詰まって見えていた。丸の位置も実測に合わせてあり、
+     区切り線から数字の上端まで6.3px、数字の下端から帯まで8.4px になる。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__cell > span:nth-child(1) {
-    width: 1rem;
-    height: 1rem;
-    font-size: 0.75rem;
+    width: 0.875rem;
+    height: 0.875rem;
+    font-size: 0.625rem;
   }
 
   .spatial-page .calendar-workspace__month .spatial-calendar__cell > span:nth-child(2) {
-    height: 0.2rem;
+    height: 0.3rem;
+  }
+
+  /* 曜日の見出しも同じ理由で小さくする（TimeTree の実測は約9.6px）。 */
+  .spatial-page .calendar-workspace__month .spatial-calendar__weekdays > div {
+    padding-block: 0.35rem 0.5rem;
+    font-size: 0.6rem;
   }
 
   /* 今日の印は、マスの下端に浮かせた点をやめて、日付を黒丸で囲む（TimeTree と同じ）。
