@@ -241,7 +241,8 @@
   padding-inline: 0.16rem;
 }
 
-/* 日付の丸と点の列は、帯が左寄せでも今までどおり中央に置く。 */
+/* マス全体は align-items: stretch(帯をマスの幅いっぱいに伸ばすため)なので、
+   日付の丸と点の列だけは中央に戻す。 */
 .spatial-calendar__cell--chips > span:nth-child(1),
 .spatial-calendar__cell--chips > span:nth-child(2) {
   align-self: center;
@@ -253,7 +254,9 @@
   font-size: 0.6rem;
   font-weight: 700;
   line-height: 1.3;
-  text-align: left;
+  /* 祝日名も帯も、マスの幅いっぱいに広がった中で中央に置く。日付の丸が中央にあるのに
+     文字だけ左端に寄っていると、マスの中で軸が2本あるように見えるため。 */
+  text-align: center;
 }
 
 .spatial-calendar__chips {
@@ -279,7 +282,7 @@
   font-size: 0.62rem;
   font-weight: 600;
   line-height: 1.4;
-  text-align: left;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
