@@ -2172,9 +2172,6 @@ body .text-sm { line-height: 1.5; }
    あるページでも、その帯は元の高さのまま残す。 */
 .is-empty-fill > :last-child { flex: 1; }
 
-/* 背が高くなったぶん、中身は上に貼りつけず縦の中央に置く。 */
-.is-empty-fill > .finance-balance-module { justify-content: center; }
-
 /* 予定の「今日」タブの2枚も、メモ・リストと同じ考え方に揃える(2026-08-30)。
    中身をまとめて縦の中央へ寄せていたので、画面が広いほど案内の上下に大きな
    空白ができ、カードが間延びして見えていた。
