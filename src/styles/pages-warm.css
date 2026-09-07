@@ -825,8 +825,11 @@
     gap: 0;
   }
 
+  /* 1行の高さも実測に合わせる。TimeTree は 428px 幅の端末で1行120px ＝ マスの幅の
+     約1.96倍だったので、画面幅に対する比（28vw）で持たせて、どの端末でも同じ
+     縦横の比になるようにする（幅の広い端末で伸びすぎないよう上限だけ付ける）。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__cell {
-    min-height: 5.5rem;
+    min-height: min(28vw, 8.5rem);
     border-top: 1px solid var(--warm-line);
     border-radius: 0;
   }
@@ -851,18 +854,19 @@
   /* 帯は、左の縦線を外した「塗りだけの角丸」にする（TimeTree と同じ形）。
      文字は実測に合わせて約8.3px。同じ幅に同じ字数（6文字前後）が入る。
      固定費の支払日だけは予定と区別が要るので、点線の縦線を残す。 */
+  /* 帯そのものの寸法は TimeTree の実測どおり — 高さ14px、文字10px、帯どうしの
+     間隔2px。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__chip {
-    padding: 0.02rem 0.18rem;
+    padding: 0.05rem 0.18rem;
     border-left: 0;
     border-radius: 0.18rem;
-    font-size: 0.52rem;
+    font-size: 0.625rem;
     line-height: 1.25;
     text-align: center;
   }
 
-  /* 帯どうしの間隔も実測に合わせる（帯は薄く、間は広く）。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__chips {
-    gap: 0.22rem;
+    gap: 2px;
     margin-top: 0;
   }
 
@@ -903,12 +907,12 @@
   /* 祝日名も、赤い帯に白抜きの文字にする（TimeTree と同じ）。 */
   .spatial-page .calendar-workspace__month .spatial-calendar__holiday {
     overflow: hidden;
-    margin-bottom: 0.22rem;
-    padding: 0.02rem 0.18rem;
+    margin-bottom: 2px;
+    padding: 0.05rem 0.18rem;
     border-radius: 0.18rem;
     background: #e8384f;
     color: #fff;
-    font-size: 0.52rem;
+    font-size: 0.625rem;
     font-weight: 600;
     line-height: 1.25;
     text-align: center;

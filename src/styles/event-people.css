@@ -270,8 +270,12 @@
   padding: 0.05rem 0.2rem;
   border-left: 2px solid var(--chip-color);
   border-radius: 0.16rem;
-  background: color-mix(in srgb, var(--chip-color) 17%, #fff);
-  color: color-mix(in srgb, var(--chip-color) 62%, #1f2937);
+  /* 帯の後ろの色は、TimeTree の実測に合わせてほぼ白に近い薄さにする（10.5%）。
+     文字は逆に、黒へ寄せず色そのものに近づける（実測: 背景 rgb(247,243,251) に
+     対して文字 rgb(179,139,220) ＝ 色そのもの）。薄い色の人でも文字が飛ばないよう、
+     ほんの少しだけ黒を混ぜてある。 */
+  background: color-mix(in srgb, var(--chip-color) 10.5%, #fff);
+  color: color-mix(in srgb, var(--chip-color) 88%, #1f2937);
   font-size: 0.62rem;
   font-weight: 600;
   line-height: 1.4;
