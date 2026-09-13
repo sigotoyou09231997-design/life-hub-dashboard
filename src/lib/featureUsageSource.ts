@@ -176,22 +176,25 @@ async function countUsage(userId: string | null, nowMs: number): Promise<UsageSn
 let inFlight: Promise<UsageSnapshot> | null = null;
 
 /**
- * 集計結果を返す。同じ日・同じアカウントで一度数えていれば、覚えておいた結果を返す
- * (1回数えると問い合わせが60本ほど飛ぶので、画面を開くたびには数えない)。
+ * 集計結果を返す。Supabase で数えた結果は、同じ日・同じアカウントのうちは覚えておいたものを
+ * 返す(1回数えると問い合わせが60本ほど飛ぶので、画面を開くたびには数えない)。
  * force で数え直す(ふりかえり画面の「数え直す」)。
+ *
+ * **端末のデータで数えた結果は覚えない。** 端末の中を数えるだけなので軽いうえ、覚えると
+ * 開いた直後の件数がその日のあいだ残り、あとから足した記録が翌日まで数に入らない
+ * (2026-09-13、全画面スクショで「まだ数えられる記録がありません」と出て気づいた)。
+ * ログインしているのに Supabase へ届かなかった時も同じで、つながったら数え直したい。
  */
 export function loadUsageSnapshot({ force = false }: { force?: boolean } = {}): Promise<UsageSnapshot> {
   if (!force && inFlight) return inFlight;
   const run = (async () => {
     const userId = await currentUserId();
-    if (!force) {
+    if (!force && userId) {
       const cached = readSnapshot();
-      if (cached && cached.scope === (userId ?? "local") && cached.date === todayStr()) return cached;
+      if (cached && cached.source === "server" && cached.scope === userId && cached.date === todayStr()) return cached;
     }
     const fresh = await countUsage(userId, Date.now());
-    // ログインしているのに Supabase へ届かず端末で数えた結果は覚えない —
-    // 端末のぶんは Gmail が少なく出るので、次に開いた時につながっていれば数え直したい。
-    if (fresh.source === "server" || !userId) writeStored(SNAPSHOT_KEY, JSON.stringify(fresh));
+    if (fresh.source === "server") writeStored(SNAPSHOT_KEY, JSON.stringify(fresh));
     return fresh;
   })();
   if (force) return run;

@@ -171,3 +171,54 @@ describe("loadUsageSnapshot", () => {
     expect(snapshot.source).toBe("local");
   });
 });
+
+/** 端末の localStorage の代わり(テストは node で動くので本物が無い)。 */
+function memoryStorage(): Storage {
+  const store = new Map<string, string>();
+  return {
+    getItem: (key) => store.get(key) ?? null,
+    setItem: (key, value) => void store.set(key, String(value)),
+    removeItem: (key) => void store.delete(key),
+    clear: () => store.clear(),
+    key: (index) => [...store.keys()][index] ?? null,
+    get length() {
+      return store.size;
+    },
+  };
+}
+
+describe("loadUsageSnapshot の覚え方", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    vi.stubGlobal("localStorage", memoryStorage());
+    mocks.tables = {};
+  });
+
+  it("Supabase で数えた結果は、その日のうちは覚えておいて問い合わせ直さない", async () => {
+    mocks.getSession.mockResolvedValue({ data: { session: { user: { id: "user-1" } } } });
+    serverAnswers(() => ({ count: 2, error: null }));
+    const { loadUsageSnapshot } = await import("./featureUsageSource");
+
+    await loadUsageSnapshot();
+    const callsAfterFirst = mocks.from.mock.calls.length;
+    const second = await loadUsageSnapshot();
+
+    expect(callsAfterFirst).toBeGreaterThan(0);
+    expect(mocks.from.mock.calls.length).toBe(callsAfterFirst);
+    expect(second.source).toBe("server");
+  });
+
+  it("端末のデータで数えた結果は覚えず、あとから足した記録も次に開いた時に数える", async () => {
+    mocks.getSession.mockResolvedValue({ data: { session: null } });
+    const { loadUsageSnapshot } = await import("./featureUsageSource");
+
+    const before = await loadUsageSnapshot();
+    mocks.tables = { calendarEvents: [{ createdAt: Date.now() }] };
+    const after = await loadUsageSnapshot();
+
+    expect(before.counts.event).toEqual({ last30: 0, last90: 0, ever: 0 });
+    expect(after.counts.event).toEqual({ last30: 1, last90: 1, ever: 1 });
+  });
+});
