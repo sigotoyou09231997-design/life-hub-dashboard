@@ -6,6 +6,7 @@ import { auth, isSupabaseConfigured } from "../../lib/supabase";
 import { avatarColor, avatarInitial, parseSender } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
 import { useNotificationSignals } from "../../lib/notificationSignals";
+import { useUsageAlerts } from "../../hooks/useFeatureUsage";
 import { Sheet } from "../ui/Sheet";
 import { EmptyState } from "../ui/EmptyState";
 import { AccountSwitcher } from "./AccountSwitcher";
@@ -22,6 +23,10 @@ export function AppHeader() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const signals = useNotificationSignals();
+  // 使われなくなった機能のお知らせ。数え方が他の通知と違う(1日1回・Supabaseで数える)ので、
+  // useNotificationSignals には混ぜずに別に持つ。
+  const usage = useUsageAlerts();
+  const notificationCount = signals.total + usage.alerts.length;
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -86,7 +91,7 @@ export function AppHeader() {
             className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors active:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
           >
             <Bell size={19} />
-            {signals.total > 0 && (
+            {notificationCount > 0 && (
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
             )}
           </button>
@@ -113,7 +118,7 @@ export function AppHeader() {
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
 
       <Sheet open={notifOpen} onClose={() => setNotifOpen(false)} title="通知">
-        {signals.total === 0 ? (
+        {notificationCount === 0 ? (
           <EmptyState icon={Bell} title="新しい通知はありません" />
         ) : (
           <div className="space-y-5">
@@ -181,6 +186,34 @@ export function AppHeader() {
                       className="glass-row block rounded-xl p-3 text-left text-sm font-medium text-slate-900 transition-colors active:bg-white/70"
                     >
                       {task.title}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {usage.alerts.length > 0 && (
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-slate-600">最近使われていない機能</p>
+                  <button
+                    type="button"
+                    onClick={usage.dismiss}
+                    className="shrink-0 rounded-full px-2 py-1 text-xs font-medium text-slate-500 transition-colors active:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                  >
+                    今月は表示しない
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {usage.alerts.map((alert) => (
+                    <Link
+                      key={alert.usage.feature.id}
+                      to="/review"
+                      onClick={() => setNotifOpen(false)}
+                      className="glass-row block rounded-xl p-3 text-left transition-colors active:bg-white/70"
+                    >
+                      <p className="text-sm font-medium text-slate-900">{alert.message}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{alert.detail}</p>
                     </Link>
                   ))}
                 </div>

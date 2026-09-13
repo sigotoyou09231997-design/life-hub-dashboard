@@ -453,6 +453,51 @@ a.warm-card {
   color: #fff;
 }
 
+/* 使われなくなった機能のお知らせ（2026-09-13）。お知らせがある月だけ出る1枚。
+   ボタンは1つの溝に詰めず、1つずつ分けて並べる（本人の好み）。 */
+.warm-usage__icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 1.8rem;
+  height: 1.8rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--warm-surface-sunk);
+  color: var(--warm-ink-2);
+}
+
+.warm-usage__more {
+  margin: 0.55rem 0 0;
+  font-size: 0.7rem;
+  color: var(--warm-ink-3);
+}
+
+.warm-usage__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+}
+
+.warm-usage__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.25rem;
+  border: 1px solid var(--warm-line);
+  border-radius: 999px;
+  background: var(--warm-surface);
+  padding: 0.4rem 0.9rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--warm-ink-2);
+}
+
+.warm-usage__button.is-primary {
+  background: var(--warm-surface-sunk);
+  color: var(--warm-ink);
+}
+
 /* 2026-08-31: 一番下にあった「写真つきの機能カード」6枚（予定・タスク／お金管理／
    メモ・リスト／Gmail／旅行計画／設定）は本人の指示で削除した。同じ行き先へは
    下の追従ナビから行ける。

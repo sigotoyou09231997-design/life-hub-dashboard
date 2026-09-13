@@ -19,6 +19,8 @@ import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { useHubMotion } from "../hooks/useHubMotion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { toggleTaskCompletion } from "../components/tasks/TaskList";
+import { UsageAlertCard } from "../components/review/UsageAlertCard";
+import { useUsageAlerts } from "../hooks/useFeatureUsage";
 
 const EVENT_PREVIEW_LIMIT = 3;
 const TASK_PREVIEW_LIMIT = 3;
@@ -118,6 +120,8 @@ export default function TopPage() {
   const previewTasks = sortedTasks.slice(0, TASK_PREVIEW_LIMIT);
 
   const { data: budget } = usePayPeriodBudget();
+  // 使われなくなった機能のお知らせ。ある月だけ、上段と4分割のカードの間に1枚出す。
+  const usageAlerts = useUsageAlerts();
 
   // 「今週これから」— 明日から7日ぶん。PC幅でしか出さないので、スマホでは
   // 予定の全件走査そのものを走らせない(useIsDesktop で問い合わせごと止める)。
@@ -231,6 +235,8 @@ export default function TopPage() {
           </p>
         </Link>
       </div>
+
+      <UsageAlertCard alerts={usageAlerts.alerts} onDismiss={usageAlerts.dismiss} />
 
       <div className="warm-lists">
         <article className="warm-card" data-reveal="4">

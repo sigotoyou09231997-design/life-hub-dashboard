@@ -28,6 +28,8 @@ import {
   type ReviewSpan,
   type ReviewSummary,
 } from "../lib/review";
+import { UsageOverview } from "../components/review/UsageOverview";
+import { useUsageReport } from "../hooks/useFeatureUsage";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { Tabs } from "../components/ui/Tabs";
@@ -295,9 +297,12 @@ export default function ReviewPage() {
 
   const spanWord = span === "week" ? "週" : "月";
 
+  // 機能の使い方は、週・月の切り替えとは別にいつも直近30日・90日で見る。
+  const usage = useUsageReport();
+
   return (
     <div className="spatial-page review-page micro-contrast mx-auto max-w-[1040px] pb-10 lg:pb-8">
-      <PageHeader title="ふりかえり" subtitle="お金・予定タスク・メモをまとめて見る" backTo="/" />
+      <PageHeader title="ふりかえり" subtitle="お金・予定タスク・メモと、機能の使い方をまとめて見る" backTo="/" />
 
       <div className="spatial-page-tabs mx-5 mb-3 lg:mx-8 lg:mb-4 lg:max-w-[320px]">
         <Tabs
@@ -467,6 +472,14 @@ export default function ReviewPage() {
             </Card>
           </div>
         )}
+
+        <UsageOverview
+          report={usage.report}
+          snapshot={usage.snapshot}
+          failed={usage.failed}
+          refreshing={usage.refreshing}
+          onRefresh={() => void usage.refresh()}
+        />
       </div>
     </div>
   );
