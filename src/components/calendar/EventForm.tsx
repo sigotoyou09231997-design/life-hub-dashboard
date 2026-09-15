@@ -17,6 +17,7 @@ import { SwitchField } from "../ui/SwitchField";
 import { isMultiDay, normalizeEndDate, shiftEndDate, spanDays } from "../../lib/eventSpan";
 import { isRepeating } from "../../lib/repeatRule";
 import { RepeatField } from "./RepeatField";
+import { SourceMailLink } from "./SourceMailLink";
 import { useToast } from "../ui/ToastProvider";
 import {
   applyEventToAccount,
@@ -320,6 +321,9 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
         />
         <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
       </FormPanel>
+
+      {/* メールから作った予定にだけ出る(src/lib/eventMailLink.ts)。手入力の予定では何も描かない。 */}
+      {initial?.id && <SourceMailLink eventId={initial.id} />}
 
       {otherAccounts.length > 0 && (
         <FormPanel caption="ほかのアカウントにも入れる" icon={Users}>

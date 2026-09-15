@@ -44,6 +44,9 @@ vi.mock("../../lib/crossAccountEvents", async (importOriginal) => ({
   },
 }));
 
+// 元のメールの欄は自分のテスト(SourceMailLink.test.tsx)で見る。ここではDBを引かせない。
+vi.mock("./SourceMailLink", () => ({ SourceMailLink: () => null }));
+
 import { EventForm } from "./EventForm";
 
 const existingEvent: CalendarEvent = {

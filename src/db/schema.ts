@@ -31,6 +31,7 @@ import type {
   PlaceReminder,
   TripExpenseCurrency,
   TransactionProjectTag,
+  EventMailLink,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -131,6 +132,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "placeReminders", indexes: "[ownerType+ownerId]", fks: [], hasUpdatedAt: true },
   { name: "tripExpenseCurrencies", indexes: "expenseId", fks: [], hasUpdatedAt: true },
   { name: "transactionProjectTags", indexes: "transactionId, tag", fks: [], hasUpdatedAt: true },
+  { name: "eventMailLinks", indexes: "eventId", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -203,6 +205,7 @@ export class LifeHubDB extends Dexie {
   placeReminders!: EntityTable<PlaceReminder, "id">;
   tripExpenseCurrencies!: EntityTable<TripExpenseCurrency, "id">;
   transactionProjectTags!: EntityTable<TransactionProjectTag, "id">;
+  eventMailLinks!: EntityTable<EventMailLink, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -431,6 +434,14 @@ export class LifeHubDB extends Dexie {
             delete row.rate;
           });
       });
+
+    // メールから作った予定と元のメールのつながり(types/index.ts の EventMailLink)。
+    // CalendarEvent に列を足すと、その列が無い Supabase 側で同期が失敗するので、
+    // 別テーブルに逃がす(v24/v25 と同じ)。予定の編集画面で1件ぶん引くので eventId に索引。
+    // 既存の予定には触らない — さかのぼって紐付けはしない、という依頼のとおり。
+    this.version(27).stores({
+      eventMailLinks: "id, eventId",
+    });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに
     // UUIDを補うフックを全テーブルへ登録する(Dexie公式が示すUUID主キーの標準パターン)。

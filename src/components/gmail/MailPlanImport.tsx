@@ -45,6 +45,7 @@ import {
   type AccountEventDraft,
 } from "../../lib/crossAccountEvents";
 import { formatShortDate } from "../../lib/date";
+import { toEventMailLinkRecord } from "../../lib/eventMailLink";
 import { PlanImportRow } from "../plan/PlanImportRow";
 import { Sheet } from "../ui/Sheet";
 import { Tabs } from "../ui/Tabs";
@@ -269,7 +270,16 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
             // 印(linkId)は、ほかのアカウントにも入れる時だけ持たせる。
             const linkId = changes.apply.length > 0 ? crypto.randomUUID() : undefined;
             const record = toCalendarEventRecord(row, now, linkId);
-            await db.calendarEvents.add(record);
+            const eventId = await db.calendarEvents.add(record);
+            // どのメールから作ったかを残す(予定の編集画面の「元のメールを開く」)。
+            // 残せなくても予定そのものは入れたままにする。
+            if (eventId) {
+              try {
+                await db.eventMailLinks.add(toEventMailLinkRecord(eventId, account, email, now));
+              } catch (error) {
+                console.error("[mailPlanImport] failed to remember the source mail:", error);
+              }
+            }
             for (const planned of changes.apply) {
               try {
                 await applyEventToAccount(planned.account, record, linkId!, planned.title);

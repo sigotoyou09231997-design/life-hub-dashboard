@@ -5,6 +5,7 @@ import { Plus, Calendar as CalendarIcon, CheckSquare } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent, JobApplication, Task } from "../types";
 import { todayStr } from "../lib/date";
+import { deleteEventMailLinks } from "../lib/eventMailLink";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
@@ -105,6 +106,7 @@ export default function SchedulePage() {
   }
   function handleDeleteEvent(id: string) {
     db.calendarEvents.delete(id);
+    void deleteEventMailLinks(id);
     showToast("削除しました");
   }
   async function handleDeleteJob(application: JobApplication) {

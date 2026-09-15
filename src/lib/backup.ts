@@ -35,6 +35,9 @@ const BACKUP_TABLES = [
   // 案件タグも transactions のidを指す別テーブル(types/index.ts の
   // TransactionProjectTag)。同期していない代わりに、ここで端末間を運べるようにする。
   "transactionProjectTags",
+  // 予定と元のメールのつながり(types/index.ts の EventMailLink)。calendarEvents のidを
+  // 指す別テーブルなので一緒に戻す。メール本文は持たず、件名と差出人の控えだけ。
+  "eventMailLinks",
 ] as const;
 
 export async function exportBackup(): Promise<void> {

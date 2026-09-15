@@ -68,6 +68,12 @@ const LOCAL_FIELDS: Record<string, { file: string; fields: string[] }> = {
     // (024 を本番で流した連絡を受けてから)が、食い違いは流す前に見つけたいので先に書く。
     fields: ["id", "category", "monthlyAmount", "createdAt", "updatedAt"],
   },
+  event_mail_links: {
+    file: "025_event_mail_links.sql",
+    // types/index.ts の EventMailLink。025 を本番で流した連絡を受けるまでは syncRuntime に
+    // 登録しないが、食い違いは流す前に見つけたいので先に書く(024 と同じ)。
+    fields: ["id", "eventId", "accountEmail", "gmailMessageId", "threadId", "subject", "sender", "createdAt", "updatedAt"],
+  },
 };
 
 describe("同期テーブルの列名が、アプリ側の項目名と噛み合っている", () => {

@@ -39,6 +39,34 @@ export interface TransactionProjectTag {
   updatedAt?: number;
 }
 
+/**
+ * メールから作った予定と、その元のメールのつながり(src/lib/eventMailLink.ts)。
+ *
+ * 予定の編集画面に「元のメールを開く」を出すためのもの。つながりが無い予定
+ * (手入力で作った予定、この機能より前にメールから作った予定)には行が無い。
+ *
+ * CalendarEvent に列を足さず別テーブルにしているのは、足した列が Supabase 側に
+ * 無いと calendar_events の同期そのものが止まるため(列の追加は人が本番で流すSQL)。
+ * supabase/sql/025 が流れるまでは**作った端末の中だけ**にある。
+ *
+ * メールは端末ごとのid(SyncedEmail.id)ではなく、Gmail側のidとアドレスで指す —
+ * 別の端末や、受信トレイから外れて端末から消えたメールでも、Gmailで開き直せるように。
+ */
+export interface EventMailLink {
+  id?: string;
+  /** CalendarEvent.id。 */
+  eventId: string;
+  /** そのメールを受け取ったGmailアカウントのアドレス。 */
+  accountEmail: string;
+  gmailMessageId: string;
+  threadId?: string;
+  /** 元のメールの件名と差出人。メールが端末に無くても、どのメールか分かるように控える。 */
+  subject?: string;
+  sender?: string;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 /** One row from an imported PayPay transaction history CSV, kept for
  * balance tracking even when it doesn't become a household Transaction
  * (e.g. wallet charges, bank withdrawals, point-to-balance conversions). */

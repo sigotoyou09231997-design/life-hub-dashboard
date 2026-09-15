@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
     calendarEvents: [] as unknown[],
     tasks: [] as unknown[],
     tripRoutePlaces: [] as unknown[],
+    eventMailLinks: [] as unknown[],
   },
 }));
 
@@ -37,9 +38,11 @@ vi.mock("../../db/schema", () => ({
       where: () => ({ equals: () => ({ toArray: async () => mocks.existingRoutePlaces }) }),
     },
     calendarEvents: {
-      add: async (row: unknown) => void mocks.saved.calendarEvents.push(row),
+      // 本物のDexieと同じく、足した行のidを返す(元のメールとのつながりに使う)。
+      add: async (row: unknown) => `event-${mocks.saved.calendarEvents.push(row)}`,
       toArray: async () => mocks.existingEvents,
     },
+    eventMailLinks: { add: async (row: unknown) => void mocks.saved.eventMailLinks.push(row) },
     tasks: {
       add: async (row: unknown) => void mocks.saved.tasks.push(row),
       toArray: async () => mocks.existingTasks,
@@ -102,7 +105,7 @@ beforeEach(() => {
   mocks.items = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" }];
   mocks.extractError = null;
   mocks.trips = [{ id: "trip-1", name: "福岡旅行", startDate: "2026-09-11", endDate: "2026-09-15" }];
-  mocks.saved = { tripSchedule: [], tripExpenses: [], calendarEvents: [], tasks: [], tripRoutePlaces: [] };
+  mocks.saved = { tripSchedule: [], tripExpenses: [], calendarEvents: [], tasks: [], tripRoutePlaces: [], eventMailLinks: [] };
   mocks.existingTripSchedule = [];
   mocks.existingEvents = [];
   mocks.existingTasks = [];
@@ -144,6 +147,23 @@ describe("メールから予定を作る画面", () => {
     await user.click(screen.getByRole("button", { name: "1件を入れる" }));
     expect(mocks.saved.calendarEvents).toEqual([expect.objectContaining({ date: "2026-09-12", startTime: "08:20" })]);
     expect(mocks.saved.tripSchedule).toEqual([]);
+    // 作った予定に、どのメールから作ったかが残る(予定の編集画面の「元のメールを開く」)。
+    expect(mocks.saved.eventMailLinks).toEqual([
+      expect.objectContaining({
+        eventId: "event-1",
+        accountEmail: account.email,
+        gmailMessageId: email.gmailMessageId,
+      }),
+    ]);
+  });
+
+  it("旅行の日程・タスクに入れた時は、メールとのつながりを残さない(予定だけが持つ)", async () => {
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(await screen.findByRole("tab", { name: "タスク" }));
+    await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+    expect(mocks.saved.tasks).toHaveLength(1);
+    expect(mocks.saved.eventMailLinks).toEqual([]);
   });
 
   describe("ほかのアカウントにも入れる", () => {
