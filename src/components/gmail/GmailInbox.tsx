@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router-dom";
-import { Ban, CalendarPlus, Check, Mail, Receipt, Search } from "lucide-react";
+import { Ban, CalendarPlus, Check, Hourglass, Mail, Receipt, Search } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../../lib/gmail";
@@ -18,12 +18,13 @@ import { ListSkeleton } from "../ui/ListSkeleton";
 import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
+import { useReplyWaiting } from "../../hooks/useReplyWaiting";
 
 interface Props {
   account: GmailAccount;
 }
 
-type StatusFilter = "all" | "plan" | "expense" | "important" | "drafted" | "sent" | "read";
+type StatusFilter = "all" | "plan" | "expense" | "important" | "waiting" | "drafted" | "sent" | "read";
 
 /** メールを開いて戻ってきた時に、一覧の見え方(検索語・絞り込み・スクロール位置)を戻すための控え。
  *
@@ -116,9 +117,17 @@ export function GmailInbox({ account }: Props) {
   const expenseSuggestions = visibleEmails ? pickExpenseSuggestions(visibleEmails) : undefined;
   const expenseSuggestionIds = new Set((expenseSuggestions ?? []).map((email) => email.id));
 
+  // 返信を送ったのに、相手から何日も返事が無いやり取り(src/lib/replyWaiting.ts)。
+  // 行に出すのは、こちらが最後に返信した相手のメール。相手から返事が来れば次の同期で外れる。
+  const replyWaiting = useReplyWaiting();
+  const waitingDays = new Map(
+    (replyWaiting ?? []).filter((item) => item.email.accountId === account.id).map((item) => [item.email.id, item.waitingDays]),
+  );
+
   const statusFilteredEmails = visibleEmails?.filter((email) => {
     if (statusFilter === "plan") return planSuggestionIds.has(email.id);
     if (statusFilter === "expense") return expenseSuggestionIds.has(email.id);
+    if (statusFilter === "waiting") return waitingDays.has(email.id);
     // 重要タブは、既読にしても返信しても残す — 後で見返すために付ける印なので、
     // 他のタブのように状態が進んだら消える、という扱いにはしない。
     if (statusFilter === "important") return !!email.importantAt;
@@ -240,6 +249,8 @@ export function GmailInbox({ account }: Props) {
                 ? ([["expense", `支出候補 ${expenseSuggestions.length}`]] as const)
                 : []),
               ["important", "重要"],
+              // 予定候補と同じく、1件も無いときはボタンごと出さない。
+              ...(waitingDays.size > 0 ? ([["waiting", `返信待ち ${waitingDays.size}`]] as const) : []),
               ["drafted", "AI下書き"],
               ["sent", "送信済み"],
               ["read", "既読"],
@@ -318,10 +329,17 @@ export function GmailInbox({ account }: Props) {
                     <p className="mt-0.5 truncate text-xs text-slate-500">{email.snippet}</p>
                     {(email.status !== "unprocessed" ||
                       planSuggestionIds.has(email.id) ||
-                      expenseSuggestionIds.has(email.id)) && (
+                      expenseSuggestionIds.has(email.id) ||
+                      waitingDays.has(email.id)) && (
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         {email.status !== "unprocessed" && (
                           <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
+                        )}
+                        {waitingDays.has(email.id) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-danger">
+                            <Hourglass size={12} />
+                            返信待ち {waitingDays.get(email.id)}日
+                          </span>
                         )}
                         {planSuggestionIds.has(email.id) && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-accent-light px-2 py-0.5 text-xs font-medium text-accent">

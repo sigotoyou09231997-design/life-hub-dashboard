@@ -24,6 +24,7 @@ import { useToast } from "../components/ui/ToastProvider";
 import { useConfirm } from "../components/ui/ConfirmProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
+import { useReplyWaiting } from "../hooks/useReplyWaiting";
 
 type Tab = "today" | "calendar" | "list" | "jobs";
 type EditingEvent = CalendarEvent | "new" | null;
@@ -97,6 +98,8 @@ export default function SchedulePage() {
   }));
 
   const addDefaultDate = tab === "calendar" ? selectedDate : todayStr();
+  // 就活の応募先に、Gmailの返信待ちを添える(src/lib/replyWaiting.ts)。
+  const replyWaiting = useReplyWaiting();
 
   function handleEditTask(task: Task) {
     setEditingTask({ mode: "edit", task });
@@ -186,6 +189,7 @@ export default function SchedulePage() {
           <div className="space-y-4">
             <JobDashboard applications={jobsResult ?? []} />
             <JobApplicationList
+              replyWaiting={replyWaiting}
               applications={jobsResult ?? []}
               onEdit={(application) => setEditingJob(application)}
               onDelete={handleDeleteJob}

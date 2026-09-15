@@ -9,6 +9,12 @@ import { ToastProvider } from "../ui/ToastProvider";
 const mocks = vi.hoisted(() => ({
   emails: [] as Record<string, unknown>[],
   syncCalls: 0,
+  /** 返信待ちの判定そのものは src/lib/replyWaiting.test.ts で見る。ここでは結果だけ渡す。 */
+  replyWaiting: [] as { email: Record<string, unknown>; sentAt: number; waitingDays: number }[],
+}));
+
+vi.mock("../../hooks/useReplyWaiting", () => ({
+  useReplyWaiting: () => mocks.replyWaiting,
 }));
 
 vi.mock("../../db/schema", () => ({
@@ -108,6 +114,34 @@ describe("メール一覧", () => {
   beforeEach(() => {
     mocks.emails = [email("m1", "一次面接のご案内"), email("m2", "説明会の御礼", { readAt: 1, status: "sent" })];
     mocks.syncCalls = 0;
+    mocks.replyWaiting = [];
+  });
+
+  it("返信待ちがあれば絞り込みを出し、何日待っているかを行に出す", async () => {
+    const user = userEvent.setup();
+    // 一覧はアカウントごとに出すので、返信待ちもそのアカウント(ここでは id "waiting")のもの。
+    mocks.replyWaiting = [{ email: { ...mocks.emails[1], accountId: "waiting" }, sentAt: 0, waitingDays: 4 }];
+    renderInbox({ id: "waiting" });
+    await screen.findByRole("link", { name: /一次面接のご案内/ });
+
+    await user.click(screen.getByRole("button", { name: "返信待ち 1" }));
+    expect(await screen.findByRole("link", { name: /説明会の御礼/ })).toBeTruthy();
+    expect(screen.getByText("返信待ち 4日")).toBeTruthy();
+    // 返信待ちでないメールは、この絞り込みには出ない。
+    expect(screen.queryByRole("link", { name: /一次面接のご案内/ })).toBeNull();
+  });
+
+  it("返信待ちが1件も無ければ、絞り込みのボタンごと出さない", async () => {
+    renderInbox({ id: "no-waiting" });
+    await screen.findByRole("link", { name: /一次面接のご案内/ });
+    expect(screen.queryByRole("button", { name: /返信待ち/ })).toBeNull();
+  });
+
+  it("ほかのアカウントの返信待ちは、この一覧に数えない", async () => {
+    mocks.replyWaiting = [{ email: { ...mocks.emails[1], accountId: "other" }, sentAt: 0, waitingDays: 4 }];
+    renderInbox({ id: "other-account" });
+    await screen.findByRole("link", { name: /一次面接のご案内/ });
+    expect(screen.queryByRole("button", { name: /返信待ち/ })).toBeNull();
   });
 
   afterEach(() => {

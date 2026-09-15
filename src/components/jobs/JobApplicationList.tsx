@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Briefcase, CalendarCheck2, ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Briefcase, CalendarCheck2, ChevronDown, Hourglass, Pencil, Trash2 } from "lucide-react";
 import type { JobApplication } from "../../types";
 import { formatCompactDate, todayStr } from "../../lib/date";
 import { getJobStage, groupJobApplications, isNextDatePast } from "../../lib/jobApplications";
+import { replyWaitingForCompany, type ReplyWaitingItem } from "../../lib/replyWaiting";
 import { Badge } from "../ui/Badge";
 import { Card } from "../ui/Card";
 import { EmptyState } from "../ui/EmptyState";
@@ -12,11 +14,20 @@ interface Props {
   onEdit: (application: JobApplication) => void;
   onDelete: (application: JobApplication) => void;
   onAdd: () => void;
+  /** Gmailの返信待ち(src/lib/replyWaiting.ts)。会社名が差出人・件名に出てくるものを、
+   * その応募先の行に出す。Gmailを連携していなければ渡さなくてよい。 */
+  replyWaiting?: ReplyWaitingItem[];
 }
 
-function JobRow({ application, onEdit, onDelete }: { application: JobApplication } & Pick<Props, "onEdit" | "onDelete">) {
+function JobRow({
+  application,
+  onEdit,
+  onDelete,
+  replyWaiting,
+}: { application: JobApplication } & Pick<Props, "onEdit" | "onDelete" | "replyWaiting">) {
   const stage = getJobStage(application.stage);
   const past = isNextDatePast(application, todayStr());
+  const waiting = replyWaiting ? replyWaitingForCompany(application.companyName, replyWaiting) : undefined;
 
   return (
     <Card className="flex items-start justify-between gap-3 p-4">
@@ -41,6 +52,16 @@ function JobRow({ application, onEdit, onDelete }: { application: JobApplication
             "次の予定は未定"
           )}
         </p>
+        {/* こちらから返信したのに、会社から何日も返事が無い。押すとそのメールを開く。 */}
+        {waiting && (
+          <Link
+            to={`/gmail/mail/${waiting.email.id}`}
+            className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+          >
+            <Hourglass size={13} />
+            返信待ち {waiting.waitingDays}日（{waiting.email.subject || "件名なし"}）
+          </Link>
+        )}
         {application.memo && <p className="mt-1.5 whitespace-pre-wrap text-xs text-slate-500">{application.memo}</p>}
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -65,7 +86,7 @@ function JobRow({ application, onEdit, onDelete }: { application: JobApplication
   );
 }
 
-export function JobApplicationList({ applications, onEdit, onDelete, onAdd }: Props) {
+export function JobApplicationList({ applications, onEdit, onDelete, onAdd, replyWaiting }: Props) {
   // 終わったぶんは、数だけ見えていれば普段は畳んでおきたい(応募が増えるほど下に伸びるため)。
   const [showClosed, setShowClosed] = useState(false);
   const { active, closed } = groupJobApplications(applications);
@@ -87,7 +108,13 @@ export function JobApplicationList({ applications, onEdit, onDelete, onAdd }: Pr
       {active.length > 0 ? (
         <div className="space-y-2.5">
           {active.map((application) => (
-            <JobRow key={application.id} application={application} onEdit={onEdit} onDelete={onDelete} />
+            <JobRow
+              key={application.id}
+              application={application}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              replyWaiting={replyWaiting}
+            />
           ))}
         </div>
       ) : (
