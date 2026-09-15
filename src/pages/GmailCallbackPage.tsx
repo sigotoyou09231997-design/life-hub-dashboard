@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { db } from "../db/schema";
 import { describeGmailConnectError, exchangeAuthorizationCode, GMAIL_OAUTH_STATE_KEY } from "../lib/gmail";
+import { CALENDAR_ENABLE_AFTER_CONNECT_KEY, GOOGLE_CALENDAR_SCOPE, syncGoogleCalendar } from "../lib/googleCalendar";
 import { useToast } from "../components/ui/ToastProvider";
 
 /** Landing page for Google's OAuth redirect (/gmail/callback). Exchanges the
@@ -43,8 +44,17 @@ export default function GmailCallbackPage() {
         return;
       }
 
+      // 設定画面の「つなぎ直してカレンダーも許可する」から来た時の控え。1回使ったら捨てる。
+      const calendarEmail = sessionStorage.getItem(CALENDAR_ENABLE_AFTER_CONNECT_KEY);
+      sessionStorage.removeItem(CALENDAR_ENABLE_AFTER_CONNECT_KEY);
+
       try {
         const result = await exchangeAuthorizationCode(code);
+        const grantedScopes = result.scope ?? "";
+        // 同意画面でカレンダーの権限を外されていたら入にしない(入にしても取り込めない)。
+        const enableCalendar =
+          calendarEmail?.toLowerCase() === result.email.toLowerCase() &&
+          grantedScopes.split(/\s+/).includes(GOOGLE_CALENDAR_SCOPE);
         const tokens = {
           accessToken: result.accessToken,
           accessTokenExpiresAt: Date.now() + result.expiresIn * 1000,
@@ -53,17 +63,28 @@ export default function GmailCallbackPage() {
           // 連携切れの印を下ろす。ここで消さないと、つなぎ直した直後の画面に
           // 「連携が切れています」の帯が残り、自動同期も止まったままになる。
           reauthRequiredAt: 0,
+          grantedScopes,
+          // 入にする時は起点を捨てて、この時点からの変更だけを取り込む(src/lib/googleCalendar.ts)。
+          ...(enableCalendar ? { calendarSyncEnabledAt: Date.now(), calendarSyncToken: undefined, calendarSyncError: "" } : {}),
         };
         // 同じアドレスで連携し直した場合は、行を増やさず既存の行を上書きする。
         // 増やしていた頃は、古い行にぶら下がったメール・AI下書き・ブロックリストが
         // そのまま残り、TOPや通知の件数(全アカウント合算)が端末ごとに食い違っていた。
         const existing = await db.gmailAccounts.where("email").equals(result.email).first();
+        let accountId = existing?.id;
         if (existing?.id) {
           await db.gmailAccounts.update(existing.id, tokens);
         } else {
-          await db.gmailAccounts.add({ email: result.email, ...tokens });
+          accountId = await db.gmailAccounts.add({ email: result.email, ...tokens });
         }
-        showToast(`${result.email} と${existing ? "つなぎ直しました" : "連携しました"}`);
+        if (enableCalendar && accountId) {
+          // 起点を取るところまでここで済ませる。取り込み自体はホーム・予定の画面を開いた時に走る。
+          const saved = await db.gmailAccounts.get(accountId);
+          if (saved) void syncGoogleCalendar(saved);
+        }
+        showToast(
+          `${result.email} と${existing ? "つなぎ直しました" : "連携しました"}${enableCalendar ? "。Googleカレンダーの取り込みを始めます" : ""}`,
+        );
         navigate("/settings", { replace: true });
       } catch (error) {
         console.error("[gmail] failed to connect an account:", error);

@@ -81,6 +81,8 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     expires_in: number;
     refresh_token?: string;
     id_token?: string;
+    /** 実際に許可された権限(スペース区切り)。同意画面で本人が外した権限は入らない。 */
+    scope?: string;
   };
 
   if (payload.grantType === "authorization_code") {
@@ -99,11 +101,14 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       expiresIn: tokenData.expires_in,
       refreshToken: tokenData.refresh_token,
       email,
+      // Googleカレンダーの取り込みを出せるか(カレンダーの権限まで許可されたか)の判定に使う。
+      scope: tokenData.scope ?? "",
     });
   }
 
   return jsonResponse(res, 200, {
     accessToken: tokenData.access_token,
     expiresIn: tokenData.expires_in,
+    scope: tokenData.scope ?? "",
   });
 };

@@ -4,7 +4,11 @@ import { toDateStr, todayStr } from "./date";
 import { overlapsRange, spanDates, spanDayIndex, spanDays } from "./eventSpan";
 import type { ExtractedTripItem } from "./mailPlanImport";
 
-const GMAIL_SCOPES = "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send openid email";
+/** Googleカレンダーの予定の読み書き(src/lib/googleCalendar.ts)。取り込み(第1段)だけなら
+ * 読むだけで足りるが、書き出し(第2段)のためにもう一度つなぎ直してもらわずに済むよう、
+ * 最初から読み書きを頼む。 */
+export const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+const GMAIL_SCOPES = `https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.send openid email ${GOOGLE_CALENDAR_SCOPE}`;
 const GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me";
 /** Refresh proactively so a call never starts on a token that expires mid-request. */
 const TOKEN_REFRESH_MARGIN_MS = 2 * 60 * 1000;
@@ -32,6 +36,8 @@ export function buildAuthUrl(state: string): string {
     scope: GMAIL_SCOPES,
     access_type: "offline",
     prompt: "consent",
+    // すでに許可してある権限もまとめて1本のトークンに載せる(つなぎ直しでGmailの権限が落ちないように)。
+    include_granted_scopes: "true",
     state,
   });
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -100,6 +106,8 @@ export interface AuthorizationCodeResult {
   expiresIn: number;
   refreshToken: string;
   email: string;
+  /** 実際に許可された権限(スペース区切り)。古いサーバー関数は返さない。 */
+  scope?: string;
 }
 
 /** 連携の失敗理由を、次にやることまで含めた日本語にする。

@@ -38,6 +38,9 @@ const BACKUP_TABLES = [
   // 予定と元のメールのつながり(types/index.ts の EventMailLink)。calendarEvents のidを
   // 指す別テーブルなので一緒に戻す。メール本文は持たず、件名と差出人の控えだけ。
   "eventMailLinks",
+  // Googleカレンダーから取り込んだ予定と、Google側の予定のつながり(types/index.ts の
+  // GoogleCalendarLink)。これも calendarEvents のidを指す別テーブルなので一緒に戻す。
+  "googleCalendarLinks",
 ] as const;
 
 export async function exportBackup(): Promise<void> {

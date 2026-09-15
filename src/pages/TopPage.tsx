@@ -22,6 +22,7 @@ import { toggleTaskCompletion } from "../components/tasks/TaskList";
 import { UsageAlertCard } from "../components/review/UsageAlertCard";
 import { useUsageAlerts } from "../hooks/useFeatureUsage";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
+import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
 import { BriefingCard } from "../components/home/BriefingCard";
 
 const EVENT_PREVIEW_LIMIT = 3;
@@ -126,6 +127,8 @@ export default function TopPage() {
   const usageAlerts = useUsageAlerts();
   // 「今日のまとめ」に出す返信待ち(src/lib/replyWaiting.ts)。
   const replyWaiting = useReplyWaiting();
+  // Googleカレンダーの取り込みを入にしてあれば、開いた時に取り込む(10分に1回まで)。
+  useGoogleCalendarAutoSync();
 
   // 「今週これから」— 明日から7日ぶん。PC幅でしか出さないので、スマホでは
   // 予定の全件走査そのものを走らせない(useIsDesktop で問い合わせごと止める)。

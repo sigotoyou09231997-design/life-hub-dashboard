@@ -74,6 +74,11 @@ const LOCAL_FIELDS: Record<string, { file: string; fields: string[] }> = {
     // 登録しないが、食い違いは流す前に見つけたいので先に書く(024 と同じ)。
     fields: ["id", "eventId", "accountEmail", "gmailMessageId", "threadId", "subject", "sender", "createdAt", "updatedAt"],
   },
+  google_calendar_links: {
+    file: "026_google_calendar_links.sql",
+    // types/index.ts の GoogleCalendarLink。026 を本番で流した連絡を受けるまでは登録しない(025 と同じ)。
+    fields: ["id", "eventId", "accountEmail", "googleEventId", "googleUpdated", "createdAt", "updatedAt"],
+  },
 };
 
 describe("同期テーブルの列名が、アプリ側の項目名と噛み合っている", () => {

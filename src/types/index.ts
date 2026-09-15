@@ -457,6 +457,39 @@ export interface GmailAccount {
    * 失効はGoogle側の事情で起きる（アクセスの取り消しのほか、OAuth同意画面が
    * 「テスト中」のままだと更新用トークンは7日で切れる）。 */
   reauthRequiredAt?: number;
+  /** Googleがこの連携に許可した権限(スペース区切り。tokenExchange の scope をそのまま)。
+   * Googleカレンダーの取り込み(src/lib/googleCalendar.ts)は、カレンダーの権限が入って
+   * いる時だけ動かす。この項目より前に連携したアカウントには無い(＝つなぎ直しが要る)。 */
+  grantedScopes?: string;
+  /** Googleカレンダー(メインの1つ)から予定を取り込むのを入にした時刻。0・未設定は切。 */
+  calendarSyncEnabledAt?: number;
+  /** Google Calendar API の syncToken。次の取り込みで「前回から変わった分」だけを受け取る。
+   * 無い時は取り込まずに起点だけ取る — 連携を始める前からある予定は入れない、という依頼のため。 */
+  calendarSyncToken?: string;
+  /** 最後に取り込みを試みた時刻(成功・失敗とも)。自動の取り込みの間隔を空けるのに使う。 */
+  calendarLastSyncedAt?: number;
+  /** 最後の取り込みが失敗した理由。成功したら空に戻す。 */
+  calendarSyncError?: string;
+}
+
+/**
+ * Googleカレンダーから取り込んだ予定と、Google側の予定のつながり(src/lib/googleCalendar.ts)。
+ *
+ * 取り込んだ予定(CalendarEvent)のidは、アドレスとGoogle側のidから毎回同じ値を作る
+ * (stableUuid)。PCとスマホの両方で取り込んでも、同じ予定が2件にならないように。
+ * このテーブルは「どの予定がGoogleから来たか」を覚えておくためのもので、LIFE HUBから
+ * Googleへ書き出す第2段で使う。supabase/sql/026 が流れるまでは作った端末の中だけにある。
+ */
+export interface GoogleCalendarLink {
+  id?: string;
+  /** CalendarEvent.id。 */
+  eventId: string;
+  accountEmail: string;
+  googleEventId: string;
+  /** Google側の最終更新時刻(RFC3339)。書き出しの第2段で、どちらが新しいかを見るのに使う。 */
+  googleUpdated?: string;
+  createdAt: number;
+  updatedAt?: number;
 }
 
 export type EmailStatus = "unprocessed" | "generating" | "drafted" | "edited" | "sent" | "skipped";

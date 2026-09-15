@@ -7,6 +7,7 @@ import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
 import { EventPeopleManager } from "../components/settings/EventPeopleManager";
+import { GoogleCalendarSyncControl } from "../components/settings/GoogleCalendarSyncControl";
 import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
 import { exportBackup, importBackup } from "../lib/backup";
@@ -552,14 +553,18 @@ export default function SettingsPage() {
           {gmailAccounts && gmailAccounts.length > 0 && (
             <div className="system-account-list space-y-2">
               {gmailAccounts.map((account) => (
-                <ListRow key={account.id} className="flex items-center justify-between py-2.5">
-                  <span className="truncate text-sm text-slate-700">{account.email}</span>
-                  <button
-                    onClick={() => handleDisconnectGmail(account)}
-                    className="shrink-0 text-xs font-medium text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
-                  >
-                    解除
-                  </button>
+                <ListRow key={account.id} className="flex flex-col gap-2 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="truncate text-sm text-slate-700">{account.email}</span>
+                    <button
+                      onClick={() => handleDisconnectGmail(account)}
+                      className="shrink-0 text-xs font-medium text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+                    >
+                      解除
+                    </button>
+                  </div>
+                  {/* Gmailと同じGoogleログインで、カレンダーの予定も取り込む(依頼「Googleカレンダーと双方向で同期したい」の第1段)。 */}
+                  <GoogleCalendarSyncControl account={account} />
                 </ListRow>
               ))}
             </div>

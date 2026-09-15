@@ -25,6 +25,7 @@ import { useConfirm } from "../components/ui/ConfirmProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
+import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
 
 type Tab = "today" | "calendar" | "list" | "jobs";
 type EditingEvent = CalendarEvent | "new" | null;
@@ -100,6 +101,8 @@ export default function SchedulePage() {
   const addDefaultDate = tab === "calendar" ? selectedDate : todayStr();
   // 就活の応募先に、Gmailの返信待ちを添える(src/lib/replyWaiting.ts)。
   const replyWaiting = useReplyWaiting();
+  // Googleカレンダーの取り込みを入にしてあれば、開いた時に取り込む(10分に1回まで)。
+  useGoogleCalendarAutoSync();
 
   function handleEditTask(task: Task) {
     setEditingTask({ mode: "edit", task });
