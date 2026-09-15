@@ -21,6 +21,8 @@ import { useIsDesktop } from "../hooks/useIsDesktop";
 import { toggleTaskCompletion } from "../components/tasks/TaskList";
 import { UsageAlertCard } from "../components/review/UsageAlertCard";
 import { useUsageAlerts } from "../hooks/useFeatureUsage";
+import { useReplyWaiting } from "../hooks/useReplyWaiting";
+import { BriefingCard } from "../components/home/BriefingCard";
 
 const EVENT_PREVIEW_LIMIT = 3;
 const TASK_PREVIEW_LIMIT = 3;
@@ -122,6 +124,8 @@ export default function TopPage() {
   const { data: budget } = usePayPeriodBudget();
   // 使われなくなった機能のお知らせ。ある月だけ、上段と4分割のカードの間に1枚出す。
   const usageAlerts = useUsageAlerts();
+  // 「今日のまとめ」に出す返信待ち(src/lib/replyWaiting.ts)。
+  const replyWaiting = useReplyWaiting();
 
   // 「今週これから」— 明日から7日ぶん。PC幅でしか出さないので、スマホでは
   // 予定の全件走査そのものを走らせない(useIsDesktop で問い合わせごと止める)。
@@ -157,7 +161,7 @@ export default function TopPage() {
   // それを使うと一瞬「未接続」の表示が出てしまう。
   const gmailPreview = useLiveQuery(async () => {
     const accounts = await db.gmailAccounts.toArray();
-    if (accounts.length === 0) return { connected: false, emails: [], total: 0 };
+    if (accounts.length === 0) return { connected: false, emails: [], total: 0, importantUnread: 0 };
     const [blocked, allEmails] = await Promise.all([
       db.blockedSenders.toArray(),
       db.syncedEmails.orderBy("receivedAt").reverse().toArray(),
@@ -172,7 +176,16 @@ export default function TopPage() {
         !blockedSet.has(`${email.accountId}:${parseSender(email.from).email.toLowerCase()}`) &&
         isUnhandledEmail(email),
     );
-    return { connected: true, emails: visible.slice(0, GMAIL_PREVIEW_LIMIT), total: visible.length };
+    // 「今日のまとめ」の重要な未読。重要を付けた・まだ読んでいない・返信していないもの
+    // (朝の通知 netlify/functions/sendMorningBriefing.ts も同じ数え方)。
+    const importantUnread = allEmails.filter(
+      (email) =>
+        !blockedSet.has(`${email.accountId}:${parseSender(email.from).email.toLowerCase()}`) &&
+        email.importantAt &&
+        !email.readAt &&
+        email.status !== "sent",
+    ).length;
+    return { connected: true, emails: visible.slice(0, GMAIL_PREVIEW_LIMIT), total: visible.length, importantUnread };
   }, []);
 
   const tripsResult = useLiveQuery(() => db.trips.toArray(), []);
@@ -197,6 +210,14 @@ export default function TopPage() {
           <time dateTime={today}>{formatDisplayDate(today)}</time>
         </h1>
       </header>
+
+      {/* 今日のまとめ(2026-09-16)。予定・重要な未読・返信待ちを、画面を回らずに1枚で。 */}
+      <BriefingCard
+        eventCount={eventsResult ? allTodayEvents.length : undefined}
+        nextEvent={nextEvent ? { title: nextEvent.title, time: timeToday(nextEvent) } : undefined}
+        gmail={gmailPreview}
+        waiting={replyWaiting}
+      />
 
       <div className="warm-top">
         <section className="warm-hero" data-reveal="0">

@@ -498,6 +498,63 @@ a.warm-card {
   color: var(--warm-ink);
 }
 
+/* 今日のまとめ（2026-09-16）。ホームのいちばん上で、今日の予定・重要な未読・返信待ちを
+   1枚に並べる。3つは1つずつ別の箱にして、それぞれ押せる（ボタンを1つの溝に詰めない、
+   本人の好み）。Gmail 未連携の日は予定の1つだけになるので、列の数は中身に任せる。 */
+.warm-brief__grid {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 0.5rem;
+}
+
+.warm-brief__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+  border-radius: var(--warm-r-lg, 0.85rem);
+  background: var(--warm-surface-sunk);
+  padding: 0.6rem 0.7rem 0.65rem;
+  color: inherit;
+}
+
+.warm-brief__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--warm-ink-3);
+}
+
+.warm-brief__count {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  color: var(--warm-ink);
+}
+
+.warm-brief__count small {
+  margin-left: 0.12rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--warm-ink-3);
+}
+
+/* 重要な未読・返信待ちがある時だけ、数字を Tailwind の danger と同じ色にする。 */
+.warm-brief__item.is-alert .warm-brief__count { color: #dc6355; }
+
+.warm-brief__note {
+  overflow: hidden;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--warm-ink-3);
+}
+
 /* 2026-08-31: 一番下にあった「写真つきの機能カード」6枚（予定・タスク／お金管理／
    メモ・リスト／Gmail／旅行計画／設定）は本人の指示で削除した。同じ行き先へは
    下の追従ナビから行ける。
