@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { CalendarEvent } from "../../types";
 import { CalendarView } from "./CalendarView";
 import { ConfirmProvider } from "../ui/ConfirmProvider";
@@ -41,7 +41,7 @@ function renderCalendar(
 /** カレンダーのマス(日付の数字を含むボタン)をタップする。 */
 function tapDay(day: string) {
   const cell = screen.getAllByText(day)[0].closest("button")!;
-  cell.click();
+  fireEvent.click(cell);
 }
 
 afterEach(cleanup);
@@ -72,7 +72,7 @@ describe("カレンダーのマスをタップした時の動き", () => {
     expect(onAddEvent).not.toHaveBeenCalled();
   });
 
-  it("予定が2件以上ある日をタップしても、どちらか一方を決めつけて開いたりしない", () => {
+  it("予定が2件以上ある日をタップすると、その日の予定を並べたシートを出す", () => {
     const onAddEvent = vi.fn();
     const onEditEvent = vi.fn();
     const morning = eventOn("meeting-1", "2026-09-15", "打ち合わせ");
@@ -81,7 +81,35 @@ describe("カレンダーのマスをタップした時の動き", () => {
 
     tapDay("15");
 
+    // どちらか一方を決めつけて開いたりせず、両方を選べる状態で並べる
+    // (マスの中の帯にも同じ予定名が出るので、シート内の編集ボタンで確かめる)。
     expect(onEditEvent).not.toHaveBeenCalled();
     expect(onAddEvent).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "打ち合わせを編集" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "夕食を編集" })).toBeTruthy();
+  });
+
+  it("2件以上ある日のシートで、1件を選ぶとその予定の編集フォームを開く", () => {
+    const onEditEvent = vi.fn();
+    const morning = eventOn("meeting-1", "2026-09-15", "打ち合わせ");
+    const evening = eventOn("dinner-1", "2026-09-15", "夕食");
+    renderCalendar([morning, evening], { onEditEvent });
+
+    tapDay("15");
+    fireEvent.click(screen.getByRole("button", { name: "夕食を編集" }));
+
+    expect(onEditEvent).toHaveBeenCalledWith(evening);
+  });
+
+  it("2件以上ある日のシートからも、その日を初期値にして予定を追加できる", () => {
+    const onAddEvent = vi.fn();
+    const morning = eventOn("meeting-1", "2026-09-15", "打ち合わせ");
+    const evening = eventOn("dinner-1", "2026-09-15", "夕食");
+    renderCalendar([morning, evening], { onAddEvent });
+
+    tapDay("15");
+    fireEvent.click(screen.getByRole("button", { name: /この日に予定を追加/ }));
+
+    expect(onAddEvent).toHaveBeenCalledWith("2026-09-15");
   });
 });
