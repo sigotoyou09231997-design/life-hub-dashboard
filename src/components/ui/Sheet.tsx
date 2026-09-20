@@ -152,19 +152,41 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     // フォーカスしたまま下の項目を見ようとして指でスクロールしても、そのたびに
     // 先頭まで戻されて下の項目に入力できなくなる(2026-09-20の報告)。
     //
-    // 指で動かし始めた先が、いまフォーカスしている欄そのもの(文字選択などの操作)
-    // でなければ、スクロールが始まった時点でフォーカスを外す。フォーカスが無くなれば
+    // 指を動かしてスクロールが始まった時点でフォーカスを外す。フォーカスが無くなれば
     // iOSが引き戻す理由も無くなり、指のとおりに自由にスクロールできる。次の入力欄を
     // タップすれば、これまでどおり普通にフォーカスし直される。
+    //
+    // 「動き始めた先がフォーカス中の欄自身なら外さない」という例外は、最初は文字選択の
+    // ためのつもりで付けていたが、キーボードが出て残りの見えている範囲が狭い時は、
+    // その欄自体がほぼ画面いっぱいを占めてしまい、スクロールしようと指を置いた先が
+    // 結局その欄の上になることがほとんどだった。それでは例外の方が働いてしまい、
+    // すぐ下の項目(例: 場所の次のメモ)まで指が届かなくなる(2026-09-20の再報告)。
+    // 代わりに、指の動いた距離がわずかな間(タップ時の揺れ程度)は待ち、はっきり
+    // スクロールと分かる距離を超えた時だけ外す。
+    const SCROLL_THRESHOLD_PX = 10;
+    let startX: number | null = null;
+    let startY: number | null = null;
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      startX = touch?.clientX ?? null;
+      startY = touch?.clientY ?? null;
+    };
     const handleTouchMove = (e: TouchEvent) => {
       const active = document.activeElement as HTMLElement | null;
       if (!active || !opensKeyboard(active)) return;
-      const target = e.target as Node | null;
-      if (target && active.contains(target)) return;
+      const touch = e.touches[0];
+      if (touch && startX !== null && startY !== null) {
+        const moved = Math.max(Math.abs(touch.clientX - startX), Math.abs(touch.clientY - startY));
+        if (moved < SCROLL_THRESHOLD_PX) return;
+      }
       active.blur();
     };
+    body.addEventListener("touchstart", handleTouchStart, { passive: true });
     body.addEventListener("touchmove", handleTouchMove, { passive: true });
-    return () => body.removeEventListener("touchmove", handleTouchMove);
+    return () => {
+      body.removeEventListener("touchstart", handleTouchStart);
+      body.removeEventListener("touchmove", handleTouchMove);
+    };
   }, [open]);
 
   const maxHeightPx = sheetMaxHeightPx(visibleHeight, keyboardInset, compact);
