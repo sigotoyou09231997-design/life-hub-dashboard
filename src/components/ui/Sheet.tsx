@@ -37,6 +37,9 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
   const [visibleHeight, setVisibleHeight] = useState<number | null>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(false);
+  // 中身をスクロールする.sheet-body(下のJSXでrefを渡す)。キーボード対応
+  // (下の指でスクロールを始めた時にフォーカスを外す処理)専用の参照。
+  const bodyRef = useRef<HTMLDivElement>(null);
   // シートを開いた時のページのスクロール位置。iOSはキーボードを出す時にページごと
   // 上へずらすことがあり、閉じても戻らないと position:fixed のシートまでずれたままに
   // なる。キーボードが引っ込んだら、ここへ戻す。
@@ -137,6 +140,33 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const body = bodyRef.current;
+    if (!body) return;
+    // iOSは、フォーカス中の入力欄がスクロールで画面(キーボードの上の見えている範囲)の
+    // 外へ出ると、その欄を追いかけてスクロールを勝手に戻してしまう(WebKitの既知の
+    // 挙動。フォーカスを外へ出したまま = キーボードは出たまま、なのでOS側が
+    // 「見えるようにしなければ」と毎回引き戻す)。この画面は.sheet-body側だけを
+    // スクロールさせているが、iOSはその区別をしてくれないため、上の方の入力欄に
+    // フォーカスしたまま下の項目を見ようとして指でスクロールしても、そのたびに
+    // 先頭まで戻されて下の項目に入力できなくなる(2026-09-20の報告)。
+    //
+    // 指で動かし始めた先が、いまフォーカスしている欄そのもの(文字選択などの操作)
+    // でなければ、スクロールが始まった時点でフォーカスを外す。フォーカスが無くなれば
+    // iOSが引き戻す理由も無くなり、指のとおりに自由にスクロールできる。次の入力欄を
+    // タップすれば、これまでどおり普通にフォーカスし直される。
+    const handleTouchMove = (e: TouchEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (!active || !opensKeyboard(active)) return;
+      const target = e.target as Node | null;
+      if (target && active.contains(target)) return;
+      active.blur();
+    };
+    body.addEventListener("touchmove", handleTouchMove, { passive: true });
+    return () => body.removeEventListener("touchmove", handleTouchMove);
+  }, [open]);
+
   const maxHeightPx = sheetMaxHeightPx(visibleHeight, keyboardInset, compact);
 
   if (!open) return null;
@@ -185,7 +215,7 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
             <X size={19} />
           </button>
         </div>
-        <div className={`sheet-body min-h-0 flex-1 overflow-y-auto ${reserveBottomBar ? "!pb-5" : ""}`}>
+        <div ref={bodyRef} className={`sheet-body min-h-0 flex-1 overflow-y-auto ${reserveBottomBar ? "!pb-5" : ""}`}>
           {children}
         </div>
       </div>
