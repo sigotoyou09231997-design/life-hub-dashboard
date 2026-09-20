@@ -37,6 +37,9 @@ interface Props {
   onDeleteEvent: (id: string) => void;
   onEditTask: (t: Task) => void;
   onAddSubtask: (parentId: string) => void;
+  /** マスをタップした日に予定が1件も無かった時、その日を初期値にして
+   * 追加フォームを開く(下のhandleSelectDate参照)。 */
+  onAddEvent: (date: string) => void;
 }
 
 /** 日付ごとの帯を1つにまとめる。渡した順に積む(先に渡したものが上に来る)。 */
@@ -62,6 +65,7 @@ export function CalendarView({
   onDeleteEvent,
   onEditTask,
   onAddSubtask,
+  onAddEvent,
 }: Props) {
   // 点は「かかっている日すべて」に打つ。初日にしか打たないと、宿泊の2日目は
   // カレンダー上では空いている日に見えてしまう。繰り返し予定は、表示中の月の枠
@@ -102,6 +106,21 @@ export function CalendarView({
   const dayTripAgenda = occurringOn(tripAgenda, selectedDate);
   const selectedHoliday = getHolidayMapForYear(Number(selectedDate.slice(0, 4))).get(selectedDate);
 
+  // マスをタップした時に、日を選ぶだけでなく直接動けるようにする。
+  // 予定が無い日 → その日を初期値にして追加フォームを開く。
+  // 予定がちょうど1件の日 → その予定の編集フォームを開く(詳細を見て直せる)。
+  // 2件以上ある日は、どれを開くか決められないので選ぶだけにとどめる
+  // (下の一覧にすべて並ぶので、そこから選んで編集できる)。
+  function handleSelectDate(date: string) {
+    onSelectDate(date);
+    const eventsOnDate = occurringOn(shownEvents, date);
+    if (eventsOnDate.length === 1) {
+      onEditEvent(eventsOnDate[0]);
+    } else if (eventsOnDate.length === 0) {
+      onAddEvent(date);
+    }
+  }
+
   return (
     <div className="calendar-workspace grid gap-3 xl:grid-cols-[minmax(0,1.5fr)_minmax(330px,.5fr)]">
       <Card className="calendar-workspace__month p-4 lg:p-6">
@@ -115,7 +134,7 @@ export function CalendarView({
           currentMonth={currentMonth}
           onMonthChange={onMonthChange}
           selectedDate={selectedDate}
-          onSelectDate={onSelectDate}
+          onSelectDate={handleSelectDate}
           eventDates={eventDates}
           eventDotColors={eventDotColors}
           taskDates={taskDates}

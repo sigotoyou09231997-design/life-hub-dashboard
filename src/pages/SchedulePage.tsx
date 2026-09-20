@@ -173,6 +173,11 @@ export default function SchedulePage() {
             onDeleteEvent={handleDeleteEvent}
             onEditTask={handleEditTask}
             onAddSubtask={handleAddSubtask}
+            onAddEvent={(date) => {
+              // addDefaultDate は selectedDate を見るので、先に選んだ日を確定させてから開く。
+              setSelectedDate(date);
+              setEditingEvent("new");
+            }}
           />
         )}
 
