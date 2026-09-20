@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from "date-fns";
+import { Plus } from "lucide-react";
 import type { CalendarEvent, Task } from "../../types";
 import { db } from "../../db/schema";
 import {
@@ -24,6 +25,9 @@ import { toggleTaskCompletion, deleteTaskCascade, postponeTaskToTomorrow } from 
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
 import { PersonFilter } from "./PersonFilter";
 import { Card } from "../ui/Card";
+import { Sheet } from "../ui/Sheet";
+import { FormActions } from "../ui/FormActions";
+import { Button } from "../ui/Button";
 
 interface Props {
   events: CalendarEvent[];
@@ -37,8 +41,9 @@ interface Props {
   onDeleteEvent: (id: string) => void;
   onEditTask: (t: Task) => void;
   onAddSubtask: (parentId: string) => void;
-  /** マスをタップした日に予定が1件も無かった時、その日を初期値にして
-   * 追加フォームを開く(下のhandleSelectDate参照)。 */
+  /** その日を初期値にして追加フォームを開く。マスをタップした日に予定が1件も
+   * 無かった時に直接、2件以上あった時はその日の予定を並べたシートの「追加」
+   * ボタンから呼ぶ(下のhandleSelectDate参照)。 */
   onAddEvent: (date: string) => void;
 }
 
@@ -78,6 +83,9 @@ export function CalendarView({
   const peopleResult = useLiveQuery(() => db.eventPeople.toArray(), []);
   const people = sortPeople(peopleResult ?? []);
   const [personFilter, setPersonFilter] = useState<string[]>([]);
+  // 予定が2件以上ある日をタップした時に、その日の予定だけを並べて出すシート
+  // (下のhandleSelectDate参照)。開いている日のdate文字列、閉じていればnull。
+  const [dayEventsDate, setDayEventsDate] = useState<string | null>(null);
   // 消された人のidが選ばれたまま残ると、当てはまる予定が1件も無くなって
   // 「全部消えた」ように見える。いま居る人だけに絞ってから使う。
   const activeFilter = personFilter.filter(
@@ -109,8 +117,8 @@ export function CalendarView({
   // マスをタップした時に、日を選ぶだけでなく直接動けるようにする。
   // 予定が無い日 → その日を初期値にして追加フォームを開く。
   // 予定がちょうど1件の日 → その予定の編集フォームを開く(詳細を見て直せる)。
-  // 2件以上ある日は、どれを開くか決められないので選ぶだけにとどめる
-  // (下の一覧にすべて並ぶので、そこから選んで編集できる)。
+  // 2件以上ある日 → どれを開くか決められないので、その日の予定だけを並べた
+  // シートを出す(dayEventsDate)。そこから選んで編集するか、追加もできる。
   function handleSelectDate(date: string) {
     onSelectDate(date);
     const eventsOnDate = occurringOn(shownEvents, date);
@@ -118,6 +126,8 @@ export function CalendarView({
       onEditEvent(eventsOnDate[0]);
     } else if (eventsOnDate.length === 0) {
       onAddEvent(date);
+    } else {
+      setDayEventsDate(date);
     }
   }
 
@@ -185,6 +195,38 @@ export function CalendarView({
           )}
         </div>
       </Card>
+
+      <Sheet
+        open={dayEventsDate !== null}
+        onClose={() => setDayEventsDate(null)}
+        title={dayEventsDate ? `${formatDisplayDate(dayEventsDate)}の予定` : ""}
+      >
+        {dayEventsDate && (
+          <div className="flex flex-col gap-4">
+            <EventList
+              events={occurringOn(shownEvents, dayEventsDate)}
+              onEdit={(e) => {
+                setDayEventsDate(null);
+                onEditEvent(e);
+              }}
+              onDelete={onDeleteEvent}
+              onDate={dayEventsDate}
+            />
+            <FormActions single>
+              <Button
+                type="button"
+                onClick={() => {
+                  const date = dayEventsDate;
+                  setDayEventsDate(null);
+                  onAddEvent(date);
+                }}
+              >
+                <Plus size={16} /> この日に予定を追加
+              </Button>
+            </FormActions>
+          </div>
+        )}
+      </Sheet>
     </div>
   );
 }
