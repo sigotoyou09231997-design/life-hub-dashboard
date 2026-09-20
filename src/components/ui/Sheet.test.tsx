@@ -27,6 +27,10 @@ function installFakeViewport(height: number) {
  * 外す。指を置いた先がフォーカス中の欄自身でも区別しない — キーボードで見えている
  * 範囲が狭い時は、その欄自体がほぼ画面いっぱいを占め、指を置く先が結局その欄の上に
  * なることがほとんどのため。
+ *
+ * ただし、文字を選択中(コピーしようとして選択ハンドルをドラッグしている等)は外さ
+ * ない。無条件に外すと、選択ハンドルへのタップ・ドラッグのたびに選択が消えて
+ * コピーできなくなってしまっていた(2026-09-20の報告、「文字をコピーできない」)。
  */
 describe("入力シートのタップ時のフォーカス", () => {
   it("フォーカス中の欄以外に指が触れたら、フォーカスを外す", () => {
@@ -56,6 +60,39 @@ describe("入力シートのタップ時のフォーカス", () => {
     );
     const input = getByTestId("title-input") as HTMLInputElement;
     input.focus();
+
+    fireEvent.touchStart(input);
+
+    expect(document.activeElement).not.toBe(input);
+  });
+
+  it("文字を選択中の欄に指が触れても、フォーカスを外さない(コピーできなくなるため)", () => {
+    const { getByTestId } = render(
+      <Sheet open onClose={() => {}} title="予定を編集">
+        <input data-testid="title-input" defaultValue="MASTER key 面接" />
+      </Sheet>,
+    );
+    const input = getByTestId("title-input") as HTMLInputElement;
+    input.focus();
+    // 「MASTER」の部分を選択した状態(選択ハンドルをドラッグしてコピーしようとしている場面)。
+    input.setSelectionRange(0, 6);
+
+    fireEvent.touchStart(input);
+
+    expect(document.activeElement).toBe(input);
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(6);
+  });
+
+  it("選択が無い(ただのカーソル)欄なら、これまでどおりフォーカスを外す", () => {
+    const { getByTestId } = render(
+      <Sheet open onClose={() => {}} title="予定を編集">
+        <input data-testid="title-input" defaultValue="MASTER key 面接" />
+      </Sheet>,
+    );
+    const input = getByTestId("title-input") as HTMLInputElement;
+    input.focus();
+    input.setSelectionRange(3, 3); // 選択なし、カーソルだけ
 
     fireEvent.touchStart(input);
 

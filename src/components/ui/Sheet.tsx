@@ -27,6 +27,19 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
   ).filter((el) => el.offsetParent !== null); // skip hidden elements
 }
 
+/** input/textareaの中で、幅のある範囲が選択されている(コピーしようとしている)か。
+ * input, output, select, keygen 以外の一部のtype(email, number, time など)は
+ * selectionStart/Endを持たず読み取ると例外を投げるため、その時はfalseに丸める
+ * (選択の心配が無い部品として扱う)。 */
+function hasTextSelection(el: HTMLElement): boolean {
+  if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) return false;
+  try {
+    return el.selectionStart !== null && el.selectionStart !== el.selectionEnd;
+  } catch {
+    return false;
+  }
+}
+
 export function Sheet({ open, onClose, title, children, reserveBottomBar = false, compact = false }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   // キーボードで隠れている高さ。その分だけシートを持ち上げて、入力欄が最初から
@@ -178,6 +191,11 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     // (キーボードで見えている範囲が狭い時は、その欄自体がほぼ画面いっぱいを占め、
     // 指を置く先が結局その欄の上になることがほとんどのため)。
     //
+    // ただし、文字を選択中(コピーしようとして選択ハンドルをドラッグしている等)は
+    // 外さない。selectionStart/Endの間に幅があれば選択中とみなす。ここで外して
+    // しまうと選択そのものが消えてコピーできなくなる(2026-09-20の報告、「文字を
+    // コピーできない」)。選択が無い(ただのカーソル)時だけ、スクロールのために外す。
+    //
     // 外れるのはタップのたびに毎回だが、実害は無い。別の欄をタップしたのであれば
     // タップ自体(touchend側)でその欄へ普通にフォーカスし直り、同じ欄の中でタップし
     // 直した(カーソル位置を変えたい等)のであれば、同じくタップでその位置に
@@ -185,7 +203,9 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     // ことに比べれば軽微。
     const handleTouchStart = () => {
       const active = document.activeElement as HTMLElement | null;
-      if (active && opensKeyboard(active)) active.blur();
+      if (!active || !opensKeyboard(active)) return;
+      if (hasTextSelection(active)) return;
+      active.blur();
     };
     body.addEventListener("touchstart", handleTouchStart, { passive: true });
     return () => body.removeEventListener("touchstart", handleTouchStart);
