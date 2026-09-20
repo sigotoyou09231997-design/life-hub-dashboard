@@ -1,9 +1,17 @@
 /** @vitest-environment jsdom */
-import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { Sheet } from "./Sheet";
 
 afterEach(cleanup);
+
+/** visualViewport の代わり(src/lib/viewportTrack.test.tsと同じやり方)。 */
+function installFakeViewport(height: number) {
+  const target = new EventTarget();
+  const fake = Object.assign(target, { height, offsetTop: 0 });
+  Object.defineProperty(window, "visualViewport", { value: fake, configurable: true, writable: true });
+  return fake;
+}
 
 /**
  * iOSは、フォーカス中の入力欄が指のスクロールで画面外へ出ると、キーボードの上に
@@ -81,5 +89,41 @@ describe("入力シートのスクロール中のフォーカス", () => {
     // どこにもフォーカスしていない状態(bodyがactiveElement)でスクロールしても、
     // 外すフォーカスが無いのでエラーにならず何も起きない。
     expect(() => fireEvent.touchMove(getByTestId("lower-field"))).not.toThrow();
+  });
+});
+
+/**
+ * キーボードが出ると器(.sheet-panel)の高さが縮み、.sheet-bodyの見えている範囲の
+ * 下端がそのぶん上へ後退する。いちばん下の項目(例: フォームの最後の入力欄)に
+ * フォーカスしたまま器が縮むと、その欄が縮んだ範囲の外(下側)へ出てしまい、
+ * キーボードを開いても入力できないままになる(2026-09-20の報告、
+ * 「いちばん下の項目に入力できない」)。縮んだ直後にフォーカス中の欄を範囲内へ
+ * 入れ直すのが対策(src/components/ui/Sheet.tsx)。
+ */
+describe("入力シートでキーボードが出た時のスクロール", () => {
+  it("フォーカス中の欄がいちばん下にあっても、見えている範囲へ入れ直す", async () => {
+    const scrollIntoView = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    Object.defineProperty(window, "innerHeight", { value: 800, configurable: true, writable: true });
+    const visual = installFakeViewport(800);
+
+    try {
+      const { getByTestId } = render(
+        <Sheet open onClose={() => {}} title="予定を追加">
+          <input data-testid="last-input" />
+        </Sheet>,
+      );
+      const input = getByTestId("last-input") as HTMLInputElement;
+      input.focus();
+
+      // キーボードが開いて見えている高さが縮む。
+      visual.height = 300;
+      visual.dispatchEvent(new Event("resize"));
+
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: "nearest" }));
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
   });
 });

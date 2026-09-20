@@ -109,10 +109,23 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     const update = () => {
       // 文字を入れる部品に focus が無ければキーボードは出ていない。iOSが閉じたことを
       // 知らせ損ねた時に、シートが浮いたまま戻らなくなるのを防ぐ(src/lib/viewport.ts)。
-      const typing = opensKeyboard(document.activeElement);
+      const active = document.activeElement as HTMLElement | null;
+      const typing = opensKeyboard(active);
       const hidden = typing ? keyboardInsetFrom(window.innerHeight, visual.height, visual.offsetTop) : 0;
       if (hidden > 0) liftedRef.current = true;
       setKeyboardInset(hidden);
+      // キーボードが出て器(.sheet-panel)の高さが縮む(下のsheetMaxHeightPx)と、
+      // .sheet-bodyの見えている範囲の下端がそのぶん上へ後退する。スクロール位置は
+      // 変わらないので、いちばん下の項目(最後の入力欄・その次に貼りつくキャンセル/
+      // 保存ボタン)にフォーカスしたまま器が縮むと、その欄が縮んだ範囲の外(下側)へ
+      // 出てしまい、キーボードを開いてもその欄が見えない・触れないままになる
+      // (2026-09-20の報告、「いちばん下の項目に入力できない」)。
+      // 縮んだ直後にフォーカス中の欄を範囲内へ入れ直す。requestAnimationFrameで
+      // 1拍置くのは、器の高さ(maxHeightPx)の再計算がReactの描画を経てから反映される
+      // ため — 同期で呼ぶと縮む前の高さのまま計算してしまう。
+      if (hidden > 0 && active && bodyRef.current?.contains(active)) {
+        requestAnimationFrame(() => active.scrollIntoView({ block: "nearest" }));
+      }
       // キーボードで持ち上がった後、閉じてもページがずれたままなら開いた時の位置へ戻す。
       // 持ち上がった後だけにするのは、それ以外で勝手にスクロールさせないため。
       if (!typing && liftedRef.current) {
