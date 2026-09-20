@@ -17,17 +17,19 @@ function installFakeViewport(height: number) {
  * iOSは、フォーカス中の入力欄が指のスクロールで画面外へ出ると、キーボードの上に
  * 見えるよう勝手にスクロールを戻してしまう。中の.sheet-bodyだけをスクロール
  * させているこのシートでは、それが「下の項目まで指でスクロールできない」不具合
- * になる(2026-09-20の報告)。フォーカスを外へ出したまま(=キーボードが開いたまま)
- * だとiOSが毎回引き戻すので、スクロールが始まった時点でフォーカスを外し、
- * iOS側が引き戻す理由を無くすのが対策(src/components/ui/Sheet.tsx)。
+ * になる(2026-09-20の報告、複数回)。フォーカスを外へ出したまま(=キーボードが
+ * 開いたまま)だとiOSが毎回引き戻すので、iOS側が引き戻す理由を無くすのが対策
+ * (src/components/ui/Sheet.tsx)。
  *
- * 動き始めた先がフォーカス中の欄自身でも区別なく外す — キーボードで見えている
- * 範囲が狭い時は、その欄自体がほぼ画面いっぱいを占め、スクロールの起点が結局
- * その欄の上になることがほとんどだったため(2026-09-20の再報告)。タップ時の
- * わずかな揺れと区別するため、はっきりした距離だけ動いた時だけ外す。
+ * 最初はtouchmove(指が動いた時点)でフォーカスを外していたが、それでも直らな
+ * かった。iOS側の引き戻しはtouchmoveより前、触れた瞬間(touchstart)から始まって
+ * いる可能性があるため、touchstartの時点で、動きの向き・距離を見ずに即フォーカスを
+ * 外す。指を置いた先がフォーカス中の欄自身でも区別しない — キーボードで見えている
+ * 範囲が狭い時は、その欄自体がほぼ画面いっぱいを占め、指を置く先が結局その欄の上に
+ * なることがほとんどのため。
  */
-describe("入力シートのスクロール中のフォーカス", () => {
-  it("フォーカス中の欄以外を指でなぞり始めたら、フォーカスを外す", () => {
+describe("入力シートのタップ時のフォーカス", () => {
+  it("フォーカス中の欄以外に指が触れたら、フォーカスを外す", () => {
     const { getByTestId } = render(
       <Sheet open onClose={() => {}} title="予定を追加">
         <input data-testid="title-input" />
@@ -38,43 +40,24 @@ describe("入力シートのスクロール中のフォーカス", () => {
     input.focus();
     expect(document.activeElement).toBe(input);
 
-    fireEvent.touchMove(getByTestId("lower-field"));
+    fireEvent.touchStart(getByTestId("lower-field"));
 
     expect(document.activeElement).not.toBe(input);
   });
 
-  it("タップ時のわずかな指の揺れでは、フォーカスを外さない", () => {
-    const { getByTestId } = render(
-      <Sheet open onClose={() => {}} title="予定を追加">
-        <input data-testid="title-input" />
-        <div data-testid="lower-field">下のほうの項目</div>
-      </Sheet>,
-    );
-    const input = getByTestId("title-input") as HTMLInputElement;
-    input.focus();
-
-    fireEvent.touchStart(input, { touches: [{ clientX: 100, clientY: 100 }] });
-    fireEvent.touchMove(input, { touches: [{ clientX: 102, clientY: 101 }] });
-
-    expect(document.activeElement).toBe(input);
-  });
-
-  it("フォーカス中の欄そのものから指を動かしてスクロールを始めても、フォーカスを外す", () => {
+  it("フォーカス中の欄そのものに指が触れても、区別せずフォーカスを外す", () => {
     // キーボードが出て見えている範囲が狭い時は、フォーカス中の欄がほぼ画面いっぱいを
-    // 占め、スクロールしようと指を置いた先が結局その欄の上になることがほとんど。
-    // そこを起点にした動きも区別なく外さないと、次の項目まで指が届かない
-    // (2026-09-20の再報告)。
+    // 占め、指を置く先が結局その欄の上になることがほとんど。そこへの接触も区別なく
+    // 外さないと、次の項目まで指が届かない(2026-09-20の複数回の再報告)。
     const { getByTestId } = render(
       <Sheet open onClose={() => {}} title="予定を追加">
         <input data-testid="title-input" />
-        <div data-testid="lower-field">下のほうの項目</div>
       </Sheet>,
     );
     const input = getByTestId("title-input") as HTMLInputElement;
     input.focus();
 
-    fireEvent.touchStart(input, { touches: [{ clientX: 100, clientY: 300 }] });
-    fireEvent.touchMove(input, { touches: [{ clientX: 100, clientY: 200 }] });
+    fireEvent.touchStart(input);
 
     expect(document.activeElement).not.toBe(input);
   });
@@ -86,9 +69,37 @@ describe("入力シートのスクロール中のフォーカス", () => {
         <div data-testid="lower-field">下のほうの項目</div>
       </Sheet>,
     );
-    // どこにもフォーカスしていない状態(bodyがactiveElement)でスクロールしても、
+    // どこにもフォーカスしていない状態(bodyがactiveElement)で触れても、
     // 外すフォーカスが無いのでエラーにならず何も起きない。
-    expect(() => fireEvent.touchMove(getByTestId("lower-field"))).not.toThrow();
+    expect(() => fireEvent.touchStart(getByTestId("lower-field"))).not.toThrow();
+  });
+});
+
+/**
+ * body だけを止めても、iOS は body と html をまとめて1つのスクロール領域として
+ * 扱うため、シートの裏でページ自体がスクロールできてしまうことがある
+ * (WebKitの既知の挙動)。html も一緒に止める(src/components/ui/Sheet.tsx)。
+ */
+describe("入力シートが開いている間のページの動き", () => {
+  it("開いている間はhtml・bodyどちらもスクロールを止め、閉じたら戻す", () => {
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
+
+    const { rerender } = render(
+      <Sheet open onClose={() => {}} title="予定を追加">
+        <input />
+      </Sheet>,
+    );
+    expect(document.documentElement.style.overflow).toBe("hidden");
+    expect(document.body.style.overflow).toBe("hidden");
+
+    rerender(
+      <Sheet open={false} onClose={() => {}} title="予定を追加">
+        <input />
+      </Sheet>,
+    );
+    expect(document.documentElement.style.overflow).toBe("");
+    expect(document.body.style.overflow).toBe("");
   });
 });
 

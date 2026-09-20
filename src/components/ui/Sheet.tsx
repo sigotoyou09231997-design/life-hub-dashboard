@@ -60,6 +60,10 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
   useEffect(() => {
     if (!open) return;
 
+    // bodyだけを止めても、iOSはbodyとhtmlをまとめて1つのスクロール領域として扱うため
+    // 裏のページがスクロールできてしまうことがある(WebKitの既知の挙動)。htmlも
+    // 一緒に止めることで、シートの裏でページ自体が動く余地を無くす。
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
 
     // Focus the first real input/textarea/select if present (most forms lead
@@ -95,6 +99,7 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      document.documentElement.style.overflow = "";
       document.body.style.overflow = "";
       document.removeEventListener("keydown", handleKeyDown);
       cancelAnimationFrame(raf);
@@ -163,43 +168,27 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     // 「見えるようにしなければ」と毎回引き戻す)。この画面は.sheet-body側だけを
     // スクロールさせているが、iOSはその区別をしてくれないため、上の方の入力欄に
     // フォーカスしたまま下の項目を見ようとして指でスクロールしても、そのたびに
-    // 先頭まで戻されて下の項目に入力できなくなる(2026-09-20の報告)。
+    // 引き戻されて下の項目に入力できなくなる(2026-09-20の報告)。
     //
-    // 指を動かしてスクロールが始まった時点でフォーカスを外す。フォーカスが無くなれば
-    // iOSが引き戻す理由も無くなり、指のとおりに自由にスクロールできる。次の入力欄を
-    // タップすれば、これまでどおり普通にフォーカスし直される。
+    // 最初はtouchmove(指が動いた時点)でフォーカスを外していたが、それでも直らな
+    // かった(2026-09-20の再報告)。iOS側の引き戻しは指が動き始めるより前、触れた
+    // 瞬間(touchstart)から始まっている可能性があり、touchmoveまで待つと手遅れに
+    // なると考えられる。そこでtouchstart — 指が触れた瞬間 — で、動きの向きも距離も
+    // 見ずに即フォーカスを外す。指が置かれた先がフォーカス中の欄自身でも区別しない
+    // (キーボードで見えている範囲が狭い時は、その欄自体がほぼ画面いっぱいを占め、
+    // 指を置く先が結局その欄の上になることがほとんどのため)。
     //
-    // 「動き始めた先がフォーカス中の欄自身なら外さない」という例外は、最初は文字選択の
-    // ためのつもりで付けていたが、キーボードが出て残りの見えている範囲が狭い時は、
-    // その欄自体がほぼ画面いっぱいを占めてしまい、スクロールしようと指を置いた先が
-    // 結局その欄の上になることがほとんどだった。それでは例外の方が働いてしまい、
-    // すぐ下の項目(例: 場所の次のメモ)まで指が届かなくなる(2026-09-20の再報告)。
-    // 代わりに、指の動いた距離がわずかな間(タップ時の揺れ程度)は待ち、はっきり
-    // スクロールと分かる距離を超えた時だけ外す。
-    const SCROLL_THRESHOLD_PX = 10;
-    let startX: number | null = null;
-    let startY: number | null = null;
-    const handleTouchStart = (e: TouchEvent) => {
-      const touch = e.touches[0];
-      startX = touch?.clientX ?? null;
-      startY = touch?.clientY ?? null;
-    };
-    const handleTouchMove = (e: TouchEvent) => {
+    // 外れるのはタップのたびに毎回だが、実害は無い。別の欄をタップしたのであれば
+    // タップ自体(touchend側)でその欄へ普通にフォーカスし直り、同じ欄の中でタップし
+    // 直した(カーソル位置を変えたい等)のであれば、同じくタップでその位置に
+    // フォーカスし直る。キーボードが一瞬ちらつく可能性はあるが、下まで指が届かない
+    // ことに比べれば軽微。
+    const handleTouchStart = () => {
       const active = document.activeElement as HTMLElement | null;
-      if (!active || !opensKeyboard(active)) return;
-      const touch = e.touches[0];
-      if (touch && startX !== null && startY !== null) {
-        const moved = Math.max(Math.abs(touch.clientX - startX), Math.abs(touch.clientY - startY));
-        if (moved < SCROLL_THRESHOLD_PX) return;
-      }
-      active.blur();
+      if (active && opensKeyboard(active)) active.blur();
     };
     body.addEventListener("touchstart", handleTouchStart, { passive: true });
-    body.addEventListener("touchmove", handleTouchMove, { passive: true });
-    return () => {
-      body.removeEventListener("touchstart", handleTouchStart);
-      body.removeEventListener("touchmove", handleTouchMove);
-    };
+    return () => body.removeEventListener("touchstart", handleTouchStart);
   }, [open]);
 
   const maxHeightPx = sheetMaxHeightPx(visibleHeight, keyboardInset, compact);
