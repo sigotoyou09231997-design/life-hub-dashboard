@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Plus, Calendar as CalendarIcon, CheckSquare } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, CheckSquare, Sparkles } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent, JobApplication, Task } from "../types";
-import { todayStr } from "../lib/date";
+import { parseDate, todayStr } from "../lib/date";
 import { deleteEventMailLinks } from "../lib/eventMailLink";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -13,6 +13,7 @@ import { PageFab } from "../components/ui/PageFab";
 import { Tabs } from "../components/ui/Tabs";
 import { EventForm } from "../components/calendar/EventForm";
 import { TaskForm } from "../components/tasks/TaskForm";
+import { EventScanForm } from "../components/schedule/EventScanForm";
 import { TodayView } from "../components/schedule/TodayView";
 import { CalendarView } from "../components/schedule/CalendarView";
 import { ListView } from "../components/schedule/ListView";
@@ -62,6 +63,7 @@ export default function SchedulePage() {
   const [editingEvent, setEditingEvent] = useState<EditingEvent>(null);
   const [editingTask, setEditingTask] = useState<EditingTask>(null);
   const [editingJob, setEditingJob] = useState<EditingJob>(null);
+  const [scanOpen, setScanOpen] = useState(false);
 
   // アプリアイコン長押しのショートカット(vite.config.ts の manifest.shortcuts)から
   // ?new=event / ?new=task で来たときは、その追加フォームを開いた状態で始める。
@@ -220,7 +222,7 @@ export default function SchedulePage() {
 
       <Sheet open={addTypeOpen} onClose={() => setAddTypeOpen(false)} title="何を追加しますか?">
         {/* 選ぶだけの画面なので、入力欄と同じ面ではなく「押す的」として見せる。 */}
-        <div className="choice-grid">
+        <div className="choice-grid choice-grid--three">
           <button
             type="button"
             onClick={() => {
@@ -249,6 +251,21 @@ export default function SchedulePage() {
             <strong>タスク</strong>
             <small>終わらせたいこと</small>
           </button>
+          {/* 案内の文章・チラシ・スクショから、予定をまとめて起こす(読み取りはAI)。 */}
+          <button
+            type="button"
+            onClick={() => {
+              setAddTypeOpen(false);
+              setScanOpen(true);
+            }}
+            className="choice-grid__option"
+          >
+            <span className="choice-grid__icon">
+              <Sparkles size={22} />
+            </span>
+            <strong>写真・文章</strong>
+            <small>から読み取る</small>
+          </button>
         </div>
       </Sheet>
 
@@ -268,6 +285,21 @@ export default function SchedulePage() {
               showToast(mode === "updated" ? "変更を保存しました" : "新しい予定として追加しました");
             }}
             onCancel={() => setEditingEvent(null)}
+          />
+        )}
+      </Sheet>
+
+      <Sheet open={scanOpen} onClose={() => setScanOpen(false)} title="写真・文章から予定を作る">
+        {scanOpen && (
+          <EventScanForm
+            onSaved={(message, firstDate) => {
+              setScanOpen(false);
+              // 入った予定をすぐ見られるよう、カレンダーをその日へ動かす。
+              setSelectedDate(firstDate);
+              setCurrentMonth(parseDate(firstDate));
+              showToast(message);
+            }}
+            onCancel={() => setScanOpen(false)}
           />
         )}
       </Sheet>
