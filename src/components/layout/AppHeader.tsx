@@ -7,6 +7,7 @@ import { avatarColor, avatarInitial, parseSender } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
 import { useNotificationSignals } from "../../lib/notificationSignals";
 import { useUsageAlerts } from "../../hooks/useFeatureUsage";
+import { useSyncProblems } from "../../lib/syncProblems";
 import { Sheet } from "../ui/Sheet";
 import { EmptyState } from "../ui/EmptyState";
 import { AccountSwitcher } from "./AccountSwitcher";
@@ -26,7 +27,10 @@ export function AppHeader() {
   // 使われなくなった機能のお知らせ。数え方が他の通知と違う(1日1回・Supabaseで数える)ので、
   // useNotificationSignals には混ぜずに別に持つ。
   const usage = useUsageAlerts();
-  const notificationCount = signals.total + usage.alerts.length;
+  // サーバーに弾かれて送れずにいる変更。失敗が console にしか出ず、スマホで3週間以上
+  // 気づけなかったので(2026-09-21)、ここに出す。
+  const syncProblems = useSyncProblems();
+  const notificationCount = signals.total + usage.alerts.length + syncProblems.length;
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -122,6 +126,28 @@ export function AppHeader() {
           <EmptyState icon={Bell} title="新しい通知はありません" />
         ) : (
           <div className="space-y-5">
+            {syncProblems.length > 0 && (
+              <div>
+                <p className="mb-2 text-sm font-medium text-danger">PCとスマホで同期できていない変更</p>
+                <div className="space-y-2">
+                  {syncProblems.map((problem) => (
+                    <Link
+                      key={problem.table}
+                      to="/account"
+                      onClick={() => setNotifOpen(false)}
+                      className="glass-row block rounded-xl p-3 text-left transition-colors active:bg-white/70"
+                    >
+                      <p className="text-sm font-medium text-slate-900">
+                        {problem.label}の変更 {problem.count}件
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">{problem.message}</p>
+                      <p className="mt-0.5 break-all text-[11px] text-slate-400">{problem.detail}</p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {signals.gmailUnprocessed.length > 0 && (
               <div>
                 <p className="mb-2 text-sm font-medium text-slate-600">Gmail未処理</p>
