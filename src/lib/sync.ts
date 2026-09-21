@@ -2,7 +2,8 @@ import type { EntityTable } from "dexie";
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseDataClient } from "./supabaseData";
 import { scopedKey } from "./accounts";
-import { db } from "../db/schema";
+import { db, type SyncQueueEntry } from "../db/schema";
+import { summarizeSyncProblems, syncTableLabel } from "./syncProblems";
 import { getDeviceId } from "./deviceId";
 
 interface SyncableRow {
@@ -115,12 +116,31 @@ async function drainQueue(): Promise<void> {
         await db.syncQueue.delete(entry.id);
       } catch (err) {
         console.error("[sync] failed to push a queued change, will retry later:", err);
-        break; // network/RLS error — leave the rest queued, retry on the next trigger
+        // 通信が切れている・ログインが切れている時は、残りを送っても同じように落ちるので止める。
+        if (isTransientPushError(err)) break;
+        // サーバーがこの行だけを弾いた時(列が無い等)は、印を付けて次へ進む。以前はここでも
+        // break していたため、予定1件の失敗でお金・メモまで3週間以上止まっていた(2026-09-21)。
+        // 印の付いた行は消さずに残し、次の機会にまた送る(SQLを流せばそのまま送れる)。
+        await db.syncQueue.update(entry.id, { lastError: pushErrorText(err), failedAt: Date.now() });
       }
     }
   } finally {
     draining = false;
   }
+}
+
+/** supabase-js は通信の失敗も PostgrestError の形で返すが、その時は code が空になる。
+ * PGRST301/302/303 はトークン切れ・不正で、ログインし直せば全部送れるので行のせいにしない。 */
+function isTransientPushError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  if (typeof code !== "string" || code === "") return true;
+  return /^PGRST30\d$/.test(code);
+}
+
+function pushErrorText(err: unknown): string {
+  const e = err as { code?: string; message?: string } | null;
+  const message = e?.message ?? String(err);
+  return e?.code ? `${e.code}: ${message}` : message;
 }
 
 type ApplyOutcome = "added" | "updated" | "deleted" | "skipped-echo" | "skipped-lww" | "skipped-no-id" | "error";
@@ -320,15 +340,30 @@ export async function syncNow(): Promise<string> {
   const results = await Promise.all(registered.map((reg) => reconcile(reg, true)));
   const queuedBefore = await db.syncQueue.count();
   await drainQueue();
-  const queuedAfter = await db.syncQueue.count();
-  return results
-    .map((r) => {
-      if (r.error) return `${r.tableName}: エラー(${r.error})`;
-      const breakdown = Object.entries(r.outcomes)
-        .map(([k, v]) => `${k}:${v}`)
-        .join(",");
-      return `${r.tableName}: ${r.rows}件受信 [${breakdown}]`;
-    })
-    .concat(`送信キュー: ${queuedBefore}→${queuedAfter}`)
-    .join(" / ");
+  const remaining = await db.syncQueue.toArray();
+  return describeSyncResult(results, queuedBefore, remaining);
+}
+
+/** 同期ボタンのお知らせ。以前は全テーブルの内訳(skipped-echo 等)を1行に並べていて、
+ * 成功しているのに「エラーが出た」と読まれた(2026-09-21)。うまくいった時は短く、
+ * うまくいかなかった所だけ中身を出す。 */
+export function describeSyncResult(results: ReconcileResult[], queuedBefore: number, remaining: SyncQueueEntry[]): string {
+  const problems: string[] = [];
+  for (const r of results) {
+    if (r.error) problems.push(`${syncTableLabel(r.tableName)}を受け取れませんでした（${r.error}）`);
+  }
+  for (const p of summarizeSyncProblems(remaining)) {
+    problems.push(`${p.label}の変更${p.count}件を送れませんでした：${p.message}（${p.detail}）`);
+  }
+  const unsentOther = remaining.filter((e) => !e.lastError).length;
+  if (unsentOther > 0) problems.push(`まだ送れていない変更が${unsentOther}件あります（電波が戻ると送ります）`);
+  if (problems.length > 0) return problems.join(" / ");
+
+  const received = results.reduce(
+    (sum, r) => sum + (r.outcomes.added ?? 0) + (r.outcomes.updated ?? 0) + (r.outcomes.deleted ?? 0),
+    0,
+  );
+  const sent = queuedBefore - remaining.length;
+  const parts = [received > 0 ? `受け取り${received}件` : "", sent > 0 ? `送信${sent}件` : ""].filter(Boolean);
+  return parts.length > 0 ? `同期しました（${parts.join("・")}）` : "同期しました（変更はありませんでした）";
 }

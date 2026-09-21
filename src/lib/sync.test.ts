@@ -89,6 +89,93 @@ describe("sync session lifecycle", () => {
     await vi.waitFor(() => expect(mocks.from).toHaveBeenCalled());
 
     const result = await sync.syncNow();
-    expect(result).toContain("tasks: エラー(network failed)");
+    expect(result).toContain("タスクを受け取れませんでした（network failed）");
+  });
+
+  it("keeps pushing other rows when the server rejects one row, and marks the rejected one", async () => {
+    const upsert = vi.fn(async (row: Record<string, unknown>) =>
+      row.id === "bad"
+        ? { error: { code: "42703", message: "column calendar_events.repeat does not exist" } }
+        : { error: null },
+    );
+    const query = { select: vi.fn(), gte: vi.fn(), upsert };
+    query.select.mockReturnValue(query);
+    query.gte.mockResolvedValue({ data: [], error: null });
+    mocks.from.mockReturnValue(query);
+    mocks.syncQueue.toArray.mockResolvedValue([
+      { id: 1, table: "calendar_events", rowId: "bad", op: "upsert", queuedAt: 1 },
+      { id: 2, table: "transactions", rowId: "good", op: "upsert", queuedAt: 2 },
+    ]);
+    const events = table();
+    events.get.mockResolvedValue({ id: "bad", title: "x" });
+    const money = table();
+    money.get.mockResolvedValue({ id: "good", amount: 100 });
+    const sync = await import("./sync");
+    sync.registerSyncedTable(events as never, "calendar_events");
+    sync.registerSyncedTable(money as never, "transactions");
+    await sync.startSession("user-1", "token-1");
+
+    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(mocks.syncQueue.delete).toHaveBeenCalledWith(2);
+    expect(mocks.syncQueue.delete).not.toHaveBeenCalledWith(1);
+    expect(mocks.syncQueue.update).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ lastError: "42703: column calendar_events.repeat does not exist" }),
+    );
+  });
+
+  it("stops at a network failure without blaming the row", async () => {
+    const upsert = vi.fn(async () => ({ error: { code: "", message: "TypeError: Failed to fetch" } }));
+    const query = { select: vi.fn(), gte: vi.fn(), upsert };
+    query.select.mockReturnValue(query);
+    query.gte.mockResolvedValue({ data: [], error: null });
+    mocks.from.mockReturnValue(query);
+    mocks.syncQueue.toArray.mockResolvedValue([
+      { id: 1, table: "tasks", rowId: "a", op: "upsert", queuedAt: 1 },
+      { id: 2, table: "tasks", rowId: "b", op: "upsert", queuedAt: 2 },
+    ]);
+    const tasks = table();
+    tasks.get.mockResolvedValue({ id: "a" });
+    const sync = await import("./sync");
+    sync.registerSyncedTable(tasks as never, "tasks");
+    await sync.startSession("user-1", "token-1");
+
+    expect(upsert).toHaveBeenCalledOnce();
+    expect(mocks.syncQueue.update).not.toHaveBeenCalled();
+    expect(mocks.syncQueue.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe("describeSyncResult", () => {
+  it("says it synced in one short line when nothing went wrong", async () => {
+    const { describeSyncResult } = await import("./sync");
+    const result = describeSyncResult(
+      [
+        { tableName: "transactions", rows: 85, outcomes: { updated: 79, deleted: 6 }, error: null },
+        { tableName: "calendar_events", rows: 7, outcomes: { "skipped-echo": 7 }, error: null },
+      ],
+      2,
+      [],
+    );
+    expect(result).toBe("同期しました（受け取り85件・送信2件）");
+  });
+
+  it("says there was nothing to do when nothing changed", async () => {
+    const { describeSyncResult } = await import("./sync");
+    expect(describeSyncResult([{ tableName: "tasks", rows: 1, outcomes: { "skipped-echo": 1 }, error: null }], 0, [])).toBe(
+      "同期しました（変更はありませんでした）",
+    );
+  });
+
+  it("names the table and the likely cause when rows are stuck", async () => {
+    const { describeSyncResult } = await import("./sync");
+    const result = describeSyncResult([], 3, [
+      { id: 1, table: "calendar_events", rowId: "a", op: "upsert", queuedAt: 1, lastError: "42703: column x does not exist" },
+      { id: 2, table: "calendar_events", rowId: "b", op: "upsert", queuedAt: 1, lastError: "42703: column x does not exist" },
+      { id: 3, table: "tasks", rowId: "c", op: "upsert", queuedAt: 1 },
+    ]);
+    expect(result).toContain("予定の変更2件を送れませんでした：本番のデータベースに列が足りません");
+    expect(result).toContain("まだ送れていない変更が1件あります");
+    expect(result).not.toContain("同期しました");
   });
 });

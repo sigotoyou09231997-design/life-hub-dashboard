@@ -42,6 +42,10 @@ export interface SyncQueueEntry {
   rowId: string;
   op: "upsert" | "delete";
   queuedAt: number;
+  /** サーバーに弾かれた理由(通信の失敗は入れない)。送れたら行ごと消える。索引は張らない。
+   * ベルの「同期できていない変更」はこれを見る(src/lib/syncProblems.ts)。 */
+  lastError?: string;
+  failedAt?: number;
 }
 
 interface TableSchema {
