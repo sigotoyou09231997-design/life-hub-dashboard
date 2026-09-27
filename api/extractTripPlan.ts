@@ -349,10 +349,13 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       // thinking(claude-sonnet-5 は指定を省くと考えながら答える)と本文が同じ枠を
       // 分け合うため、2048だと考えている途中で切れて本文が出ないことがある。
       max_tokens: 8000,
-      // 長い旅程表(潮の時間や交通規制の注意書きなど)を渡すと、指定なし(adaptive)では
-      // 考える時間が伸びて Vercel の maxDuration(60秒)を超え、504で失敗することがある
-      // (2026-09-27)。抜き出し自体は判断の要らない作業なので、上限を切って時間を抑える。
-      thinking: { type: "enabled", budget_tokens: 3000 },
+      // 長い旅程表(潮の時間や交通規制の注意書きなど)を渡すと、effort未指定(既定はhigh)
+      // では考える時間が伸びて Vercel の maxDuration(60秒)を超え、504で失敗することが
+      // あった(2026-09-27)。claude-sonnet-5 は budget_tokens を受け付けず(400)、
+      // thinking.type は "adaptive" 固定で、output_config.effort でしか時間を抑えられない。
+      // 抜き出し自体は指示済みのルールに沿って当てはめるだけの作業なので、lowで十分。
+      thinking: { type: "adaptive" },
+      output_config: { effort: "low" },
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: buildContent(payload) }],
     }),
