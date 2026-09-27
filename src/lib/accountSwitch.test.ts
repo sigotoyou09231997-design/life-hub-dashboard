@@ -15,7 +15,7 @@ vi.mock("./supabase", () => ({
 }));
 
 import { listAccounts, setAddingAccount } from "./accounts";
-import { finishAddAccount, signOutActiveAccount } from "./accountSwitch";
+import { finishAddAccount, isRestarting, signOutActiveAccount, switchToAccount } from "./accountSwitch";
 
 // window.location.replace はjsdomでは実行されない(未実装)。切り替え後に必ず読み込み
 // 直す設計なので、ここでは呼ばれたことだけ確かめられればよい。
@@ -88,6 +88,23 @@ describe("アカウントの追加と切り替え", () => {
     expect(supabase.clearStoredSession).toHaveBeenCalledWith("user-b");
     expect(listAccounts().map((a) => a.userId)).toEqual(["user-a"]);
     expect(localStorage.getItem("lifeHubActiveAccount")).toBe("user-a");
+    expect(replace).toHaveBeenCalledWith("/");
+  });
+
+  it("切り替えを始めたら isRestarting が true になる(開き直る直前にトークン更新などが古いアカウントIDで上書きするのを、src/App.tsx が止められるように)", () => {
+    localStorage.setItem(
+      "lifeHubAccounts",
+      JSON.stringify([
+        { userId: "user-a", email: "a@example.com", name: null, avatarUrl: null, slot: null, dbName: "life-hub", addedAt: 1 },
+        { userId: "user-b", email: "b@example.com", name: null, avatarUrl: null, slot: "user-b", dbName: "life-hub-user-b", addedAt: 2 },
+      ]),
+    );
+    localStorage.setItem("lifeHubActiveAccount", "user-a");
+
+    switchToAccount("user-b");
+
+    expect(isRestarting()).toBe(true);
+    expect(localStorage.getItem("lifeHubActiveAccount")).toBe("user-b");
     expect(replace).toHaveBeenCalledWith("/");
   });
 });

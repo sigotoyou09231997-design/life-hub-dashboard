@@ -13,6 +13,19 @@ import {
 } from "./accounts";
 import { auth, clearStoredSession, moveStoredSession } from "./supabase";
 
+/** 切り替え・追加・ログアウトのどれかで restart() を呼んだ後、実際にページが
+ * 開き直るまでの一瞬だけ true。この間もこのページのJSは動き続けているため、
+ * トークン自動更新などで src/App.tsx の onAuthStateChange がもう一度発火すると
+ * rememberSignedInAccount → setActiveAccount が古いアカウントIDで上書きし、
+ * 切り替えたはずのアカウントが開き直った先で元に戻ることがあった(2026-09-27、
+ * 発生がタイミング次第で「時々切り替わらない」という報告になっていた)。
+ * App.tsx はこれを見て、その一瞬に届いた分の反映を止める。 */
+let restarting = false;
+
+export function isRestarting(): boolean {
+  return restarting;
+}
+
 /** アカウントを切り替えたら、必ずページごと読み込み直す。
  *
  * 画面もGmail連携も設定も、すべて端末内のIndexedDBを直接読んでいる(48ファイル)。
@@ -20,6 +33,7 @@ import { auth, clearStoredSession, moveStoredSession } from "./supabase";
  * DBを掴んだままになる。起動し直せばその心配が丸ごと無くなるし、切り替え先のデータは
  * もう端末内にあるので待ち時間もほぼ無い。 */
 function restart(): void {
+  restarting = true;
   window.location.replace("/");
 }
 
