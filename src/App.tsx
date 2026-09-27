@@ -9,7 +9,7 @@ import { startSync, stopSync } from "./lib/syncRuntime";
 import { ensureDataOwner } from "./lib/dataOwner";
 import { IS_ADDING_ACCOUNT } from "./lib/accounts";
 import { refreshViewportGap } from "./lib/viewport";
-import { finishAddAccount, rememberSignedInAccount } from "./lib/accountSwitch";
+import { finishAddAccount, isRestarting, rememberSignedInAccount } from "./lib/accountSwitch";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { ConfirmProvider } from "./components/ui/ConfirmProvider";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
@@ -107,6 +107,13 @@ export default function App() {
     const applySession = async (next: Session | null) => {
       const currentTransition = ++transition;
       if (!active) return;
+      // 切り替え・追加・ログアウトのどれかで既にページの開き直しが始まっている
+      // (src/lib/accountSwitch.ts の restart())。その一瞬にトークン自動更新などで
+      // ここがもう一度呼ばれると、rememberSignedInAccount が古いアカウントIDで
+      // ACTIVE_KEY を上書きし、開き直った先で切り替え前のアカウントに戻ってしまう
+      // (2026-09-27、タイミング次第で起きるため「時々切り替わらない」という
+      // 報告になっていた)。開き直りが始まっていたら、以降は何もしない。
+      if (isRestarting()) return;
       // 「アカウントを追加」の最中のログインは、いま開いているアカウントとは別物。
       // 画面に反映する前に打ち切って、追加したアカウントの側でページごと開き直す —
       // ここでsetSessionしてしまうと、読み込み直しが始まるまでの一瞬だけ「新しい
