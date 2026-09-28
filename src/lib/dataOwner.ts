@@ -1,5 +1,6 @@
 import { db } from "../db/schema";
 import { scopedKey } from "./accounts";
+import { withSyncSuppressed } from "./sync";
 
 /** 端末内(IndexedDB)のデータが「どのログインユーザーのものか」の記録。
  * 記録もカーソルも、いま開いているアカウントのDB単位(src/lib/accounts.ts の scopedKey)。
@@ -34,7 +35,11 @@ function writeOwner(userId: string): void {
  * そもそも同期対象外なので、別アカウントでログインし直しても前のアカウントの中身が
  * まるごと見えてしまう。持ち主が変わったらローカルを空にしてから同期を始める。 */
 async function wipeLocalData(): Promise<void> {
-  await Promise.all(db.tables.map((table) => table.clear()));
+  // 同期の登録が既に済んでいるテーブルは、素の table.clear() だと1行ずつの
+  // 削除として扱われ、そのまま次の同期でサーバー側まで消えてしまう
+  // (src/lib/sync.ts の withSyncSuppressed のコメント参照)。ここはあくまで
+  // この端末のローカルだけを空にする操作なので、送り返さないようにする。
+  await withSyncSuppressed(() => Promise.all(db.tables.map((table) => table.clear())));
   try {
     const stale = Object.keys(localStorage).filter((key) => key.startsWith(SYNC_CURSOR_PREFIX));
     for (const key of stale) localStorage.removeItem(key);

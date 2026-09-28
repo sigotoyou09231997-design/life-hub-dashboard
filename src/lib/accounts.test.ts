@@ -53,6 +53,23 @@ describe("端末に登録したアカウントの一覧", () => {
     expect(replacement.dbName).toBe(DEFAULT_DB_NAME);
   });
 
+  it("違う置き場所から復元されても、登録済みの置き場所は変えない", () => {
+    // 別アカウントの置き場所に、このユーザーのログインが何らかの理由で紛れ込んで
+    // 復元されたケースを想定(2026-09-28、実際にこれで船田悦司さんの端末内データが
+    // 消えた)。ここで渡された slot をそのまま信じて書き換えると、以後の起動が
+    // すべて間違った置き場所とDBを読みに行くようになる。
+    rememberAccount({ userId: "user-a" }, null);
+    rememberAccount({ userId: "user-b" }, "user-b");
+
+    const restored = rememberAccount({ userId: "user-a", name: "本人" }, "user-b");
+
+    expect(restored.slot).toBeNull();
+    expect(restored.dbName).toBe(DEFAULT_DB_NAME);
+    expect(restored.name).toBe("本人");
+    // 巻き込んでいない — user-b の登録はそのまま残る。
+    expect(listAccounts().find((a) => a.userId === "user-b")).toMatchObject({ slot: "user-b" });
+  });
+
   it("一覧から外しても、同じアカウントを入れ直せば同じDBに戻る", () => {
     rememberAccount({ userId: "user-a" }, null);
     rememberAccount({ userId: "user-b" }, "user-b");
