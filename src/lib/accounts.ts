@@ -136,12 +136,18 @@ export function rememberAccount(profile: AccountProfile, slot: string | null): S
   const existing = accounts.find((account) => account.userId === profile.userId);
 
   if (existing) {
+    // slot は上のコメントのとおり変えない — ここで渡された slot をそのまま使うと、
+    // 「今の起動でどの置き場所が有効か(BOOT_SLOT)」と「このユーザーが実際にどの
+    // 置き場所の持ち主か」がずれた時(例: 別アカウントの置き場所にこのユーザーの
+    // ログインが紛れ込んで復元された)、その既存アカウントの置き場所を丸ごと
+    // 書き換えてしまう。以後の起動がすべて間違った置き場所を読みに行くようになり、
+    // データベースの持ち主判定(src/lib/dataOwner.ts)もそれにつられて食い違い、
+    // ローカルのデータを丸ごと空にしてしまう事故につながった(2026-09-28)。
     const updated: StoredAccount = {
       ...existing,
       email: profile.email ?? existing.email,
       name: profile.name ?? existing.name,
       avatarUrl: profile.avatarUrl ?? existing.avatarUrl,
-      slot,
     };
     saveAccounts(accounts.map((account) => (account.userId === updated.userId ? updated : account)));
     setActiveAccount(updated.userId);

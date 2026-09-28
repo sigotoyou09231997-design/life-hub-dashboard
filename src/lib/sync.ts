@@ -30,6 +30,25 @@ let currentUserId: string | null = null;
 let applyingRemoteChange = false;
 let dataClient: SupabaseClient | null = null;
 let lifecycleListenersAttached = false;
+
+/** テーブルのフック(下の registerSyncedTable)に「この変更は送り返さない」と
+ * 伝えるための一時停止。サーバー由来の反映(applyRemoteRow)と同じ仕組みを、
+ * ローカルだけで完結させたい一括操作にも使う — src/lib/dataOwner.ts の
+ * wipeLocalData(持ち主が変わった端末のローカルを空にする)がこれを使う。
+ *
+ * Dexie は削除対象のテーブルに1つでもフックが登録済みだと table.clear() を
+ * 1行ずつ削除する経路に切り替え、'deleting' フックを毎回発火させる。これを
+ * 素通りさせると、ローカルの安全な空っぽ化のはずが「全行削除」としてsyncQueueに
+ * 積まれ、次の同期でサーバー側まで消してしまう(2026-09-28、実際に船田悦司さんの
+ * 端末内データが空になった事故で発覚。幸いサーバー側は無事だった)。 */
+export async function withSyncSuppressed<T>(fn: () => Promise<T>): Promise<T> {
+  applyingRemoteChange = true;
+  try {
+    return await fn();
+  } finally {
+    applyingRemoteChange = false;
+  }
+}
 let sessionStart: Promise<void> = Promise.resolve();
 
 function camelToSnake(key: string): string {
