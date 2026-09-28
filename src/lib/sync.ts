@@ -186,11 +186,17 @@ async function applyRemoteRow(reg: RegisteredTable, remoteRow: Record<string, un
     }
   }
 
-  if (camel.deviceId && camel.deviceId === getDeviceId()) return "skipped-echo";
-
   applyingRemoteChange = true;
   try {
     const local = await reg.table.get(camel.id);
+
+    // 自分の端末から出た変更が跳ね返ってきただけなら、もう持っているので無視して
+    // 良い(元々の意図)。ただし「持っている」かどうかは local の有無で確かめる
+    // 必要がある — deviceId が一致するというだけで無視すると、この端末のローカルを
+    // 空にして復旧する場面(src/lib/dataOwner.ts の ensureDataOwner)で、まさに
+    // この端末で作った行だけが「自分の端末発だから」と一生戻らなくなる
+    // (2026-09-28、実際にこれでカレンダーやメモが復旧しきらなかった)。
+    if (local && camel.deviceId && camel.deviceId === getDeviceId()) return "skipped-echo";
     if (local && (local.updatedAt ?? 0) > (camel.updatedAt ?? 0)) return "skipped-lww";
 
     // deletedAt/serverUpdatedAt are sync-plumbing columns, not part of the local row shape.
