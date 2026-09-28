@@ -1,5 +1,6 @@
+import Dexie from "dexie";
 import { db } from "../db/schema";
-import { scopedKey } from "./accounts";
+import { BOOT_DB_NAME, scopedKey } from "./accounts";
 import { withSyncSuppressed } from "./sync";
 
 /** 端末内(IndexedDB)のデータが「どのログインユーザーのものか」の記録。
@@ -29,12 +30,32 @@ function writeOwner(userId: string): void {
   }
 }
 
+/** 空にする直前の中身を、別のIndexedDB(同期にも画面にも一切登場しない、控えの置き場所)へ
+ * まるごと退避する。この判定(持ち主が変わった)が誤りだった時の最後の砦 — 2026-09-28の
+ * 事故では、消えたと分かった時点でこの控えが無く、サーバー側のSQLを直接書いて戻すしか
+ * 無かった(給与4件・予定やメモの一部)。件数は個人利用の規模なので toArray() で丸ごと
+ * 読んでも軽い。失敗しても空にする処理自体は止めない(控えより、持ち主の食い違いを
+ * 正すことの方が優先)。 */
+async function backupBeforeWipe(): Promise<void> {
+  try {
+    const snapshot = await Promise.all(db.tables.map(async (table) => ({ name: table.name, rows: await table.toArray() })));
+    const backupDbName = `${BOOT_DB_NAME}-wipe-backup-${Date.now()}`;
+    const backup = new Dexie(backupDbName);
+    backup.version(1).stores({ tables: "name" });
+    await backup.table("tables").bulkPut(snapshot);
+    backup.close();
+  } catch (err) {
+    console.error("[dataOwner] failed to back up before wipe:", err);
+  }
+}
+
 /** IndexedDBは「ブラウザごと」で、Supabaseのログインユーザーとは無関係に残り続ける。
  * 同期対象のテーブルはRLSで他人の行が降りてこないだけで、前の持ち主がこの端末に
  * 書いたローカル行はそのまま残るし、Gmail(アカウント接続・メール・AI下書き)や設定は
  * そもそも同期対象外なので、別アカウントでログインし直しても前のアカウントの中身が
  * まるごと見えてしまう。持ち主が変わったらローカルを空にしてから同期を始める。 */
 async function wipeLocalData(): Promise<void> {
+  await backupBeforeWipe();
   // 同期の登録が既に済んでいるテーブルは、素の table.clear() だと1行ずつの
   // 削除として扱われ、そのまま次の同期でサーバー側まで消えてしまう
   // (src/lib/sync.ts の withSyncSuppressed のコメント参照)。ここはあくまで
