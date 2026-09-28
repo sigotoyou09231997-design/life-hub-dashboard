@@ -2,12 +2,30 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  tables: [{ clear: vi.fn(async () => undefined) }, { clear: vi.fn(async () => undefined) }],
+  tables: [
+    { name: "notes", clear: vi.fn(async () => undefined), toArray: vi.fn(async () => [{ id: "n1" }]) },
+    { name: "tasks", clear: vi.fn(async () => undefined), toArray: vi.fn(async () => [{ id: "t1" }]) },
+  ],
   withSyncSuppressed: vi.fn(async (fn: () => Promise<unknown>) => fn()),
+  backupBulkPut: vi.fn(async () => undefined),
 }));
 
 vi.mock("../db/schema", () => ({ db: { tables: mocks.tables } }));
 vi.mock("./sync", () => ({ withSyncSuppressed: mocks.withSyncSuppressed }));
+// 控え先は本物のIndexedDBを使わず、呼び出しの形だけ確かめる(jsdomにIndexedDBの
+// 実装が無いテスト環境のため)。
+vi.mock("dexie", () => ({
+  default: class MockDexie {
+    constructor(public name: string) {}
+    version() {
+      return { stores: () => undefined };
+    }
+    table() {
+      return { bulkPut: mocks.backupBulkPut };
+    }
+    close() {}
+  },
+}));
 
 import { ensureDataOwner } from "./dataOwner";
 
@@ -53,5 +71,28 @@ describe("ensureDataOwner", () => {
     // サーバー側の行まで消えてしまう(2026-09-28に実際に起きた事故)。
     expect(mocks.withSyncSuppressed).toHaveBeenCalledTimes(1);
     for (const table of mocks.tables) expect(table.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it("空にする前に、中身をまるごと控えへ退避する(判定が誤りだった時の最後の砦)", async () => {
+    // 2026-09-28の事故では、この控えが無かったため、消えたと分かった時点で
+    // サーバー側のSQLを直接書いて戻すしかなかった(給与4件など)。
+    await ensureDataOwner("user-a");
+    mocks.backupBulkPut.mockClear();
+
+    expect(await ensureDataOwner("user-b")).toBe(true);
+
+    expect(mocks.backupBulkPut).toHaveBeenCalledTimes(1);
+    expect(mocks.backupBulkPut).toHaveBeenCalledWith([
+      { name: "notes", rows: [{ id: "n1" }] },
+      { name: "tasks", rows: [{ id: "t1" }] },
+    ]);
+  });
+
+  it("消さない時(同じユーザーや初回)は、控えも作らない", async () => {
+    expect(await ensureDataOwner("user-a")).toBe(false);
+    expect(mocks.backupBulkPut).not.toHaveBeenCalled();
+
+    expect(await ensureDataOwner("user-a")).toBe(false);
+    expect(mocks.backupBulkPut).not.toHaveBeenCalled();
   });
 });
