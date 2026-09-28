@@ -144,6 +144,44 @@ describe("sync session lifecycle", () => {
     expect(mocks.syncQueue.update).not.toHaveBeenCalled();
     expect(mocks.syncQueue.delete).not.toHaveBeenCalled();
   });
+
+  it("自分の端末発の行でも、ローカルに無ければ受け取る(端末のローカルを空にした後の復旧で必要)", async () => {
+    // 端末の識別子(deviceId)は ensureDataOwner の空っぽ化でも消えない(src/lib/dataOwner.ts)。
+    // 「自分の端末発だから、もう持っているはず」という前提が崩れる場面(2026-09-28、
+    // 実際にこれでカレンダーやメモが復旧しきらなかった)。
+    const query = { select: vi.fn(), gte: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.gte.mockResolvedValue({
+      data: [{ id: "row-1", title: "諸々の申し込み", device_id: "device-1", updated_at: "2026-08-30T00:00:00.000Z" }],
+      error: null,
+    });
+    mocks.from.mockReturnValue(query);
+    const notes = table();
+    notes.get.mockResolvedValue(undefined); // 空っぽ化された直後で、ローカルには無い。
+    const sync = await import("./sync");
+    sync.registerSyncedTable(notes as never, "notes");
+    await sync.startSession("user-1", "token-1");
+
+    expect(notes.add).toHaveBeenCalledWith(expect.objectContaining({ id: "row-1", title: "諸々の申し込み" }));
+  });
+
+  it("自分の端末発の行で、ローカルに既にあれば元通り無視する", async () => {
+    const query = { select: vi.fn(), gte: vi.fn() };
+    query.select.mockReturnValue(query);
+    query.gte.mockResolvedValue({
+      data: [{ id: "row-1", title: "サーバー側の値", device_id: "device-1", updated_at: "2026-08-30T00:00:00.000Z" }],
+      error: null,
+    });
+    mocks.from.mockReturnValue(query);
+    const notes = table();
+    notes.get.mockResolvedValue({ id: "row-1", title: "手元の値", updatedAt: 1 });
+    const sync = await import("./sync");
+    sync.registerSyncedTable(notes as never, "notes");
+    await sync.startSession("user-1", "token-1");
+
+    expect(notes.update).not.toHaveBeenCalled();
+    expect(notes.add).not.toHaveBeenCalled();
+  });
 });
 
 describe("describeSyncResult", () => {
