@@ -12,9 +12,10 @@ import {
   toImportRows,
   type TripImportRow,
 } from "../../lib/mailPlanImport";
-import { extractTripPlanFromSources } from "../../lib/tripPlanScan";
+import { scanTripPlan } from "../../lib/tripPlanScan";
 import { prepareImageForScan } from "../../lib/imageDownscale";
 import { PlanImportRow } from "../plan/PlanImportRow";
+import { ScanNotices } from "../plan/ScanNotices";
 import { PlanSourceFields, usePickedPhotos } from "../plan/PlanSourceFields";
 import { Button } from "../ui/Button";
 import { FormActions } from "../ui/FormActions";
@@ -45,6 +46,9 @@ export function EventScanForm({ onSaved, onCancel }: Props) {
   const [status, setStatus] = useState<Status>("input");
   const [error, setError] = useState("");
   const [rows, setRows] = useState<TripImportRow[]>([]);
+  // 全部は読み取れなかった時の断り。長い文章は日ごとに分けて読むので、その進み具合も持つ。
+  const [notices, setNotices] = useState<string[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const { photos, addPhotos, removePhoto, releasePhotos } = usePickedPhotos(setError);
 
@@ -61,12 +65,16 @@ export function EventScanForm({ onSaved, onCancel }: Props) {
     if (!canRead) return;
     setStatus("reading");
     setError("");
+    setProgress(null);
     try {
       // 送る前に縮める。スマホの写真をそのまま何枚も送ると、サーバーが受け取れる大きさを超える。
       const images = await Promise.all(photos.map((photo) => prepareImageForScan(photo.file)));
-      const items = await extractTripPlanFromSources({ text, images, today: todayStr() });
+      const result = await scanTripPlan({ text, images, today: todayStr() }, (done, total) =>
+        setProgress({ done, total }),
+      );
+      setNotices(result.notices);
       setRows(
-        toImportRows(items).map((row) =>
+        toImportRows(result.items).map((row) =>
           findSimilarPlan(row, existingEvents) ? { ...row, checked: false, withExpense: false } : row,
         ),
       );
@@ -115,6 +123,7 @@ export function EventScanForm({ onSaved, onCancel }: Props) {
       <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500" role="status" aria-live="polite">
         <Loader2 size={16} className="animate-spin" />
         写真・文章から予定を読み取っています…
+        {progress && <span className="tabular-nums">({progress.done}/{progress.total})</span>}
       </p>
     );
   }
@@ -140,6 +149,7 @@ export function EventScanForm({ onSaved, onCancel }: Props) {
   if (status === "ready") {
     return (
       <div className="space-y-4">
+        <ScanNotices notices={notices} />
         {rows.length === 0 ? (
           <>
             <EmptyState

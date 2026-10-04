@@ -15,9 +15,10 @@ import {
   toTripScheduleRecord,
   type TripImportRow,
 } from "../../lib/mailPlanImport";
-import { extractTripPlanFromSources } from "../../lib/tripPlanScan";
+import { scanTripPlan } from "../../lib/tripPlanScan";
 import { prepareImageForScan } from "../../lib/imageDownscale";
 import { PlanImportRow } from "../plan/PlanImportRow";
+import { ScanNotices } from "../plan/ScanNotices";
 import { PlanSourceFields, usePickedPhotos } from "../plan/PlanSourceFields";
 import { Button } from "../ui/Button";
 import { FormActions } from "../ui/FormActions";
@@ -50,6 +51,9 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   const [error, setError] = useState("");
   const { photos, addPhotos, removePhoto, releasePhotos } = usePickedPhotos(setError);
   const [rows, setRows] = useState<TripImportRow[]>([]);
+  // 全部は読み取れなかった時の断り。長い文章は日ごとに分けて読むので、その進み具合も持つ。
+  const [notices, setNotices] = useState<string[]>([]);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [saving, setSaving] = useState(false);
 
   // いま入っている日程。二重に入れないために2通りの見方をする —
@@ -69,22 +73,27 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
     if (!canRead) return;
     setStatus("reading");
     setError("");
+    setProgress(null);
     try {
       // 送る前に縮める。スマホの写真をそのまま何枚も送ると、読み取りに行く前に
       // サーバーが受け取れる大きさを超える(src/lib/imageDownscale.ts)。
       const images = await Promise.all(photos.map((photo) => prepareImageForScan(photo.file)));
-      const items = await extractTripPlanFromSources({
-        text,
-        images,
-        today: todayStr(),
-        // 「2日目」のような書き方を実際の日付に直すために、入れ先の旅行の期間を渡す。
-        tripStart: trip.startDate,
-        tripEnd: trip.endDate,
-      });
+      const result = await scanTripPlan(
+        {
+          text,
+          images,
+          today: todayStr(),
+          // 「2日目」のような書き方を実際の日付に直すために、入れ先の旅行の期間を渡す。
+          tripStart: trip.startDate,
+          tripEnd: trip.endDate,
+        },
+        (done, total) => setProgress({ done, total }),
+      );
+      setNotices(result.notices);
       // 同じ日に似た予定が既にあるものは、外した状態で並べる。読み取り直すたびに
       // 同じ予定が積み上がるのを、押す前に止めるため。
       setRows(
-        toImportRows(items).map((row) =>
+        toImportRows(result.items).map((row) =>
           findSimilarPlan(row, existingSchedule) ? { ...row, checked: false, withExpense: false } : row,
         ),
       );
@@ -139,6 +148,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
       <p className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500" role="status" aria-live="polite">
         <Loader2 size={16} className="animate-spin" />
         写真・文章から日程を読み取っています…
+        {progress && <span className="tabular-nums">({progress.done}/{progress.total})</span>}
       </p>
     );
   }
@@ -164,6 +174,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   if (status === "ready") {
     return (
       <div className="space-y-4">
+        <ScanNotices notices={notices} />
         {rows.length === 0 ? (
           <>
             <EmptyState
