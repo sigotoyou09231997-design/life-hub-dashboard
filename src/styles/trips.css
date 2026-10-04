@@ -492,9 +492,10 @@
    作れてもどのピンがどの場所かは読めない。場所ごとに地図を立てて回る順に
    矢印でつなぐ形にすると、キー無しのまま「どこを・どの順に」が絵で分かる。
 
-   スマホは縦に積み(矢印は下向き)、PCは横に流す(矢印はCSSで90度回して右向き)。
-   DOMはどちらも同じ1本の鎖のまま — 並べ替えボタンの向きも同じ理由で回す。
-   面・角丸・影は hub.css の --hub-* をそのまま使う。
+   スマホもPCも縦に積む(矢印は下向き、並べ替えは上下)。PCは広い画面いっぱいに
+   地図を広げると間延びするので、列の幅だけ絞って真ん中に置く(ファイル末尾近くの
+   「PCは縦並びのまま幅を絞る」)。以前はPCだけ横に流していたが、2026-10-04に
+   縦に統一した。面・角丸・影は hub.css の --hub-* をそのまま使う。
    ========================================================================== */
 
 .trip-route {
@@ -881,14 +882,6 @@ a.trip-leg-mode--link {
   color: var(--hub-red);
 }
 
-/* 並べ替えは「←→」で持っておき、縦積みのスマホでだけ上下に回す。 */
-@media (max-width: 1023px) {
-  .trip-route-card__tools button[aria-label="順番を前へ"] svg,
-  .trip-route-card__tools button[aria-label="順番を後へ"] svg {
-    transform: rotate(90deg);
-  }
-}
-
 .trip-route-card__map {
   overflow: hidden;
   border-radius: var(--hub-r-sm);
@@ -971,7 +964,7 @@ a.trip-leg-mode--link {
 
 /* --- 鎖の先頭の「現在地」カード --------------------------------------------
    ボタンを押させず、開いた時点で現在地から最初の目的地までを出す。見た目は
-   場所のカードと同じにして、横並びのときも同じ列として並ぶようにする。 */
+   場所のカードと同じにして、鎖の1枚として同じ縦の列に並ぶようにする。 */
 .trip-route-card--here {
   border-style: dashed;
 }
@@ -1461,16 +1454,6 @@ a.trip-leg-mode--link {
   gap: 0.4rem;
 }
 
-/* --- 横に送るボタンの置き場 ------------------------------------------------
-   スマホは縦に積むので出さない(PCの指定は下の @media の中)。 */
-.trip-route__rail {
-  position: relative;
-}
-
-.trip-route__scroll {
-  display: none;
-}
-
 /* --- 末尾の追加タイル ----------------------------------------------------- */
 .trip-route-add {
   display: flex;
@@ -1581,182 +1564,20 @@ a.trip-leg-mode--link {
   text-align: center;
 }
 
-/* --- PCは横並び ----------------------------------------------------------
-   カード → 矢印 → カードを1列に流し、入りきらない分は横スクロールに逃がす。
-   折り返して2段にすると、段ごとに列の高さが変わるのが目についたため
-   (2026-08-26の指摘)。続きがあることに気づけるよう、左右の送りボタン
-   (.trip-route__scroll)とスクロールバーを必ず出す。 */
+/* --- PCは縦並びのまま幅を絞る ---------------------------------------------
+   カード → 矢印 → カードを縦に積むのはスマホと同じ。PCの画面幅いっぱいにカードと
+   地図を広げると、地図が横長に間延びして場所が読み取りにくいので、列の幅だけ絞って
+   真ん中に置く。地図は横が広がる分、少しだけ高くする。 */
 @media (min-width: 1024px) {
-  /* 列の高さは揃える。中身の量(現在地カードには移動手段の行が付く、メモのある
-     場所とない場所がある)でカードの丈がばらばらだと、間の矢印まで1本ずつ違う
-     高さに来て、横一列の鎖として読めなくなっていた(2026-08-26の指摘)。
-     余った高さは、下に空白を残さず地図に使う。 */
   .trip-route__chain {
-    flex-direction: row;
-    align-items: stretch;
-    overflow-x: auto;
-    padding-bottom: 0.55rem;
-    scroll-snap-type: x proximity;
-    /* Macは普段スクロールバーを隠すので、ここだけは細く出しっぱなしにする。 */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(13, 27, 49, 0.24) transparent;
+    width: 100%;
+    max-width: 44rem;
+    margin-inline: auto;
   }
 
-  .trip-route__chain::-webkit-scrollbar {
-    height: 8px;
-  }
-
-  .trip-route__chain::-webkit-scrollbar-thumb {
-    border-radius: 999px;
-    background: rgba(13, 27, 49, 0.24);
-  }
-
-  .trip-route__chain::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .trip-route__node {
-    flex: 0 0 auto;
-    flex-direction: row;
-    align-items: stretch;
-    scroll-snap-align: start;
-  }
-
-  /* 送りボタン。列の上に浮かせて、カードの幅を削らない。端まで来たら消す
-     (押せないボタンが残っていると、そこで詰まったように見える)。 */
-  .trip-route__scroll {
-    position: absolute;
-    top: 50%;
-    z-index: 3;
-    display: flex;
-    width: 2.6rem;
-    height: 2.6rem;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--hub-edge);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: var(--hub-shadow-inset), 0 10px 26px rgba(10, 24, 46, 0.16);
-    color: var(--hub-ink);
-    transform: translateY(-50%);
-    transition:
-      opacity 0.18s var(--hub-ease),
-      background-color 0.18s var(--hub-ease);
-  }
-
-  .trip-route__scroll--prev {
-    left: -0.7rem;
-  }
-
-  .trip-route__scroll--next {
-    right: -0.7rem;
-  }
-
-  .trip-route__scroll:disabled {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .trip-route__scroll:hover {
-    background: #fff;
-  }
-
-  /* 横並びのカードは、地図の中の文字が読める大きさまで広げる。狭いカードを
-     たくさん並べても、1枚ずつが読めないなら意味が無い。 */
-  .trip-route-card {
-    width: 24rem;
-    /* 行に入りきる幅までは縮める。窓を狭めた時にカードだけはみ出さないように。 */
-    max-width: 100%;
-  }
-
-  .trip-route-card__map {
-    display: flex;
-    flex: 1;
-    min-height: 17rem;
-  }
-
-  .trip-route-card__map iframe {
-    height: auto;
-  }
-
-  .trip-route-card__state {
-    flex: 1;
-    min-height: 17rem;
-  }
-
-  /* 下向きの矢印を右向きに倒す。DOMを分けずにここだけで向きを決める。
-     点線も縦から横に引き直す。 */
-  .trip-route-arrow {
-    flex-direction: column;
-    gap: 0.3rem;
-    align-self: center;
-    padding: 0 0.85rem;
-  }
-
-  .trip-route-arrow::before {
-    top: 50%;
-    right: 0;
-    bottom: auto;
-    left: 0;
-    width: auto;
-    height: 2px;
-    transform: translateY(-50%);
-    background-image: repeating-linear-gradient(
-      to right,
-      rgba(13, 27, 49, 0.22) 0 3px,
-      transparent 3px 8px
-    );
-  }
-
-  .trip-route-arrow__mark svg {
-    transform: rotate(-90deg);
-  }
-
-  .trip-route-arrow[aria-expanded="true"] .trip-route-arrow__mark {
-    /* 横並びでは「開く方向」が右なので、回すのではなく矢印だけ反転させる。 */
-    transform: none;
-  }
-
-  .trip-route-arrow[aria-expanded="true"] .trip-route-arrow__mark svg {
-    transform: rotate(90deg);
-  }
-
-  /* 横並びのときは、区間パネルもカードとカードの間に列として挟まる
-     (矢印が先、その右に地図 — 縦並びの「矢印の下に地図」と同じ読み順)。 */
-  .trip-route-leg {
-    flex-direction: row;
-    align-items: stretch;
-  }
-
-  .trip-route-leg__panel {
-    display: flex;
-    flex-direction: column;
-    width: 21rem;
-    max-width: 100%;
-    margin-right: 0.7rem;
-    margin-bottom: 0;
-  }
-
-  .trip-route-leg__map {
-    display: flex;
-    flex: 1;
-    min-height: 15rem;
-  }
-
+  .trip-route-card__map iframe,
   .trip-route-leg__map iframe {
-    height: auto;
-  }
-
-  .trip-route__node--add {
-    align-self: stretch;
-  }
-
-  .trip-route-add {
-    flex-direction: column;
-    width: 11rem;
-    height: 100%;
-    margin-top: 0;
-    margin-left: 0.7rem;
+    height: 18rem;
   }
 }
 
