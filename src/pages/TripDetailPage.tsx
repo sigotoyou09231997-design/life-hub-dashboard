@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { NotebookPen, Pencil, Plus, Share2, Sparkles, Trash2 } from "lucide-react";
@@ -20,7 +20,6 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
 import { Button } from "../components/ui/Button";
-import { Tabs } from "../components/ui/Tabs";
 import { Card } from "../components/ui/Card";
 import { TripForm } from "../components/trips/TripForm";
 import { TripScheduleForm } from "../components/trips/TripScheduleForm";
@@ -33,6 +32,8 @@ import { TripRouteView } from "../components/trips/TripRouteView";
 import { TripRouteForm } from "../components/trips/TripRouteForm";
 import { TripQuickPlanForm } from "../components/trips/TripQuickPlanForm";
 import { TripPlanScanForm } from "../components/trips/TripPlanScanForm";
+import { ADD_METHOD_OPTIONS, type AddMethod } from "../components/plan/addMethod";
+import { Tabs } from "../components/ui/Tabs";
 import { TripDocumentForm } from "../components/trips/TripDocumentForm";
 import { TripShareSheet } from "../components/trips/TripShareSheet";
 import { TripDocumentList } from "../components/trips/TripDocumentList";
@@ -90,6 +91,11 @@ export default function TripDetailPage() {
   /** 「＋」で開いたシートの中身。手で打つ(form)か、写真・文章から読み取る(scan)か。 */
   const [quickPlanMode, setQuickPlanMode] = useState<"form" | "scan">("form");
   const [scanOpen, setScanOpen] = useState(false);
+  /** 日程の「予定を追加」の画面の切り替え(入力して追加 / 文章・写真から)。 */
+  const [scheduleAddMethod, setScheduleAddMethod] = useState<AddMethod>("form");
+  useEffect(() => {
+    if (editingSchedule === null) setScheduleAddMethod("form");
+  }, [editingSchedule]);
   // 日程の場所からルートを起こすとき、追加フォームに渡して埋めておく値。
   const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
 
@@ -522,21 +528,40 @@ export default function TripDetailPage() {
         }}
         title={editingSchedule === "new" ? "予定を追加" : "予定を編集"}
       >
-        {editingSchedule && (
-          <TripScheduleForm
+        {editingSchedule === "new" && (
+          <Tabs className="mb-4" options={ADD_METHOD_OPTIONS} value={scheduleAddMethod} onChange={setScheduleAddMethod} />
+        )}
+        {editingSchedule === "new" && scheduleAddMethod === "scan" ? (
+          <TripPlanScanForm
             tripId={tripId}
-            initial={editingSchedule === "new" ? undefined : editingSchedule}
-            defaultDate={scheduleDatePreset ?? scheduleDefaultDate}
-            onSaved={() => {
+            trip={trip}
+            onSaved={(message) => {
               setEditingSchedule(null);
               setScheduleDatePreset(null);
-              showToast("保存しました");
+              showToast(message);
             }}
             onCancel={() => {
               setEditingSchedule(null);
               setScheduleDatePreset(null);
             }}
           />
+        ) : (
+          editingSchedule && (
+            <TripScheduleForm
+              tripId={tripId}
+              initial={editingSchedule === "new" ? undefined : editingSchedule}
+              defaultDate={scheduleDatePreset ?? scheduleDefaultDate}
+              onSaved={() => {
+                setEditingSchedule(null);
+                setScheduleDatePreset(null);
+                showToast("保存しました");
+              }}
+              onCancel={() => {
+                setEditingSchedule(null);
+                setScheduleDatePreset(null);
+              }}
+            />
+          )
         )}
       </Sheet>
 

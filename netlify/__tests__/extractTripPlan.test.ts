@@ -388,6 +388,13 @@ describe("件数の上限", () => {
     expect(SYSTEM_PROMPT).toContain("経路の地名の並び");
     expect(SYSTEM_PROMPT).toContain("1件にする");
   });
+
+  it("夜から0時台に進む欄は、日付が変わったものとして翌日にするよう指示している", () => {
+    // 12/31の欄の「00:00 金刀比羅宮で年越し」が、12/31・時刻なしで入ってしまっていた。
+    expect(SYSTEM_PROMPT).toContain("0:00〜5:59");
+    expect(SYSTEM_PROMPT).toContain("翌日にして");
+    expect(SYSTEM_PROMPT).toContain("年越し");
+  });
 });
 
 describe("Netlify版とVercel版のずれ", () => {

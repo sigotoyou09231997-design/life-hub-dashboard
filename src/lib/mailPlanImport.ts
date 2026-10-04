@@ -77,7 +77,36 @@ function isSameAppointment(a: ExtractedTripItem, b: ExtractedTripItem): boolean 
   // 詳しい方に、短い方の文字が同じ順で入っているかを見る。「株式会社Widsley面接」は
   // 「株式会社Widsley一次面接」の間に「一次」が挟まっているだけなので、
   // 単純な部分一致では同じものだと分からない。
-  return isSubsequence(shorter, longer);
+  if (isSubsequence(shorter, longer)) return true;
+  // 同じ日の同じ開始時刻で、題名に3文字以上の同じ語が入っているものも同じ予定とみなす。
+  // 7日ぶんの旅程表で、日ごとの欄の「17:50〜18:50 土庄→高松 フェリー」と、末尾のまとめの
+  // 「17:50 フェリー乗船」が別々に返ってきた(2026-10-04)。題名の書き方は違っても、
+  // 同じ時刻に同じ「フェリー」「新幹線」とあれば同じ用件。時刻が片方に無いものは、
+  // 「レンタカー受取」と「レンタカー返却」のように別の用件を混ぜるので対象にしない。
+  return !!a.startTime && a.startTime === b.startTime && longestCommonRun(wordKey(a.title), wordKey(b.title)) >= 3;
+}
+
+/** 「→」などの矢印を落とした題名。「羽田→福岡」と「羽田→大阪」が、矢印を含めた3文字
+ * (「羽田→」)で同じ語を持つことにならないようにする。 */
+function wordKey(title: string): string {
+  return titleKey(title).replace(/[→←↔⇒>＞]/g, "");
+}
+
+/** 2つの文字列に共通して現れる、いちばん長い連続部分の長さ。 */
+function longestCommonRun(a: string, b: string): number {
+  let best = 0;
+  let previous = new Array<number>(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i++) {
+    const current = new Array<number>(b.length + 1).fill(0);
+    for (let j = 1; j <= b.length; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        current[j] = previous[j - 1] + 1;
+        if (current[j] > best) best = current[j];
+      }
+    }
+    previous = current;
+  }
+  return best;
 }
 
 /** short の文字が、同じ順番で long の中に現れるか。 */
