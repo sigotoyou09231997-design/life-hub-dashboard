@@ -63,9 +63,11 @@ const MAX_BODY_CHARS = 12_000;
 /** 貼り付けられた文章の上限。しおり1枚ぶんを丸ごと貼れる程度には取る。 */
 const MAX_TEXT_CHARS = 20_000;
 
-/** 1回の取り込みで受け付ける件数の上限。往復の便と宿で数件、多くても十数件のはずで、
- * それを大きく超える応答は読み違えているとみなして切り捨てる。 */
-const MAX_ITEMS = 20;
+/** 1回の読み取りで返す件数の上限。予約メールなら多くても十数件だが、旅程表は1日だけで
+ * 20件を超えることがある(2026-10-04、7日ぶんの旅程を貼ったら日付順の先頭20件で切れて、
+ * 後ろの日が黙って消えていた)。超えた分は捨てるだけにせず、truncated で画面へ知らせる。
+ * 長い文章は画面側で日ごとに分けて渡す(src/lib/tripPlanScan.ts)ので、1回ぶんはこれで足りる。 */
+const MAX_ITEMS = 40;
 
 /** 一度に渡せる写真の枚数。しおりの見開きや往復のチケットで数枚を想定している。
  * これ以上は読み取りが長くなるうえ、確認する側も追えなくなる。 */
@@ -137,6 +139,11 @@ export const SYSTEM_PROMPT = `あなたは、渡された資料から予定を�
 - 時刻が書かれていない項目も、日付が分かるなら startTime を省いたまま入れる。
 - 移動手段の印(車・電車のマークなど)だけが書かれている欄からは、移動の項目を作らない。
   出発地と到着地が分かる時(「新横浜→鎌倉」など)だけ移動として起こす。
+- 天候や道路状況に応じた別案(「雪・路面凍結ルート」「凍結あり」「欠航の場合」など)、
+  「↓」でつないだ経路の地名の並び、心得・判断基準・注意書きは、予定として入れない。
+  日付と時刻の付いた、実際に行く予定(通常の予定)だけを取り出す。
+- 同じ予定が、日ごとの欄と、冒頭の基本情報や末尾のまとめの両方に書かれている時は1件にする
+  (日ごとの欄の書き方を使う)。
 - 資料に無い日程を補ったり、一般的なおすすめの観光地を足したりしない。
 - 予定が1つも見つからなければ {"items":[]} を返す。`;
 
@@ -187,7 +194,7 @@ export function normalizeAmount(value: unknown): number | undefined {
  * 「JSONだけ返せ」と指示していても、前置きやコードフェンスが付いてくることがある。
  * ここで弾かずに画面へ流すと、日付の無い項目が日程表に入って一覧が壊れるので、
  * 必要な形が揃っているものだけを通す。 */
-export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
+export function readTripPlanItems(text: string): ExtractedTripItem[] {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end <= start) return [];
@@ -223,7 +230,18 @@ export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
   }
   // 日程表と同じ並び(日付→時刻)にして返す。画面側で並べ直さずに済む。
   cleaned.sort((a, b) => (a.date === b.date ? (a.startTime ?? "").localeCompare(b.startTime ?? "") : a.date.localeCompare(b.date)));
-  return cleaned.slice(0, MAX_ITEMS);
+  return cleaned;
+}
+
+/** 画面へ返す形。件数の上限で切った時は truncated を立てる — 切ったことを伝えないと、
+ * 後ろの日が無いことに本人が気付けない。 */
+export function buildTripPlanResult(text: string): { items: ExtractedTripItem[]; truncated: boolean } {
+  const all = readTripPlanItems(text);
+  return { items: all.slice(0, MAX_ITEMS), truncated: all.length > MAX_ITEMS };
+}
+
+export function parseTripPlanResponse(text: string): ExtractedTripItem[] {
+  return buildTripPlanResult(text).items;
 }
 
 /** 受け取った写真のうち、そのままAnthropicへ渡せるものだけを返す。
@@ -375,5 +393,5 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     return jsonResponse(res, 502, { error: "AIから日程を取得できませんでした。もう一度お試しください" });
   }
 
-  return jsonResponse(res, 200, { items: parseTripPlanResponse(text) });
+  return jsonResponse(res, 200, buildTripPlanResult(text));
 };

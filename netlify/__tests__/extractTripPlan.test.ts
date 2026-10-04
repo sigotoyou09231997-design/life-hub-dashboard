@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildContent,
+  buildTripPlanResult,
   buildUserMessage,
   hasNoSource,
   parseTripPlanResponse,
@@ -10,6 +11,7 @@ import {
 import {
   SYSTEM_PROMPT as VERCEL_SYSTEM_PROMPT,
   buildContent as vercelBuildContent,
+  buildTripPlanResult as vercelBuildTripPlanResult,
   buildUserMessage as vercelBuildUserMessage,
   hasNoSource as vercelHasNoSource,
   parseTripPlanResponse as vercelParseTripPlanResponse,
@@ -348,6 +350,46 @@ describe("pickResponseText", () => {
   });
 });
 
+describe("件数の上限", () => {
+  /** 7日ぶんの旅程表のように、日付順に何十件も返ってくる応答。 */
+  function manyItems(count: number): string {
+    const items = Array.from({ length: count }, (_, i) => ({
+      date: `2026-12-${String(27 + Math.floor(i / 12)).padStart(2, "0")}`,
+      startTime: `${String(6 + (i % 12)).padStart(2, "0")}:00`,
+      title: `予定${i + 1}`,
+      type: "sightseeing",
+    }));
+    return JSON.stringify({ items });
+  }
+
+  it("1日で20件を超える旅程も、切り捨てずに返す", () => {
+    // 2026-10-04: 上限が20件で、日付順の先頭20件より後ろの日が黙って消えていた。
+    const result = buildTripPlanResult(manyItems(36));
+    expect(result.items).toHaveLength(36);
+    expect(result.truncated).toBe(false);
+  });
+
+  it("上限を超えたら、早い日付の側を残して、切ったことを知らせる", () => {
+    const result = buildTripPlanResult(manyItems(45));
+    expect(result.items).toHaveLength(40);
+    expect(result.items[0].title).toBe("予定1");
+    expect(result.truncated).toBe(true);
+    // 画面に渡さなくなるのは後ろの日だけ。
+    expect(result.items.at(-1)?.title).toBe("予定40");
+  });
+
+  it("読み取れなかった応答は、空で切り捨てなしとして返す", () => {
+    expect(buildTripPlanResult("読み取れませんでした")).toEqual({ items: [], truncated: false });
+  });
+
+  it("旅程表の別案や経路図を予定にしないよう、AIへ指示している", () => {
+    // 「雪・路面凍結ルート」の経路図(時刻の無い地名の並び)まで予定になると、一覧が使い物にならなくなる。
+    expect(SYSTEM_PROMPT).toContain("雪・路面凍結ルート");
+    expect(SYSTEM_PROMPT).toContain("経路の地名の並び");
+    expect(SYSTEM_PROMPT).toContain("1件にする");
+  });
+});
+
 describe("Netlify版とVercel版のずれ", () => {
   // 同じ判断を2か所に書いてあるのは、netlify側から読み込む形にすると Vercel の
   // バンドルに含まれず関数ごと落ちるため。片方だけ直して食い違わないよう突き合わせる。
@@ -372,6 +414,15 @@ describe("Netlify版とVercel版のずれ", () => {
   it("応答の読み取りが、どちらも同じ結果になる", () => {
     for (const text of cases) {
       expect(vercelParseTripPlanResponse(text)).toEqual(parseTripPlanResponse(text));
+    }
+  });
+
+  it("画面へ返す形(件数の上限と、切ったことの知らせ)も同じ", () => {
+    const many = JSON.stringify({
+      items: Array.from({ length: 45 }, (_, i) => ({ date: "2026-12-27", startTime: `${String(i % 24).padStart(2, "0")}:00`, title: `予定${i}`, type: "other" })),
+    });
+    for (const text of [...cases, many]) {
+      expect(vercelBuildTripPlanResult(text)).toEqual(buildTripPlanResult(text));
     }
   });
 

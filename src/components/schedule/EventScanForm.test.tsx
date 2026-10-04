@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 
 const mocks = vi.hoisted(() => ({
   items: [] as Record<string, unknown>[],
+  notices: [] as string[],
   extractError: null as Error | null,
   existingEvents: [] as Record<string, unknown>[],
   saved: [] as Record<string, unknown>[],
@@ -46,10 +47,10 @@ vi.mock("../../lib/tripPlanScan", async () => {
   const actual = await vi.importActual<typeof import("../../lib/tripPlanScan")>("../../lib/tripPlanScan");
   return {
     ...actual,
-    extractTripPlanFromSources: async (input: Record<string, unknown>) => {
+    scanTripPlan: async (input: Record<string, unknown>) => {
       mocks.sent.push(input);
       if (mocks.extractError) throw mocks.extractError;
-      return mocks.items;
+      return { items: mocks.items, notices: mocks.notices };
     },
   };
 });
@@ -67,6 +68,7 @@ async function readFromText(user: ReturnType<typeof userEvent.setup>, text = "9/
 
 beforeEach(() => {
   mocks.items = [{ date: "2026-09-30", startTime: "15:00", endTime: "16:00", title: "歯医者", location: "OO歯科", type: "other" }];
+  mocks.notices = [];
   mocks.extractError = null;
   mocks.existingEvents = [];
   mocks.saved = [];

@@ -6,6 +6,7 @@ import type { Trip } from "../../types";
 
 const mocks = vi.hoisted(() => ({
   items: [] as Record<string, unknown>[],
+  notices: [] as string[],
   extractError: null as Error | null,
   existingTripSchedule: [] as Record<string, unknown>[],
   saved: { tripSchedule: [] as unknown[], tripExpenses: [] as unknown[] },
@@ -49,10 +50,10 @@ vi.mock("../../lib/tripPlanScan", async () => {
   const actual = await vi.importActual<typeof import("../../lib/tripPlanScan")>("../../lib/tripPlanScan");
   return {
     ...actual,
-    extractTripPlanFromSources: async (input: Record<string, unknown>) => {
+    scanTripPlan: async (input: Record<string, unknown>) => {
       mocks.sent.push(input);
       if (mocks.extractError) throw mocks.extractError;
-      return mocks.items;
+      return { items: mocks.items, notices: mocks.notices };
     },
   };
 });
@@ -73,6 +74,7 @@ async function readFromText(user: ReturnType<typeof userEvent.setup>, text = "9/
 
 beforeEach(() => {
   mocks.items = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport", amount: 12540 }];
+  mocks.notices = [];
   mocks.extractError = null;
   mocks.existingTripSchedule = [];
   mocks.saved = { tripSchedule: [], tripExpenses: [] };
@@ -173,6 +175,42 @@ describe("写真・文章から日程を読み取る画面", () => {
     // 金額が読み取れていない分は、費用には積まない。
     expect(mocks.saved.tripExpenses).toEqual([]);
     expect(saved).toHaveBeenCalledWith("日程に8件入れました");
+  });
+
+  it("7日ぶんの旅程(80件)も、1件も落とさず並べて入れられる", async () => {
+    // 2026-10-04: 7日ぶんの旅程を貼ったら先頭20件で切れて、後ろの日が黙って消えていた。
+    // 画面は渡された件数をそのまま並べ、入れる時も全部入ること。
+    mocks.items = Array.from({ length: 80 }, (_, i) => ({
+      date: `2026-09-${String(12 + Math.floor(i / 12)).padStart(2, "0")}`,
+      startTime: `${String(6 + (i % 12)).padStart(2, "0")}:00`,
+      title: `予定${i + 1}`,
+      type: "sightseeing",
+    }));
+    const saved = vi.fn();
+    const user = userEvent.setup();
+    renderForm(saved);
+    await readFromText(user);
+    await user.click(screen.getByRole("button", { name: "80件を入れる" }));
+    expect(mocks.saved.tripSchedule).toHaveLength(80);
+    expect(saved).toHaveBeenCalledWith("日程に80件入れました");
+  });
+
+  it("全部は読み取れていない時は、日程の上に断りを出す", async () => {
+    // 抜けた日があることに気付かないまま、読み取れた分だけを信じて動かないように。
+    mocks.notices = ["「■12/29(火)」から始まる部分が読み取れませんでした。その部分だけ貼り直して、もう一度お試しください"];
+    const user = userEvent.setup();
+    renderForm();
+    await readFromText(user);
+    expect(screen.getByRole("alert").textContent).toContain("「■12/29(火)」から始まる部分が読み取れませんでした");
+    // 読めた分は捨てずに並べてある。
+    expect(screen.getByDisplayValue("羽田→福岡")).toBeTruthy();
+  });
+
+  it("全部読めた時は、断りを出さない", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await readFromText(user);
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("旅行の期間から外れた日付には印を出す", async () => {
