@@ -117,6 +117,58 @@ describe("mergeDuplicateItems", () => {
     expect(merged).toHaveLength(2);
   });
 
+  it("同じ日・同じ開始時刻で、題名に同じ語(3文字以上)があれば、1件にまとめる", () => {
+    // 2026-10-04の7日ぶんの旅程: 日ごとの欄と、末尾のまとめで同じ予定が別の書き方で返ってきた。
+    const ferry = mergeDuplicateItems([
+      plan("土庄→高松 フェリー", { startTime: "17:50", endTime: "18:50" }),
+      plan("フェリー乗船", { startTime: "17:50" }),
+    ]);
+    expect(ferry).toHaveLength(1);
+    // 詳しい方の題名と、片方にしか無い終了時刻を残す。
+    expect(ferry[0]).toMatchObject({ title: "土庄→高松 フェリー", endTime: "18:50" });
+
+    const shinkansen = mergeDuplicateItems([
+      plan("岡山発新幹線", { startTime: "17:58" }),
+      plan("岡山→東京 新幹線", { startTime: "17:58", endTime: "21:15" }),
+    ]);
+    expect(shinkansen).toHaveLength(1);
+    expect(shinkansen[0].endTime).toBe("21:15");
+  });
+
+  it("同じ時刻でも、同じ語が無ければ別の予定のまま", () => {
+    // チェックインと夕食が同じ時刻に始まる、は普通にある。
+    const merged = mergeDuplicateItems([
+      plan("GOKAN KOTOHIRAにチェックイン", { startTime: "20:30" }),
+      plan("夕食・休憩", { startTime: "20:30", endTime: "22:00" }),
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+
+  it("矢印の部分だけが同じ(羽田→福岡と羽田→大阪)では、まとめない", () => {
+    const merged = mergeDuplicateItems([
+      plan("羽田→福岡", { startTime: "08:20" }),
+      plan("羽田→大阪", { startTime: "08:20" }),
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+
+  it("開始時刻が片方に無いものは、同じ語があるだけではまとめない", () => {
+    // 「レンタカー受取」と「レンタカー返却」は別の用件。時刻なしを巻き込むと取り違える。
+    const merged = mergeDuplicateItems([
+      plan("小豆島でレンタカー借受"),
+      plan("レンタカー返却", { startTime: "16:10" }),
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+
+  it("時刻が違えば、同じ語があってもまとめない", () => {
+    const merged = mergeDuplicateItems([
+      plan("高松→土庄 フェリー", { startTime: "08:02" }),
+      plan("土庄→高松 フェリー", { startTime: "17:50" }),
+    ]);
+    expect(merged).toHaveLength(2);
+  });
+
   it("日付が違えばまとめない", () => {
     const merged = mergeDuplicateItems([plan("一次面接"), { ...plan("一次面接"), date: "2026-09-04" }]);
     expect(merged).toHaveLength(2);

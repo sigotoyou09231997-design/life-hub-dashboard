@@ -14,6 +14,7 @@ import { Tabs } from "../components/ui/Tabs";
 import { EventForm } from "../components/calendar/EventForm";
 import { TaskForm } from "../components/tasks/TaskForm";
 import { EventScanForm } from "../components/schedule/EventScanForm";
+import { ADD_METHOD_OPTIONS, type AddMethod } from "../components/plan/addMethod";
 import { TodayView } from "../components/schedule/TodayView";
 import { CalendarView } from "../components/schedule/CalendarView";
 import { ListView } from "../components/schedule/ListView";
@@ -64,6 +65,21 @@ export default function SchedulePage() {
   const [editingTask, setEditingTask] = useState<EditingTask>(null);
   const [editingJob, setEditingJob] = useState<EditingJob>(null);
   const [scanOpen, setScanOpen] = useState(false);
+  // 「予定を追加」の画面の切り替え(入力して追加 / 文章・写真から)。閉じたら入力側に戻す。
+  const [addMethod, setAddMethod] = useState<AddMethod>("form");
+  useEffect(() => {
+    if (editingEvent === null) setAddMethod("form");
+  }, [editingEvent]);
+
+  /** 文章・写真から入れ終わった時(「＋ → 写真・文章」も「予定を追加」の切り替えも同じ)。
+   * 入った予定をすぐ見られるよう、カレンダーをその日へ動かす。 */
+  function handleScanSaved(message: string, firstDate: string) {
+    setScanOpen(false);
+    setEditingEvent(null);
+    setSelectedDate(firstDate);
+    setCurrentMonth(parseDate(firstDate));
+    showToast(message);
+  }
 
   // アプリアイコン長押しのショートカット(vite.config.ts の manifest.shortcuts)から
   // ?new=event / ?new=task で来たときは、その追加フォームを開いた状態で始める。
@@ -274,33 +290,31 @@ export default function SchedulePage() {
         onClose={() => setEditingEvent(null)}
         title={editingEvent === "new" ? "予定を追加" : "予定を編集"}
       >
-        {editingEvent && (
-          <EventForm
-            initial={editingEvent === "new" ? undefined : editingEvent}
-            defaultDate={addDefaultDate}
-            onSaved={(mode) => {
-              setEditingEvent(null);
-              // 編集して開いたのに「新しく追加しました」と出たら、更新先を見失っている
-              // (EventForm参照)。文言を分けておかないとその食い違いに気付けない。
-              showToast(mode === "updated" ? "変更を保存しました" : "新しい予定として追加しました");
-            }}
-            onCancel={() => setEditingEvent(null)}
-          />
+        {editingEvent === "new" && (
+          <Tabs className="mb-4" options={ADD_METHOD_OPTIONS} value={addMethod} onChange={setAddMethod} />
+        )}
+        {editingEvent === "new" && addMethod === "scan" ? (
+          <EventScanForm onSaved={handleScanSaved} onCancel={() => setEditingEvent(null)} />
+        ) : (
+          editingEvent && (
+            <EventForm
+              initial={editingEvent === "new" ? undefined : editingEvent}
+              defaultDate={addDefaultDate}
+              onSaved={(mode) => {
+                setEditingEvent(null);
+                // 編集して開いたのに「新しく追加しました」と出たら、更新先を見失っている
+                // (EventForm参照)。文言を分けておかないとその食い違いに気付けない。
+                showToast(mode === "updated" ? "変更を保存しました" : "新しい予定として追加しました");
+              }}
+              onCancel={() => setEditingEvent(null)}
+            />
+          )
         )}
       </Sheet>
 
       <Sheet open={scanOpen} onClose={() => setScanOpen(false)} title="写真・文章から予定を作る">
         {scanOpen && (
-          <EventScanForm
-            onSaved={(message, firstDate) => {
-              setScanOpen(false);
-              // 入った予定をすぐ見られるよう、カレンダーをその日へ動かす。
-              setSelectedDate(firstDate);
-              setCurrentMonth(parseDate(firstDate));
-              showToast(message);
-            }}
-            onCancel={() => setScanOpen(false)}
-          />
+          <EventScanForm onSaved={handleScanSaved} onCancel={() => setScanOpen(false)} />
         )}
       </Sheet>
 
