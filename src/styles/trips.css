@@ -897,6 +897,13 @@ a.trip-leg-mode--link {
   border: 0;
 }
 
+.trip-route-card__info {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
 .trip-route-card__address {
   margin: 0;
   color: rgba(13, 27, 49, 0.62);
@@ -974,19 +981,17 @@ a.trip-leg-mode--link {
   color: var(--accent, var(--hub-blue));
 }
 
+/* 位置情報が取れない時の案内。以前は地図の枠と同じ高さ(14〜17rem)の空の箱に文字が
+   1行だけ浮いていて、PCでは最初に目に入るのが何も無い灰色の面になっていた。
+   空の箱は引き伸ばさず、文字なりの高さにする。 */
 .trip-route-card__state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 14rem;
   margin: 0;
-  padding: 0 0.9rem;
+  padding: 0.65rem 0.85rem;
   border-radius: var(--hub-r-sm);
   background: var(--hub-inset);
-  color: rgba(13, 27, 49, 0.55);
-  font-size: 0.83rem;
-  line-height: 1.55;
-  text-align: center;
+  color: rgba(13, 27, 49, 0.62);
+  font-size: 0.85rem;
+  line-height: 1.6;
 }
 
 /* 経路はもう地図に出ているので、この矢印は向きを示すだけ(押せない)。 */
@@ -1565,12 +1570,92 @@ a.trip-leg-mode--link {
 }
 
 /* --- PCの縦並び -------------------------------------------------------------
-   カード → 矢印 → カードを縦に積むのはスマホと同じで、幅も画面いっぱい。横が広い分、
-   地図だけ少し高くする。 */
+   カード → 矢印 → カードを縦に積むのも、幅が画面いっぱいなのもスマホと同じ。
+   ただし横が広いので、1枚の中は2列にする: 左に名前・住所・最寄り駅・メモ、右に地図。
+   画面いっぱいの横長の地図の上に小さな文字が1行だけ載る形は、どの場所の話なのか
+   読みにくかった(2026-10-04の指摘)。経路を開いた時も同じ作りで、左に移動手段、
+   右に地図を置く。 */
 @media (min-width: 1024px) {
+  .trip-route-card--place {
+    display: grid;
+    grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr);
+    grid-template-areas:
+      "head head"
+      "info map";
+    align-items: start;
+    gap: 0.8rem 1.3rem;
+    padding: 1rem 1.15rem 1.2rem;
+  }
+
+  .trip-route-card--place > .trip-route-card__head {
+    grid-area: head;
+  }
+
+  .trip-route-card--place > .trip-route-card__info {
+    grid-area: info;
+  }
+
+  .trip-route-card--place > .trip-route-card__map {
+    grid-area: map;
+  }
+
+  .trip-route-card--place .trip-route-card__head h3 {
+    font-size: 1.2rem;
+  }
+
+  .trip-route-card--place .trip-route-card__address {
+    color: rgba(13, 27, 49, 0.76);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .trip-route-card--place .trip-route-card__station-toggle {
+    font-size: 0.9rem;
+  }
+
+  .trip-route-card--place .trip-route-card__memo {
+    font-size: 0.9rem;
+  }
+
+  /* 現在地のカードと、経路のパネル: 左に移動手段とリンク、右に地図。
+     地図は3行ぶんまたがせ、余った高さは最後の(空の)行に逃がして、左の行が間延びしない。 */
+  .trip-route-card--here,
+  .trip-route-leg__panel {
+    display: grid;
+    grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr;
+    align-items: start;
+    gap: 0.6rem 1.3rem;
+  }
+
+  :is(.trip-route-card--here, .trip-route-leg__panel) > :is(
+      .trip-route-card__head,
+      .trip-route-leg__title,
+      .trip-route-card__state,
+      .trip-leg-via,
+      .trip-leg-via__steps
+    ) {
+    grid-column: 1 / -1;
+  }
+
+  :is(.trip-route-card--here, .trip-route-leg__panel) > .trip-leg-modes {
+    grid-column: 1;
+    margin-bottom: 0;
+  }
+
+  :is(.trip-route-card--here, .trip-route-leg__panel) > :is(.trip-route-card__map, .trip-route-leg__map) {
+    grid-column: 2;
+    grid-row: 2 / span 3;
+  }
+
+  :is(.trip-route-card--here, .trip-route-leg__panel) > .trip-route-leg__open {
+    grid-column: 1;
+    margin-top: 0;
+  }
+
   .trip-route-card__map iframe,
   .trip-route-leg__map iframe {
-    height: 18rem;
+    height: 20rem;
   }
 }
 

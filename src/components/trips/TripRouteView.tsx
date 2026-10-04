@@ -384,7 +384,7 @@ export function TripRouteView({
                 return (
                   <Fragment key={place.id}>
                     <li className="trip-route__node">
-                      <article className={`trip-route-card${place.id && matchedIds.has(place.id) ? " trip-route-card--match" : ""}`}>
+                      <article className={`trip-route-card trip-route-card--place${place.id && matchedIds.has(place.id) ? " trip-route-card--match" : ""}`}>
                         <header className="trip-route-card__head">
                           <button
                             type="button"
@@ -441,11 +441,13 @@ export function TripRouteView({
                           />
                         </div>
 
-                        <p className="trip-route-card__address" title={place.address}>{place.address}</p>
-                        {/* いちばん近い駅から徒歩何分か。押すと駅からの道が地図で開く
-                            (src/components/trips/TripPlaceStation.tsx)。 */}
-                        <TripPlaceStation placeName={place.name} address={place.address} />
-                        {place.memo && <p className="trip-route-card__memo">{place.memo}</p>}
+                        <div className="trip-route-card__info">
+                          <p className="trip-route-card__address" title={place.address}>{place.address}</p>
+                          {/* いちばん近い駅から徒歩何分か。押すと駅からの道が地図で開く
+                              (src/components/trips/TripPlaceStation.tsx)。 */}
+                          <TripPlaceStation placeName={place.name} address={place.address} />
+                          {place.memo && <p className="trip-route-card__memo">{place.memo}</p>}
+                        </div>
                       </article>
                     </li>
 
