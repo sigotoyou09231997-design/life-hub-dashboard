@@ -742,6 +742,126 @@ a.trip-leg-mode--link {
   background: var(--hub-inset);
 }
 
+/* --- 日程タブ: 1日の中の時間軸 -----------------------------------------------
+   左に時刻を縦に揃え、線と点で上から下へつなぐ。灰色の箱を並べて時刻を中に小さく
+   入れていた頃は、題名の長さで時刻の位置がずれ、1日の流れを目で追いにくかった。
+   点の色は種類(観光・食事・移動・宿泊)。色だけが手がかりにならないよう、種類の
+   バッジも残してある。 */
+.trip-timeline {
+  --tl-time: 3.1rem;
+  --tl-rail: 1.1rem;
+  --tl-gap: 0.35rem;
+  /* 点の中心の高さ。題名の1行目の中心(body の余白 + 行の高さの半分)に合わせる。 */
+  --tl-dot-y: 1.3rem;
+  --tl-x: calc(var(--tl-time) + var(--tl-gap) + var(--tl-rail) / 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip-timeline__item {
+  --tl-tone: var(--hub-ink-3);
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--tl-time) var(--tl-rail) minmax(0, 1fr);
+  column-gap: var(--tl-gap);
+}
+
+.trip-timeline__item--sightseeing { --tl-tone: var(--hub-blue); }
+.trip-timeline__item--meal { --tl-tone: var(--hub-amber); }
+.trip-timeline__item--lodging { --tl-tone: var(--hub-green); }
+.trip-timeline__item--transport { --tl-tone: var(--hub-ink-2); }
+
+/* 縦の線。最初の点から最後の点までをつなぎ、その先へは伸ばさない。 */
+.trip-timeline__item::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--tl-x);
+  width: 2px;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  background: var(--hub-hairline);
+  background: color-mix(in srgb, var(--hub-ink-3) 42%, transparent);
+}
+
+/* 項目の継ぎ目で、線が1pxだけ途切れて見えないよう、次の項目へ少し重ねる。 */
+.trip-timeline__item:not(:last-child)::before { bottom: -1px; }
+.trip-timeline__item:first-child::before { top: var(--tl-dot-y); }
+.trip-timeline__item:last-child::before { bottom: calc(100% - var(--tl-dot-y)); }
+.trip-timeline__item:only-child::before { display: none; }
+
+.trip-timeline__dot {
+  position: absolute;
+  top: var(--tl-dot-y);
+  left: var(--tl-x);
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  background: var(--tl-tone);
+  /* 面と同じ色の縁で、線が点の裏に透けないようにする。 */
+  box-shadow: 0 0 0 3px var(--hub-surface);
+}
+
+.trip-timeline__time {
+  grid-column: 1;
+  /* 数字の1行目の中心を、点の高さに合わせる。 */
+  padding-top: calc(var(--tl-dot-y) - 0.6rem);
+  color: var(--hub-ink);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  line-height: 1.2rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.trip-timeline__time small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--hub-ink-3);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+/* 「終日」「時刻なし」は時刻ではないので、一段小さく淡くする。 */
+.trip-timeline__time.is-plain {
+  color: var(--hub-ink-3);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.trip-timeline__body {
+  position: relative;
+  grid-column: 3;
+  min-width: 0;
+  margin: 0.15rem 0;
+  padding: 0.55rem 0.4rem 0.6rem 0.6rem;
+  border-radius: var(--hub-r-sm);
+  transition: background-color 0.18s var(--hub-ease);
+}
+
+.trip-timeline__body:hover {
+  background: var(--hub-inset);
+}
+
+/* 灰色(neutral)のバッジは、薄い灰色の面の上でだけ見える色なので、白い面の上では
+   枠が消えて文字だけが左にずれて浮く。ここでは枠を持たせる。 */
+.trip-timeline__body .trip-timeline__badge.trip-timeline__badge {
+  background: var(--hub-inset);
+}
+
+.trip-timeline__title {
+  margin: 0;
+  color: var(--hub-ink);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.3rem;
+}
+
 /* --- 日程タブ: その日の天気(Open-Meteo) --------------------------------------
    見出しの1行に収める。日程そのものより目立つと、何を見る画面か分からなくなる。 */
 .trip-day__weather {
