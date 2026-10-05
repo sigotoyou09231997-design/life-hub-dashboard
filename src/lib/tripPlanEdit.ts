@@ -74,8 +74,11 @@ function matchScore(row: Matchable, item: Matchable): number {
   if (bothTimed && !sameTime) return 0;
 
   const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
-  // 2文字以下の短い言葉(「移動」「昼食」)は、別の予定にも普通に出るので含むだけでは見ない。
+  // 2文字の短い言葉(「移動」「昼食」)は、別の予定にも普通に出るので、含むだけでは見ない。
+  // ただし開始時刻まで同じなら、同じ予定のことがほとんど(「16:40 屋島」と「16:40〜17:20 屋島観光」。
+  // 読み直すたびに題名の書き方が変わるので、2文字の題名で取り逃がすと二重に入ってしまう)。
   if (shorter.length >= 3 && longer.includes(shorter)) return sameTime ? 60 : 30;
+  if (sameTime && shorter.length === 2 && longer.includes(shorter)) return 55;
   // 同じ時刻に、題名に3文字以上の同じ語がある(「フェリー乗船」と「土庄→高松 フェリー」)。
   if (sameTime && longestCommonRun(wordKey(row.title), wordKey(item.title)) >= 3) return 50;
   return 0;

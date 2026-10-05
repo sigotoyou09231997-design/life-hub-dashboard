@@ -68,9 +68,21 @@ describe("読み取った行と既存の日程の突き合わせ", () => {
     expect(matches).toEqual([undefined]);
   });
 
-  it("2文字以下の短い題名は、含むだけでは同じとみなさない", () => {
+  it("2文字の短い題名は、含むだけでは同じとみなさない", () => {
     const matches = matchRowsToSchedule([row({ title: "移動中に昼食" })], [item({ id: "a", title: "昼食" })]);
     expect(matches).toEqual([undefined]);
+  });
+
+  it("2文字の題名でも、開始時刻まで同じなら同じ予定(読み直しで「屋島観光」が「屋島」に変わる)", () => {
+    // 時刻も合う時まで見逃すと、読み直すたびに同じ予定が二重に入る。
+    const [match] = matchRowsToSchedule(
+      [row({ title: "屋島", startTime: "16:40" })],
+      [item({ id: "a", title: "屋島観光", startTime: "16:40", endTime: "17:20" })],
+    );
+    expect(match?.item.id).toBe("a");
+    expect(match?.strength).toBe("strong");
+    // 時刻が違えば、2文字の題名では当てない。
+    expect(matchRowsToSchedule([row({ title: "屋島", startTime: "09:00" })], [item({ id: "a", title: "屋島観光", startTime: "16:40" })])).toEqual([undefined]);
   });
 
   it("矢印だけが同じ「羽田→福岡」と「羽田→大阪」は別の予定", () => {
