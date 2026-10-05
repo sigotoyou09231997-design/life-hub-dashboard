@@ -361,7 +361,7 @@ export default function TripDetailPage() {
                     打ち込む「予定を追加」の下に置き、まとめて入れたい時だけ使う。 */}
                 <Button variant="secondary" className="w-full" onClick={() => setScanOpen(true)}>
                   <Sparkles size={17} />
-                  写真・文章から読み取る
+                  写真・文章から追加・更新
                 </Button>
               </div>
             )}
@@ -667,7 +667,7 @@ export default function TripDetailPage() {
         )}
       </Sheet>
 
-      <Sheet open={scanOpen} onClose={() => setScanOpen(false)} title="写真・文章から読み取る">
+      <Sheet open={scanOpen} onClose={() => setScanOpen(false)} title="写真・文章から追加・更新">
         {scanOpen && (
           <TripPlanScanForm
             tripId={tripId}

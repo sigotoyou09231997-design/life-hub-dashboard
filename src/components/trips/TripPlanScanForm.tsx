@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CalendarPlus, Loader2, Sparkles } from "lucide-react";
 import { db } from "../../db/schema";
-import type { Trip } from "../../types";
+import type { Trip, TripScheduleItem } from "../../types";
 import { todayStr } from "../../lib/date";
 import {
   describePlanImportError,
@@ -15,9 +15,16 @@ import {
   toTripScheduleRecord,
   type TripImportRow,
 } from "../../lib/mailPlanImport";
+import {
+  describeScanSaved,
+  diffAgainstSchedule,
+  matchRowsToSchedule,
+  type ScanRow,
+  type ScheduleMatch,
+} from "../../lib/tripPlanEdit";
 import { scanTripPlan } from "../../lib/tripPlanScan";
 import { prepareImageForScan } from "../../lib/imageDownscale";
-import { PlanImportRow } from "../plan/PlanImportRow";
+import { PlanImportRow, type PlanUpdateInfo } from "../plan/PlanImportRow";
 import { ScanNotices } from "../plan/ScanNotices";
 import { PlanSourceFields, usePickedPhotos } from "../plan/PlanSourceFields";
 import { Button } from "../ui/Button";
@@ -39,6 +46,8 @@ type Status = "input" | "reading" | "ready" | "error";
 
 /**
  * 旅行のしおり・チケット・案内のメッセージから、日程をまとめて起こす。
+ * すでに入っている日程と同じ予定は、内容が変わっていれば**更新**として出す
+ * (出発時刻の変更や、後から分かった場所を、1件ずつ開いて打ち直さずに反映できる)。
  *
  * 写真と文章のどちらからでも読める(両方まとめて渡してもよい)。読み取りは
  * Gmailの取り込みと同じサーバー関数(netlify/functions/extractTripPlan.ts)で、
@@ -50,14 +59,15 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   const [status, setStatus] = useState<Status>("input");
   const [error, setError] = useState("");
   const { photos, addPhotos, removePhoto, releasePhotos } = usePickedPhotos(setError);
-  const [rows, setRows] = useState<TripImportRow[]>([]);
+  const [rows, setRows] = useState<ScanRow[]>([]);
   // 全部は読み取れなかった時の断り。長い文章は日ごとに分けて読むので、その進み具合も持つ。
   const [notices, setNotices] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // いま入っている日程。二重に入れないために2通りの見方をする —
+  // いま入っている日程。二重に入れないために3通りの見方をする —
   // 日付・時刻・タイトルが揃うものは入れさせず(メールの取り込みと同じ決まり)、
+  // 同じ予定で内容が変わっているものは、更新として出す(src/lib/tripPlanEdit.ts)。
   // 同じ日の似たタイトルは、入れられるが既定では外しておく。
   const existingSchedule = useLiveQuery(
     async () => await db.tripSchedule.where("tripId").equals(tripId).toArray(),
@@ -66,6 +76,11 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   const existingKeys = existingSchedule
     ? new Set(existingSchedule.map((item) => planKey(item.date, item.startTime, item.title)))
     : undefined;
+
+  // 更新先を、読み取った後でも引けるように id で持つ。読み取り中に同期で消えた日程は、
+  // 見つからないので新しい予定として扱う(存在しない日程を更新しに行かない)。
+  const existingById = new Map<string, TripScheduleItem>();
+  for (const item of existingSchedule ?? []) if (item.id) existingById.set(item.id, item);
 
   const canRead = photos.length > 0 || text.trim().length > 0;
 
@@ -90,13 +105,16 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         (done, total) => setProgress({ done, total }),
       );
       setNotices(result.notices);
-      // 同じ日に似た予定が既にあるものは、外した状態で並べる。読み取り直すたびに
-      // 同じ予定が積み上がるのを、押す前に止めるため。
-      setRows(
-        toImportRows(result.items).map((row) =>
-          findSimilarPlan(row, existingSchedule) ? { ...row, checked: false, withExpense: false } : row,
-        ),
-      );
+      // いまの日程と1対1で突き合わせ、同じ予定で内容が変わっているものは更新として並べる。
+      // 確かな一致(題名や時刻が合う)は既定で選び、片方がもう片方を含むだけの一致は
+      // 別の予定かもしれないので外しておく。読み取り直すたびに同じ予定が積み上がるのを、
+      // 押す前に止めるため。
+      const items = toImportRows(result.items);
+      const matches = matchRowsToSchedule(items, existingSchedule);
+      // 別の行に使われた日程は、似た予定の断りの相手から外す(使われた日程の「昼食」を理由に、
+      // 別の時刻の「昼食」の行まで、重ねて入れる扱いにしない)。
+      const unclaimed = unclaimedSchedule(existingSchedule, matches.map((match) => match?.item.id));
+      setRows(items.map((row, index) => toScanRow(row, matches[index], unclaimed)));
       setStatus("ready");
     } catch (err) {
       console.error("[tripPlanScan] failed to read a plan:", err);
@@ -105,30 +123,39 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
     }
   }
 
-  function updateRow(index: number, changes: Partial<TripImportRow>) {
+  function updateRow(index: number, changes: Partial<ScanRow>) {
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...changes } : row)));
   }
 
-  /** 実際に入る行。既に同じ内容が入っているものは、チェックが付いていても入れない。 */
-  const savableRows = rows.filter((row) => row.checked && !isAlreadyRegistered(row, existingKeys));
-  const expenseCount = savableRows.filter((row) => row.withExpense && row.amount).length;
+  /** 1行ごとの扱い。更新先が見つかっているか・何が変わるか・入れてよいかを、画面と保存で同じ見方にする。 */
+  const unclaimed = unclaimedSchedule(existingSchedule, rows.map((row) => row.matchId));
+  const resolved = rows.map((row) => resolveRow(row, existingById, existingKeys, unclaimed));
+
+  /** 実際に入る・更新される行。既に同じ内容が入っているものは、チェックが付いていても入れない。 */
+  const savable = resolved.filter((entry) => entry.row.checked && !entry.already && !(entry.updating && entry.changes.length === 0));
+  const updateCount = savable.filter((entry) => entry.updating).length;
+  const addCount = savable.length - updateCount;
+  const expenseCount = savable.filter((entry) => !entry.updating && entry.row.withExpense && entry.row.amount).length;
 
   async function handleSave() {
-    if (savableRows.length === 0) return;
+    if (savable.length === 0) return;
     setSaving(true);
     try {
       const now = Date.now();
-      for (const row of savableRows) {
+      for (const entry of savable) {
+        const { row } = entry;
+        if (entry.updating && entry.target) {
+          // 更新は、変わる項目だけを書く。文章に無かった項目は、いまの値のまま残す。
+          await db.tripSchedule.update(entry.target.id!, diffAgainstSchedule(entry.target, row).patch);
+          continue;
+        }
         await db.tripSchedule.add(toTripScheduleRecord(row, tripId, now));
         // 費用は金額が読み取れていて、外されていない分だけ積む(種類がそのまま分類になる)。
+        // 更新では積まない(同じ予定の費用が二重になるため)。
         if (row.withExpense && row.amount) await db.tripExpenses.add(toTripExpenseRecord(row, tripId, now));
       }
       releasePhotos();
-      onSaved(
-        expenseCount > 0
-          ? `日程に${savableRows.length}件、費用に${expenseCount}件入れました`
-          : `日程に${savableRows.length}件入れました`,
-      );
+      onSaved(describeScanSaved(addCount, updateCount, expenseCount));
     } catch (err) {
       console.error("[tripPlanScan] failed to save:", err);
       setError("入れられませんでした。もう一度お試しください");
@@ -197,14 +224,25 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
               読み取った内容です。日付や時刻が違っていないか確かめてから入れてください。
             </p>
             <div className="space-y-3">
-              {rows.map((row, index) => (
+              {resolved.map((entry, index) => (
                 <PlanImportRow
                   key={index}
-                  row={row}
+                  row={entry.row}
                   destination="trip"
-                  already={isAlreadyRegistered(row, existingKeys)}
-                  outside={isOutsideTrip(trip, row.date)}
-                  similar={findSimilarPlan(row, existingSchedule)}
+                  already={entry.already}
+                  outside={isOutsideTrip(trip, entry.row.date)}
+                  similar={entry.similar}
+                  update={
+                    entry.target
+                      ? ({
+                          title: entry.target.title,
+                          changes: entry.changes,
+                          on: entry.updating,
+                          canAdd: !entry.exact,
+                          onChange: (on) => updateRow(index, { update: on, checked: true }),
+                        } satisfies PlanUpdateInfo)
+                      : undefined
+                  }
                   missingAmountHint="写真・文章から金額を読み取れませんでした"
                   onChange={(changes) => updateRow(index, changes)}
                 />
@@ -214,8 +252,8 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
               <Button type="button" variant="secondary" onClick={handleCancel}>
                 キャンセル
               </Button>
-              <Button type="button" onClick={handleSave} disabled={saving || savableRows.length === 0}>
-                {savableRows.length}件を入れる
+              <Button type="button" onClick={handleSave} disabled={saving || savable.length === 0}>
+                {saveLabel(addCount, updateCount)}
               </Button>
             </FormActions>
           </>
@@ -228,7 +266,8 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
     <div className="space-y-4">
       <p className="px-1 text-xs leading-relaxed text-slate-500">
         旅行のしおり・チケット・案内のメッセージから、日程をまとめて起こします。写真と文章の
-        どちらか一方でも、両方でも構いません。入れる前に一件ずつ確認できます。
+        どちらか一方でも、両方でも構いません。すでに入っている日程と同じ予定は、時刻や場所が
+        変わっていれば更新できます(文章に無い日程は、そのまま残ります)。入れる前に一件ずつ確認できます。
       </p>
 
       <PlanSourceFields
@@ -254,4 +293,88 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
       </FormActions>
     </div>
   );
+}
+
+/** 更新先として他の行に使われていない日程。似た予定かどうかは、これだけを相手に見る。 */
+function unclaimedSchedule(existing: TripScheduleItem[] | undefined, claimedIds: (string | undefined)[]): TripScheduleItem[] | undefined {
+  if (!existing) return existing;
+  const claimed = new Set(claimedIds.filter((id): id is string => !!id));
+  return existing.filter((item) => !item.id || !claimed.has(item.id));
+}
+
+/** 読み取った1行を、突き合わせの結果から確認画面の行にする。 */
+function toScanRow(row: TripImportRow, match: ScheduleMatch | undefined, existing: TripScheduleItem[] | undefined): ScanRow {
+  if (match) {
+    const { changes } = diffAgainstSchedule(match.item, row);
+    // 内容が変わっている時だけ更新として出す。確かな一致は既定で選び、含むだけの一致は外す。
+    if (changes.length > 0) {
+      return {
+        ...row,
+        matchId: match.item.id,
+        matchStrength: match.strength,
+        update: true,
+        checked: match.strength === "strong",
+        withExpense: false,
+      };
+    }
+  }
+  // 更新にならないが同じ予定らしいものは、これまでどおり外した状態で並べて断りを出す。
+  const similarTitle = match?.item.title ?? findSimilarPlan(row, existing);
+  return similarTitle
+    ? { ...row, update: false, similarTitle, checked: false, withExpense: false }
+    : { ...row, update: false };
+}
+
+interface ResolvedRow {
+  row: ScanRow;
+  /** 突き合わせた既存の日程(更新の候補)。 */
+  target?: TripScheduleItem;
+  /** 更新するか。更新先があり、更新を選んでいる時だけ。 */
+  updating: boolean;
+  /** 更新した時に変わる所。 */
+  changes: ReturnType<typeof diffAgainstSchedule>["changes"];
+  /** 日付・時刻・題名が完全に同じ日程が更新先。追加すると二重になる。 */
+  exact: boolean;
+  /** 既に同じ内容が入っている(更新するものも無い)。入れさせない。 */
+  already: boolean;
+  /** 同じ日の似た予定の題名。更新の候補でなく、重ねて入れることになる時の断り。 */
+  similar?: string;
+}
+
+function resolveRow(
+  row: ScanRow,
+  existingById: Map<string, TripScheduleItem>,
+  existingKeys: Set<string> | undefined,
+  existing: TripScheduleItem[] | undefined,
+): ResolvedRow {
+  const target = row.matchId ? existingById.get(row.matchId) : undefined;
+  if (target) {
+    const exact = planKey(target.date, target.startTime, target.title) === planKey(row.date, row.startTime, row.title);
+    // 完全に同じ日程が更新先なら、追加は選べず、更新だけ。
+    const updating = row.update || exact;
+    return {
+      row,
+      target,
+      updating,
+      changes: diffAgainstSchedule(target, row).changes,
+      exact,
+      // 別の予定として追加を選んだ行が、別の既存の日程と完全に同じなら、これも二重になる。
+      already: !updating && isAlreadyRegistered(row, existingKeys),
+    };
+  }
+  return {
+    row,
+    updating: false,
+    changes: [],
+    exact: false,
+    already: isAlreadyRegistered(row, existingKeys),
+    similar: row.similarTitle ?? findSimilarPlan(row, existing),
+  };
+}
+
+/** 入れる(更新する)ボタンの文言。追加だけの時はこれまでと同じ「N件を入れる」。 */
+function saveLabel(added: number, updated: number): string {
+  if (updated === 0) return `${added}件を入れる`;
+  if (added === 0) return `${updated}件を更新する`;
+  return `${added}件を入れて${updated}件を更新する`;
 }

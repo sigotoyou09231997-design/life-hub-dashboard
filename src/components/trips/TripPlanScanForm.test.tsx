@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   notices: [] as string[],
   extractError: null as Error | null,
   existingTripSchedule: [] as Record<string, unknown>[],
-  saved: { tripSchedule: [] as unknown[], tripExpenses: [] as unknown[] },
+  saved: { tripSchedule: [] as unknown[], tripExpenses: [] as unknown[], updated: [] as { id: string; patch: unknown }[] },
   sent: [] as Record<string, unknown>[],
 }));
 
@@ -17,6 +17,7 @@ vi.mock("../../db/schema", () => ({
   db: {
     tripSchedule: {
       add: async (row: unknown) => void mocks.saved.tripSchedule.push(row),
+      update: async (id: string, patch: unknown) => void mocks.saved.updated.push({ id, patch }),
       where: () => ({ equals: () => ({ toArray: async () => mocks.existingTripSchedule }) }),
     },
     tripExpenses: { add: async (row: unknown) => void mocks.saved.tripExpenses.push(row) },
@@ -77,7 +78,7 @@ beforeEach(() => {
   mocks.notices = [];
   mocks.extractError = null;
   mocks.existingTripSchedule = [];
-  mocks.saved = { tripSchedule: [], tripExpenses: [] };
+  mocks.saved = { tripSchedule: [], tripExpenses: [], updated: [] };
   mocks.sent = [];
 });
 
@@ -151,6 +152,139 @@ describe("写真・文章から日程を読み取る画面", () => {
     await user.click(screen.getByRole("checkbox", { name: "お迎え・買い出し・鎌倉散歩を入れる" }));
     await user.click(screen.getByRole("button", { name: "1件を入れる" }));
     expect(mocks.saved.tripSchedule).toHaveLength(1);
+  });
+
+  describe("すでに入っている日程の更新", () => {
+    // 計画の途中で、しおりの出発が変わった・場所が分かった時に、1件ずつ開いて打ち直さずに
+    // 文章を貼り直して反映する。追加だけだった頃は、同じ予定は見送るしかなかった。
+
+    it("同じ予定で時刻が変わっていれば、更新として前後を並べる", async () => {
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", type: "other" }];
+      mocks.items = [{ date: "2026-09-12", startTime: "11:00", title: "レンタカー受取", type: "other" }];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText(/「レンタカー受取」を、この内容に更新します/)).toBeTruthy();
+      expect(screen.getByText(/開始: 10:00/)).toBeTruthy();
+      // 確かな一致は既定で選んである。まだ保存はされていない。
+      expect(screen.getByRole("button", { name: "1件を更新する" })).toBeTruthy();
+      expect(mocks.saved.updated).toEqual([]);
+    });
+
+    it("更新を押すと、変わる項目だけを既存の日程に書く(追加はしない)", async () => {
+      mocks.existingTripSchedule = [
+        { id: "a", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", location: "土庄港", memo: "自分のメモ", type: "other" },
+      ];
+      mocks.items = [
+        { date: "2026-09-12", startTime: "11:00", title: "レンタカー受取", location: "土庄港", memo: "AIのメモ", type: "other", amount: 8000 },
+      ];
+      const saved = vi.fn();
+      const user = userEvent.setup();
+      renderForm(saved);
+      await readFromText(user);
+      await user.click(screen.getByRole("button", { name: "1件を更新する" }));
+      // 変わった時刻だけ。書いてあったメモは上書きしない。
+      expect(mocks.saved.updated).toEqual([{ id: "a", patch: { startTime: "11:00" } }]);
+      expect(mocks.saved.tripSchedule).toEqual([]);
+      // 同じ予定の費用が二重にならないよう、更新では費用を積まない。
+      expect(mocks.saved.tripExpenses).toEqual([]);
+      expect(saved).toHaveBeenCalledWith("日程を1件更新しました");
+    });
+
+    it("追加と更新が混ざっていても、それぞれ入る", async () => {
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", type: "other" }];
+      mocks.items = [
+        { date: "2026-09-12", startTime: "11:00", title: "レンタカー受取", type: "other" },
+        { date: "2026-09-12", startTime: "13:00", title: "昼食", type: "meal" },
+      ];
+      const saved = vi.fn();
+      const user = userEvent.setup();
+      renderForm(saved);
+      await readFromText(user);
+      await user.click(screen.getByRole("button", { name: "1件を入れて1件を更新する" }));
+      expect(mocks.saved.updated).toEqual([{ id: "a", patch: { startTime: "11:00" } }]);
+      expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ title: "昼食", startTime: "13:00" })]);
+      expect(saved).toHaveBeenCalledWith("日程に1件入れ、日程を1件更新しました");
+    });
+
+    it("文章に無かった既存の日程は、触らない・消さない", async () => {
+      mocks.existingTripSchedule = [
+        { id: "a", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", type: "other" },
+        { id: "b", date: "2026-09-13", startTime: "09:00", title: "五稜郭", type: "sightseeing" },
+      ];
+      mocks.items = [{ date: "2026-09-12", startTime: "11:00", title: "レンタカー受取", type: "other" }];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      await user.click(screen.getByRole("button", { name: "1件を更新する" }));
+      expect(mocks.saved.updated.map((entry) => entry.id)).toEqual(["a"]);
+    });
+
+    it("片方がもう片方を含むだけの一致は、既定では選ばず、選べば更新できる", async () => {
+      // 別の予定かもしれないので、勝手には書き換えない。
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-13", title: "鎌倉散歩", type: "sightseeing" }];
+      mocks.items = [{ date: "2026-09-13", title: "お迎え・買い出し・鎌倉散歩", location: "鎌倉", type: "sightseeing" }];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText(/同じ日に「鎌倉散歩」があります/)).toBeTruthy();
+      expect((screen.getByRole("button", { name: "0件を入れる" }) as HTMLButtonElement).disabled).toBe(true);
+      await user.click(screen.getByRole("checkbox", { name: "お迎え・買い出し・鎌倉散歩を入れる" }));
+      await user.click(screen.getByRole("button", { name: "1件を更新する" }));
+      expect(mocks.saved.updated).toEqual([
+        { id: "a", patch: { title: "お迎え・買い出し・鎌倉散歩", location: "鎌倉" } },
+      ]);
+      expect(mocks.saved.tripSchedule).toEqual([]);
+    });
+
+    it("「別の予定として追加」に切り替えれば、更新せず新しく入れる", async () => {
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", type: "other" }];
+      mocks.items = [{ date: "2026-09-12", startTime: "11:00", title: "レンタカー受取", type: "other" }];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      await user.click(screen.getByRole("tab", { name: "別の予定として追加" }));
+      await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+      expect(mocks.saved.updated).toEqual([]);
+      expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ startTime: "11:00", title: "レンタカー受取" })]);
+    });
+
+    it("日付・時刻・題名が完全に同じ日程の更新は、追加を選ばせない(二重になる)", async () => {
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", type: "other" }];
+      mocks.items = [{ date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", location: "土庄港", type: "other" }];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText(/場所: なし/)).toBeTruthy();
+      expect(screen.queryByRole("tab", { name: "別の予定として追加" })).toBeNull();
+      await user.click(screen.getByRole("button", { name: "1件を更新する" }));
+      expect(mocks.saved.updated).toEqual([{ id: "a", patch: { location: "土庄港" } }]);
+      expect(mocks.saved.tripSchedule).toEqual([]);
+    });
+
+    it("2行が同じ日程を書き換えない(2行目は新しい予定になる)", async () => {
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-12", startTime: "12:00", title: "昼食", type: "meal" }];
+      mocks.items = [
+        { date: "2026-09-12", startTime: "12:00", title: "昼食", location: "函館駅前", type: "meal" },
+        { date: "2026-09-12", startTime: "18:00", title: "昼食", location: "五稜郭", type: "meal" },
+      ];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      await user.click(screen.getByRole("button", { name: "1件を入れて1件を更新する" }));
+      expect(mocks.saved.updated).toEqual([{ id: "a", patch: { location: "函館駅前" } }]);
+      expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ startTime: "18:00", location: "五稜郭" })]);
+    });
+
+    it("更新する所が無い同じ予定は、これまでどおり「すでに登録されています」", async () => {
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", type: "other" }];
+      mocks.items = [{ date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", type: "other" }];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText("すでに登録されています")).toBeTruthy();
+      expect((screen.getByRole("button", { name: "0件を入れる" }) as HTMLButtonElement).disabled).toBe(true);
+    });
   });
 
   it("しおり1枚ぶん(時刻の無い8日分)をまとめて入れる", async () => {

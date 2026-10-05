@@ -1,5 +1,6 @@
-import { Check, TriangleAlert } from "lucide-react";
+import { Check, RefreshCw, TriangleAlert } from "lucide-react";
 import type { PlanDestination, TripImportRow } from "../../lib/mailPlanImport";
+import type { PlanChange } from "../../lib/tripPlanEdit";
 import type { TripScheduleType } from "../../types";
 import { TRIP_SCHEDULE_TYPES } from "../../lib/tripCategories";
 import { Input } from "../ui/Input";
@@ -7,6 +8,26 @@ import { Select } from "../ui/Select";
 import { SwitchField } from "../ui/SwitchField";
 import { DateField } from "../ui/DateField";
 import { Field } from "../ui/Field";
+import { Tabs, type TabOption } from "../ui/Tabs";
+
+/** 既存の日程と同じ予定だった時の、更新の案内(旅行の日程の読み取りだけが渡す)。 */
+export interface PlanUpdateInfo {
+  /** 更新される側(いま入っている日程)の題名。 */
+  title: string;
+  /** いまの内容から変わる所。 */
+  changes: PlanChange[];
+  /** 更新する(true)か、別の予定として追加する(false)か。 */
+  on: boolean;
+  /** 別の予定として追加できるか。日付・時刻・題名が完全に同じ日程の更新は、
+      追加すると二重になるので選ばせない。 */
+  canAdd: boolean;
+  onChange: (on: boolean) => void;
+}
+
+const UPDATE_OPTIONS: TabOption<"update" | "add">[] = [
+  { value: "update", label: "いまの日程を更新" },
+  { value: "add", label: "別の予定として追加" },
+];
 
 interface Props {
   row: TripImportRow;
@@ -19,6 +40,8 @@ interface Props {
   /** 同じ日にある似た予定のタイトル。完全一致(already)と違って入れられるが、
       重ねて入れることになるので、既定では外したうえで断りを出す。 */
   similar?: string;
+  /** 既存の日程と同じ予定で、内容が変わっている時の更新の案内。 */
+  update?: PlanUpdateInfo;
   /** 金額が読み取れなかった時に、費用のスイッチに出す注記。 */
   missingAmountHint: string;
   onChange: (changes: Partial<TripImportRow>) => void;
@@ -32,7 +55,8 @@ interface Props {
  * (src/components/gmail/MailPlanImport.tsx)と、旅行計画の写真・文章からの取り込み
  * (src/components/trips/TripPlanScanForm.tsx)で同じ行を使う。
  */
-export function PlanImportRow({ row, destination, already, outside, similar, missingAmountHint, onChange }: Props) {
+export function PlanImportRow({ row, destination, already, outside, similar, update, missingAmountHint, onChange }: Props) {
+  const updating = !!update?.on;
   return (
     <div className={`glass-row space-y-2 rounded-xl p-3 ${already ? "opacity-70" : ""}`}>
       <label className="flex items-start gap-2">
@@ -59,6 +83,40 @@ export function PlanImportRow({ row, destination, already, outside, similar, mis
           <TriangleAlert size={13} className="mt-0.5 shrink-0" />
           同じ日に「{similar}」があります。重ねて入れる時だけチェックしてください
         </p>
+      )}
+
+      {!already && update && (
+        <div className="space-y-2 px-1">
+          <p className="flex items-start gap-1.5 text-xs leading-relaxed text-accent">
+            <RefreshCw size={13} className="mt-0.5 shrink-0" />
+            {/* 選ばれていない行は、まだ何も起きないので「更新します」とは言わない。 */}
+            {row.checked && updating
+              ? `同じ日の「${update.title}」を、この内容に更新します`
+              : `同じ日に「${update.title}」があります`}
+          </p>
+          {update.changes.length > 0 ? (
+            <ul className="space-y-0.5 pl-5 text-xs leading-relaxed text-slate-600">
+              {update.changes.map((change) => (
+                <li key={change.field}>
+                  {change.label}: {change.before ?? "なし"} → <span className="font-medium text-slate-900">{change.after}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            update.on && <p className="pl-5 text-xs leading-relaxed text-slate-500">変わる所はありません</p>
+          )}
+          {update.canAdd && (
+            <Tabs
+              dense
+              options={UPDATE_OPTIONS}
+              value={update.on ? "update" : "add"}
+              onChange={(value) => update.onChange(value === "update")}
+            />
+          )}
+          {!row.checked && (
+            <p className="text-xs leading-relaxed text-slate-500">チェックすると、上で選んだ方で反映します</p>
+          )}
+        </div>
       )}
 
       {row.checked && !already && (
@@ -126,7 +184,7 @@ export function PlanImportRow({ row, destination, already, outside, similar, mis
           )}
           {/* 費用は旅行の日程に入れる時だけ。新幹線なら交通費、宿なら宿泊費として
               同じ旅行に積む(種類がそのまま費用の分類になる)。 */}
-          {destination === "trip" && (
+          {destination === "trip" && !updating && (
             <>
               <SwitchField
                 label="費用にも入れる"
@@ -146,6 +204,9 @@ export function PlanImportRow({ row, destination, already, outside, similar, mis
                 />
               )}
             </>
+          )}
+          {updating && row.amount != null && (
+            <p className="px-1 text-xs leading-relaxed text-slate-500">更新では費用は変えません</p>
           )}
           {row.memo && <p className="px-1 text-xs leading-relaxed text-slate-500">{row.memo}</p>}
           {outside && (

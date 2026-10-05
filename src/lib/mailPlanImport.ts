@@ -92,8 +92,9 @@ function wordKey(title: string): string {
   return titleKey(title).replace(/[→←↔⇒>＞]/g, "");
 }
 
-/** 2つの文字列に共通して現れる、いちばん長い連続部分の長さ。 */
-function longestCommonRun(a: string, b: string): number {
+/** 2つの文字列に共通して現れる、いちばん長い連続部分の長さ。
+ * 旅行の日程を文章で更新する時の突き合わせ(src/lib/tripPlanEdit.ts)も使う。 */
+export function longestCommonRun(a: string, b: string): number {
   let best = 0;
   let previous = new Array<number>(b.length + 1).fill(0);
   for (let i = 1; i <= a.length; i++) {
