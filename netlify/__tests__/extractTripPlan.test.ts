@@ -395,6 +395,20 @@ describe("件数の上限", () => {
     expect(SYSTEM_PROMPT).toContain("翌日にして");
     expect(SYSTEM_PROMPT).toContain("年越し");
   });
+
+  it("起床・準備・出発のような1日の動きの区切りも、1行を1件として入れるよう指示している", () => {
+    // 2026-10-05: 12/30の「06:45 起床」は入るのに、12/31・1/1の「起床」「準備」と、
+    // 「10:00 出発」のような行き先の無い出発は黙って落ちていた(指示に規則が無く、気まぐれだった)。
+    expect(SYSTEM_PROMPT).toContain("起床・準備・朝食・出発・到着・チェックアウト・休憩");
+    expect(SYSTEM_PROMPT).toContain("「準備」「休憩」のような軽い行も省かない");
+    expect(SYSTEM_PROMPT).toContain("ホテル出発");
+    expect(SYSTEM_PROMPT).toContain("ホテル到着");
+  });
+
+  it("隣り合う行を1つの移動にまとめず、途中に時刻が出てくるだけの注意書きは予定にしない", () => {
+    expect(SYSTEM_PROMPT).toContain("1行を1件にする");
+    expect(SYSTEM_PROMPT).toContain("返却期限19:30");
+  });
 });
 
 describe("Netlify版とVercel版のずれ", () => {
