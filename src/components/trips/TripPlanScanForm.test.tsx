@@ -11,6 +11,12 @@ const mocks = vi.hoisted(() => ({
   existingTripSchedule: [] as Record<string, unknown>[],
   saved: { tripSchedule: [] as unknown[], tripExpenses: [] as unknown[], updated: [] as { id: string; patch: unknown }[] },
   sent: [] as Record<string, unknown>[],
+  // 専用GPTから届いた旅程(受信箱)と、送信コードの状態。
+  inbox: [] as unknown[],
+  sendCodeState: { kind: "unavailable" } as unknown,
+  deletedInbox: [] as string[],
+  createdCodes: 0,
+  revokedCodes: 0,
 }));
 
 vi.mock("../../db/schema", () => ({
@@ -59,6 +65,22 @@ vi.mock("../../lib/tripPlanScan", async () => {
   };
 });
 
+// 受信箱と送信コードは Supabase を直接読み書きするので、ここでは差し替える(画面の組み立てだけを見る)。
+vi.mock("../../lib/chatgptInbox", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/chatgptInbox")>("../../lib/chatgptInbox");
+  return {
+    ...actual,
+    loadInbox: async () => mocks.inbox,
+    deleteInboxEntry: async (id: string) => void mocks.deletedInbox.push(id),
+    loadSendCodeState: async () => mocks.sendCodeState,
+    createSendCode: async () => {
+      mocks.createdCodes++;
+      return "LH-NEW1-NEW2-NEW3-NEW4-NEW5";
+    },
+    revokeSendCode: async () => void mocks.revokedCodes++,
+  };
+});
+
 import { TripPlanScanForm } from "./TripPlanScanForm";
 
 const trip = { id: "trip-1", name: "函館旅行", startDate: "2026-09-12", endDate: "2026-09-14" } as Trip;
@@ -80,6 +102,11 @@ beforeEach(() => {
   mocks.existingTripSchedule = [];
   mocks.saved = { tripSchedule: [], tripExpenses: [], updated: [] };
   mocks.sent = [];
+  mocks.inbox = [];
+  mocks.sendCodeState = { kind: "unavailable" };
+  mocks.deletedInbox = [];
+  mocks.createdCodes = 0;
+  mocks.revokedCodes = 0;
 });
 
 afterEach(cleanup);
@@ -467,5 +494,149 @@ describe("ChatGPTで旅程を作ってもらう入り口", () => {
     await openGuide(user);
     await user.click(screen.getByRole("button", { name: "返事を貼る" }));
     expect(screen.getByText(/下の「文章」の欄に、返事を直接貼り付けてください/)).toBeTruthy();
+  });
+});
+
+describe("専用GPTから届いた旅程(受信箱)", () => {
+  const entry = {
+    id: "inbox-1",
+    tripName: "函館旅行",
+    startDate: "2026-09-12",
+    endDate: "2026-09-14",
+    receivedAt: Date.parse("2026-09-01T03:04:00Z"),
+    items: [
+      { date: "2026-09-12", startTime: "08:20", title: "羽田→函館", type: "transport", endLocation: "函館空港" },
+      { date: "2026-09-12", startTime: "12:00", title: "昼食 函館朝市", type: "meal" },
+    ],
+  };
+
+  it("1件も届いていなければ、何も出さない", async () => {
+    renderForm();
+    // 読み込みが終わるのを待ってから、出ていないことを確かめる。
+    await screen.findByRole("button", { name: "読み取る" });
+    expect(screen.queryByText("ChatGPTから届いた旅程")).toBeNull();
+  });
+
+  it("届いた旅程を並べ、名前・期間・件数が分かる", async () => {
+    mocks.inbox = [entry];
+    renderForm();
+    expect(await screen.findByText("ChatGPTから届いた旅程")).toBeTruthy();
+    expect(screen.getByText("函館旅行")).toBeTruthy();
+    expect(screen.getByText(/9\/12〜9\/14 ・ 2件/)).toBeTruthy();
+  });
+
+  it("読み込むと確認画面に並ぶ。この時点では日程に入らず、受信箱からも消えない", async () => {
+    mocks.inbox = [entry];
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(await screen.findByRole("button", { name: "読み込む" }));
+    expect(screen.getByDisplayValue("羽田→函館")).toBeTruthy();
+    expect(screen.getByDisplayValue("昼食 函館朝市")).toBeTruthy();
+    expect(mocks.saved.tripSchedule).toEqual([]);
+    expect(mocks.deletedInbox).toEqual([]);
+    // AIの読み取りは通らない(届いた時点で項目に分かれている)。
+    expect(mocks.sent).toEqual([]);
+  });
+
+  it("確認して日程に入れたら、受信箱から消す", async () => {
+    mocks.inbox = [entry];
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(await screen.findByRole("button", { name: "読み込む" }));
+    await user.click(screen.getByRole("button", { name: "2件を入れる" }));
+    expect(mocks.saved.tripSchedule).toEqual([
+      expect.objectContaining({ tripId: "trip-1", date: "2026-09-12", startTime: "08:20", title: "羽田→函館" }),
+      expect.objectContaining({ tripId: "trip-1", title: "昼食 函館朝市" }),
+    ]);
+    expect(mocks.deletedInbox).toEqual(["inbox-1"]);
+  });
+
+  it("入れずにキャンセルしたら、受信箱に残す", async () => {
+    mocks.inbox = [entry];
+    const onCancel = vi.fn();
+    const user = userEvent.setup();
+    render(<TripPlanScanForm tripId="trip-1" trip={trip} onSaved={() => {}} onCancel={onCancel} />);
+    await user.click(await screen.findByRole("button", { name: "読み込む" }));
+    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+    expect(onCancel).toHaveBeenCalled();
+    expect(mocks.deletedInbox).toEqual([]);
+  });
+
+  it("すでに入っている日程と同じ予定は、受信箱から読み込んでも二重に入れさせない", async () => {
+    mocks.inbox = [entry];
+    mocks.existingTripSchedule = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→函館" }];
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(await screen.findByRole("button", { name: "読み込む" }));
+    expect(screen.getByText("すでに登録されています")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "1件を入れる" })).toBeTruthy();
+  });
+
+  it("要らない旅程は、受信箱から消せる", async () => {
+    mocks.inbox = [entry];
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(await screen.findByRole("button", { name: /「函館旅行」を受信箱から消す/ }));
+    expect(mocks.deletedInbox).toEqual(["inbox-1"]);
+    expect(screen.queryByText("函館旅行")).toBeNull();
+  });
+});
+
+describe("送信コード(専用GPTから直接送る)", () => {
+  async function openGuide(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: /ChatGPTで旅程を作ってもらう/ }));
+  }
+
+  it("ログインしていない・SQLを流す前は、この部分を出さない", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await openGuide(user);
+    // 他の部分(依頼文のコピー)は出ている。
+    expect(screen.getByRole("button", { name: "依頼文をコピー" })).toBeTruthy();
+    expect(screen.queryByText(/ChatGPTから直接送る/)).toBeNull();
+  });
+
+  it("コードが無ければ、作れる。作ると、コードが出てコピーできる", async () => {
+    mocks.sendCodeState = { kind: "none" };
+    const user = userEvent.setup();
+    renderForm();
+    await openGuide(user);
+    await user.click(await screen.findByRole("button", { name: "送信コードを作る" }));
+    expect(mocks.createdCodes).toBe(1);
+    expect(await screen.findByText("LH-NEW1-NEW2-NEW3-NEW4-NEW5")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "コードをコピー" })).toBeTruthy();
+    // コードを知っている人は受信箱に置ける、という注意を出している。
+    expect(screen.getByText(/他の人には見せないでください/)).toBeTruthy();
+  });
+
+  it("別の端末で作ったコードは表示できないので、作り直しを案内する", async () => {
+    mocks.sendCodeState = { kind: "active", createdAt: "2026-10-06T00:00:00Z" };
+    const user = userEvent.setup();
+    renderForm();
+    await openGuide(user);
+    expect(await screen.findByText(/作った端末でしか表示できない/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "コードをコピー" })).toBeNull();
+  });
+
+  it("作り直す・無効にするは、確かめてから実行する(古いコードが使えなくなるため)", async () => {
+    mocks.sendCodeState = { kind: "active", createdAt: "x", code: "LH-AAAA-BBBB-CCCC-DDDD-EEEE" };
+    const user = userEvent.setup();
+    renderForm();
+    await openGuide(user);
+    await user.click(await screen.findByRole("button", { name: "作り直す" }));
+    // 押しただけでは作り直さない。
+    expect(mocks.createdCodes).toBe(0);
+    expect(screen.getByText(/今のコードはこの瞬間から使えなくなります/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "やめる" }));
+    expect(mocks.createdCodes).toBe(0);
+
+    await user.click(screen.getByRole("button", { name: "無効にする" }));
+    expect(mocks.revokedCodes).toBe(0);
+    // 確認の表示に切り替わるので、「無効にする」はその中の1つだけ。
+    expect(screen.getByText(/専用GPTからは何も送れなくなります/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "無効にする" }));
+    expect(mocks.revokedCodes).toBe(1);
+    // 無効にしたあとは、もう一度作れる状態に戻る。
+    expect(await screen.findByRole("button", { name: "送信コードを作る" })).toBeTruthy();
   });
 });

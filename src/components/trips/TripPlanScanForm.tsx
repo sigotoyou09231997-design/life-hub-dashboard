@@ -13,6 +13,7 @@ import {
   toImportRows,
   toTripExpenseRecord,
   toTripScheduleRecord,
+  type ExtractedTripItem,
   type TripImportRow,
 } from "../../lib/mailPlanImport";
 import {
@@ -27,7 +28,9 @@ import { prepareImageForScan } from "../../lib/imageDownscale";
 import { PlanImportRow, type PlanUpdateInfo } from "../plan/PlanImportRow";
 import { ScanNotices } from "../plan/ScanNotices";
 import { PlanSourceFields, usePickedPhotos } from "../plan/PlanSourceFields";
+import { ChatGptInbox } from "./ChatGptInbox";
 import { ChatGptPlanGuide } from "./ChatGptPlanGuide";
+import { deleteInboxEntry, type InboxEntry } from "../../lib/chatgptInbox";
 import { Button } from "../ui/Button";
 import { FormActions } from "../ui/FormActions";
 import { EmptyState } from "../ui/EmptyState";
@@ -65,6 +68,8 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   const [notices, setNotices] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [saving, setSaving] = useState(false);
+  // 受信箱から並べた旅程のid。日程に入れたあと、受信箱から消すのに使う。
+  const [inboxId, setInboxId] = useState<string>();
 
   // いま入っている日程。二重に入れないために3通りの見方をする —
   // 日付・時刻・タイトルが揃うものは入れさせず(メールの取り込みと同じ決まり)、
@@ -85,8 +90,38 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
 
   const canRead = photos.length > 0 || text.trim().length > 0;
 
+  /** 日程の候補(読み取った結果・受信箱の旅程)を、確認画面に並べる。入れるのは確認のあと。 */
+  function presentItems(found: ExtractedTripItem[], foundNotices: string[]) {
+    setNotices(foundNotices);
+    // いまの日程と1対1で突き合わせ、同じ予定で内容が変わっているものは更新として並べる。
+    // 確かな一致(題名や時刻が合う)は既定で選び、片方がもう片方を含むだけの一致は
+    // 別の予定かもしれないので外しておく。読み取り直すたびに同じ予定が積み上がるのを、
+    // 押す前に止めるため。
+    const items = toImportRows(found);
+    const matches = matchRowsToSchedule(items, existingSchedule);
+    // 別の行に使われた日程は、似た予定の断りの相手から外す(使われた日程の「昼食」を理由に、
+    // 別の時刻の「昼食」の行まで、重ねて入れる扱いにしない)。
+    const unclaimed = unclaimedSchedule(existingSchedule, matches.map((match) => match?.item.id));
+    setRows(items.map((row, index) => toScanRow(row, matches[index], unclaimed)));
+    setStatus("ready");
+  }
+
+  /** 受信箱の旅程を確認画面に並べる。受信箱から消すのは、日程に入れたあと(やめた時は残る)。 */
+  function handlePickInbox(entry: InboxEntry) {
+    setError("");
+    setInboxId(entry.id);
+    presentItems(entry.items, []);
+  }
+
+  /** 読み取り・受信箱の結果から、入力に戻る。受信箱の旅程を入れるつもりでなくなる。 */
+  function backToInput() {
+    setInboxId(undefined);
+    setStatus("input");
+  }
+
   async function handleRead() {
     if (!canRead) return;
+    setInboxId(undefined);
     setStatus("reading");
     setError("");
     setProgress(null);
@@ -105,18 +140,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         },
         (done, total) => setProgress({ done, total }),
       );
-      setNotices(result.notices);
-      // いまの日程と1対1で突き合わせ、同じ予定で内容が変わっているものは更新として並べる。
-      // 確かな一致(題名や時刻が合う)は既定で選び、片方がもう片方を含むだけの一致は
-      // 別の予定かもしれないので外しておく。読み取り直すたびに同じ予定が積み上がるのを、
-      // 押す前に止めるため。
-      const items = toImportRows(result.items);
-      const matches = matchRowsToSchedule(items, existingSchedule);
-      // 別の行に使われた日程は、似た予定の断りの相手から外す(使われた日程の「昼食」を理由に、
-      // 別の時刻の「昼食」の行まで、重ねて入れる扱いにしない)。
-      const unclaimed = unclaimedSchedule(existingSchedule, matches.map((match) => match?.item.id));
-      setRows(items.map((row, index) => toScanRow(row, matches[index], unclaimed)));
-      setStatus("ready");
+      presentItems(result.items, result.notices);
     } catch (err) {
       console.error("[tripPlanScan] failed to read a plan:", err);
       setError(describePlanImportError(err));
@@ -156,6 +180,9 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         if (row.withExpense && row.amount) await db.tripExpenses.add(toTripExpenseRecord(row, tripId, now));
       }
       releasePhotos();
+      // 受信箱から入れた旅程は、入れ終わったら受信箱から消す(同じ旅程が残り続けないように)。
+      // 消せなくても日程には入っているので、失敗は黙って流す(次に開いた時にまた並ぶだけ)。
+      if (inboxId) void deleteInboxEntry(inboxId).catch((err) => console.warn("[chatgptInbox] failed to clear the entry:", err));
       onSaved(describeScanSaved(addCount, updateCount, expenseCount));
     } catch (err) {
       console.error("[tripPlanScan] failed to save:", err);
@@ -191,7 +218,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
           <Button type="button" variant="secondary" className="flex-1" onClick={handleCancel}>
             閉じる
           </Button>
-          <Button type="button" className="flex-1" onClick={() => setStatus("input")}>
+          <Button type="button" className="flex-1" onClick={backToInput}>
             やり直す
           </Button>
         </div>
@@ -214,7 +241,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
               <Button type="button" variant="secondary" className="flex-1" onClick={handleCancel}>
                 閉じる
               </Button>
-              <Button type="button" className="flex-1" onClick={() => setStatus("input")}>
+              <Button type="button" className="flex-1" onClick={backToInput}>
                 やり直す
               </Button>
             </div>
@@ -270,6 +297,9 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         どちらか一方でも、両方でも構いません。すでに入っている日程と同じ予定は、時刻や場所が
         変わっていれば更新できます(文章に無い日程は、そのまま残ります)。入れる前に一件ずつ確認できます。
       </p>
+
+      {/* 専用GPTから直接届いた旅程。1件も無ければ何も出ない。 */}
+      <ChatGptInbox onPick={handlePickInbox} />
 
       {/* ChatGPT に旅程を作ってもらい、返事を下の文章の欄へ貼る入り口。読み取りは同じ。 */}
       <ChatGptPlanGuide
