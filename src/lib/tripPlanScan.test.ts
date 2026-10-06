@@ -129,6 +129,26 @@ describe("splitScanText", () => {
     }
   });
 
+  it("ChatGPTが付けがちなMarkdownの飾りがあっても、日の見出しとして読む", () => {
+    // 「### 12/28(月)」「**12/28(月)**」のまま返ってくる。見出しと見なさないと、複数日が1回に
+    // 詰まって、後ろの日が件数の上限で切れる。「#」は印そのものなので曜日が無くても見出し。
+    const filler = longLines(40);
+    for (const heading of ["### 12/28(月)", "## 2日目 12/28(月)", "**12/28(月)**", "**■12/28(月) 高松**", "### ■12/28(月)", "## 12/28"]) {
+      const text = `1日目\n${filler}\n\n${heading}\n${filler}`;
+      const chunks = splitScanText(text);
+      expect(chunks.length, heading).toBe(2);
+      expect(chunks[1].startsWith(heading), heading).toBe(true);
+    }
+  });
+
+  it("日付の無いMarkdownの見出しや太字の行では区切らない", () => {
+    const filler = longLines(40);
+    for (const line of ["# 四国旅行のしおり", "**持ち物**", "- 12/28", "> 12/28"]) {
+      const chunks = splitScanText(`1日目\n${filler}\n\n${line}\n${filler}`);
+      expect(chunks, line).toHaveLength(1);
+    }
+  });
+
   it("予定そのものの行・期間・印も曜日も無い日付だけの行では区切らない", () => {
     // 「9/12 10:00 羽田発」は予定。「12/27〜12/30」は期間。基本情報に出てくる「12/31」だけの行も見出しではない。
     // 欄の途中で切ると、後ろ半分から日付が消えて読み取れなくなる。
