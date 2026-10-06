@@ -11,6 +11,7 @@ import {
 import { Button } from "../ui/Button";
 import { Input, Textarea } from "../ui/Input";
 import { SegmentedField } from "../ui/SegmentedField";
+import { ChatGptSendCodePanel } from "./ChatGptSendCodePanel";
 
 const CHATGPT_URL = "https://chatgpt.com/";
 
@@ -170,6 +171,9 @@ export function ChatGptPlanGuide({ trip, onPasteReply }: Props) {
             <summary className="cursor-pointer py-1">依頼文を確かめる</summary>
             <Textarea rows={10} readOnly value={prompt} aria-label="ChatGPTに渡す依頼文" />
           </details>
+
+          {/* 専用GPTから直接送る形(ログインしていない・SQL未実行の時は何も出ない)。 */}
+          <ChatGptSendCodePanel />
         </div>
       )}
     </div>

@@ -1,0 +1,149 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "LIFE HUB 旅程の受け取り",
+    "description": "ChatGPTで作った旅行の日程を、LIFE HUB の受信箱へ送る。届いた旅程は、本人が確かめてから日程に入れる。",
+    "version": "1.0.0"
+  },
+  "servers": [{ "url": "https://life-hub-dashboard.vercel.app" }],
+  "paths": {
+    "/api/receiveTripPlan": {
+      "post": {
+        "operationId": "sendTripPlan",
+        "summary": "作った旅程を LIFE HUB の受信箱に送る",
+        "description": "ユーザーが旅程を確かめ、LIFE HUB に送るよう頼んだ時だけ呼ぶ。送信コードは、ユーザーが会話で伝えたものを使う。",
+        "x-openai-isConsequential": false,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["code", "items"],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "description": "ユーザーが伝えた LIFE HUB の送信コード。例: LH-ABCD-EFGH-JKLM-NPQR-STUV。ユーザーから聞いた通りに入れる。"
+                  },
+                  "tripName": {
+                    "type": "string",
+                    "description": "旅行の名前。例: 四国旅行"
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "description": "旅行の最初の日。YYYY-MM-DD",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "description": "旅行の最後の日。YYYY-MM-DD",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "items": {
+                    "type": "array",
+                    "description": "日程。1件が1つの予定。1回に200件まで。",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "items": {
+                      "type": "object",
+                      "required": ["date", "title"],
+                      "properties": {
+                        "date": {
+                          "type": "string",
+                          "description": "その予定の日。YYYY-MM-DD(年つき)",
+                          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                        },
+                        "startTime": {
+                          "type": "string",
+                          "description": "開始時刻。HH:mm(24時間)。決まっている時だけ。",
+                          "pattern": "^\\d{1,2}:\\d{2}$"
+                        },
+                        "endTime": {
+                          "type": "string",
+                          "description": "終了時刻。移動なら到着時刻。HH:mm。決まっている時だけ。",
+                          "pattern": "^\\d{1,2}:\\d{2}$"
+                        },
+                        "title": {
+                          "type": "string",
+                          "description": "予定の題名。短く。例: 羽田→高松 JAL443、ホテル出発、昼食 讃岐うどん"
+                        },
+                        "location": {
+                          "type": "string",
+                          "description": "場所の名前(駅・空港・施設)。移動なら出発地。"
+                        },
+                        "endLocation": {
+                          "type": "string",
+                          "description": "移動の到着地(駅・空港)。移動のときだけ。"
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": ["transport", "lodging", "meal", "sightseeing", "other"],
+                          "description": "transport=移動, lodging=宿泊・チェックイン/アウト, meal=食事, sightseeing=観光・見学, other=起床・準備・休憩など"
+                        },
+                        "memo": {
+                          "type": "string",
+                          "description": "当日必要な短いメモ。予約番号・持ち物など。なければ省く。"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "受信箱に届いた",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "received": { "type": "integer", "description": "届いた件数" },
+                    "skipped": { "type": "integer", "description": "日付か題名が読めずに除いた件数" },
+                    "message": { "type": "string", "description": "ユーザーに伝える案内" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "送る内容に問題がある。message の通りに直して送り直す。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" }, "message": { "type": "string" } }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "送信コードが違うか無効。ユーザーにコードをもう一度聞く。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" }, "message": { "type": "string" } }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "LIFE HUB 側の準備中。しばらくしてからやり直す。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": { "ok": { "type": "boolean" }, "message": { "type": "string" } }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
