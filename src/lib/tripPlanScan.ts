@@ -105,15 +105,25 @@ const DATE_AT_START = /^(?:\d{4}\s*[/.年-]\s*)?\d{1,2}\s*[/月.]\s*\d{1,2}\s*�
  * 「■12/27(日)」「【12/28】」「12/29(火)」「2026年12月30日(水)」「3日目」を見出しとみなす。
  * 次のものは見出しにしない(欄の途中で切ると、後ろ半分から日付が消えるため):
  * 時刻の付いた行(「9/12 10:00 羽田発」は予定そのもの)、「12/27〜12/30」のような期間、
- * 印も曜日も無い「12/31」だけの行(基本情報の中に出てくる)。 */
+ * 印も曜日も無い「12/31」だけの行(基本情報の中に出てくる)。
+ *
+ * ChatGPT の返事は見出しを Markdown で飾りがちなので(「### 12/27(日)」「**12/27(日)**」)、
+ * その飾りは外して見る。外さないと見出しと見なされず、複数日が1回に詰まって後ろの日が切れる。
+ * 「#」は見出しの印そのものなので、「■」と同じく印として扱う。 */
 function isDayHeading(rawLine: string): boolean {
-  const line = rawLine.normalize("NFKC").trim();
+  const normalized = rawLine.normalize("NFKC").trim();
+  const hashed = /^#{1,6}\s/.test(normalized);
+  const line = normalized
+    .replace(/^(?:#{1,6}\s+|>\s*)/, "")
+    .replace(/^[*_]{1,3}/, "")
+    .replace(/[*_]{1,3}$/, "")
+    .trim();
   if (!line || line.length > 40) return false;
   if (/\d{1,2}:\d{2}/.test(line) || /[〜~～]/.test(line)) return false;
 
   let rest = line;
-  const marked = HEADING_MARKERS.includes(rest[0]);
-  if (marked) rest = rest.slice(1).trimStart();
+  const marked = hashed || HEADING_MARKERS.includes(rest[0]);
+  if (marked && HEADING_MARKERS.includes(rest[0])) rest = rest.slice(1).trimStart();
 
   const nth = rest.match(NTH_DAY);
   const date = nth ? null : rest.match(DATE_AT_START);

@@ -27,6 +27,7 @@ import { prepareImageForScan } from "../../lib/imageDownscale";
 import { PlanImportRow, type PlanUpdateInfo } from "../plan/PlanImportRow";
 import { ScanNotices } from "../plan/ScanNotices";
 import { PlanSourceFields, usePickedPhotos } from "../plan/PlanSourceFields";
+import { ChatGptPlanGuide } from "./ChatGptPlanGuide";
 import { Button } from "../ui/Button";
 import { FormActions } from "../ui/FormActions";
 import { EmptyState } from "../ui/EmptyState";
@@ -270,6 +271,13 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         変わっていれば更新できます(文章に無い日程は、そのまま残ります)。入れる前に一件ずつ確認できます。
       </p>
 
+      {/* ChatGPT に旅程を作ってもらい、返事を下の文章の欄へ貼る入り口。読み取りは同じ。 */}
+      <ChatGptPlanGuide
+        trip={trip}
+        // 返事は文章の欄へ足す(すでに打ってある文章を消さない)。
+        onPasteReply={(reply) => setText((current) => (current.trim() ? `${current.trim()}\n\n${reply}` : reply))}
+      />
+
       <PlanSourceFields
         photos={photos}
         onAddPhotos={addPhotos}
@@ -277,7 +285,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         text={text}
         onTextChange={setText}
         textPlaceholder={"例:\n9/12 10:00 羽田発 JAL301\n同日 15:00 ホテルにチェックイン"}
-        textHint="旅行会社のしおりや、案内のメッセージをそのまま貼り付けられます。"
+        textHint="旅行会社のしおりや、案内のメッセージ、ChatGPTの返事をそのまま貼り付けられます。"
       />
 
       {error && <p className="px-1 text-xs leading-relaxed text-danger">{error}</p>}

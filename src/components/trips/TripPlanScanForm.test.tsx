@@ -374,3 +374,98 @@ describe("写真・文章から日程を読み取る画面", () => {
     expect(screen.getByText("写真が大きすぎます")).toBeTruthy();
   });
 });
+
+describe("ChatGPTで旅程を作ってもらう入り口", () => {
+  /** 本物のクリップボードの代わり。user-event が入れる代用品より後に差し込む。 */
+  function stubClipboard(initial = "") {
+    const clipboard = {
+      text: initial,
+      writeText: vi.fn(async (text: string) => {
+        clipboard.text = text;
+      }),
+      readText: vi.fn(async () => clipboard.text),
+    };
+    Object.defineProperty(navigator, "clipboard", { value: clipboard, configurable: true });
+    return clipboard;
+  }
+
+  async function openGuide(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: /ChatGPTで旅程を作ってもらう/ }));
+  }
+
+  it("閉じている間は条件の欄を出さず、これまでの入り口はそのまま使える", () => {
+    renderForm();
+    expect(screen.getByRole("button", { name: /ChatGPTで旅程を作ってもらう/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "依頼文をコピー" })).toBeNull();
+    expect(screen.getByPlaceholderText(/羽田発/)).toBeTruthy();
+  });
+
+  it("依頼文をコピーできる(旅行の条件と、入れた希望が入る)", async () => {
+    const user = userEvent.setup();
+    const clipboard = stubClipboard();
+    renderForm();
+    await openGuide(user);
+    await user.type(screen.getByPlaceholderText("例: 小金井"), "羽田");
+    await user.click(screen.getByRole("button", { name: "依頼文をコピー" }));
+    expect(clipboard.text).toContain("・旅行名: 函館旅行");
+    expect(clipboard.text).toContain("・出発地: 羽田");
+    // 旅行の日数ぶんの見出しを、日付つきで並べさせる(3日)。
+    expect(clipboard.text).toContain("次の3つを、この順で全部作る");
+    expect(clipboard.text).toContain("■2026/9/12(");
+    expect(screen.getByText(/コピーしました/)).toBeTruthy();
+  });
+
+  it("ChatGPTを別のタブで開く", async () => {
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const user = userEvent.setup();
+    renderForm();
+    await openGuide(user);
+    await user.click(screen.getByRole("button", { name: "ChatGPTを開く" }));
+    expect(open).toHaveBeenCalledWith("https://chatgpt.com/", "_blank", "noopener,noreferrer");
+    open.mockRestore();
+  });
+
+  it("返事を貼ると文章の欄に入り、そのまま読み取りに渡せる", async () => {
+    const reply = "■2026/9/12(土) 羽田→函館\n08:20 羽田空港 → 函館空港 (JAL)\n12:00 昼食 函館朝市";
+    const user = userEvent.setup();
+    stubClipboard(reply);
+    renderForm();
+    await openGuide(user);
+    await user.click(screen.getByRole("button", { name: "返事を貼る" }));
+    expect((screen.getByPlaceholderText(/羽田発/) as HTMLTextAreaElement).value).toBe(reply);
+    await user.click(screen.getByRole("button", { name: "読み取る" }));
+    // 読み取りは、写真・文章の取り込みと同じ(旅行の期間も渡す)。
+    expect(mocks.sent[0]).toMatchObject({ text: reply, tripStart: "2026-09-12", tripEnd: "2026-09-14" });
+  });
+
+  it("すでに打ってある文章は消さずに、返事を足す", async () => {
+    const user = userEvent.setup();
+    stubClipboard("■2026/9/13(日) 函館観光");
+    renderForm();
+    await user.type(screen.getByPlaceholderText(/羽田発/), "9/12 10:00 羽田発");
+    await openGuide(user);
+    await user.click(screen.getByRole("button", { name: "返事を貼る" }));
+    expect((screen.getByPlaceholderText(/羽田発/) as HTMLTextAreaElement).value).toBe("9/12 10:00 羽田発\n\n■2026/9/13(日) 函館観光");
+  });
+
+  it("依頼文のままコピーされている時は、貼らずに知らせる(依頼文を日程として読ませない)", async () => {
+    const user = userEvent.setup();
+    stubClipboard();
+    renderForm();
+    await openGuide(user);
+    await user.click(screen.getByRole("button", { name: "依頼文をコピー" }));
+    await user.click(screen.getByRole("button", { name: "返事を貼る" }));
+    expect((screen.getByPlaceholderText(/羽田発/) as HTMLTextAreaElement).value).toBe("");
+    expect(screen.getByText(/いまコピーされているのは依頼文です/)).toBeTruthy();
+  });
+
+  it("クリップボードを読めない端末では、直接貼る案内を出す", async () => {
+    const user = userEvent.setup();
+    const clipboard = stubClipboard();
+    clipboard.readText.mockRejectedValue(new Error("denied"));
+    renderForm();
+    await openGuide(user);
+    await user.click(screen.getByRole("button", { name: "返事を貼る" }));
+    expect(screen.getByText(/下の「文章」の欄に、返事を直接貼り付けてください/)).toBeTruthy();
+  });
+});
