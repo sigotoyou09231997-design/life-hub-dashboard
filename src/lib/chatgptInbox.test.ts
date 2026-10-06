@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   configured: true,
   userId: "user-1" as string | undefined,
+  email: "sigotoyou09231997@gmail.com" as string | undefined,
   /** from(表名) の呼び出しを記録し、表ごとに決めた応答を返す。 */
   tables: {} as Record<string, { data?: unknown; error?: { code?: string; message?: string } | null }>,
   calls: [] as { table: string; op: string; args: unknown[] }[],
@@ -13,7 +14,7 @@ vi.mock("./supabase", () => ({
     return mocks.configured;
   },
   auth: {
-    getSession: async () => ({ data: { session: mocks.userId ? { user: { id: mocks.userId } } : null } }),
+    getSession: async () => ({ data: { session: mocks.userId ? { user: { id: mocks.userId, email: mocks.email } } : null } }),
   },
 }));
 
@@ -40,6 +41,7 @@ import {
   deleteInboxEntry,
   formatSendCode,
   hashSendCode,
+  canUseDirectSend,
   isMissingTable,
   loadInbox,
   loadSendCodeState,
@@ -62,6 +64,7 @@ function stubLocalStorage(initial: Record<string, string> = {}) {
 beforeEach(() => {
   mocks.configured = true;
   mocks.userId = "user-1";
+  mocks.email = "sigotoyou09231997@gmail.com";
   mocks.tables = {};
   mocks.calls = [];
 });
@@ -89,6 +92,16 @@ describe("送信コード", () => {
     expect(await hashSendCode("ABC")).toBe("b5d4045c3f466fa91fe2cc6abe79232a1a57cdf104f7a26e716e0a1e2789df78");
     expect(await hashSendCode("abc")).toBe(await hashSendCode("ABC"));
     expect(await hashSendCode("LH-abcd")).toBe(await hashSendCode("LHABCD"));
+  });
+});
+
+describe("canUseDirectSend", () => {
+  it("許可したメールだけ。大文字小文字・前後の空白は見ない", () => {
+    expect(canUseDirectSend("sigotoyou09231997@gmail.com")).toBe(true);
+    expect(canUseDirectSend("  SigotoYou09231997@Gmail.com ")).toBe(true);
+    expect(canUseDirectSend("friend@example.com")).toBe(false);
+    expect(canUseDirectSend("")).toBe(false);
+    expect(canUseDirectSend(undefined)).toBe(false);
   });
 });
 
@@ -137,9 +150,24 @@ describe("loadSendCodeState", () => {
     expect(await loadSendCodeState()).toEqual({ kind: "unavailable" });
   });
 
-  it("コードが無ければ none", async () => {
+  it("コードが無ければ、許可されたアカウントには none(作れる)", async () => {
     mocks.tables.chatgpt_send_codes = { data: null };
     expect(await loadSendCodeState()).toEqual({ kind: "none" });
+  });
+
+  it("許可されていないアカウント(友人など)には、コードが無ければ欄ごと出さない", async () => {
+    // 専用GPTは作った本人しか使えない。使えない機能の案内を、友人の画面に出さない。
+    mocks.email = "friend@example.com";
+    mocks.tables.chatgpt_send_codes = { data: null };
+    expect(await loadSendCodeState()).toEqual({ kind: "unavailable" });
+    mocks.email = undefined;
+    expect(await loadSendCodeState()).toEqual({ kind: "unavailable" });
+  });
+
+  it("すでにコードを作ってあるアカウントには、メールが一覧に無くても出す(作った後で欄が消えないように)", async () => {
+    mocks.email = "other-login@example.com";
+    mocks.tables.chatgpt_send_codes = { data: { code_hash: await hashSendCode(newSendCode()), created_at: "2026-10-06T00:00:00Z" } };
+    expect(await loadSendCodeState()).toMatchObject({ kind: "active" });
   });
 
   it("この端末で作ったコードが表の値と合う時だけ、コードを見せる", async () => {

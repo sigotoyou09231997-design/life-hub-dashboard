@@ -19,6 +19,22 @@ import { isValidDateStr } from "./date";
 /** 専用GPTの共有リンク。作ってリンクができたら、ここへ入れる(空の間は、アプリに「開く」ボタンを出さない)。 */
 export const CHATGPT_GPT_URL = "";
 
+/**
+ * 「ChatGPTから直接送る」の欄(送信コードを作る所)を出すアカウントのメール。
+ *
+ * 専用GPTは(2026-10-07時点で)リンクで共有できず、2026-12-11には終了する。作った本人しか使えないので、
+ * 友人・家族の画面にこの欄を出すと、使えない機能の案内になってしまう。そこで本人のアカウントに絞る。
+ * 一覧に無いアカウントでも、すでに送信コードを作ってある人には出す(作った後で欄が消えないように)。
+ * 友人にも配れる形(プラグイン等)ができたら、この絞り込みごと外す。
+ */
+export const CHATGPT_DIRECT_SEND_EMAILS = ["sigotoyou09231997@gmail.com"];
+
+/** この人に「ChatGPTから直接送る」の欄を出してよいか(メールの大文字小文字は見ない)。 */
+export function canUseDirectSend(email: string | undefined): boolean {
+  if (!email) return false;
+  return CHATGPT_DIRECT_SEND_EMAILS.some((allowed) => allowed.toLowerCase() === email.trim().toLowerCase());
+}
+
 /** 紛らわしい I・O・0・1 を除いた32文字。32は2の累乗なので、1バイトの下位5bitで偏りなく選べる。 */
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_PREFIX = "LH";
@@ -53,7 +69,7 @@ export async function hashSendCode(code: string): Promise<string> {
 }
 
 export type SendCodeState =
-  /** ログインしていない・Supabase が未設定・SQL(027)をまだ流していない。この機能は出さない。 */
+  /** ログインしていない・Supabase が未設定・SQL(027)をまだ流していない・許可されたアカウントでない。この欄は出さない。 */
   | { kind: "unavailable" }
   | { kind: "none" }
   /** code は、この端末で作った時だけ分かる(表には値の要約しか無い)。別の端末では作り直す。 */
@@ -123,6 +139,11 @@ async function currentUserId(): Promise<string | undefined> {
   return (await auth.getSession()).data.session?.user.id;
 }
 
+async function currentUserEmail(): Promise<string | undefined> {
+  if (!isSupabaseConfigured) return undefined;
+  return (await auth.getSession()).data.session?.user.email;
+}
+
 function readStoredCode(userId: string): string | undefined {
   try {
     const stored = JSON.parse(globalThis.localStorage?.getItem(STORAGE_KEY) ?? "null") as { userId?: string; code?: string } | null;
@@ -152,7 +173,8 @@ export async function loadSendCodeState(): Promise<SendCodeState> {
       if (!isMissingTable(error)) console.warn("[chatgptInbox] could not read the send code:", error.message);
       return { kind: "unavailable" };
     }
-    if (!data) return { kind: "none" };
+    // コードがまだ無い人には、許可されたアカウントにだけ「作る」を出す(それ以外は欄ごと出さない)。
+    if (!data) return canUseDirectSend(await currentUserEmail()) ? { kind: "none" } : { kind: "unavailable" };
     // この端末に控えがあっても、作り直された後の古いコードなら見せない(表の値と合う時だけ)。
     const stored = readStoredCode(userId);
     const code = stored && (await hashSendCode(stored)) === data.code_hash ? formatSendCode(stored) : undefined;
