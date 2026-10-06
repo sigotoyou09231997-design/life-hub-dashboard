@@ -332,3 +332,42 @@ describe("専用GPT用の接続定義(openapi.json)", () => {
     expect(operation.summary.length).toBeLessThanOrEqual(100);
   });
 });
+
+/**
+ * プライバシーポリシーのページ(public/chatgpt/privacy.html)。専用GPTのアクションに登録する
+ * (登録が無いと、GPTをリンクで共有できない)。ページに書いた事実が、実際の動作と食い違うと
+ * 「書いてあることと違う」ポリシーになるので、数字や取り扱いはコード・SQLと突き合わせる。
+ */
+describe("プライバシーポリシーのページ", () => {
+  const page = readFileSync(new URL("../../public/chatgpt/privacy.html", import.meta.url), "utf8");
+  const sql = readFileSync(new URL("../../supabase/sql/027_chatgpt_trip_inbox.sql", import.meta.url), "utf8");
+
+  it("ページとして開ける(日本語・スマホ幅)。連絡先の仮の文字が残っていない", () => {
+    expect(page.startsWith("<!doctype html>")).toBe(true);
+    expect(page).toContain('<html lang="ja">');
+    expect(page).toContain('name="viewport"');
+    expect(page).not.toContain("__CONTACT");
+    expect(page).toMatch(/href="mailto:[^"@\s]+@[^"@\s]+\.[a-z]+"/);
+  });
+
+  it("受信箱に残す件数・コードの保存のしかたが、SQLと同じ", () => {
+    const keep = sql.match(/limit (\d+)\s*\)/)?.[1];
+    expect(keep).toBe("20");
+    expect(page).toContain(`最新の${keep}件まで`);
+    // コードそのものは置かず、SHA-256 の値だけを置く。
+    expect(sql).toContain("sha256(");
+    expect(page).toContain("SHA-256");
+  });
+
+  it("金額を受け取らないこと・読めないものを書いている", () => {
+    // 受け口は金額を捨てる(parseReceivedPlan のテストで確かめている)。
+    const parsed = parseReceivedPlan({ code: "LHABCD", items: [{ date: "2026-12-27", title: "x", amount: 9000 }] });
+    expect(parsed.ok && "amount" in parsed.plan.items[0]).toBe(false);
+    expect(page).toContain("金額");
+    expect(page).toContain("受け取らず、捨てます");
+  });
+
+  it("関わるサービス(ChatGPT・Vercel・Supabase)を書いている", () => {
+    for (const name of ["ChatGPT", "OpenAI", "Vercel", "Supabase"]) expect(page, name).toContain(name);
+  });
+});
