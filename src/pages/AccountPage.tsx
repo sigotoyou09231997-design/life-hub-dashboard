@@ -14,6 +14,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { useToast } from "../components/ui/ToastProvider";
+import { ConnectedApps } from "../components/account/ConnectedApps";
 
 /** Identity + app-login screen, reached from the header's avatar. Deliberately
  * narrow in scope: profile photo/name/email, app login state, login/logout,
@@ -171,6 +172,8 @@ export default function AccountPage() {
           <p className="profile-module__description text-xs text-slate-500">受信メールとAI返信案の接続状態です。管理は設定画面から行えます。</p>
           <div className="profile-state-row"><span>連携中のアカウント</span><strong>{gmailAccounts === undefined ? "確認中" : `${gmailAccounts.length}件`}</strong></div>
         </Card>
+
+        {isSupabaseConfigured && session && <ConnectedApps />}
 
         <Link to="/settings" className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:col-span-2">
           <Card interactive className="flex items-center justify-between py-4">

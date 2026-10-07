@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../lib/supabase";
 import { IS_ADDING_ACCOUNT } from "../lib/accounts";
+import { takePendingConsent } from "../lib/oauthConsent";
 import { useToast } from "../components/ui/ToastProvider";
 
 /** Landing page for Supabase's OAuth redirect (/auth/callback). Supabase's client
@@ -22,7 +23,9 @@ export default function AuthCallbackPage() {
       if (handledRef.current) return;
       handledRef.current = true;
       showToast(`${email ?? "アカウント"}でログインしました`);
-      navigate("/settings", { replace: true });
+      // ChatGPT などの「接続しますか?」の画面から来てログインした人は、その画面へ戻す
+      // (預かった依頼が無ければ、これまでどおり設定画面)。
+      navigate(takePendingConsent() ?? "/settings", { replace: true });
     }
 
     const { data: listener } = auth.onAuthStateChange((_event, session) => {
