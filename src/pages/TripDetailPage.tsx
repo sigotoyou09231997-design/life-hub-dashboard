@@ -152,6 +152,10 @@ export default function TripDetailPage() {
     [tripResult?.trip?.startDate, tripResult?.trip?.endDate],
   );
   const scheduleDefaultDate = dayList.includes(todayStr()) ? todayStr() : (dayList[0] ?? todayStr());
+  // 日程タブで見ている日(日にちのチップで切り替える)。最初は、旅行中なら今日、そうでなければ1日目。
+  // 旅行の期間を直して、見ていた日が無くなった時も、同じ既定に戻る。
+  const [scheduleDay, setScheduleDay] = useState<string>();
+  const activeScheduleDay = scheduleDay && dayList.includes(scheduleDay) ? scheduleDay : scheduleDefaultDate;
 
   // 日程には入っているのに、ルートにはまだ無い場所。ルートのその日が空でも、日程に
   // 予定があるならそこから起こせるようにする(2026-08-27の指摘)。
@@ -327,12 +331,15 @@ export default function TripDetailPage() {
               dayList={dayList}
               items={schedule}
               weather={weather}
+              selectedDate={activeScheduleDay}
+              onSelectDate={setScheduleDay}
               onEdit={(item) => setEditingSchedule(item)}
               onDelete={(id) => {
                 db.tripSchedule.delete(id);
                 showToast("削除しました");
               }}
               onAddForDate={(date) => {
+                setScheduleDay(date);
                 setScheduleDatePreset(date);
                 setEditingSchedule("new");
               }}
@@ -351,7 +358,8 @@ export default function TripDetailPage() {
                 <Button
                   className="w-full"
                   onClick={() => {
-                    setScheduleDatePreset(null);
+                    // 見ている日に足すのが自然(3日目を見ながら足すのに、日付を1日目から直させない)。
+                    setScheduleDatePreset(activeScheduleDay);
                     setEditingSchedule("new");
                   }}
                 >
@@ -551,9 +559,11 @@ export default function TripDetailPage() {
               tripId={tripId}
               initial={editingSchedule === "new" ? undefined : editingSchedule}
               defaultDate={scheduleDatePreset ?? scheduleDefaultDate}
-              onSaved={() => {
+              onSaved={(date) => {
                 setEditingSchedule(null);
                 setScheduleDatePreset(null);
+                // 別の日に保存した予定が、消えたように見えないよう、その日へ切り替える。
+                if (dayList.includes(date)) setScheduleDay(date);
                 showToast("保存しました");
               }}
               onCancel={() => {
