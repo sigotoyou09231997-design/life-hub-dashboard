@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { MAX_ITEMS, deliverTripPlan } from "./receiveTripPlan";
+import { MAX_ITEMS, deliverTripPlan } from "./receiveTripPlan.js";
 
 /**
  * LIFE HUB の受信箱へ旅程を送る、ChatGPT プラグイン用の MCP サーバー(ステートレスな Streamable HTTP)。
@@ -16,8 +16,9 @@ import { MAX_ITEMS, deliverTripPlan } from "./receiveTripPlan";
  *
  * api/mcp.ts(Vercel版)と中核の部分は完全に同一(二重に書く決まり。
  * netlify/__tests__/mcp.test.ts が同じ入力で同じ結果になることを確かめる)。
- * 同じフォルダの receiveTripPlan.ts は import してよい(api/ と netlify/functions/ を跨ぐ import が
- * 落ちる、という決まりは別のフォルダを跨ぐ場合の話)。
+ * 同じフォルダの receiveTripPlan は、拡張子 .js を付けて import する。package.json が type: module なので、
+ * Node の ESM は拡張子の無い相対 import を読み込めず、Vercel 上で関数ごと落ちる(FUNCTION_INVOCATION_FAILED。
+ * 2026-10-07 に ./receiveTripPlan と書いて実際に落ちた)。TypeScript と vitest は .js を .ts として解決する。
  */
 
 export const SERVER_INFO = { name: "life-hub-trip-inbox", title: "LIFE HUB 旅程の受け取り", version: "1.0.0" };
