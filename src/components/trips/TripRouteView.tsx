@@ -10,11 +10,12 @@ import {
   Pencil,
   Plus,
   CalendarPlus,
+  Clock,
   Search,
   Trash2,
 } from "lucide-react";
 import { db } from "../../db/schema";
-import type { TripRoutePlace } from "../../types";
+import type { TripRoutePlace, TripScheduleItem } from "../../types";
 import type { RouteSuggestion } from "../../lib/tripRouteSuggestions";
 import {
   buildMapEmbedUrl,
@@ -27,6 +28,8 @@ import type { TravelMode } from "../../lib/googleMaps";
 import { formatShortDate } from "../../lib/date";
 import { TripRouteForm } from "./TripRouteForm";
 import { TripLegRoute } from "./TripLegRoute";
+import { TripRouteTimeline } from "./TripRouteTimeline";
+import { buildRouteTimeline } from "../../lib/tripRouteTimeline";
 import { TripPlaceStation } from "./TripPlaceStation";
 import { useConfirm } from "../ui/ConfirmProvider";
 
@@ -37,6 +40,8 @@ interface Props {
   places: TripRoutePlace[];
   /** 旅行の全日程(YYYY-MM-DD)。日にちの切り替えに使う。 */
   dayList: string[];
+  /** 旅行の日程。「時間で見る」で、場所に時刻を付けるのに使う。無くても動く(時刻なしで並ぶ)。 */
+  schedule?: TripScheduleItem[];
   /** 日程には入っているのに、ルートにはまだ無い場所(src/lib/tripRouteSuggestions.ts)。
    * 日にちの切り替えに合わせて、その日のぶんだけ出す。 */
   suggestions: RouteSuggestion[];
@@ -56,6 +61,18 @@ const DEFAULT_MODE: TravelMode = "transit";
 /** 日にちの切り替えで「全部見る」と「日付を決めていない場所」を表す値。 */
 const ALL_DAYS = "all";
 const NO_DAY = "none";
+
+/** ルートの見方。「地図」は場所ごとの地図と経路、「時間」は時刻と移動時間の縦の並び。 */
+type RouteViewMode = "map" | "time";
+const VIEW_KEY = "lifehub.tripRouteView";
+
+function readStoredView(): RouteViewMode {
+  try {
+    return window.localStorage.getItem(VIEW_KEY) === "time" ? "time" : "map";
+  } catch {
+    return "map";
+  }
+}
 
 /**
  * 日程に入っているのに、ルートにはまだ無い場所を並べる。
@@ -128,6 +145,7 @@ export function TripRouteView({
   destination,
   places,
   dayList,
+  schedule = [],
   suggestions,
   onAddSuggestions,
   onAdd,
@@ -156,6 +174,8 @@ export function TripRouteView({
   /** 検索は絞り込まず、一致した場所を鎖の中で光らせるだけにする(src/styles/trips.css
    * の.trip-route-card--match) — 間を抜くと区間(誰から誰まで)の意味が崩れるため。 */
   const [query, setQuery] = useState("");
+  /** 地図で見るか、時間で見るか。最後に選んだほうを、この端末では覚えておく。 */
+  const [view, setView] = useState<RouteViewMode>(readStoredView);
   /** 端末から取れた現在地。鎖の先頭に「現在地 → 最初の場所」を出すのに使う。 */
   const [here, setHere] = useState<string | null>(null);
   const [hereState, setHereState] = useState<"asking" | "ready" | "denied">("asking");
@@ -227,6 +247,15 @@ export function TripRouteView({
     setLastMode(next);
   }
 
+  function changeView(next: RouteViewMode) {
+    setView(next);
+    try {
+      window.localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // 覚えられない環境でも、見方の切り替え自体は動く。
+    }
+  }
+
   function toggleLeg(id: string | undefined) {
     if (!id) return;
     setClosedLegs((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -256,7 +285,7 @@ export function TripRouteView({
             {shown.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
             <ExternalLink size={14} />
           </a>
-          {places.length > 1 && (
+          {places.length > 1 && view === "map" && (
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
               <input
@@ -283,6 +312,28 @@ export function TripRouteView({
         </div>
       ) : (
         <>
+          {/* 見方の切り替え。ボタンは1つずつ分けて並べる(日にちのチップと同じ形)。 */}
+          <div className="trip-route__days" role="group" aria-label="ルートの見方">
+            <button
+              type="button"
+              className={`trip-route__day${view === "map" ? " is-active" : ""}`}
+              aria-pressed={view === "map"}
+              onClick={() => changeView("map")}
+            >
+              <Map size={14} />
+              地図で見る
+            </button>
+            <button
+              type="button"
+              className={`trip-route__day${view === "time" ? " is-active" : ""}`}
+              aria-pressed={view === "time"}
+              onClick={() => changeView("time")}
+            >
+              <Clock size={14} />
+              時間で見る
+            </button>
+          </div>
+
           {/* 日にちの切り替え。長い旅行ほど列が伸びるので、その日に回るぶんだけに
               絞れるようにする。日付を決めていない場所は「日付なし」に集まる。 */}
           {showsDayTabs && (
@@ -322,6 +373,20 @@ export function TripRouteView({
               <p>この日に回る場所はまだ入っていません。</p>
               <button type="button" onClick={onAdd}>
                 <Plus size={16} />
+                場所を追加
+              </button>
+            </div>
+          ) : view === "time" ? (
+            <div className="trip-route__time">
+              <TripRouteTimeline
+                stops={buildRouteTimeline(shown, schedule)}
+                modeOf={(placeId) => legMode(placeId)}
+              />
+              <p className="trip-route__time-note">
+                時刻は日程に入れた時刻です。変えるときは日程を直してください。移動時間は、地図の画面で選んだ移動手段のものです。
+              </p>
+              <button type="button" className="trip-route-add" onClick={onAdd}>
+                <span><Plus size={18} /></span>
                 場所を追加
               </button>
             </div>

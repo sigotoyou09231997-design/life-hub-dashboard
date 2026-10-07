@@ -415,6 +415,7 @@ export default function TripDetailPage() {
         {tab === "route" && (
           <TripRouteView
             dayList={dayList}
+            schedule={schedule}
             tripId={tripId}
             destination={trip.destination}
             places={routePlaces}

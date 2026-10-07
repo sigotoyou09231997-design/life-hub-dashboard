@@ -1887,3 +1887,164 @@ a.trip-leg-mode--link {
   font-size: 0.75rem;
   color: var(--warm-ink-3);
 }
+
+/* --- 時間で見る -------------------------------------------------------------
+   「ルートを時間単位で見たい」(2026-10-07)。左に時刻、右に場所、あいだに移動時間。
+   時刻は日程から借りたもの。縦の線は並び全体に1本だけ引き、点をその上に載せる。 */
+.trip-route__time {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.trip-route__time .trip-route-add {
+  margin-top: 0;
+}
+
+.trip-route__time-note {
+  margin: 0;
+  color: var(--hub-ink-3);
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+
+.trip-rtime {
+  --rtime-time-w: 3.7rem;
+  --rtime-dot-w: 0.9rem;
+  --rtime-gap: 0.55rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip-rtime::before {
+  position: absolute;
+  top: 1.4rem;
+  bottom: 1.4rem;
+  left: calc(var(--rtime-time-w) + var(--rtime-gap) + var(--rtime-dot-w) / 2 - 1px);
+  width: 2px;
+  border-radius: 2px;
+  background: var(--hub-hairline);
+  content: "";
+}
+
+.trip-rtime__stop,
+.trip-rtime__move {
+  display: grid;
+  grid-template-columns: var(--rtime-time-w) var(--rtime-dot-w) minmax(0, 1fr);
+  column-gap: var(--rtime-gap);
+}
+
+.trip-rtime__time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-top: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-rtime__time b {
+  color: var(--hub-ink);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.trip-rtime__time.is-none b {
+  color: var(--hub-ink-3);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.trip-rtime__time small {
+  color: var(--hub-ink-3);
+  font-size: 0.72rem;
+}
+
+.trip-rtime__dot {
+  position: relative;
+  z-index: 1;
+  width: var(--rtime-dot-w);
+  height: var(--rtime-dot-w);
+  margin-top: 0.95rem;
+  border-radius: 999px;
+  background: var(--accent, var(--hub-blue));
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.85);
+}
+
+.trip-rtime__dot.is-visited {
+  background: var(--hub-ink-3);
+}
+
+.trip-rtime__body {
+  min-width: 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-md);
+  background: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset);
+  backdrop-filter: var(--hub-blur);
+  -webkit-backdrop-filter: var(--hub-blur);
+}
+
+.trip-rtime__body h3 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--hub-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-rtime__body p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.trip-rtime__title {
+  color: var(--hub-ink);
+}
+
+.trip-rtime__address,
+.trip-rtime__memo {
+  overflow: hidden;
+  color: var(--hub-ink-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-rtime__memo {
+  white-space: normal;
+}
+
+.trip-rtime__move p {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 3;
+  align-items: center;
+  gap: 0.25rem 0.4rem;
+  min-height: 2rem;
+  margin: 0;
+  padding: 0.35rem 0.2rem;
+  color: var(--hub-ink-2);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.trip-rtime__move:not(:has(p)) {
+  min-height: 0.9rem;
+}
+
+.trip-rtime__move.is-tight p,
+.trip-rtime__move strong {
+  color: var(--hub-amber);
+}
+
+.trip-rtime__move strong {
+  font-weight: 700;
+}
