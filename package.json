@@ -24,6 +24,7 @@
     "tailwind-merge": "^2.6.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@netlify/functions": "^5.3.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.4",

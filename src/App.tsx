@@ -8,6 +8,7 @@ import { flushDueSnoozedNotifications } from "./lib/snoozedNotifications";
 import { startSync, stopSync } from "./lib/syncRuntime";
 import { ensureDataOwner } from "./lib/dataOwner";
 import { IS_ADDING_ACCOUNT } from "./lib/accounts";
+import { isOAuthConsentPath, rememberPendingConsent } from "./lib/oauthConsent";
 import { refreshViewportGap } from "./lib/viewport";
 import { finishAddAccount, isRestarting, rememberSignedInAccount } from "./lib/accountSwitch";
 import { ToastProvider } from "./components/ui/ToastProvider";
@@ -37,6 +38,7 @@ const GmailPage = lazy(() => import("./pages/GmailPage"));
 const GmailMailPage = lazy(() => import("./pages/GmailMailPage"));
 const GmailCallbackPage = lazy(() => import("./pages/GmailCallbackPage"));
 const SharedTripPage = lazy(() => import("./pages/SharedTripPage"));
+const OAuthConsentPage = lazy(() => import("./pages/OAuthConsentPage"));
 
 /** 共有リンクで開く閲覧専用ページ。ログインの壁の外に出す唯一のページ
  * (/auth/callback と同じ扱い)。src/lib/tripShare.ts。 */
@@ -90,6 +92,13 @@ export default function App() {
   // 共有リンクで開いた人は、この端末のアカウントとも端末内データとも関係がない。
   // ログイン確認・同期・既定設定の作成をどれも行わず、下でこのページだけを出す。
   const isSharedTripRoute = location.pathname.startsWith(SHARED_TRIP_PREFIX);
+  // ChatGPT などが LIFE HUB への接続を求めてきた時の「許可しますか?」の画面(src/lib/oauthConsent.ts)。
+  // ログインの壁は通す(本人のアカウントで許可するため)。未ログインで来た人が、Google ログインの
+  // 往復(/auth/callback → 設定画面)のあとも戻れるよう、依頼の印を先に預かる。
+  const isOAuthConsentRoute = isOAuthConsentPath(location.pathname);
+  useEffect(() => {
+    if (isOAuthConsentRoute) rememberPendingConsent(location.search);
+  }, [isOAuthConsentRoute, location.search]);
 
   // undefined = still checking, null = confirmed logged out, Session = logged in.
   // Gates the entire app behind account registration/login — nothing (TOP, data,
@@ -230,6 +239,18 @@ export default function App() {
       <ToastProvider>
         <AmbientBackground />
         <AuthGatePage addingAccount={IS_ADDING_ACCOUNT} />
+      </ToastProvider>
+    );
+  }
+
+  if (isOAuthConsentRoute) {
+    // アプリの外枠(ヘッダー・サイドバー)は出さず、この画面だけを出す。
+    return (
+      <ToastProvider>
+        <AmbientBackground />
+        <Suspense fallback={<div className="min-h-screen" />}>
+          <OAuthConsentPage />
+        </Suspense>
       </ToastProvider>
     );
   }

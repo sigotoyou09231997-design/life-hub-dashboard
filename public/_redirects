@@ -1,2 +1,4 @@
 /api/*    /.netlify/functions/:splat   200
+/.well-known/oauth-protected-resource/api/mcp    /.netlify/functions/oauthProtectedResource   200
+/.well-known/oauth-protected-resource    /.netlify/functions/oauthProtectedResource   200
 /*    /index.html   200

@@ -12,7 +12,8 @@ import type { Handler } from "@netlify/functions";
  * 中身の検証をここでするのは、GPT が返してくる値の形が揺れるため(「2026-9-3」「9:00」)。
  * 金額は受け付けない: 読み取りは金額を旅行の費用に積むので、GPT の見積もりが費用に入ってしまう。
  *
- * api/receiveTripPlan.ts(Vercel版)と中身が同じ(中核の関数は完全に同一)。
+ * 反対側のフォルダ(api/ ↔ netlify/functions/)の同名ファイルと、中核の部分は完全に同一
+ * (scripts/gen-netlify-functions.mjs が api/ から netlify/functions/ を作り直す)。
  * api/ から netlify/functions/ を import すると Vercel で落ちるので、二重に書いている
  * (netlify/__tests__/receiveTripPlan.test.ts が、同じ入力で同じ結果になることを確かめる)。
  */
@@ -87,36 +88,16 @@ function text(value: unknown, max: number): string | undefined {
   return trimmed ? trimmed.slice(0, max) : undefined;
 }
 
-/** 受け取った本文を検証して、受信箱へ置く形にする。駄目な時は GPT がそのまま伝えられる理由を返す。 */
-export function parseReceivedPlan(body: unknown): ParseResult {
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return { ok: false, status: 400, message: "送る内容を読み取れませんでした。code と items を付けて送ってください。" };
-  }
-  const value = body as Record<string, unknown>;
-
-  const code = normalizeCode(value.code);
-  if (!code) {
-    return {
-      ok: false,
-      status: 400,
-      message: "送信コードがありません。LIFE HUB の「ChatGPTで旅程を作ってもらう」に出るコードを、ユーザーに聞いてください。",
-    };
-  }
-
-  if (!Array.isArray(value.items) || value.items.length === 0) {
-    return { ok: false, status: 400, message: "旅程の items が空です。日付と題名のある予定を1件以上入れてください。" };
-  }
-  if (value.items.length > MAX_ITEMS) {
-    return {
-      ok: false,
-      status: 400,
-      message: `一度に送れるのは${MAX_ITEMS}件までです。旅程を前半と後半に分けて、2回に分けて送ってください。`,
-    };
-  }
-
+/**
+ * 予定の配列を、日程として使える形だけに絞って、日程表と同じ並び(日付→時刻)にする。
+ * 日付か題名が読めない予定は捨てて、捨てた数を返す。送信コード版(parseReceivedPlan)と、
+ * ログイン版の MCP ツール(api/mcp.ts)の両方が使う — 検証を入り口ごとに作り直さない。
+ * 金額は受け取らない(GPT の見積もりが旅行の費用に積まれないように)。
+ */
+export function parseItems(rawItems: unknown[]): { items: ReceivedItem[]; skipped: number } {
   const items: ReceivedItem[] = [];
   let skipped = 0;
-  for (const raw of value.items) {
+  for (const raw of rawItems) {
     if (!raw || typeof raw !== "object") {
       skipped++;
       continue;
@@ -148,6 +129,40 @@ export function parseReceivedPlan(body: unknown): ParseResult {
     });
   }
 
+  // 日程表と同じ並び(日付→時刻)にする。
+  items.sort((a, b) => (a.date === b.date ? (a.startTime ?? "").localeCompare(b.startTime ?? "") : a.date.localeCompare(b.date)));
+  return { items, skipped };
+}
+
+/** 受け取った本文を検証して、受信箱へ置く形にする。駄目な時は GPT がそのまま伝えられる理由を返す。 */
+export function parseReceivedPlan(body: unknown): ParseResult {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { ok: false, status: 400, message: "送る内容を読み取れませんでした。code と items を付けて送ってください。" };
+  }
+  const value = body as Record<string, unknown>;
+
+  const code = normalizeCode(value.code);
+  if (!code) {
+    return {
+      ok: false,
+      status: 400,
+      message: "送信コードがありません。LIFE HUB の「ChatGPTで旅程を作ってもらう」に出るコードを、ユーザーに聞いてください。",
+    };
+  }
+
+  if (!Array.isArray(value.items) || value.items.length === 0) {
+    return { ok: false, status: 400, message: "旅程の items が空です。日付と題名のある予定を1件以上入れてください。" };
+  }
+  if (value.items.length > MAX_ITEMS) {
+    return {
+      ok: false,
+      status: 400,
+      message: `一度に送れるのは${MAX_ITEMS}件までです。旅程を前半と後半に分けて、2回に分けて送ってください。`,
+    };
+  }
+
+  const { items, skipped } = parseItems(value.items);
+
   if (items.length === 0) {
     return {
       ok: false,
@@ -155,9 +170,6 @@ export function parseReceivedPlan(body: unknown): ParseResult {
       message: "日付(YYYY-MM-DD)と題名が読み取れた予定がありませんでした。date と title を入れてください。",
     };
   }
-
-  // 日程表と同じ並び(日付→時刻)にして置く。
-  items.sort((a, b) => (a.date === b.date ? (a.startTime ?? "").localeCompare(b.startTime ?? "") : a.date.localeCompare(b.date)));
 
   return {
     ok: true,
