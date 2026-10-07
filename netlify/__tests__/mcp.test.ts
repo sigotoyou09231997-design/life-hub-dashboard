@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   SEND_TRIP_PLAN_TOOL,
@@ -268,5 +268,27 @@ describe("受け口(handler)", () => {
         expect(broken.json).toMatchObject({ error: { code: -32700 } });
       });
     });
+  }
+});
+
+/**
+ * サーバー関数の相対 import は、拡張子 .js を付ける。package.json が type: module なので、
+ * 拡張子の無い相対 import は Node の ESM で読み込めず、Vercel 上で関数ごと落ちる
+ * (FUNCTION_INVOCATION_FAILED)。手元のテストや型チェックは通ってしまうので、本番に出して初めて
+ * 気付く(2026-10-07 に api/mcp.ts で実際に落ちた)。ここで先に止める。
+ * api/ と netlify/functions/ を跨ぐ import も、同じ理由で禁止(二重に書く決まり)。
+ */
+describe("サーバー関数の相対 import", () => {
+  for (const dir of ["api", "netlify/functions"]) {
+    for (const file of readdirSync(new URL(`../../${dir}/`, import.meta.url)).filter((name) => name.endsWith(".ts"))) {
+      it(`${dir}/${file}: 相対 import に .js を付け、別のフォルダを跨がない`, () => {
+        const source = readFileSync(new URL(`../../${dir}/${file}`, import.meta.url), "utf8");
+        const specifiers = [...source.matchAll(/^\s*(?:import|export)\b[^;]*?\bfrom\s+"(\.{1,2}\/[^"]+)"/gm)].map((match) => match[1]);
+        for (const specifier of specifiers) {
+          expect(specifier, `${dir}/${file} の ${specifier}`).toMatch(/\.js$/);
+          expect(specifier, `${dir}/${file} の ${specifier}`).not.toMatch(/\.\.\//);
+        }
+      });
+    }
   }
 });
