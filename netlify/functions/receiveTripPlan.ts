@@ -212,31 +212,21 @@ export function interpretRpcResult(status: number, data: unknown, plan: Received
   return { status: 400, body: { ok: false, message: "旅程の件数か大きさが上限を超えています。分けて送ってください。" } };
 }
 
-function jsonResponse(statusCode: number, body: unknown) {
-  return { statusCode, headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
-}
-
-export const handler: Handler = async (event) => {
-  if (event.httpMethod !== "POST") {
-    return jsonResponse(405, { ok: false, message: "Method not allowed" });
-  }
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(event.body ?? "{}");
-  } catch {
-    return jsonResponse(400, { ok: false, message: "送る内容がJSONとして読めませんでした。" });
-  }
-
+/**
+ * 受け取った本文を検証して、Supabase の関数 receive_chatgpt_trip で受信箱へ置く。
+ * HTTP の受け口(下の handler)と、MCP の受け口(mcp.ts)の両方がこれを呼ぶ — 検証・件数の上限・
+ * 「金額は受け取らない」を、入り口ごとに作り直さないため。公開鍵(anon)だけで呼ぶ。
+ */
+export async function deliverTripPlan(payload: unknown): Promise<ReceiveReply> {
   const parsed = parseReceivedPlan(payload);
   if (!parsed.ok) {
-    return jsonResponse(parsed.status, { ok: false, message: parsed.message });
+    return { status: parsed.status, body: { ok: false, message: parsed.message } };
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.VITE_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !anonKey) {
-    return jsonResponse(503, { ok: false, message: "LIFE HUB 側の接続設定がありません。" });
+    return { status: 503, body: { ok: false, message: "LIFE HUB 側の接続設定がありません。" } };
   }
 
   const { plan } = parsed;
@@ -257,9 +247,28 @@ export const handler: Handler = async (event) => {
     rpcStatus = response.status;
     rpcData = await response.json().catch(() => null);
   } catch {
-    return jsonResponse(502, { ok: false, message: "LIFE HUB に届けられませんでした。しばらくしてからもう一度お試しください。" });
+    return { status: 502, body: { ok: false, message: "LIFE HUB に届けられませんでした。しばらくしてからもう一度お試しください。" } };
   }
 
-  const reply = interpretRpcResult(rpcStatus, rpcData, plan);
+  return interpretRpcResult(rpcStatus, rpcData, plan);
+}
+
+function jsonResponse(statusCode: number, body: unknown) {
+  return { statusCode, headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
+}
+
+export const handler: Handler = async (event) => {
+  if (event.httpMethod !== "POST") {
+    return jsonResponse(405, { ok: false, message: "Method not allowed" });
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(event.body ?? "{}");
+  } catch {
+    return jsonResponse(400, { ok: false, message: "送る内容がJSONとして読めませんでした。" });
+  }
+
+  const reply = await deliverTripPlan(payload);
   return jsonResponse(reply.status, reply.body);
 };
