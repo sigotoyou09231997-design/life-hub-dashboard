@@ -15,7 +15,8 @@ interface Props {
   tripId: string;
   initial?: TripScheduleItem;
   defaultDate: string;
-  onSaved: () => void;
+  /** 保存した予定の日(開始日)。旅行の画面が、その日へ表示を切り替えるのに使う。 */
+  onSaved: (date: string) => void;
   onCancel: () => void;
 }
 
@@ -61,7 +62,7 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
       await db.tripSchedule.add(record);
     }
     setSaving(false);
-    onSaved();
+    onSaved(date);
   }
 
   return (

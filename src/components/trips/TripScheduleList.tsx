@@ -1,5 +1,6 @@
+import { useEffect, useRef } from "react";
 import type { TripScheduleItem } from "../../types";
-import { formatDisplayDate } from "../../lib/date";
+import { formatDisplayDate, formatShortDate } from "../../lib/date";
 import { occurringOn, spanLabel } from "../../lib/eventSpan";
 import { timelineTimeParts } from "../../lib/tripTimeline";
 import { getTripScheduleType } from "../../lib/tripCategories";
@@ -7,7 +8,8 @@ import { forecastForDate, forecastHorizon, type TripWeather } from "../../lib/we
 import { TripDayWeather, TripWeatherBanner } from "./TripDayWeather";
 import { Badge } from "../ui/Badge";
 import { useConfirm } from "../ui/ConfirmProvider";
-import { CalendarRange, MapPin, Plus, Trash2 } from "lucide-react";
+import { Button } from "../ui/Button";
+import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Trash2 } from "lucide-react";
 
 interface Props {
   dayList: string[];
@@ -20,6 +22,9 @@ interface Props {
   /** 行き先の天気予報。まだ引いている最中(undefined)・引けなかった場合は何も出さない
    * (src/lib/weather.ts)。 */
   weather?: TripWeather;
+  /** いま見ている日(dayList のどれか)。旅行の画面が持つ — 予定を足した時に、その日へ切り替えるため。 */
+  selectedDate: string;
+  onSelectDate: (date: string) => void;
 }
 
 /**
@@ -33,12 +38,34 @@ interface Props {
  *
  * 予定が無い日は1行の「予定を追加」に畳む。9日間の旅行だと空の日が縦に積み上がって
  * 延々スクロールすることになるため、空の日ほど小さく収まるようにしてある。
+ *
+ * 見る日は、上の日にちのチップ(ルートの「日にちで絞る」と同じ見た目)で切り替え、
+ * 選んだ1日だけを出す(2026-10-07、「日程も下にスクロールするのがめんどくさい」)。
+ * 全部の日を縦に並べていた頃は、7日間の旅行で2日目以降へ行くのに、1日目の15件ぶんを
+ * 延々と送る必要があった。下には「前の日・次の日」を置き、1日を読み終えたらそのまま次へ進める。
  */
-export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationTap, onAddForDate, weather }: Props) {
+export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationTap, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
   const confirm = useConfirm();
+  const chipsRef = useRef<HTMLDivElement>(null);
+
+  // 選んだ日のチップが、横に並べきれない時でも見えるところへ送る。
+  useEffect(() => {
+    chipsRef.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ inline: "center", block: "nearest" });
+  }, [selectedDate]);
 
   if (dayList.length === 0) {
     return <p className="py-8 text-center text-sm text-slate-400">旅行の日程を先に設定してください</p>;
+  }
+
+  // 見るのは1日だけ。7日の旅行だと、全部を縦に並べては、下へ下へとスクロールする羽目になる。
+  // dayList に無い日(旅行の期間を直した直後など)が来ても、1日目に落とす。
+  const selectedIndex = Math.max(0, dayList.indexOf(selectedDate));
+  const shownDays = dayList.map((date, i) => ({ date, i })).filter(({ i }) => i === selectedIndex);
+
+  /** 前後の日へ。下のボタンから切り替えた時は、日にちのチップが見える所まで戻す(新しい日の頭から読めるように)。 */
+  function goToDay(date: string) {
+    onSelectDate(date);
+    chipsRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
   }
 
   const forecasts = weather?.status === "ok" ? weather.days : [];
@@ -56,7 +83,21 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
           beyondHorizon={beyondHorizon}
         />
       )}
-      {dayList.map((date, i) => {
+      <div className="trip-route__days" role="group" aria-label="日にちを切り替える" ref={chipsRef}>
+        {dayList.map((date, i) => (
+          <button
+            key={date}
+            type="button"
+            className={`trip-route__day${i === selectedIndex ? " is-active" : ""}`}
+            aria-pressed={i === selectedIndex}
+            onClick={() => onSelectDate(date)}
+          >
+            {i + 1}日目 {formatShortDate(date)}
+            <small>{occurringOn(items, date).length}</small>
+          </button>
+        ))}
+      </div>
+      {shownDays.map(({ date, i }) => {
         // またがる日程(2泊の宿泊など)は、初日だけでなくその間の日すべてに出す。
         const dayItems = occurringOn(items, date).sort((a, b) =>
           (a.startTime ?? "").localeCompare(b.startTime ?? ""),
@@ -148,6 +189,26 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
           </section>
         );
       })}
+      {dayList.length > 1 && (
+        <nav className="mt-3 flex gap-3" aria-label="前後の日へ">
+          {selectedIndex > 0 ? (
+            <Button type="button" variant="secondary" className="flex-1" onClick={() => goToDay(dayList[selectedIndex - 1])}>
+              <ChevronLeft size={16} />
+              前の日({selectedIndex}日目)
+            </Button>
+          ) : (
+            <span className="flex-1" />
+          )}
+          {selectedIndex < dayList.length - 1 ? (
+            <Button type="button" variant="secondary" className="flex-1" onClick={() => goToDay(dayList[selectedIndex + 1])}>
+              次の日({selectedIndex + 2}日目)
+              <ChevronRight size={16} />
+            </Button>
+          ) : (
+            <span className="flex-1" />
+          )}
+        </nav>
+      )}
     </div>
   );
 }
