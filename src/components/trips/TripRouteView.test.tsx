@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { TripRoutePlace } from "../../types";
+import type { TripRoutePlace, TripScheduleItem } from "../../types";
 import type { RouteSuggestion } from "../../lib/tripRouteSuggestions";
 import { TripRouteView } from "./TripRouteView";
 import { ConfirmProvider } from "../ui/ConfirmProvider";
@@ -13,9 +13,12 @@ vi.mock("../../db/schema", () => ({
 
 // 所要時間はサーバー(Googleのキー)頼みなので、ここでは呼ばせない。
 // 「キーが無くても移動手段の行は出す」のが本来の作りなので configured: false で十分。
+const routeInfo = vi.hoisted(() => ({
+  fetch: async (_origin: string, _destination: string): Promise<unknown> => ({ configured: false }),
+}));
 vi.mock("../../lib/routeInfo", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/routeInfo")>()),
-  fetchRouteInfo: async () => ({ configured: false }),
+  fetchRouteInfo: (origin: string, destination: string) => routeInfo.fetch(origin, destination),
 }));
 
 function place(id: string, name: string, sortOrder: number, date?: string): TripRoutePlace {
@@ -43,7 +46,12 @@ function renderView() {
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  // 「時間で見る」を選ぶと端末に覚えるので、次のテストへ持ち越さない。
+  window.localStorage.clear();
+  routeInfo.fetch = async () => ({ configured: false });
+});
 
 describe("旅行のルート", () => {
   it("場所と場所の間の経路を、押さなくても最初から出す", async () => {
@@ -206,3 +214,152 @@ describe("旅行のルート", () => {
     expect(screen.getByRole("button", { name: "岡山駅から新横浜駅までの経路を見る" })).toBeTruthy();
   });
 });
+
+describe("旅行のルート: 時間で見る", () => {
+  const day = "2026-09-19";
+  const dayPlaces = [
+    place("p1", "岡山駅", 1, day),
+    place("p2", "新横浜駅", 2, day),
+    place("p3", "ホテル", 3, day),
+  ];
+  const item = (title: string, location: string, startTime?: string, endTime?: string): TripScheduleItem => ({
+    id: title,
+    tripId: "t1",
+    date: day,
+    title,
+    location,
+    startTime,
+    endTime,
+    type: "transport",
+    createdAt: 1,
+  });
+  const schedule = [
+    item("のぞみ 岡山→新横浜", "岡山駅の住所", "09:00", "11:10"),
+    item("チェックイン", "ホテルの住所", "15:00"),
+  ];
+
+  function renderTime() {
+    return render(
+      <TripRouteView
+        tripId="t1"
+        destination="横浜"
+        places={dayPlaces}
+        dayList={[day, "2026-09-20"]}
+        schedule={schedule}
+        suggestions={[]}
+        onAddSuggestions={() => {}}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+  }
+
+  it("既定は地図。押すと、時刻つきの縦の並びに変わる", async () => {
+    const user = userEvent.setup();
+    renderTime();
+
+    expect(screen.getByRole("button", { name: "地図で見る" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByTitle("岡山駅の地図")).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "時間で見る" }));
+
+    // 地図は出さず、日程の時刻を場所に付けて、回る順に並べる。
+    expect(screen.queryByTitle("岡山駅の地図")).toBeNull();
+    expect(screen.getByText("09:00")).toBeTruthy();
+    expect(screen.getByText("〜11:10")).toBeTruthy();
+    expect(screen.getByText("のぞみ 岡山→新横浜")).toBeTruthy();
+    expect(screen.getByText("15:00")).toBeTruthy();
+    // 日程に無い場所も、時刻なしで残る(消えない)。
+    expect(screen.getByText("新横浜駅")).toBeTruthy();
+    expect(screen.getByText("時刻なし")).toBeTruthy();
+  });
+
+  it("選んだ見方は覚えていて、開き直しても時間で見る", async () => {
+    const user = userEvent.setup();
+    const first = renderTime();
+    await user.click(screen.getByRole("button", { name: "時間で見る" }));
+    first.unmount();
+
+    renderTime();
+
+    expect(screen.getByRole("button", { name: "時間で見る" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByTitle("岡山駅の地図")).toBeNull();
+  });
+
+  it("日程の住所が場所の住所と同じ時だけ時刻が付く(ここでは場所の住所は「〜の住所」)", async () => {
+    const user = userEvent.setup();
+    renderTime();
+    await user.click(screen.getByRole("button", { name: "時間で見る" }));
+
+    // place() は住所を「<名前>の住所」にしてある。のぞみ→岡山駅の住所、チェックイン→ホテルの住所。
+    const times = screen.getAllByText(/^\d\d:\d\d$/).map((el) => el.textContent);
+    expect(times).toEqual(["09:00", "15:00"]);
+  });
+
+  it("移動時間が取れた時は、場所のあいだに手段つきで出し、時刻が空の場所には着く目安を出す", async () => {
+    routeInfo.fetch = async (origin: string) => ({
+      configured: true,
+      modes: {
+        walking: { unavailable: true },
+        transit: origin === "岡山駅の住所" ? { durationSeconds: 35 * 60 } : { durationSeconds: 20 * 60 },
+        driving: { unavailable: true },
+      },
+    });
+    const user = userEvent.setup();
+    renderTime();
+    await user.click(screen.getByRole("button", { name: "時間で見る" }));
+
+    // 岡山駅(〜11:10)→新横浜駅(時刻なし): 11:10 + 35分。
+    expect(await screen.findByText(/公共交通機関 35分/)).toBeTruthy();
+    expect(screen.getByText(/11:45ごろ着/)).toBeTruthy();
+    // 新横浜駅は終了時刻が無いので、そのあとの目安は出さない。ホテルには自前の時刻がある。
+    expect(screen.getByText(/公共交通機関 20分/)).toBeTruthy();
+    expect(screen.queryByText(/ごろ着.*ごろ着/)).toBeNull();
+  });
+
+  it("移動が次の予定に間に合わなそうなら、そう書く", async () => {
+    routeInfo.fetch = async () => ({
+      configured: true,
+      modes: { walking: { unavailable: true }, transit: { durationSeconds: 60 * 60 }, driving: { unavailable: true } },
+    });
+    const tight: TripScheduleItem[] = [
+      item("朝食", "岡山駅の住所", "08:00", "09:00"),
+      item("会議", "新横浜駅の住所", "09:30"),
+    ];
+    const user = userEvent.setup();
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="横浜"
+        places={dayPlaces.slice(0, 2)}
+        dayList={[day, "2026-09-20"]}
+        schedule={tight}
+        suggestions={[]}
+        onAddSuggestions={() => {}}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+    await user.click(screen.getByRole("button", { name: "時間で見る" }));
+
+    expect(await screen.findByText("時間が足りないかもしれません")).toBeTruthy();
+    expect(screen.getByText(/次の予定まで30分/)).toBeTruthy();
+  });
+
+  it("経路が取れない(キー未設定など)時も、時刻の並びはそのまま出る", async () => {
+    routeInfo.fetch = async () => ({ configured: true, modes: { walking: { unavailable: true }, transit: { unavailable: true }, driving: { unavailable: true } } });
+    const user = userEvent.setup();
+    renderTime();
+    await user.click(screen.getByRole("button", { name: "時間で見る" }));
+
+    expect(screen.getByText("09:00")).toBeTruthy();
+    expect(screen.queryByText(/公共交通機関 \d/)).toBeNull();
+  });
+});
+
