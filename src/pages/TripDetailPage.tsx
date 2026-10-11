@@ -38,6 +38,7 @@ import { TripDocumentForm } from "../components/trips/TripDocumentForm";
 import { TripShareSheet } from "../components/trips/TripShareSheet";
 import { TripMyMapsSheet } from "../components/trips/TripMyMapsSheet";
 import { TripLocationRemapSheet } from "../components/trips/TripLocationRemapSheet";
+import { TripDayRoute } from "../components/trips/TripDayRoute";
 import { TripDocumentList } from "../components/trips/TripDocumentList";
 import { DiaryList } from "../components/diary/DiaryList";
 import { DiaryForm } from "../components/diary/DiaryForm";
@@ -361,6 +362,8 @@ export default function TripDetailPage() {
             />
             {dayList.length > 0 && (
               <div className="mt-4 space-y-2">
+                {/* 見ている日の日程を、Googleマップの経路として開く。 */}
+                <TripDayRoute items={schedule} date={activeScheduleDay} />
                 <Button
                   className="w-full"
                   onClick={() => {
