@@ -16,6 +16,7 @@ import type { TripExpenseCategory, TripPackingCategory, TripScheduleType } from 
 import { Badge } from "../components/ui/Badge";
 import { Card } from "../components/ui/Card";
 import { formatOriginalAmount } from "../lib/currency";
+import { orderScheduleDay } from "../lib/scheduleOrder";
 
 /**
  * 共有リンクで開く、ログイン不要の閲覧専用ページ(supabase/sql/023_trip_shares.sql)。
@@ -76,7 +77,8 @@ export default function SharedTripPage() {
     if (!data) return [];
     return tripDayList(data.trip.startDate, data.trip.endDate).map((date) => ({
       date,
-      items: data.schedule.filter((item) => date >= item.date && date <= (item.endDate || item.date)),
+      // 並びはアプリの日程と同じ(「↑」「↓」で入れ替えた日はその順。src/lib/scheduleOrder.ts)。
+      items: orderScheduleDay(data.schedule.filter((item) => date >= item.date && date <= (item.endDate || item.date))),
     }));
   }, [data]);
 

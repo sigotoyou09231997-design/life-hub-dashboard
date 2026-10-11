@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { TripScheduleItem } from "../../types";
 
@@ -204,3 +204,20 @@ describe("旅行の予定の入力: 費用と支払った人", () => {
   });
 });
 
+describe("旅行の予定の入力: 入れ替えた並び", () => {
+  const placed: TripScheduleItem = { id: "s1", tripId: "t1", date: "2026-12-28", startTime: "06:00", title: "ホテル出発", type: "other", sortOrder: 2, createdAt: 1 };
+
+  it("開始時刻を直したら、並びから外して時刻の位置へ戻す(null で、ほかの端末にも消える)", async () => {
+    renderForm(placed);
+    fireEvent.change(screen.getByLabelText(/^開始時刻/), { target: { value: "07:30" } });
+    fireEvent.click(screen.getByRole("button", { name: "変更を保存" }));
+    await waitFor(() => expect(mocks.updated[0]?.[1]).toMatchObject({ startTime: "07:30", sortOrder: null }));
+  });
+
+  it("時刻を変えなければ、入れ替えた並びは残す", async () => {
+    renderForm(placed);
+    fireEvent.click(screen.getByRole("button", { name: "変更を保存" }));
+    await waitFor(() => expect(mocks.updated.length).toBe(1));
+    expect(mocks.updated[0][1]).not.toHaveProperty("sortOrder");
+  });
+});

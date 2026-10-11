@@ -272,8 +272,8 @@ describe("予定の費用", () => {
   });
 });
 
-describe("同じ時刻の予定の順番", () => {
-  it("同じ時刻の予定にだけ「↑」「↓」を出し、押すと入れ替える並び順を渡す", async () => {
+describe("予定の上下の入れ替え", () => {
+  it("すべての予定に「↑」「↓」を出し(端は押せない)、押すとその日の並び順を渡す", async () => {
     const user = userEvent.setup();
     const onReorder = vi.fn();
     render(
@@ -294,12 +294,32 @@ describe("同じ時刻の予定の順番", () => {
       />,
       { wrapper: ConfirmProvider },
     );
-    expect(screen.queryByRole("button", { name: "「受付・待機」を上へ" })).toBeNull();
     expect((screen.getByRole("button", { name: "「高知→四万十の碧 乗船場所」を上へ" }) as HTMLButtonElement).disabled).toBe(true);
-    await user.click(screen.getByRole("button", { name: "「ホテル出発」を上へ" }));
-    expect(onReorder).toHaveBeenCalledWith([
-      { id: "leave", sortOrder: 1 },
-      { id: "boat", sortOrder: 2 },
+    expect((screen.getByRole("button", { name: "「受付・待機」を下へ" }) as HTMLButtonElement).disabled).toBe(true);
+    // 時刻がちがっても動かせる。
+    await user.click(screen.getByRole("button", { name: "「受付・待機」を上へ" }));
+    expect(onReorder).toHaveBeenLastCalledWith([
+      { id: "boat", sortOrder: 1 },
+      { id: "desk", sortOrder: 2 },
+      { id: "leave", sortOrder: 3 },
     ]);
+  });
+
+  it("予定が1つだけの日は出さない", () => {
+    render(
+      <TripScheduleList
+        dayList={["2026-12-27"]}
+        items={[item({ id: "only", title: "ホテル出発", startTime: "06:00" })]}
+        onEdit={() => {}}
+        onDelete={() => {}}
+        onLocationTap={() => {}}
+        onReorder={() => {}}
+        onAddForDate={() => {}}
+        selectedDate="2026-12-27"
+        onSelectDate={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+    expect(screen.queryByRole("button", { name: /を上へ/ })).toBeNull();
   });
 });

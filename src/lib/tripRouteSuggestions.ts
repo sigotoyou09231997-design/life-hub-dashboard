@@ -1,6 +1,6 @@
 import type { TripRoutePlace, TripScheduleItem, TripScheduleType } from "../types";
 import { routeKey } from "./mailPlanImport";
-import { compareScheduleDateTime } from "./scheduleOrder";
+import { orderSchedule } from "./scheduleOrder";
 
 /**
  * 日程に入っているのに、ルートにはまだ無い場所。
@@ -49,7 +49,7 @@ export function toRouteSuggestions(schedule: TripScheduleItem[], places: TripRou
   const seen = new Set(places.map((place) => routeKey(place.address)));
   const suggestions: RouteSuggestion[] = [];
 
-  const sorted = [...schedule].sort(compareScheduleDateTime);
+  const sorted = orderSchedule(schedule);
 
   for (const item of sorted) {
     const address = item.location?.trim();
