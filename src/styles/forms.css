@@ -265,6 +265,17 @@ textarea.field-shell {
 
 .segmented__option:active { transform: scale(0.965); }
 
+/* 絵を上・文字を下に積む形(SegmentedField の stacked)。1つの幅が狭くても、文字を1行のまま収める。 */
+.segmented__option--stacked {
+  flex-direction: column;
+  gap: 0.2rem;
+  min-height: 3.1rem;
+  padding: 0.4rem 0.15rem;
+  font-size: 0.78rem;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
 .segmented__option[aria-pressed="true"] {
   border-color: var(--hub-edge);
   background: #fff;

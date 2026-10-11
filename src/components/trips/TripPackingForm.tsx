@@ -30,6 +30,8 @@ export function TripPackingForm({ tripId, initial, onSaved, onCancel }: Props) {
       title: title.trim(),
       category,
       checked: initial?.checked ?? false,
+      // 種類を変えたら、移った先の種類の最後に回す(前の種類での番号を持ち込まない)。
+      ...(initial && initial.category !== category ? { sortOrder: undefined } : {}),
       createdAt: initial?.createdAt ?? Date.now(),
     };
 

@@ -16,6 +16,9 @@ interface Props<T extends string> {
   onChange: (value: T) => void;
   /** 選択肢が長い日本語のときは横に並べきれないので縦積みにする。 */
   columns?: number;
+  /** 絵を上・文字を下に積む。選択肢が多く1つの幅が狭い時(移動手段の5列×2行など)、絵と文字を横に並べると
+   * 文字が1字ずつ縦に折れてしまう(2026-10-11、スマホで「タクシー」が4行になった)。 */
+  stacked?: boolean;
 }
 
 /** 選択肢が少ないものをプルダウンにしない。全部見えていて、1回で選べる。 */
@@ -27,6 +30,7 @@ export function SegmentedField<T extends string>({
   options,
   onChange,
   columns,
+  stacked = false,
 }: Props<T>) {
   return (
     <Field label={label} optional={optional} hint={hint} as="div">
@@ -40,7 +44,7 @@ export function SegmentedField<T extends string>({
             <button
               key={option.value}
               type="button"
-              className="segmented__option"
+              className={`segmented__option${stacked ? " segmented__option--stacked" : ""}`}
               aria-pressed={option.value === value}
               onClick={() => onChange(option.value)}
             >

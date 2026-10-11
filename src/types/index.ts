@@ -402,6 +402,8 @@ export interface TripPackingItem {
   title: string;
   category: TripPackingCategory;
   checked: boolean;
+  /** 種類の中での並び順。長押しで並べ替えた時だけ付く(src/lib/packingOrder.ts)。 */
+  sortOrder?: number;
   createdAt: number;
   updatedAt?: number;
   deviceId?: string;
