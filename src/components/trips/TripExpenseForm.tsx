@@ -26,16 +26,21 @@ import { Button } from "../ui/Button";
 interface Props {
   tripId: string;
   initial?: TripExpense;
+  /** 旅行の参加者。いれば「支払った人」を選べる(src/lib/tripMembers.ts)。 */
+  members?: string[];
   onSaved: () => void;
   onCancel: () => void;
 }
 
-export function TripExpenseForm({ tripId, initial, onSaved, onCancel }: Props) {
+export function TripExpenseForm({ tripId, initial, members = [], onSaved, onCancel }: Props) {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? "");
   const [category, setCategory] = useState<TripExpenseCategory>(initial?.category ?? "other");
   const [paidDate, setPaidDate] = useState(initial?.paidDate ?? "");
   const [paid, setPaid] = useState(initial?.paid ?? false);
+  const [paidBy, setPaidBy] = useState(initial?.paidBy ?? "");
+  // 参加者から外した人が払っていた費用も、その名前のまま選べるように残す。
+  const payerOptions = initial?.paidBy && !members.includes(initial.paidBy) ? [...members, initial.paidBy] : members;
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [currency, setCurrency] = useState<TripExpenseCurrencyDraft>(EMPTY_CURRENCY_DRAFT);
   const [rateLoading, setRateLoading] = useState(false);
@@ -119,6 +124,7 @@ export function TripExpenseForm({ tripId, initial, onSaved, onCancel }: Props) {
       paidDate: paidDate || undefined,
       paid,
       memo: memo || undefined,
+      paidBy: paidBy || undefined,
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
@@ -215,6 +221,16 @@ export function TripExpenseForm({ tripId, initial, onSaved, onCancel }: Props) {
 
       <FormPanel caption="支払い">
         <SwitchField label="支払い済み" checked={paid} onChange={setPaid} />
+        {payerOptions.length > 0 && (
+          <Select label="支払った人" optional value={paidBy} onChange={(e) => setPaidBy(e.target.value)}>
+            <option value="">決めていない</option>
+            {payerOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        )}
         <DateField label="支払日" optional value={paidDate} onChange={setPaidDate} placeholder="まだ決めていない" />
         <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
       </FormPanel>

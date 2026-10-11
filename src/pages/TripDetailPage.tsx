@@ -338,6 +338,7 @@ export default function TripDetailPage() {
             )}
             <TripScheduleList
               photosBySchedule={schedulePhotos ? groupByOwner(schedulePhotos) : undefined}
+              expenseBySchedule={new Map(expenses.filter((e) => e.scheduleId).map((e) => [e.scheduleId!, e]))}
               dayList={dayList}
               items={schedule}
               weather={weather}
@@ -405,6 +406,7 @@ export default function TripDetailPage() {
           <>
             <TripExpenseList
               budget={trip.budget}
+              members={trip.members}
               expenses={expenses}
               currencies={expenseCurrencies}
               onEdit={(expense) => setEditingExpense(expense)}
@@ -591,6 +593,7 @@ export default function TripDetailPage() {
           editingSchedule && (
             <TripScheduleForm
               tripId={tripId}
+              members={trip.members}
               initial={editingSchedule === "new" ? undefined : editingSchedule}
               defaultDate={scheduleDatePreset ?? scheduleDefaultDate}
               onSaved={(date) => {
@@ -617,6 +620,7 @@ export default function TripDetailPage() {
         {editingExpense && (
           <TripExpenseForm
             tripId={tripId}
+            members={trip.members}
             initial={editingExpense === "new" ? undefined : editingExpense}
             onSaved={() => {
               setEditingExpense(null);

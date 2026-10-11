@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { Attachment, TripScheduleItem } from "../../types";
+import type { Attachment, TripExpense, TripScheduleItem } from "../../types";
 import { formatDisplayDate, formatShortDate } from "../../lib/date";
 import { occurringOn, spanLabel } from "../../lib/eventSpan";
 import { timelineTimeParts } from "../../lib/tripTimeline";
@@ -12,13 +12,15 @@ import { PhotoStrip } from "../attachments/PhotoStrip";
 import { ScheduleDetailLines } from "./ScheduleDetailLines";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { Button } from "../ui/Button";
-import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Trash2 } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Trash2, Wallet } from "lucide-react";
 
 interface Props {
   dayList: string[];
   items: TripScheduleItem[];
   /** 予定に貼った写真(予定の id ごと)。無ければ写真を出さない。 */
   photosBySchedule?: Map<string, Attachment[]>;
+  /** 予定の費用(TripExpense.scheduleId ごと)。あれば「¥17,000・えっくん」を出す。 */
+  expenseBySchedule?: Map<string, TripExpense>;
   onEdit: (item: TripScheduleItem) => void;
   onDelete: (id: string) => void;
   onLocationTap: (location: string, title: string) => void;
@@ -49,7 +51,7 @@ interface Props {
  * 全部の日を縦に並べていた頃は、7日間の旅行で2日目以降へ行くのに、1日目の15件ぶんを
  * 延々と送る必要があった。下には「前の日・次の日」を置き、1日を読み終えたらそのまま次へ進める。
  */
-export function TripScheduleList({ dayList, items, photosBySchedule, onEdit, onDelete, onLocationTap, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
+export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySchedule, onEdit, onDelete, onLocationTap, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
   const confirm = useConfirm();
   const chipsRef = useRef<HTMLDivElement>(null);
 
@@ -168,6 +170,13 @@ export function TripScheduleList({ dayList, items, photosBySchedule, onEdit, onD
                                 {typeDef.label}
                               </Badge>
                               {item.type === "transport" && item.transportMode && <TransportModeChip mode={item.transportMode} />}
+                              {item.id && expenseBySchedule?.get(item.id) && (
+                                <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-slate-600">
+                                  <Wallet size={12} aria-hidden="true" />
+                                  ¥{Math.round(expenseBySchedule.get(item.id)!.amount).toLocaleString()}
+                                  {expenseBySchedule.get(item.id)!.paidBy ? `・${expenseBySchedule.get(item.id)!.paidBy}` : ""}
+                                </span>
+                              )}
                               {spanLabel(item, date) && (
                                 <span className="flex items-center gap-0.5 whitespace-nowrap text-xs font-medium text-slate-500">
                                   <CalendarRange size={12} />

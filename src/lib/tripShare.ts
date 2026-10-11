@@ -28,6 +28,8 @@ export interface SharedTripInfo {
   endDate: string;
   memo?: string;
   status: string;
+  /** 参加者(030)。 */
+  members?: string[];
 }
 
 export interface SharedScheduleItem {
@@ -75,6 +77,8 @@ export interface SharedExpense {
   /** 現地通貨で払った場合だけ付く(021の内訳)。 */
   currency?: string;
   originalAmount?: number;
+  /** 誰が払ったか(030)。 */
+  paidBy?: string | null;
 }
 
 export interface SharedTrip {
@@ -118,6 +122,7 @@ export function parseSharedTrip(raw: unknown): SharedTrip | null {
       endDate: typeof info.endDate === "string" ? info.endDate : info.startDate,
       memo: typeof info.memo === "string" ? info.memo : undefined,
       status: typeof info.status === "string" ? info.status : "planning",
+      members: Array.isArray(info.members) ? info.members.filter((name): name is string => typeof name === "string") : undefined,
     },
     includeExpenses: value.includeExpenses === true,
     schedule: list<SharedScheduleItem>("schedule"),

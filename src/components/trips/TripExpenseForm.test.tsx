@@ -8,10 +8,11 @@ import type { TripExpenseCurrencyDraft } from "../../lib/currency";
 const mocks = vi.hoisted(() => ({
   loadCurrencyDraft: vi.fn(),
   fetchRateToYen: vi.fn(),
+  updated: [] as [string, unknown][],
 }));
 
 vi.mock("../../db/schema", () => ({
-  db: { tripExpenses: { add: async () => "new-row", update: async () => 1 } },
+  db: { tripExpenses: { add: async () => "new-row", update: async (id: string, row: unknown) => void mocks.updated.push([id, row]) } },
 }));
 
 // レートの判定(needsRateRefetch / isRateFetchable)は本物のまま使い、
@@ -97,3 +98,28 @@ describe("開いたときのレート取り直し", () => {
     expect(rateInput().value).toBe("");
   });
 });
+
+describe("費用の入力: 支払った人", () => {
+  it("参加者がいれば支払った人を選べて、保存に入る。参加者から外した人の名前も残す", async () => {
+    mocks.loadCurrencyDraft.mockResolvedValue({ currency: "JPY", originalAmount: "", rate: "", manual: false });
+    mocks.updated = [];
+    const userEvent = (await import("@testing-library/user-event")).default;
+    const user = userEvent.setup();
+    render(
+      <TripExpenseForm tripId="t1" initial={{ ...EXPENSE, paidBy: "抜けた人" }} members={["ふなだ", "えっくん"]} onSaved={() => {}} onCancel={() => {}} />,
+    );
+    const select = screen.getByRole("combobox", { name: /支払った人/ }) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.textContent)).toEqual(["決めていない", "ふなだ", "えっくん", "抜けた人"]);
+    expect(select.value).toBe("抜けた人");
+    await user.selectOptions(select, "えっくん");
+    await user.click(screen.getByRole("button", { name: /保存/ }));
+    await waitFor(() => expect(mocks.updated[0]?.[1]).toMatchObject({ paidBy: "えっくん" }));
+  });
+
+  it("参加者がいなければ、支払った人の欄は出さない", () => {
+    mocks.loadCurrencyDraft.mockResolvedValue({ currency: "JPY", originalAmount: "", rate: "", manual: false });
+    renderForm();
+    expect(screen.queryByRole("combobox", { name: /支払った人/ })).toBeNull();
+  });
+});
+

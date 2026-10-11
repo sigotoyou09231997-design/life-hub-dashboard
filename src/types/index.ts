@@ -310,6 +310,8 @@ export interface Trip {
   memo?: string;
   status: TripStatus;
   budget?: number;
+  /** 参加している人の名前(2026-10-11、要望の受信箱から。src/lib/tripMembers.ts)。 */
+  members?: string[];
   createdAt: number;
   updatedAt?: number;
   deviceId?: string;
@@ -364,6 +366,10 @@ export interface TripExpense {
   paidDate?: string; // YYYY-MM-DD
   paid: boolean;
   memo?: string;
+  /** 誰が払ったか(旅行の参加者の名前)。 */
+  paidBy?: string;
+  /** どの予定の費用か(TripScheduleItem.id)。予定の入力で金額を入れた時に付く。 */
+  scheduleId?: string;
   createdAt: number;
   updatedAt?: number;
   deviceId?: string;

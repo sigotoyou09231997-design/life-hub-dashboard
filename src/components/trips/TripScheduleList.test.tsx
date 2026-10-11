@@ -3,7 +3,7 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { Attachment, TripScheduleItem } from "../../types";
+import type { Attachment, TripExpense, TripScheduleItem } from "../../types";
 import { ConfirmProvider } from "../ui/ConfirmProvider";
 import { TripScheduleList } from "./TripScheduleList";
 
@@ -245,6 +245,29 @@ describe("予定に貼った写真", () => {
     const rows = screen.getAllByRole("listitem").filter((row) => row.classList.contains("trip-timeline__item"));
     expect(rows[0].querySelectorAll("img")).toHaveLength(1);
     expect(rows[1].querySelectorAll("img")).toHaveLength(0);
+  });
+});
+
+describe("予定の費用", () => {
+  it("費用のある予定には、金額と支払った人を出す", () => {
+    const expense: TripExpense = { id: "e1", tripId: "trip-1", title: "新幹線", amount: 17000, category: "transport", paid: true, paidBy: "えっくん", scheduleId: "a", createdAt: 0 };
+    render(
+      <TripScheduleList
+        dayList={["2026-12-27"]}
+        items={[item({ id: "a", title: "東京→岡山", startTime: "06:48" }), item({ id: "b", title: "岡山駅", startTime: "10:05" })]}
+        expenseBySchedule={new Map([["a", expense]])}
+        selectedDate="2026-12-27"
+        onSelectDate={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+        onLocationTap={() => {}}
+        onAddForDate={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+    const rows = screen.getAllByRole("listitem").filter((row) => row.classList.contains("trip-timeline__item"));
+    expect(rows[0].textContent).toContain("¥17,000・えっくん");
+    expect(rows[1].textContent).not.toContain("¥");
   });
 });
 

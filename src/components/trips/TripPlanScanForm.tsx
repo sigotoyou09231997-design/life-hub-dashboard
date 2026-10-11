@@ -222,10 +222,10 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
           await db.tripSchedule.update(entry.target.id!, diffAgainstSchedule(entry.target, row, { allowRename: row.matchBySlot }).patch);
           continue;
         }
-        await db.tripSchedule.add(toTripScheduleRecord(row, tripId, now));
+        const scheduleId = String(await db.tripSchedule.add(toTripScheduleRecord(row, tripId, now)));
         // 費用は金額が読み取れていて、外されていない分だけ積む(種類がそのまま分類になる)。
-        // 更新では積まない(同じ予定の費用が二重になるため)。
-        if (row.withExpense && row.amount) await db.tripExpenses.add(toTripExpenseRecord(row, tripId, now));
+        // 更新では積まない(同じ予定の費用が二重になるため)。その予定の費用としてひもづける。
+        if (row.withExpense && row.amount) await db.tripExpenses.add({ ...toTripExpenseRecord(row, tripId, now), scheduleId });
       }
       for (const id of deleting) {
         await db.tripSchedule.delete(id);

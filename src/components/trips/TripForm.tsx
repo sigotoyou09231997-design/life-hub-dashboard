@@ -1,4 +1,7 @@
 import { useState } from "react";
+import type { UpdateSpec } from "dexie";
+import { normalizeMembers } from "../../lib/tripMembers";
+import { MemberField } from "./MemberField";
 import { CalendarRange, MapPin, Plane, Check, Sparkles } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Trip, TripStatus } from "../../types";
@@ -30,6 +33,7 @@ export function TripForm({ initial, onSaved, onCancel }: Props) {
   const [status, setStatus] = useState<TripStatus>(initial?.status ?? "planning");
   const [budget, setBudget] = useState(initial?.budget?.toString() ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
+  const [members, setMembers] = useState<string[]>(initial?.members ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,12 +55,14 @@ export function TripForm({ initial, onSaved, onCancel }: Props) {
       status,
       budget: budget ? Number(budget) : undefined,
       memo: memo || undefined,
+      members: normalizeMembers(members).length > 0 ? normalizeMembers(members) : undefined,
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
     let id: string;
     if (initial?.id) {
-      await db.trips.update(initial.id, record);
+      // 配列(members)を持つ表は、そのままだと Dexie の型が通らない(EventForm.tsx と同じ書き方)。
+      await db.trips.update(initial.id, record as UpdateSpec<Trip>);
       id = initial.id;
     } else {
       id = (await db.trips.add(record)) as string;
@@ -99,6 +105,10 @@ export function TripForm({ initial, onSaved, onCancel }: Props) {
           error={error}
         />
         <SegmentedField label="いまの状態" value={status} options={STATUS_OPTIONS} onChange={setStatus} />
+      </FormPanel>
+
+      <FormPanel caption="だれと">
+        <MemberField value={members} onChange={setMembers} />
       </FormPanel>
 
       <FormPanel caption="そのほか">
