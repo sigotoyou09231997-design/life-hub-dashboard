@@ -40,6 +40,27 @@ function hasTextSelection(el: HTMLElement): boolean {
   }
 }
 
+/**
+ * フォーカス中の欄を、下に貼りついた操作の帯(.form-actions、キャンセル/保存)より上へ出す。
+ *
+ * 帯は .sheet-body の中に position:sticky で貼りついているので、scrollIntoView も iOS の
+ * 「打っている所を見せる」も、帯の裏を「見えている範囲」と数えてしまう。キーボードが出ると
+ * 帯はキーボードの真上に来るため、入力欄の下側(打っている行)が帯とキーボードの裏に入り、
+ * 「キーボードと入力している文字がかぶる」(2026-10-11、iPhone のホーム画面アプリで「修正」の
+ * 入力欄)。欄が見える範囲に収まるなら下端を帯の上へ、収まらないなら上端を見える範囲の上に合わせる。
+ */
+export function revealAboveActions(body: HTMLElement, field: HTMLElement): void {
+  const actions = body.querySelector<HTMLElement>(".form-actions");
+  if (!actions || actions.contains(field)) return;
+  const GAP = 8;
+  const limit = actions.getBoundingClientRect().top - GAP;
+  const top = body.getBoundingClientRect().top + GAP;
+  const rect = field.getBoundingClientRect();
+  if (rect.bottom <= limit) return;
+  const shift = rect.height <= limit - top ? rect.bottom - limit : rect.top - top;
+  if (shift > 0) body.scrollTop += shift;
+}
+
 export function Sheet({ open, onClose, title, children, reserveBottomBar = false, compact = false }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   // キーボードで隠れている高さ。その分だけシートを持ち上げて、入力欄が最初から
@@ -142,7 +163,11 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
       // 1拍置くのは、器の高さ(maxHeightPx)の再計算がReactの描画を経てから反映される
       // ため — 同期で呼ぶと縮む前の高さのまま計算してしまう。
       if (hidden > 0 && active && bodyRef.current?.contains(active)) {
-        requestAnimationFrame(() => active.scrollIntoView({ block: "nearest" }));
+        const body = bodyRef.current;
+        requestAnimationFrame(() => {
+          active.scrollIntoView({ block: "nearest" });
+          revealAboveActions(body, active);
+        });
       }
       // キーボードで持ち上がった後、閉じてもページがずれたままなら開いた時の位置へ戻す。
       // 持ち上がった後だけにするのは、それ以外で勝手にスクロールさせないため。
