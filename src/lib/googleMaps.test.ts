@@ -27,6 +27,11 @@ describe("buildRouteEmbedUrl", () => {
   it("does not throw on an empty list", () => {
     expect(buildRouteEmbedUrl([])).toContain("output=embed");
   });
+
+  it("adds the travel mode when one is given", () => {
+    expect(buildRouteEmbedUrl(["函館駅", "五稜郭"], "walking")).toContain("&dirflg=w&output=embed");
+    expect(buildRouteEmbedUrl(["函館駅", "五稜郭"], "transit")).toContain("&dirflg=r&");
+  });
 });
 
 describe("buildRouteSearchUrl", () => {
