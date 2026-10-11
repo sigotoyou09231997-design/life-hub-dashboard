@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
+import { FeedbackButton } from "../components/feedback/FeedbackButton";
 import { MapPin } from "lucide-react";
 import { fetchSharedTrip, type SharedTrip } from "../lib/tripShare";
 import { formatDisplayDate, tripDayList, tripDurationLabel } from "../lib/date";
@@ -280,6 +281,8 @@ export default function SharedTripPage() {
       <footer className="shared-trip__footer">
         <p>LIFE HUB で作られた旅行のしおりです。閲覧専用で、内容は変更できません。</p>
       </footer>
+      {/* しおりを見ている人(ログインしていない)も、この共有リンクの合鍵で「ここ直して」を送れる。 */}
+      {token && <FeedbackButton shareToken={token} standalone />}
     </div>
   );
 }

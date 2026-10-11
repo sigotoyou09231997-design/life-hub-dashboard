@@ -14,6 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * - 028: ChatGPT など OAuth で接続したアプリのトークン(client_id が付く)は、旅行・日程以外の表に何もできず、
  *   旅行・日程も読む・足すだけ(更新・削除はできない)。アプリ自身のログインは、これまでどおり。
  * - 027: 送信コードの受信箱(置ける・断る・20件まで・権限)。
+ * - 029: 要望の受信箱(ログインして・共有リンクから送れる・持ち主だけ読める・読み取りコード・連投の上限)。
  */
 
 const SQL_DIR = new URL("../sql/", import.meta.url);
@@ -256,3 +257,94 @@ describe("027: 送信コードの受信箱", () => {
     expect(sqlHash).toBe(hash);
   });
 });
+
+describe("029: 要望の受信箱", () => {
+  const OWNER = USER;
+  const FRIEND = OTHER;
+  const SHARE_TOKEN = "share-token-for-feedback-test";
+  const readCode = "FBREADCODE1234567890";
+  const send = async (message: string | null, shareToken: string | null = null, name: string | null = null) =>
+    (await db.query<{ r: { ok: boolean; reason?: string } }>("select public.send_app_feedback($1, $2, $3, $4, $5) as r", [message, "/trips/x", name, "abc1234", shareToken])).rows[0].r;
+  const inbox = async (code: string, all = false) =>
+    (await db.query<{ r: { ok: boolean; reason?: string; items?: { id: string; message: string; via: string; tripName: string | null; status: string; senderName: string | null }[] } }>("select public.app_feedback_inbox($1, $2) as r", [code, all])).rows[0].r;
+
+  beforeAll(async () => {
+    await db.query("insert into public.app_feedback_owner (id, user_id) values ('owner', $1)", [OWNER]);
+    await db.query("insert into public.app_feedback_read_codes (id, code_hash) values ('owner', $1)", [createHash("sha256").update(readCode).digest("hex")]);
+    await db.query("insert into public.trip_shares (id, user_id, trip_id, token) values ('dddddddd-bbbb-4ccc-8ddd-eeeeeeeeeeee', $1, $2, $3)", [OWNER, TRIP, SHARE_TOKEN]);
+  });
+
+  it("ログインしている人は送れる。送った人は自分の分だけ読め、持ち主はすべて読める", async () => {
+    await db.exec("begin");
+    try {
+      await db.exec("set local role authenticated");
+      await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: FRIEND, role: "authenticated" })]);
+      expect(await send("ボタンが小さい", null, "友人A")).toEqual({ ok: true });
+      expect(await count("select count(*)::int as n from public.app_feedback")).toBe(1);
+      await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: "77777777-2222-4333-8444-555555555555", role: "authenticated" })]);
+      expect(await count("select count(*)::int as n from public.app_feedback")).toBe(0);
+      await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify(APP)]);
+      const row = (await db.query<{ via: string; sender_name: string; message: string }>("select via, sender_name, message from public.app_feedback")).rows;
+      expect(row).toEqual([{ via: "app", sender_name: "友人A", message: "ボタンが小さい" }]);
+    } finally {
+      await db.exec("rollback");
+    }
+  });
+
+  it("ログインしていない人は、共有リンクの合鍵がある時だけ送れる(旅行の名前が付く)", async () => {
+    const result = await as("anon", null, async () => {
+      expect((await send("合鍵なし")).reason).toBe("not_allowed");
+      expect((await send("違う合鍵", "wrong-token")).reason).toBe("invalid_share");
+      expect(await send("しおりの時刻が違う", SHARE_TOKEN)).toEqual({ ok: true });
+      await db.exec("reset role");
+      return (await db.query<{ via: string; trip_name: string; sender_id: string | null }>("select via, trip_name, sender_id from public.app_feedback")).rows;
+    });
+    expect(result).toEqual([{ via: "share", trip_name: "四国旅行", sender_id: null }]);
+  });
+
+  it("表に直接は入れられない(必ず関数を通す)。持ち主以外は印も付けられない", async () => {
+    await expect(as("authenticated", { sub: FRIEND, role: "authenticated" }, () => db.query("insert into public.app_feedback (via, message) values ('app', '直接')"))).rejects.toThrow();
+    await expect(as("anon", null, () => db.query("insert into public.app_feedback (via, message) values ('share', '直接')"))).rejects.toThrow();
+  });
+
+  it("空・2000字を超える要望は断る", async () => {
+    await as("authenticated", { sub: FRIEND, role: "authenticated" }, async () => {
+      expect((await send("   ")).reason).toBe("invalid_message");
+      expect((await send("あ".repeat(2001))).reason).toBe("invalid_message");
+      expect((await send("あ".repeat(2000))).ok).toBe(true);
+    });
+  });
+
+  it("1時間に10件まで(同じ人・同じ共有リンクごと)", async () => {
+    await as("authenticated", { sub: FRIEND, role: "authenticated" }, async () => {
+      for (let i = 0; i < 10; i++) expect((await send(`要望${i}`)).ok, String(i)).toBe(true);
+      expect((await send("11件目")).reason).toBe("too_many");
+    });
+  });
+
+  it("ChatGPT など OAuth で接続したアプリからは送れない", async () => {
+    expect((await as("authenticated", OAUTH, () => send("なりすまし"))).reason).toBe("not_allowed");
+  });
+
+  it("読み取りコードがあれば、ログインしていなくても届いた要望を読めて、対応済みにできる", async () => {
+    await as("anon", null, async () => {
+      expect(await send("読み取りの確認", SHARE_TOKEN, "えっくん")).toEqual({ ok: true });
+      expect((await inbox("WRONGCODE")).reason).toBe("invalid_code");
+      const got = await inbox(readCode);
+      expect(got.items?.map((item) => [item.message, item.via, item.tripName, item.senderName, item.status])).toEqual([["読み取りの確認", "share", "四国旅行", "えっくん", "new"]]);
+      const id = got.items![0].id;
+      expect((await db.query<{ r: { ok: boolean; reason?: string } }>("select public.app_feedback_set_status($1, $2, 'done') as r", ["WRONGCODE", id])).rows[0].r.reason).toBe("invalid_code");
+      expect((await db.query<{ r: { ok: boolean } }>("select public.app_feedback_set_status($1, $2, 'done') as r", [readCode, id])).rows[0].r.ok).toBe(true);
+      // 対応済みは、既定では出てこない(全部見たい時だけ出す)。
+      expect((await inbox(readCode)).items).toEqual([]);
+      expect((await inbox(readCode, true)).items?.map((item) => item.status)).toEqual(["done"]);
+    });
+  });
+
+  it("読み取りコードの表と持ち主の表は、ログインしていても書き換えられない", async () => {
+    await expect(as("authenticated", APP, () => db.query("insert into public.app_feedback_read_codes (id, code_hash) values ('owner', 'x')"))).rejects.toThrow();
+    expect(await as("authenticated", APP, () => rows("update public.app_feedback_owner set user_id = user_id returning id"))).toBe(0);
+    expect(await as("anon", null, () => count("select count(*)::int as n from public.app_feedback_read_codes"))).toBe(0);
+  });
+});
+

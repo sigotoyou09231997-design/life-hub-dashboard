@@ -19,7 +19,13 @@ function writeVersionFile(): Plugin {
   };
 }
 
+/** 動いているアプリの版。要望の受信箱(src/lib/appFeedback.ts)に「どの版で見て書いたか」を添える。 */
+const APP_COMMIT = process.env.COMMIT_REF || process.env.VERCEL_GIT_COMMIT_SHA || "dev";
+
 export default defineConfig({
+  define: {
+    __APP_COMMIT__: JSON.stringify(APP_COMMIT),
+  },
   plugins: [
     writeVersionFile(),
     react(),

@@ -7,6 +7,7 @@ import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
 import { EventPeopleManager } from "../components/settings/EventPeopleManager";
+import { FeedbackInbox } from "../components/feedback/FeedbackInbox";
 import { GoogleCalendarSyncControl } from "../components/settings/GoogleCalendarSyncControl";
 import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
@@ -290,6 +291,8 @@ export default function SettingsPage() {
             </Link>
           </div>
         </Card>
+
+        <FeedbackInbox />
 
         <Card className="system-section system-section--data">
           <div className="system-section__header">
