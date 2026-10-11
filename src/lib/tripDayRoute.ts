@@ -1,7 +1,7 @@
 import type { TripScheduleItem, TripTransportMode } from "../types";
 import { buildRouteSearchUrl, type TravelMode } from "./googleMaps";
 import { routeKey } from "./mailPlanImport";
-import { compareScheduleTime } from "./scheduleOrder";
+import { orderScheduleDay } from "./scheduleOrder";
 
 /**
  * 旅行の1日ぶんの日程を、Googleマップの経路(出発地 → 経由地 → 目的地)として開くためのリンク。
@@ -58,9 +58,9 @@ export function maxWaypointsForDevice(): number {
  * 時刻に宿が割り込んで、その日の回る順が崩れるため。
  */
 export function dayRouteStops(items: TripScheduleItem[], date: string): string[] {
-  const places = items
-    .filter((item) => item.date === date && item.location?.trim())
-    .sort(compareScheduleTime)
+  // 並びは日程と同じ(入れ替えた日はその順)。場所の無い予定も並びには効くので、並べてから絞る。
+  const places = orderScheduleDay(items.filter((item) => item.date === date))
+    .filter((item) => item.location?.trim())
     .map((item) => item.location!.trim());
   return places.filter((place, index) => index === 0 || routeKey(place) !== routeKey(places[index - 1]));
 }
@@ -174,9 +174,9 @@ export function legModeForTransport(mode: TripTransportMode | undefined): LegMod
  */
 export function transportHints(items: TripScheduleItem[], date: string): Map<string, LegMode> {
   const hints = new Map<string, LegMode>();
-  const transports = items
-    .filter((item) => item.date === date && item.type === "transport" && item.location?.trim())
-    .sort(compareScheduleTime);
+  const transports = orderScheduleDay(items.filter((item) => item.date === date)).filter(
+    (item) => item.type === "transport" && item.location?.trim(),
+  );
   for (const item of transports) {
     const mode = legModeForTransport(item.transportMode);
     const key = routeKey(item.location!);

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { canSwapWithinTime, compareScheduleTime, swapWithinTime } from "../../lib/scheduleOrder";
+import { canMove, moveInDay, orderScheduleDay } from "../../lib/scheduleOrder";
 import type { Attachment, TripExpense, TripScheduleItem } from "../../types";
 import { formatDisplayDate, formatShortDate } from "../../lib/date";
 import { occurringOn, spanLabel } from "../../lib/eventSpan";
@@ -25,7 +25,7 @@ interface Props {
   onEdit: (item: TripScheduleItem) => void;
   onDelete: (id: string) => void;
   onLocationTap: (location: string, title: string, date: string) => void;
-  /** 同じ時刻の予定を入れ替えた時に書き直す並び順(src/lib/scheduleOrder.ts)。無ければ「↑」「↓」を出さない。 */
+  /** 予定を上下に入れ替えた時に書き直す並び順(src/lib/scheduleOrder.ts)。無ければ「↑」「↓」を出さない。 */
   onReorder?: (changes: { id: string; sortOrder: number }[]) => void;
   /** その日を初期値にして「予定を追加」を開く。 */
   onAddForDate: (date: string) => void;
@@ -109,8 +109,8 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
       </div>
       {shownDays.map(({ date, i }) => {
         // またがる日程(2泊の宿泊など)は、初日だけでなくその間の日すべてに出す。
-        // 同じ時刻の予定は、入れ替えた順(無ければ先に入れた方が上)。
-        const dayItems = occurringOn(items, date).sort(compareScheduleTime);
+        // 時刻の順。「↑」「↓」で入れ替えた日は、その順(src/lib/scheduleOrder.ts)。
+        const dayItems = orderScheduleDay(occurringOn(items, date));
         const forecast = forecastForDate(forecasts, date);
 
         return (
@@ -133,8 +133,8 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
             ) : (
               <ol className="trip-timeline">
                 {dayItems.map((item, index) => {
-                  const canUp = Boolean(onReorder) && canSwapWithinTime(dayItems, index, -1);
-                  const canDown = Boolean(onReorder) && canSwapWithinTime(dayItems, index, 1);
+                  const canUp = canMove(dayItems, index, -1);
+                  const canDown = canMove(dayItems, index, 1);
                   const typeDef = getTripScheduleType(item.type);
                   const time = timelineTimeParts(item, date);
                   return (
@@ -194,12 +194,12 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                               </div>
                             )}
                           </div>
-                          {(canUp || canDown) && (
-                            <div className="pointer-events-auto flex shrink-0 flex-col" role="group" aria-label="同じ時刻の予定の順番">
+                          {onReorder && dayItems.length > 1 && (
+                            <div className="pointer-events-auto ml-auto flex shrink-0 flex-col" role="group" aria-label="予定の順番">
                               <button
                                 type="button"
                                 disabled={!canUp}
-                                onClick={() => onReorder?.(swapWithinTime(dayItems, index, -1))}
+                                onClick={() => onReorder?.(moveInDay(dayItems, index, -1))}
                                 aria-label={`「${item.title}」を上へ`}
                                 className="rounded-full p-1 text-slate-400 transition-colors active:bg-slate-100 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                               >
@@ -208,7 +208,7 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                               <button
                                 type="button"
                                 disabled={!canDown}
-                                onClick={() => onReorder?.(swapWithinTime(dayItems, index, 1))}
+                                onClick={() => onReorder?.(moveInDay(dayItems, index, 1))}
                                 aria-label={`「${item.title}」を下へ`}
                                 className="rounded-full p-1 text-slate-400 transition-colors active:bg-slate-100 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                               >

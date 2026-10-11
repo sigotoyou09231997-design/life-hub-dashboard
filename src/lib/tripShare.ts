@@ -50,6 +50,8 @@ export interface SharedScheduleItem {
   openingHours?: string | null;
   checkInTime?: string | null;
   checkOutTime?: string | null;
+  /** その日の中の並び(supabase/sql/031)。アプリの日程と同じ順に並べ直すのに使う。 */
+  sortOrder?: number | null;
 }
 
 export interface SharedPackingItem {

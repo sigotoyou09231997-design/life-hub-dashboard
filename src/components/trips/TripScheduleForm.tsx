@@ -147,6 +147,9 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
       type,
       transportMode: type === "transport" && transportMode ? transportMode : undefined,
       ...detailsForSave(type, details),
+      // 日付か開始時刻を直したら、入れ替えた並びから外して、時刻の位置へ差し込み直す(src/lib/scheduleOrder.ts)。
+      // undefined だと同期で送られず、ほかの端末に古い番号が残るので null にする。
+      ...(initial && (initial.date !== date || (initial.startTime ?? "") !== startTime) ? { sortOrder: null } : {}),
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
