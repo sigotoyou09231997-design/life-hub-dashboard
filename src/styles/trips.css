@@ -827,6 +827,38 @@ a.trip-leg-mode--link {
   line-height: 1.1;
 }
 
+/* 予定の上下の入れ替え(TripScheduleList)。時刻の下に、右へ寄せて2つ並べる。 */
+.trip-timeline__order {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.3rem;
+  margin-right: -0.3rem;
+}
+
+.trip-timeline__order button {
+  display: flex;
+  width: 1.6rem;
+  height: 1.6rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--hub-ink-3);
+  transition: background-color 150ms var(--hub-ease);
+}
+
+.trip-timeline__order button:active:not(:disabled) {
+  background: var(--hub-inset);
+}
+
+.trip-timeline__order button:disabled {
+  opacity: 0.25;
+}
+
+.trip-timeline__order button:focus-visible {
+  outline: 2px solid var(--hub-blue);
+  outline-offset: 1px;
+}
+
 /* 「終日」「時刻なし」は時刻ではないので、一段小さく淡くする。 */
 .trip-timeline__time.is-plain {
   color: var(--hub-ink-3);
