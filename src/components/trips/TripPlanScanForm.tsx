@@ -19,6 +19,7 @@ import {
 import {
   describeScanSaved,
   diffAgainstSchedule,
+  sameSpot,
   matchRowsToSchedule,
   type ScanRow,
   type ScheduleMatch,
@@ -162,6 +163,37 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   const addCount = savable.length - updateCount;
   const expenseCount = savable.filter((entry) => !entry.updating && entry.row.withExpense && entry.row.amount).length;
 
+  /** いまの日程との違いで、行を3つに分ける(並びは読み取った順のまま)。 */
+  const hasExisting = (existingSchedule?.length ?? 0) > 0;
+  const groups: Record<DiffGroup, { entry: ResolvedRow; index: number }[]> = { new: [], changed: [], same: [] };
+  resolved.forEach((entry, index) => groups[groupOf(entry)].push({ entry, index }));
+
+  function renderRow({ entry, index }: { entry: ResolvedRow; index: number }) {
+    return (
+      <PlanImportRow
+        key={index}
+        row={entry.row}
+        destination="trip"
+        already={entry.already}
+        outside={isOutsideTrip(trip, entry.row.date)}
+        similar={entry.row.sameAsExisting ? undefined : entry.similar}
+        update={
+          entry.target
+            ? ({
+                title: entry.target.title,
+                changes: entry.changes,
+                on: entry.updating,
+                canAdd: !entry.exact,
+                onChange: (on) => updateRow(index, { update: on, checked: true }),
+              } satisfies PlanUpdateInfo)
+            : undefined
+        }
+        missingAmountHint="写真・文章から金額を読み取れませんでした"
+        onChange={(changes) => updateRow(index, changes)}
+      />
+    );
+  }
+
   async function handleSave() {
     if (savable.length === 0) return;
     setSaving(true);
@@ -248,34 +280,40 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
           </>
         ) : (
           <>
-            <p className="px-1 text-xs leading-relaxed text-slate-500">
-              読み取った内容です。日付や時刻が違っていないか確かめてから入れてください。
-            </p>
-            <div className="space-y-3">
-              {resolved.map((entry, index) => (
-                <PlanImportRow
-                  key={index}
-                  row={entry.row}
-                  destination="trip"
-                  already={entry.already}
-                  outside={isOutsideTrip(trip, entry.row.date)}
-                  similar={entry.similar}
-                  update={
-                    entry.target
-                      ? ({
-                          title: entry.target.title,
-                          changes: entry.changes,
-                          on: entry.updating,
-                          canAdd: !entry.exact,
-                          onChange: (on) => updateRow(index, { update: on, checked: true }),
-                        } satisfies PlanUpdateInfo)
-                      : undefined
-                  }
-                  missingAmountHint="写真・文章から金額を読み取れませんでした"
-                  onChange={(changes) => updateRow(index, changes)}
-                />
-              ))}
-            </div>
+            {hasExisting ? (
+              <div className="glass-row space-y-1 rounded-xl p-3 text-sm text-slate-700" aria-label="いまの日程との違い">
+                <p className="font-medium">いまの日程と比べました</p>
+                <p>まだ入っていない予定：{groups.new.length}件</p>
+                <p>内容が違う予定：{groups.changed.length}件</p>
+                <p className="text-slate-500">入っている予定（同じ内容）：{groups.same.length}件</p>
+              </div>
+            ) : (
+              <p className="px-1 text-xs leading-relaxed text-slate-500">
+                読み取った内容です。日付や時刻が違っていないか確かめてから入れてください。
+              </p>
+            )}
+            {hasExisting && groups.new.length === 0 && groups.changed.length === 0 && (
+              <p className="px-1 text-sm text-slate-600">足りない予定も、内容が違う予定もありません。いまの日程のままで大丈夫です。</p>
+            )}
+            {groups.new.length > 0 && (
+              <section className="space-y-3" aria-label="まだ入っていない予定">
+                {hasExisting && <h3 className="px-1 text-sm font-semibold text-slate-700">まだ入っていない予定（{groups.new.length}件）</h3>}
+                {groups.new.map(renderRow)}
+              </section>
+            )}
+            {groups.changed.length > 0 && (
+              <section className="space-y-3" aria-label="内容が違う予定">
+                <h3 className="px-1 text-sm font-semibold text-slate-700">内容が違う予定（{groups.changed.length}件）</h3>
+                <p className="px-1 text-xs text-slate-500">更新を選ぶと、いまの日程がこの内容に変わります。日付や時刻が合っているか確かめてください。</p>
+                {groups.changed.map(renderRow)}
+              </section>
+            )}
+            {groups.same.length > 0 && (
+              <details className="space-y-3" aria-label="入っている予定">
+                <summary className="cursor-pointer px-1 text-sm text-slate-500">入っている予定（同じ内容）{groups.same.length}件を見る</summary>
+                <div className="mt-3 space-y-3">{groups.same.map(renderRow)}</div>
+              </details>
+            )}
             <FormActions>
               <Button type="button" variant="secondary" onClick={handleCancel}>
                 キャンセル
@@ -294,8 +332,9 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
     <div className="space-y-4">
       <p className="px-1 text-xs leading-relaxed text-slate-500">
         旅行のしおり・チケット・案内のメッセージから、日程をまとめて起こします。写真と文章の
-        どちらか一方でも、両方でも構いません。すでに入っている日程と同じ予定は、時刻や場所が
-        変わっていれば更新できます(文章に無い日程は、そのまま残ります)。入れる前に一件ずつ確認できます。
+        どちらか一方でも、両方でも構いません。読み取ったら、いまの日程と比べて「まだ入っていない予定」と
+        「内容が違う予定」に分けて出します。まだ無いものは追加、違うものは更新できます(文章に無い日程は、
+        そのまま残ります)。入れる前に一件ずつ確認できます。
       </p>
 
       {/* 専用GPTから直接届いた旅程。1件も無ければ何も出ない。 */}
@@ -356,8 +395,10 @@ function toScanRow(row: TripImportRow, match: ScheduleMatch | undefined, existin
       };
     }
   }
-  // 更新にならないが同じ予定らしいものは、これまでどおり外した状態で並べて断りを出す。
-  const similarTitle = match?.item.title ?? findSimilarPlan(row, existing);
+  // 同じ予定に当たって変わる所も無いものは、入っている予定として外した状態で並べる。
+  if (match) return { ...row, update: false, similarTitle: match.item.title, sameAsExisting: true, checked: false, withExpense: false };
+  // 当たらなかったが同じ日に似た予定があるものは、これまでどおり外した状態で並べて断りを出す。
+  const similarTitle = findSimilarPlan(row, sameArea(row, existing));
   return similarTitle
     ? { ...row, update: false, similarTitle, checked: false, withExpense: false }
     : { ...row, update: false };
@@ -406,8 +447,22 @@ function resolveRow(
     changes: [],
     exact: false,
     already: isAlreadyRegistered(row, existingKeys),
-    similar: row.similarTitle ?? findSimilarPlan(row, existing),
+    similar: row.similarTitle ?? findSimilarPlan(row, sameArea(row, existing)),
   };
+}
+
+/** 似た予定を探す相手から、場所が違う日程を外す。場所が違えば、題名が似ていても別の予定なので断りを出さない。 */
+function sameArea(row: { location?: string }, existing: TripScheduleItem[] | undefined): TripScheduleItem[] | undefined {
+  return existing?.filter((item) => sameSpot(item.location, row.location));
+}
+
+/** 確認画面の組。new = まだ入っていない、changed = 同じ予定で内容が違う、same = 同じ内容が入っている。 */
+type DiffGroup = "new" | "changed" | "same";
+
+function groupOf(entry: ResolvedRow): DiffGroup {
+  if (entry.already || entry.row.sameAsExisting) return "same";
+  if (entry.target) return entry.changes.length > 0 ? "changed" : "same";
+  return "new";
 }
 
 /** 入れる(更新する)ボタンの文言。追加だけの時はこれまでと同じ「N件を入れる」。 */

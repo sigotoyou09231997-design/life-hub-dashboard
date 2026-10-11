@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TripScheduleItem } from "../types";
 import type { TripImportRow } from "./mailPlanImport";
-import { describeScanSaved, diffAgainstSchedule, matchRowsToSchedule } from "./tripPlanEdit";
+import { describeScanSaved, diffAgainstSchedule, hasPrefecture, matchRowsToSchedule } from "./tripPlanEdit";
 
 function item(partial: Partial<TripScheduleItem> & { id: string; title: string }): TripScheduleItem {
   return { tripId: "trip-1", date: "2026-09-12", type: "other", createdAt: 0, ...partial };
@@ -214,3 +214,51 @@ describe("入れ終わった知らせ", () => {
     expect(describeScanSaved(1, 1, 1)).toBe("日程に1件、費用に1件入れ、日程を1件更新しました");
   });
 });
+
+describe("地域つきに直した場所を、計画文の名前で書き戻さない", () => {
+  // 地図が別の場所を選ばないよう「霊山寺 徳島県鳴門市大麻町」のように直した後で、元の計画文を貼り直す場面。
+  it("いまの場所に都道府県があり、文章の方に無ければ、場所は直さない", () => {
+    const now = item({ id: "a", title: "高松→大麻比古神社", startTime: "12:10", location: "ニコニコレンタカー高松県庁前店 香川県高松市" });
+    const { changes } = diffAgainstSchedule(now, row({ title: "高松→大麻比古神社", startTime: "12:10", location: "高松市内" }));
+    expect(changes).toEqual([]);
+  });
+
+  it("名前だけの場所に、文章が都道府県を足していれば直す", () => {
+    const now = item({ id: "a", title: "霊山寺", startTime: "13:30", location: "霊山寺" });
+    const { changes } = diffAgainstSchedule(now, row({ title: "霊山寺", startTime: "13:30", location: "霊山寺 徳島県鳴門市" }));
+    expect(changes).toEqual([{ field: "location", label: "場所", before: "霊山寺", after: "霊山寺 徳島県鳴門市" }]);
+  });
+
+  it("どちらにも都道府県があって違えば、これまでどおり直す", () => {
+    const now = item({ id: "a", title: "宿", location: "JRクレメントイン高知 高知県高知市" });
+    const { changes } = diffAgainstSchedule(now, row({ title: "宿", location: "ダイワロイネットホテル高知 高知県高知市" }));
+    expect(changes.map((c) => c.field)).toEqual(["location"]);
+  });
+
+  it("都道府県の見分け(「道の駅」や「京都駅」の字を都道府県と取り違えない)", () => {
+    expect(hasPrefecture("霊山寺 徳島県鳴門市大麻町")).toBe(true);
+    expect(hasPrefecture("東京駅 東京都千代田区")).toBe(true);
+    expect(hasPrefecture("北海道函館市")).toBe(true);
+    expect(hasPrefecture("道の駅 くるくるなると")).toBe(false);
+    expect(hasPrefecture("京都駅")).toBe(false);
+    expect(hasPrefecture("東京駅")).toBe(false);
+  });
+});
+
+describe("足りない予定を、似た題名の既存の予定の更新にしない", () => {
+  it("同じ時刻でも、場所が別の所なら当てない(新しい予定になる)", () => {
+    const castle = item({ id: "c", title: "松山城", date: "2026-12-29", startTime: "15:00", location: "松山城 愛媛県松山市丸之内" });
+    const [match] = matchRowsToSchedule(
+      [row({ title: "松山城山ロープウェイ", date: "2026-12-29", startTime: "15:00", location: "松山城山ロープウェイ" })],
+      [castle],
+    );
+    expect(match).toBeUndefined();
+  });
+
+  it("場所が同じ所(都道府県を足しただけ)なら、これまでどおり当てる", () => {
+    const yashima = item({ id: "y", title: "屋島観光", date: "2026-12-30", startTime: "17:05", location: "屋島 香川県" });
+    const [match] = matchRowsToSchedule([row({ title: "屋島", date: "2026-12-30", startTime: "17:05", location: "屋島" })], [yashima]);
+    expect(match?.item.id).toBe("y");
+  });
+});
+

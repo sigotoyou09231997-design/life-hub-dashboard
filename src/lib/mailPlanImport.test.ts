@@ -1,34 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
-import {
-  PLAN_GROUPS,
-  findSimilarPlan,
-  normalizePlanTitle,
-  describeCounts,
-  describePlanImportError,
-  describeSaved,
-  otherDestinations,
-  sortDestinations,
-  toDestination,
-  isRouteAlreadyRegistered,
-  needsTrip,
-  nextRouteSortOrder,
-  routeKey,
-  toRouteImportRows,
-  toTripRoutePlaceRecord,
-  isAlreadyRegistered,
-  isOutsideTrip,
-  mergeDuplicateItems,
-  pickDefaultTripId,
-  planKey,
-  toExpenseCategory,
-  toTripExpenseRecord,
-  sortTripsForPicker,
-  toCalendarEventRecord,
-  toImportRows,
-  toTaskRecord,
-  toTripScheduleRecord,
-} from "./mailPlanImport";
+import { PLAN_GROUPS, findSimilarPlan, normalizePlanTitle, describeCounts, describePlanImportError, describeSaved, otherDestinations, sortDestinations, toDestination, isRouteAlreadyRegistered, needsTrip, nextRouteSortOrder, routeKey, toRouteImportRows, toTripRoutePlaceRecord, isAlreadyRegistered, isOutsideTrip, mergeDuplicateItems, pickDefaultTripId, planKey, toExpenseCategory, toTripExpenseRecord, sortTripsForPicker, toCalendarEventRecord, toImportRows, toTaskRecord, toTripScheduleRecord, sameSpot } from "./mailPlanImport";
 
 const trip = (id: string, startDate: string, endDate: string): Trip => ({
   id,
@@ -558,3 +530,32 @@ describe("同じ日の似た予定を見つける", () => {
     expect(findSimilarPlan({ date: "2026-09-19", title: "鎌倉散歩" }, undefined)).toBeUndefined();
   });
 });
+
+describe("場所が別の所なら、題名が似ていてもまとめない", () => {
+  it("同じ時刻の「松山城」と「松山城山ロープウェイ」は別々に残す", () => {
+    const merged = mergeDuplicateItems([
+      { date: "2026-12-29", startTime: "15:00", endTime: "16:00", title: "松山城", location: "松山城", memo: "外観中心", type: "sightseeing" },
+      { date: "2026-12-29", startTime: "15:00", title: "松山城山ロープウェイ", location: "松山城山ロープウェイ", type: "sightseeing" },
+    ]);
+    expect(merged.map((i) => [i.title, i.endTime ?? null, i.memo ?? null])).toEqual([
+      ["松山城", "16:00", "外観中心"],
+      ["松山城山ロープウェイ", null, null],
+    ]);
+  });
+
+  it("片方が場所に都道府県を足しただけなら、これまでどおりまとめる", () => {
+    const merged = mergeDuplicateItems([
+      { date: "2026-12-30", startTime: "16:00", title: "栗林公園", location: "栗林公園", type: "sightseeing" },
+      { date: "2026-12-30", startTime: "16:00", title: "栗林公園散策", location: "栗林公園 香川県高松市", type: "sightseeing" },
+    ]);
+    expect(merged).toHaveLength(1);
+  });
+
+  it("sameSpot の見分け", () => {
+    expect(sameSpot("霊山寺", "霊山寺 徳島県鳴門市大麻町")).toBe(true);
+    expect(sameSpot(undefined, "どこか")).toBe(true);
+    expect(sameSpot("松山城", "松山城山ロープウェイ")).toBe(false);
+    expect(sameSpot("高松市内", "ニコニコレンタカー高松県庁前店 香川県高松市")).toBe(false);
+  });
+});
+

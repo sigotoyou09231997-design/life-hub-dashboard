@@ -1,6 +1,8 @@
 import type { TripScheduleItem } from "../types";
 import { TRIP_SCHEDULE_TYPES } from "./tripCategories";
-import { longestCommonRun, normalizePlanTitle, planKey, type TripImportRow } from "./mailPlanImport";
+import { hasPrefecture, longestCommonRun, normalizePlanTitle, planKey, sameSpot, type TripImportRow } from "./mailPlanImport";
+
+export { hasPrefecture, sameSpot };
 
 /**
  * 旅行の日程を、文章から読み取った内容で「編集」するための部品。
@@ -34,7 +36,9 @@ interface Matchable {
   date: string;
   startTime?: string;
   title: string;
+  location?: string;
 }
+
 
 const STRONG_SCORE = 50;
 
@@ -72,6 +76,10 @@ function matchScore(row: Matchable, item: Matchable): number {
   // 題名が違う書き方の時は、時刻が食い違っていたら別の予定とみなす
   // (mergeDuplicateItems と同じ。片方に時刻が無いのは食い違いではない)。
   if (bothTimed && !sameTime) return 0;
+  // 場所まで食い違うなら、題名が片方を含んでいても別の予定(同じ15:00の「松山城」と
+  // 「松山城山ロープウェイ」)。同じ予定として当てると、足りない予定が既存の予定の「更新」になり、
+  // 既定で選ばれて元の予定を書き換えてしまう(2026-10-11、本人の旅行の規模で試して見つかった)。
+  if (!sameSpot(row.location, item.location)) return 0;
 
   const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
   // 2文字の短い言葉(「移動」「昼食」)は、別の予定にも普通に出るので、含むだけでは見ない。
@@ -138,6 +146,7 @@ export interface ScheduleUpdate {
   changes: PlanChange[];
 }
 
+
 function typeLabel(type: TripScheduleItem["type"]): string {
   return TRIP_SCHEDULE_TYPES.find((option) => option.value === type)?.label ?? type;
 }
@@ -149,7 +158,9 @@ function typeLabel(type: TripScheduleItem["type"]): string {
  * 読み直すたびに変更点だらけになり、本当の編集が埋もれるため。
  * - 開始・終了時刻: 文章に書かれていて、いまと違う時。
  * - 場所: 文章に書かれていて、いまと違う時。ただし、いまの方が詳しい(「鎌倉駅 西口」に
- *   対して「鎌倉駅」)時は直さない。
+ *   対して「鎌倉駅」)時は直さない。いまの場所に都道府県が入っていて、文章の方に無い時も
+ *   直さない — 地図が別の場所を選ばないよう「霊山寺 徳島県鳴門市大麻町」のように直した場所を、
+ *   元の計画文(「霊山寺」「高松市内」)を貼り直すたびに書き戻させないため(2026-10-11)。
  * - 題名: 読み取った方が詳しい(いまの題名を含んでいる)時だけ。言い換えは直さない。
  * - 種類: いまが「その他」の時だけ(本人が選んだ種類をAIの推測で上書きしない)。
  * - メモ: いまが空の時だけ(本人が書いたメモを上書きしない)。
@@ -170,7 +181,10 @@ export function diffAgainstSchedule(item: TripScheduleItem, row: TripImportRow):
     const now = item.location?.trim() ?? "";
     const nowKey = normalizePlanTitle(now);
     const nextKey = normalizePlanTitle(location);
-    if (nextKey && nextKey !== nowKey && !(nowKey && nowKey.includes(nextKey))) add("location", "場所", location, now, location);
+    const keepsRegion = hasPrefecture(now) && !hasPrefecture(location);
+    if (nextKey && nextKey !== nowKey && !(nowKey && nowKey.includes(nextKey)) && !keepsRegion) {
+      add("location", "場所", location, now, location);
+    }
   }
 
   const title = row.title.trim();
@@ -200,6 +214,9 @@ export interface ScanRow extends TripImportRow {
   update: boolean;
   /** 更新にはならないが、同じ予定らしい日程の題名。重ねて入れることになるので断りを出す。 */
   similarTitle?: string;
+  /** いまの日程の同じ予定に当たり、変わる所も無かった(similarTitle がその題名)。
+   * 確認画面では「入っている予定」に回す — 似ているだけの別の予定とは分けて見せる。 */
+  sameAsExisting?: boolean;
 }
 
 /** 入れ終わった知らせ。追加だけの時は、これまでと同じ文言(「日程に3件入れました」)。 */
