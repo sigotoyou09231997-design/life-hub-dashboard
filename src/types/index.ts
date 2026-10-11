@@ -349,6 +349,8 @@ export interface TripScheduleItem {
   /** 宿泊の予定だけ。HH:mm。 */
   checkInTime?: string;
   checkOutTime?: string;
+  /** 開始時刻が同じ予定どうしの並び(supabase/sql/031、src/lib/scheduleOrder.ts)。時刻がちがえば効かない。 */
+  sortOrder?: number;
   createdAt: number;
   updatedAt?: number;
   deviceId?: string;

@@ -2,6 +2,7 @@ import type { Trip, TripScheduleItem } from "../types";
 import { tripDayList } from "./date";
 import { TRIP_SCHEDULE_TYPES } from "./tripCategories";
 import { csvCell } from "./transactionCsv";
+import { compareScheduleDateTime } from "./scheduleOrder";
 
 /**
  * 旅行の日程を Google マイマップに取り込むための CSV。
@@ -40,13 +41,6 @@ export interface MyMapsDayFile {
 
 const TYPE_LABEL = new Map(TRIP_SCHEDULE_TYPES.map((t) => [t.value, t.label]));
 
-function byDateThenTime(a: TripScheduleItem, b: TripScheduleItem): number {
-  return (
-    a.date.localeCompare(b.date) ||
-    (a.startTime ?? "").localeCompare(b.startTime ?? "") ||
-    a.createdAt - b.createdAt
-  );
-}
 
 function timeLabel(item: TripScheduleItem): string {
   if (item.startTime && item.endTime) return `${item.startTime}〜${item.endTime}`;
@@ -58,7 +52,7 @@ function timeLabel(item: TripScheduleItem): string {
 /** 日程を並べ、場所のある日程と場所が空の日程に分ける。 */
 function prepare(trip: Trip, schedule: TripScheduleItem[]) {
   const dayNumber = new Map(tripDayList(trip.startDate, trip.endDate).map((date, index) => [date, index + 1]));
-  const sorted = [...schedule].sort(byDateThenTime);
+  const sorted = [...schedule].sort(compareScheduleDateTime);
   return {
     dayNumber,
     placedItems: sorted.filter((item) => item.location?.trim()),
