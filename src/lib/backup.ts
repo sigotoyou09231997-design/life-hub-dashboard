@@ -117,11 +117,12 @@ export async function importBackup(file: File): Promise<void> {
  * 戻ってくるので、貼ってあったものはそのまま残る。
  */
 async function pruneOrphanAttachments(): Promise<void> {
-  const [notes, diaries, trips, documents] = await Promise.all([
+  const [notes, diaries, trips, documents, schedule] = await Promise.all([
     db.notes.toArray(),
     db.diaryEntries.toArray(),
     db.trips.toArray(),
     db.tripDocuments.toArray(),
+    db.tripSchedule.toArray(),
   ]);
 
   // 先に、行き先を失った書類を消す。そのあとで写真を見ないと、いま消した書類に
@@ -138,6 +139,7 @@ async function pruneOrphanAttachments(): Promise<void> {
     note: new Set(notes.map((note) => note.id)),
     diary: new Set(diaries.map((entry) => entry.id)),
     tripDocument: new Set(documents.filter((d) => !strandedIds.has(d.id)).map((d) => d.id)),
+    tripSchedule: new Set(schedule.filter((item) => aliveTrips.has(item.tripId)).map((item) => item.id)),
   };
   const orphans = attachments
     .filter((row) => row.id && !alive[row.ownerType].has(row.ownerId))

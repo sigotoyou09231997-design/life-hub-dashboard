@@ -40,6 +40,11 @@ export async function deleteTripCascade(tripId: string) {
     .map((document) => document.id!)
     .filter(Boolean);
   await deleteAttachmentsForAll("tripDocument", documentIds);
+  // 予定に貼った写真も同じ。予定を消す前に id を控えて落とす。
+  const scheduleIds = (await db.tripSchedule.where("tripId").equals(tripId).toArray())
+    .map((item) => item.id!)
+    .filter(Boolean);
+  await deleteAttachmentsForAll("tripSchedule", scheduleIds);
 
   // 現地通貨で入れた支出の内訳も別のテーブルなので、支出を消す前にidを控えて落とす
   // (src/lib/currency.ts)。残すと、どの支出のものか辿れない行だけが貯まる。

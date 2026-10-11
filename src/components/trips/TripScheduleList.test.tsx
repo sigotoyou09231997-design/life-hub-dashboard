@@ -3,7 +3,7 @@ import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { TripScheduleItem } from "../../types";
+import type { Attachment, TripScheduleItem } from "../../types";
 import { ConfirmProvider } from "../ui/ConfirmProvider";
 import { TripScheduleList } from "./TripScheduleList";
 
@@ -221,6 +221,30 @@ describe("移動の予定の移動手段", () => {
     ]);
     expect(screen.queryByText("車")).toBeNull();
     expect(screen.queryByText("新幹線")).toBeNull();
+  });
+});
+
+describe("予定に貼った写真", () => {
+  it("写真のある予定には、その写真を並べる(無い予定には出さない)", () => {
+    Object.assign(URL, { createObjectURL: () => "blob:test", revokeObjectURL: () => {} });
+    const photo: Attachment = { id: "p1", ownerType: "tripSchedule", ownerId: "a", name: "うずしお.jpg", mediaType: "image/jpeg", blob: new Blob(["x"], { type: "image/jpeg" }), size: 1, createdAt: 1 };
+    render(
+      <TripScheduleList
+        dayList={["2026-12-27"]}
+        items={[item({ id: "a", title: "うずしお観潮船", startTime: "14:45" }), item({ id: "b", title: "道の駅", startTime: "15:25" })]}
+        photosBySchedule={new Map([["a", [photo]]])}
+        selectedDate="2026-12-27"
+        onSelectDate={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+        onLocationTap={() => {}}
+        onAddForDate={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+    const rows = screen.getAllByRole("listitem").filter((row) => row.classList.contains("trip-timeline__item"));
+    expect(rows[0].querySelectorAll("img")).toHaveLength(1);
+    expect(rows[1].querySelectorAll("img")).toHaveLength(0);
   });
 });
 

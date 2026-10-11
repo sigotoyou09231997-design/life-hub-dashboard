@@ -84,6 +84,7 @@ vi.mock("../db/schema", () => {
       diaryEntries: fakeTable("diaryEntries"),
       trips: fakeTable("trips"),
       tripDocuments: fakeTable("tripDocuments"),
+      tripSchedule: fakeTable("tripSchedule"),
       attachments: fakeTable("attachments"),
       transaction: async (_mode: string, _tables: unknown[], callback: () => Promise<void>) => callback(),
     },
@@ -318,6 +319,31 @@ describe("バックアップの復元", () => {
     await importBackup(file);
 
     expect(mocks.stores.get("tripDocuments")!.map((row) => row.id)).toEqual(["doc-1"]);
+    expect(mocks.stores.get("attachments")!.map((row) => row.id)).toEqual(["p1"]);
+  });
+
+  it("予定に貼った写真は、復元で戻ってきた予定のぶんだけ残す(消えた予定・消えた旅行のぶんは落とす)", async () => {
+    mocks.stores.set("attachments", [
+      { id: "p1", ownerType: "tripSchedule", ownerId: "s-1" },
+      { id: "p2", ownerType: "tripSchedule", ownerId: "消えた予定" },
+      { id: "p3", ownerType: "tripSchedule", ownerId: "s-2" },
+    ]);
+    const file = fakeFile(
+      JSON.stringify({
+        version: 2,
+        data: {
+          trips: [{ id: "trip-1", name: "四国" }],
+          tripSchedule: [
+            { id: "s-1", tripId: "trip-1", date: "2026-12-27", title: "うずしお", type: "sightseeing", createdAt: 1 },
+            { id: "s-2", tripId: "消えた旅行", date: "2026-12-27", title: "宿", type: "lodging", createdAt: 1 },
+          ],
+        },
+      }),
+    );
+
+    const { importBackup } = await import("./backup");
+    await importBackup(file);
+
     expect(mocks.stores.get("attachments")!.map((row) => row.id)).toEqual(["p1"]);
   });
 });

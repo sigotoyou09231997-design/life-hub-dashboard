@@ -13,7 +13,7 @@ import type {
   DiaryEntry,
 } from "../types";
 import { formatDisplayDate, tripDayList, tripDurationLabel, todayStr } from "../lib/date";
-import { deleteAttachmentsFor } from "../lib/attachments";
+import { deleteAttachmentsFor, groupByOwner } from "../lib/attachments";
 import { currenciesByExpenseId, deleteCurrencyFor } from "../lib/currency";
 import { moveItem } from "../lib/noteTypes";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -111,6 +111,8 @@ export default function TripDetailPage() {
   // would otherwise be indistinguishable from the query not having run yet.
   const tripResult = useLiveQuery(async () => ({ trip: await db.trips.get(tripId) }), [tripId]);
   const schedule = useLiveQuery(() => db.tripSchedule.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
+  // 予定に貼った写真(端末の中だけ。src/lib/attachments.ts)。予定の id ごとにまとめて一覧へ渡す。
+  const schedulePhotos = useLiveQuery(() => db.attachments.where("ownerType").equals("tripSchedule").toArray(), []);
   const expenses = useLiveQuery(() => db.tripExpenses.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
   // 現地通貨で入れた支出の内訳。件数が少ないので全件読んで表にする(src/lib/currency.ts)。
   const expenseCurrencies = useLiveQuery(
@@ -335,6 +337,7 @@ export default function TripDetailPage() {
               </Card>
             )}
             <TripScheduleList
+              photosBySchedule={schedulePhotos ? groupByOwner(schedulePhotos) : undefined}
               dayList={dayList}
               items={schedule}
               weather={weather}
@@ -343,6 +346,7 @@ export default function TripDetailPage() {
               onEdit={(item) => setEditingSchedule(item)}
               onDelete={(id) => {
                 db.tripSchedule.delete(id);
+                void deleteAttachmentsFor("tripSchedule", id);
                 showToast("削除しました");
               }}
               onAddForDate={(date) => {

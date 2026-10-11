@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CalendarPlus, Loader2, Sparkles } from "lucide-react";
 import { db } from "../../db/schema";
+import { deleteAttachmentsFor } from "../../lib/attachments";
 import type { Trip, TripScheduleItem } from "../../types";
 import { formatShortDate, todayStr } from "../../lib/date";
 import {
@@ -226,7 +227,10 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         // 更新では積まない(同じ予定の費用が二重になるため)。
         if (row.withExpense && row.amount) await db.tripExpenses.add(toTripExpenseRecord(row, tripId, now));
       }
-      for (const id of deleting) await db.tripSchedule.delete(id);
+      for (const id of deleting) {
+        await db.tripSchedule.delete(id);
+        await deleteAttachmentsFor("tripSchedule", id);
+      }
       releasePhotos();
       // 受信箱から入れた旅程は、入れ終わったら受信箱から消す(同じ旅程が残り続けないように)。
       // 消せなくても日程には入っているので、失敗は黙って流す(次に開いた時にまた並ぶだけ)。

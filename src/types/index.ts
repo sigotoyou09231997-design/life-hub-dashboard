@@ -638,8 +638,8 @@ export interface TripDocument {
   updatedAt?: number;
 }
 
-/** 写真を貼れる相手。メモ・日記に加えて、旅行の書類ポケット。 */
-export type AttachmentOwnerType = "note" | "diary" | "tripDocument";
+/** 写真を貼れる相手。メモ・日記に加えて、旅行の書類ポケットと、旅行の予定(2026-10-11、要望の受信箱から)。 */
+export type AttachmentOwnerType = "note" | "diary" | "tripDocument" | "tripSchedule";
 
 /** メモ・日記に貼った写真1枚。
  *

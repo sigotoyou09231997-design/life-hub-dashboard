@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { db } from "../../db/schema";
 import type { TripScheduleItem, TripScheduleType, TripTransportMode } from "../../types";
 import { TRIP_SCHEDULE_TYPES, TRIP_TRANSPORT_MODES } from "../../lib/tripCategories";
 import { SegmentedField, type SegmentedOption } from "../ui/SegmentedField";
 import { TRANSPORT_MODE_ICON } from "./transportModes";
-import { MapPinned } from "lucide-react";
+import { ImagePlus, MapPinned } from "lucide-react";
+import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
+import { PhotoField } from "../attachments/PhotoField";
 import { Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { DateRangeField } from "../ui/DateField";
@@ -40,7 +42,21 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
   const [type, setType] = useState<TripScheduleType>(initial?.type ?? "sightseeing");
   /** 何で移動するか。種類が「移動」の時だけ出して、保存する。 */
   const [transportMode, setTransportMode] = useState<TripTransportMode | "">(initial?.transportMode ?? "");
+  const [photos, setPhotos] = useState<PhotoDraft[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // 貼ってある写真は別のテーブルにあるので、開いた時に読み直す(書類・メモ・日記と同じ。src/lib/attachments.ts)。
+  const initialId = initial?.id;
+  useEffect(() => {
+    if (!initialId) return;
+    let alive = true;
+    loadAttachmentDrafts("tripSchedule", initialId).then((drafts) => {
+      if (alive) setPhotos(drafts);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [initialId]);
 
   /** 開始日を動かしたら、終了日も同じ日数ぶん一緒に動かす(src/lib/eventSpan.ts)。 */
   function changeDate(next: string) {
@@ -67,11 +83,15 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
+    // 新しい予定にはまだ id が無く、写真の貼り先を決められない。保存して得た id に向けて、あとで写真を書く。
+    let scheduleId: string;
     if (initial?.id) {
+      scheduleId = initial.id;
       await db.tripSchedule.update(initial.id, record);
     } else {
-      await db.tripSchedule.add(record);
+      scheduleId = String(await db.tripSchedule.add(record));
     }
+    await saveAttachmentDrafts("tripSchedule", scheduleId, photos);
     setSaving(false);
     onSaved(date);
   }
@@ -144,6 +164,11 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
           placeholder="例: 函館市元町"
         />
         <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
+      </FormPanel>
+
+      <FormPanel caption="写真" icon={ImagePlus}>
+        <PhotoField value={photos} onChange={setPhotos} />
+        <p className="text-xs text-slate-400">写真は、この端末の中にだけ保存されます(ほかの端末・共有したしおりには出ません)。</p>
       </FormPanel>
 
       <FormActions>
