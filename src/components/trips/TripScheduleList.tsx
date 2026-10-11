@@ -7,6 +7,7 @@ import { getTripScheduleType } from "../../lib/tripCategories";
 import { forecastForDate, forecastHorizon, type TripWeather } from "../../lib/weather";
 import { TripDayWeather, TripWeatherBanner } from "./TripDayWeather";
 import { Badge } from "../ui/Badge";
+import { TransportModeChip } from "./transportModes";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { Button } from "../ui/Button";
 import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Trash2 } from "lucide-react";
@@ -159,6 +160,7 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
                               <Badge tone={typeDef.tone} className="trip-timeline__badge">
                                 {typeDef.label}
                               </Badge>
+                              {item.type === "transport" && item.transportMode && <TransportModeChip mode={item.transportMode} />}
                               {spanLabel(item, date) && (
                                 <span className="flex items-center gap-0.5 whitespace-nowrap text-xs font-medium text-slate-500">
                                   <CalendarRange size={12} />

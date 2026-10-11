@@ -1,4 +1,4 @@
-import type { TripScheduleType, TripExpenseCategory, TripPackingCategory } from "../types";
+import type { TripScheduleType, TripExpenseCategory, TripPackingCategory, TripTransportMode } from "../types";
 
 type BadgeTone = "accent" | "success" | "danger" | "neutral" | "warning";
 
@@ -40,3 +40,25 @@ function makeGetter<T extends string>(list: TripCategoryDef<T>[]) {
 export const getTripScheduleType = makeGetter(TRIP_SCHEDULE_TYPES);
 export const getTripExpenseCategory = makeGetter(TRIP_EXPENSE_CATEGORIES);
 export const getTripPackingCategory = makeGetter(TRIP_PACKING_CATEGORIES);
+
+/** 移動手段。並びは、旅行の移動で使う順(電車・新幹線が多い)。 */
+export const TRIP_TRANSPORT_MODES: { value: TripTransportMode; label: string }[] = [
+  { value: "train", label: "電車" },
+  { value: "shinkansen", label: "新幹線" },
+  { value: "bus", label: "バス" },
+  { value: "car", label: "車" },
+  { value: "taxi", label: "タクシー" },
+  { value: "walk", label: "徒歩" },
+  { value: "plane", label: "飛行機" },
+  { value: "ferry", label: "フェリー" },
+  { value: "bicycle", label: "自転車" },
+];
+
+export function isTripTransportMode(value: unknown): value is TripTransportMode {
+  return TRIP_TRANSPORT_MODES.some((mode) => mode.value === value);
+}
+
+export function transportModeLabel(mode: TripTransportMode | undefined): string | undefined {
+  return TRIP_TRANSPORT_MODES.find((option) => option.value === mode)?.label;
+}
+

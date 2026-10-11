@@ -207,3 +207,20 @@ describe("日程を、日にちごとに切り替える", () => {
     expect(screen.getByRole("button", { name: "予定を追加" })).toBeTruthy();
   });
 });
+
+describe("移動の予定の移動手段", () => {
+  it("移動の予定は、選んだ移動手段を種類の横に出す", () => {
+    renderList([item({ id: "a", title: "東京→岡山 のぞみ7号", type: "transport", transportMode: "shinkansen", startTime: "06:48" })]);
+    expect(within(screen.getByRole("listitem")).getByText("新幹線")).toBeTruthy();
+  });
+
+  it("移動手段を選んでいない移動や、移動以外の予定には出さない", () => {
+    renderList([
+      item({ id: "a", title: "高松駅→レンタカー店", type: "transport", startTime: "11:18" }),
+      item({ id: "b", title: "霊山寺", type: "sightseeing", transportMode: "car", startTime: "13:15" }),
+    ]);
+    expect(screen.queryByText("車")).toBeNull();
+    expect(screen.queryByText("新幹線")).toBeNull();
+  });
+});
+

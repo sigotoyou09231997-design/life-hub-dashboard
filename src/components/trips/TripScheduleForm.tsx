@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { db } from "../../db/schema";
-import type { TripScheduleItem, TripScheduleType } from "../../types";
-import { TRIP_SCHEDULE_TYPES } from "../../lib/tripCategories";
+import type { TripScheduleItem, TripScheduleType, TripTransportMode } from "../../types";
+import { TRIP_SCHEDULE_TYPES, TRIP_TRANSPORT_MODES } from "../../lib/tripCategories";
+import { SegmentedField, type SegmentedOption } from "../ui/SegmentedField";
+import { TRANSPORT_MODE_ICON } from "./transportModes";
 import { MapPinned } from "lucide-react";
 import { Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
@@ -20,6 +22,12 @@ interface Props {
   onCancel: () => void;
 }
 
+/** 「未定」は空の値。選び直して消せるように、手段と同じ並びに置く。 */
+const TRANSPORT_OPTIONS: SegmentedOption<TripTransportMode | "">[] = [
+  ...TRIP_TRANSPORT_MODES.map((mode) => ({ value: mode.value, label: mode.label, icon: TRANSPORT_MODE_ICON[mode.value] })),
+  { value: "", label: "未定" },
+];
+
 export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCancel }: Props) {
   const [date, setDate] = useState(initial?.date ?? defaultDate);
   /** 終了日。宿泊のように何日かにまたがるものだけ入れる(空＝その日で終わる)。 */
@@ -30,6 +38,8 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
   const [location, setLocation] = useState(initial?.location ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [type, setType] = useState<TripScheduleType>(initial?.type ?? "sightseeing");
+  /** 何で移動するか。種類が「移動」の時だけ出して、保存する。 */
+  const [transportMode, setTransportMode] = useState<TripTransportMode | "">(initial?.transportMode ?? "");
   const [saving, setSaving] = useState(false);
 
   /** 開始日を動かしたら、終了日も同じ日数ぶん一緒に動かす(src/lib/eventSpan.ts)。 */
@@ -53,6 +63,7 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
       location: location || undefined,
       memo: memo || undefined,
       type,
+      transportMode: type === "transport" && transportMode ? transportMode : undefined,
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
@@ -83,6 +94,16 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
             </option>
           ))}
         </Select>
+        {type === "transport" && (
+          <SegmentedField
+            label="移動手段"
+            optional
+            value={transportMode}
+            options={TRANSPORT_OPTIONS}
+            onChange={setTransportMode}
+            columns={5}
+          />
+        )}
       </FormPanel>
 
       <FormPanel caption="いつ・どこで">
