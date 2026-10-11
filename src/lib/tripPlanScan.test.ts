@@ -141,6 +141,26 @@ describe("splitScanText", () => {
     }
   });
 
+  it("行頭に絵文字が付いた日の見出しも読む(本人が送ってくる旅程の形)", () => {
+    // 「🚗 12/27(日) 高松→鳴門→徳島泊」が見出しと見なされず、2日ぶんが1回に詰まって
+    // 2日目の後ろが件数の上限で切れていた(2026-10-11)。
+    const filler = longLines(40);
+    for (const heading of ["🚗 12/28(月) 徳島→祖谷・大歩危→高知泊", "⛩️ 12/28(月)", "🗓 2日目", "✈️✈️ 12/28(月) 移動日"]) {
+      const text = `🚗 12/27(日) 高松→鳴門→徳島泊\n${filler}\n\n${heading}\n${filler}`;
+      const chunks = splitScanText(text);
+      expect(chunks.length, heading).toBe(2);
+      expect(chunks[1].startsWith(heading), heading).toBe(true);
+    }
+  });
+
+  it("絵文字の付いた期間や、日付の無い絵文字の行では区切らない", () => {
+    const filler = longLines(40);
+    for (const line of ["📅 2026/12/27(日)〜12/28(月)", "🌅 朝〜高松", "🚙 レンタカー", "🌊 午後〜高知"]) {
+      const chunks = splitScanText(`🚗 12/27(日) 高松\n${filler}\n\n${line}\n${filler}`);
+      expect(chunks.some((chunk) => chunk.startsWith(line)), line).toBe(false);
+    }
+  });
+
   it("日付の無いMarkdownの見出しや太字の行では区切らない", () => {
     const filler = longLines(40);
     for (const line of ["# 四国旅行のしおり", "**持ち物**", "- 12/28", "> 12/28"]) {

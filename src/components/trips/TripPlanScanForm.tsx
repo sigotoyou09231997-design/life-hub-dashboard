@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CalendarPlus, Loader2, Sparkles } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Trip, TripScheduleItem } from "../../types";
-import { todayStr } from "../../lib/date";
+import { formatShortDate, todayStr } from "../../lib/date";
 import {
   describePlanImportError,
   findSimilarPlan,
@@ -18,6 +18,7 @@ import {
 } from "../../lib/mailPlanImport";
 import {
   describeScanSaved,
+  unmentionedSchedule,
   diffAgainstSchedule,
   sameSpot,
   matchRowsToSchedule,
@@ -65,6 +66,8 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   const [error, setError] = useState("");
   const { photos, addPhotos, removePhoto, releasePhotos } = usePickedPhotos(setError);
   const [rows, setRows] = useState<ScanRow[]>([]);
+  /** 「文章に無い予定」のうち、消すと選んだ日程の id。 */
+  const [deleteIds, setDeleteIds] = useState<string[]>([]);
   // 全部は読み取れなかった時の断り。長い文章は日ごとに分けて読むので、その進み具合も持つ。
   const [notices, setNotices] = useState<string[]>([]);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
@@ -84,6 +87,12 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
     ? new Set(existingSchedule.map((item) => planKey(item.date, item.startTime, item.title)))
     : undefined;
 
+  // 読み取りは数十秒かかる。終わった時に突き合わせる相手は、「読み取る」を押した時点ではなく
+  // その時点のいまの日程にする(押した時の画面の値を握ったままだと、読み込み前に押した時や
+  // 読み取り中に同期で日程が増えた時に、入っている予定まで「まだ入っていない」に並ぶ)。
+  const existingRef = useRef(existingSchedule);
+  existingRef.current = existingSchedule;
+
   // 更新先を、読み取った後でも引けるように id で持つ。読み取り中に同期で消えた日程は、
   // 見つからないので新しい予定として扱う(存在しない日程を更新しに行かない)。
   const existingById = new Map<string, TripScheduleItem>();
@@ -99,11 +108,13 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
     // 別の予定かもしれないので外しておく。読み取り直すたびに同じ予定が積み上がるのを、
     // 押す前に止めるため。
     const items = toImportRows(found);
-    const matches = matchRowsToSchedule(items, existingSchedule);
+    const existing = existingRef.current;
+    const matches = matchRowsToSchedule(items, existing);
     // 別の行に使われた日程は、似た予定の断りの相手から外す(使われた日程の「昼食」を理由に、
     // 別の時刻の「昼食」の行まで、重ねて入れる扱いにしない)。
-    const unclaimed = unclaimedSchedule(existingSchedule, matches.map((match) => match?.item.id));
+    const unclaimed = unclaimedSchedule(existing, matches.map((match) => match?.item.id));
     setRows(items.map((row, index) => toScanRow(row, matches[index], unclaimed)));
+    setDeleteIds([]);
     setStatus("ready");
   }
 
@@ -162,6 +173,10 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   const updateCount = savable.filter((entry) => entry.updating).length;
   const addCount = savable.length - updateCount;
   const expenseCount = savable.filter((entry) => !entry.updating && entry.row.withExpense && entry.row.amount).length;
+  // 文章に無い予定。読み取り中に同期で消えたものは数えない。
+  const unmentioned = status === "ready" ? unmentionedSchedule(existingSchedule, rows) : [];
+  const deleting = deleteIds.filter((id) => unmentioned.some((item) => item.id === id));
+  const deleteCount = deleting.length;
 
   /** いまの日程との違いで、行を3つに分ける(並びは読み取った順のまま)。 */
   const hasExisting = (existingSchedule?.length ?? 0) > 0;
@@ -195,7 +210,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
   }
 
   async function handleSave() {
-    if (savable.length === 0) return;
+    if (savable.length === 0 && deleteCount === 0) return;
     setSaving(true);
     try {
       const now = Date.now();
@@ -203,7 +218,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         const { row } = entry;
         if (entry.updating && entry.target) {
           // 更新は、変わる項目だけを書く。文章に無かった項目は、いまの値のまま残す。
-          await db.tripSchedule.update(entry.target.id!, diffAgainstSchedule(entry.target, row).patch);
+          await db.tripSchedule.update(entry.target.id!, diffAgainstSchedule(entry.target, row, { allowRename: row.matchBySlot }).patch);
           continue;
         }
         await db.tripSchedule.add(toTripScheduleRecord(row, tripId, now));
@@ -211,11 +226,12 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         // 更新では積まない(同じ予定の費用が二重になるため)。
         if (row.withExpense && row.amount) await db.tripExpenses.add(toTripExpenseRecord(row, tripId, now));
       }
+      for (const id of deleting) await db.tripSchedule.delete(id);
       releasePhotos();
       // 受信箱から入れた旅程は、入れ終わったら受信箱から消す(同じ旅程が残り続けないように)。
       // 消せなくても日程には入っているので、失敗は黙って流す(次に開いた時にまた並ぶだけ)。
       if (inboxId) void deleteInboxEntry(inboxId).catch((err) => console.warn("[chatgptInbox] failed to clear the entry:", err));
-      onSaved(describeScanSaved(addCount, updateCount, expenseCount));
+      onSaved(describeScanSaved(addCount, updateCount, expenseCount, deleteCount));
     } catch (err) {
       console.error("[tripPlanScan] failed to save:", err);
       setError("入れられませんでした。もう一度お試しください");
@@ -286,13 +302,14 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
                 <p>まだ入っていない予定：{groups.new.length}件</p>
                 <p>内容が違う予定：{groups.changed.length}件</p>
                 <p className="text-slate-500">入っている予定（同じ内容）：{groups.same.length}件</p>
+                {unmentioned.length > 0 && <p className="text-slate-500">文章に無い予定：{unmentioned.length}件</p>}
               </div>
             ) : (
               <p className="px-1 text-xs leading-relaxed text-slate-500">
                 読み取った内容です。日付や時刻が違っていないか確かめてから入れてください。
               </p>
             )}
-            {hasExisting && groups.new.length === 0 && groups.changed.length === 0 && (
+            {hasExisting && groups.new.length === 0 && groups.changed.length === 0 && unmentioned.length === 0 && (
               <p className="px-1 text-sm text-slate-600">足りない予定も、内容が違う予定もありません。いまの日程のままで大丈夫です。</p>
             )}
             {groups.new.length > 0 && (
@@ -308,6 +325,45 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
                 {groups.changed.map(renderRow)}
               </section>
             )}
+            {unmentioned.length > 0 && (
+              <section className="space-y-2" aria-label="文章に無い予定">
+                <h3 className="px-1 text-sm font-semibold text-slate-700">文章に無い予定（{unmentioned.length}件）</h3>
+                <p className="px-1 text-xs text-slate-500">
+                  この文章の日にあるのに、文章には無い予定です。計画を組み直して要らなくなったものだけ、選んで消せます(選ばなければ残ります)。
+                </p>
+                <button
+                  type="button"
+                  className="px-1 text-xs font-medium text-accent"
+                  onClick={() => setDeleteIds(deleteCount === unmentioned.length ? [] : unmentioned.map((item) => item.id!))}
+                >
+                  {deleteCount === unmentioned.length ? "すべて外す" : "すべて選ぶ"}
+                </button>
+                <ul className="glass-row space-y-1.5 rounded-xl p-3 text-sm text-slate-700">
+                  {unmentioned.map((item) => (
+                    <li key={item.id}>
+                      <label className="flex items-start gap-2">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={deleting.includes(item.id!)}
+                          onChange={(e) =>
+                            setDeleteIds((current) => (e.target.checked ? [...current, item.id!] : current.filter((id) => id !== item.id)))
+                          }
+                          aria-label={`${item.title}を消す`}
+                        />
+                        <span>
+                          <span className="tabular-nums text-slate-500">
+                            {formatShortDate(item.date)} {item.startTime ?? ""}
+                            {item.endTime ? `〜${item.endTime}` : ""}
+                          </span>{" "}
+                          {item.title}
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
             {groups.same.length > 0 && (
               <details className="space-y-3" aria-label="入っている予定">
                 <summary className="cursor-pointer px-1 text-sm text-slate-500">入っている予定（同じ内容）{groups.same.length}件を見る</summary>
@@ -318,8 +374,8 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
               <Button type="button" variant="secondary" onClick={handleCancel}>
                 キャンセル
               </Button>
-              <Button type="button" onClick={handleSave} disabled={saving || savable.length === 0}>
-                {saveLabel(addCount, updateCount)}
+              <Button type="button" onClick={handleSave} disabled={saving || (savable.length === 0 && deleteCount === 0)}>
+                {saveLabel(addCount, updateCount, deleteCount)}
               </Button>
             </FormActions>
           </>
@@ -382,13 +438,14 @@ function unclaimedSchedule(existing: TripScheduleItem[] | undefined, claimedIds:
 /** 読み取った1行を、突き合わせの結果から確認画面の行にする。 */
 function toScanRow(row: TripImportRow, match: ScheduleMatch | undefined, existing: TripScheduleItem[] | undefined): ScanRow {
   if (match) {
-    const { changes } = diffAgainstSchedule(match.item, row);
+    const { changes } = diffAgainstSchedule(match.item, row, { allowRename: match.bySlot });
     // 内容が変わっている時だけ更新として出す。確かな一致は既定で選び、含むだけの一致は外す。
     if (changes.length > 0) {
       return {
         ...row,
         matchId: match.item.id,
         matchStrength: match.strength,
+        matchBySlot: match.bySlot,
         update: true,
         checked: match.strength === "strong",
         withExpense: false,
@@ -396,7 +453,7 @@ function toScanRow(row: TripImportRow, match: ScheduleMatch | undefined, existin
     }
   }
   // 同じ予定に当たって変わる所も無いものは、入っている予定として外した状態で並べる。
-  if (match) return { ...row, update: false, similarTitle: match.item.title, sameAsExisting: true, checked: false, withExpense: false };
+  if (match) return { ...row, update: false, similarTitle: match.item.title, sameAsExisting: true, sameAsId: match.item.id, checked: false, withExpense: false };
   // 当たらなかったが同じ日に似た予定があるものは、これまでどおり外した状態で並べて断りを出す。
   const similarTitle = findSimilarPlan(row, sameArea(row, existing));
   return similarTitle
@@ -435,7 +492,7 @@ function resolveRow(
       row,
       target,
       updating,
-      changes: diffAgainstSchedule(target, row).changes,
+      changes: diffAgainstSchedule(target, row, { allowRename: row.matchBySlot }).changes,
       exact,
       // 別の予定として追加を選んだ行が、別の既存の日程と完全に同じなら、これも二重になる。
       already: !updating && isAlreadyRegistered(row, existingKeys),
@@ -466,8 +523,10 @@ function groupOf(entry: ResolvedRow): DiffGroup {
 }
 
 /** 入れる(更新する)ボタンの文言。追加だけの時はこれまでと同じ「N件を入れる」。 */
-function saveLabel(added: number, updated: number): string {
-  if (updated === 0) return `${added}件を入れる`;
-  if (added === 0) return `${updated}件を更新する`;
-  return `${added}件を入れて${updated}件を更新する`;
+function saveLabel(added: number, updated: number, deleted = 0): string {
+  const base = updated === 0 ? `${added}件を入れる` : added === 0 ? `${updated}件を更新する` : `${added}件を入れて${updated}件を更新する`;
+  if (deleted === 0) return base;
+  if (added === 0 && updated === 0) return `${deleted}件を消す`;
+  // 「…入れる」「…更新する」を続けられる形(「入れ」「更新し」)にしてから足す。
+  return `${base.replace(/入れる$/, "入れ").replace(/更新する$/, "更新し")}、${deleted}件を消す`;
 }
