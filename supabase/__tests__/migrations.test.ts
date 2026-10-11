@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  *   旅行・日程も読む・足すだけ(更新・削除はできない)。アプリ自身のログインは、これまでどおり。
  * - 027: 送信コードの受信箱(置ける・断る・20件まで・権限)。
  * - 029: 要望の受信箱(ログインして・共有リンクから送れる・持ち主だけ読める・読み取りコード・連投の上限)。
+ * - 030: 要望から足した欄(移動手段・予定の詳細・持ち物の並び順・参加者・支払った人)と、共有したしおりへの反映。
  */
 
 const SQL_DIR = new URL("../sql/", import.meta.url);
@@ -345,6 +346,35 @@ describe("029: 要望の受信箱", () => {
     await expect(as("authenticated", APP, () => db.query("insert into public.app_feedback_read_codes (id, code_hash) values ('owner', 'x')"))).rejects.toThrow();
     expect(await as("authenticated", APP, () => rows("update public.app_feedback_owner set user_id = user_id returning id"))).toBe(0);
     expect(await as("anon", null, () => count("select count(*)::int as n from public.app_feedback_read_codes"))).toBe(0);
+  });
+});
+
+describe("030: 要望から足した欄", () => {
+  it("足した欄に書けて、共有したしおりにも出る", async () => {
+    await db.exec(`
+      update public.trips set members = '["ふなだ","えっくん"]'::jsonb where id = '${TRIP}';
+      update public.trip_schedule set transport_mode = 'shinkansen', address = '徳島県鳴門市', phone = '088-000-0000',
+        url = 'https://example.com', opening_hours = '9:00〜17:00', check_in_time = '15:00', check_out_time = '10:00'
+        where trip_id = '${TRIP}';
+      insert into public.trip_packing_items (id, user_id, device_id, trip_id, title, category, checked, sort_order)
+        values ('eeeeeeee-1111-4ccc-8ddd-eeeeeeeeeeee', '${USER}', 'pc', '${TRIP}', '後', 'other', false, 2),
+               ('eeeeeeee-2222-4ccc-8ddd-eeeeeeeeeeee', '${USER}', 'pc', '${TRIP}', '先', 'other', false, 1);
+      insert into public.trip_expenses (id, user_id, device_id, trip_id, title, amount, category, paid, paid_by, schedule_id)
+        values ('ffffffff-1111-4ccc-8ddd-eeeeeeeeeeee', '${USER}', 'pc', '${TRIP}', '新幹線', 17000, 'transport', true, 'えっくん', 'bbbbbbbb-bbbb-4ccc-8ddd-eeeeeeeeeeee');
+      insert into public.trip_shares (id, user_id, trip_id, token, include_expenses)
+        values ('dddddddd-3333-4ccc-8ddd-eeeeeeeeeeee', '${USER}', '${TRIP}', 'share-token-030', true)
+        on conflict (trip_id) do update set token = excluded.token, include_expenses = true;
+    `);
+    const shared = await as("anon", null, async () =>
+      (await db.query<{ r: { trip: { members: string[] }; schedule: Record<string, string>[]; packing: { title: string }[]; expenses: { paidBy: string }[] } }>("select public.get_shared_trip('share-token-030') as r")).rows[0].r,
+    );
+    expect(shared.trip.members).toEqual(["ふなだ", "えっくん"]);
+    expect(shared.schedule[0]).toMatchObject({
+      transportMode: "shinkansen", address: "徳島県鳴門市", phone: "088-000-0000", url: "https://example.com",
+      openingHours: "9:00〜17:00", checkInTime: "15:00", checkOutTime: "10:00",
+    });
+    expect(shared.packing.map((p) => p.title)).toEqual(["先", "後"]);
+    expect(shared.expenses[0].paidBy).toBe("えっくん");
   });
 });
 

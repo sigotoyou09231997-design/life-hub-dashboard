@@ -1,4 +1,4 @@
-import type { TripScheduleItem } from "../types";
+import type { TripScheduleItem, TripTransportMode } from "../types";
 import { buildRouteSearchUrl, type TravelMode } from "./googleMaps";
 import { routeKey } from "./mailPlanImport";
 
@@ -149,5 +149,45 @@ export function stopKeys(date: string, stops: string[]): string[] {
     seen.set(key, nth + 1);
     return `${date}|${key}|${nth}`;
   });
+}
+
+/** 予定の移動手段を、Googleマップの経路の手段に読み替える。飛行機・自転車は経路で引けないので無し。 */
+export function legModeForTransport(mode: TripTransportMode | undefined): LegMode | undefined {
+  switch (mode) {
+    case "car":
+    case "taxi":
+      return "driving";
+    case "walk":
+      return "walking";
+    case "train":
+    case "shinkansen":
+    case "bus":
+    case "ferry":
+      return "transit";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * その日の移動の予定から、「ここから出る区間は何で行くか」を引く(鍵は出発地の場所)。
+ * 移動の予定の「場所」は出発地なので、その場所から次の場所への区間に、その手段を当てる。
+ * 本人が区間ごとに選んだ手段があれば、そちらが優先(src/components/trips/TripDayRoute.tsx)。
+ */
+export function transportHints(items: TripScheduleItem[], date: string): Map<string, LegMode> {
+  const hints = new Map<string, LegMode>();
+  const transports = items
+    .filter((item) => item.date === date && item.type === "transport" && item.location?.trim())
+    .sort((a, b) => (a.startTime ?? "").localeCompare(b.startTime ?? "") || a.createdAt - b.createdAt);
+  for (const item of transports) {
+    const mode = legModeForTransport(item.transportMode);
+    const key = routeKey(item.location!);
+    if (mode && !hints.has(key)) hints.set(key, mode);
+  }
+  return hints;
+}
+
+export function hintFor(hints: Map<string, LegMode>, from: string): LegMode | undefined {
+  return hints.get(routeKey(from));
 }
 

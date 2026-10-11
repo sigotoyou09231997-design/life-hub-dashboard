@@ -4,9 +4,11 @@ import type { TripScheduleItem } from "../../types";
 import {
   buildSegmentLinks,
   dayRouteStops,
+  hintFor,
   LEG_MODE_LABEL,
   legKey,
   stopKeys,
+  transportHints,
   type LegMode,
 } from "../../lib/tripDayRoute";
 import { formatDisplayDate } from "../../lib/date";
@@ -99,7 +101,11 @@ export function TripDayRoute({ items, date }: Props) {
   const excluded = new Set(choices.excluded);
   const chosenIndexes = stops.map((_, index) => index).filter((index) => !excluded.has(keys[index]));
   const chosen = chosenIndexes.map((index) => stops[index]);
-  const legModes = chosen.slice(0, -1).map((from, i) => choices.legs[legKey(date, from, chosen[i + 1])] ?? defaultMode);
+  // 区間の手段は、本人が選んだもの → 予定の「移動手段」(新幹線なら電車・バス) → 全体の既定 の順。
+  const hints = transportHints(items, date);
+  const legModes = chosen
+    .slice(0, -1)
+    .map((from, i) => choices.legs[legKey(date, from, chosen[i + 1])] ?? hintFor(hints, from) ?? defaultMode);
   const links = buildSegmentLinks(chosen, legModes);
 
   function save(next: Choices) {

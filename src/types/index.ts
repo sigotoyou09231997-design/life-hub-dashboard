@@ -318,6 +318,9 @@ export interface Trip {
 
 export type TripScheduleType = "sightseeing" | "meal" | "transport" | "lodging" | "other";
 
+/** 移動の予定の「何で移動するか」(supabase/sql/030)。種類が「移動」の予定だけが持つ。 */
+export type TripTransportMode = "train" | "shinkansen" | "bus" | "car" | "taxi" | "walk" | "plane" | "ferry" | "bicycle";
+
 export interface TripScheduleItem {
   id?: string;
   tripId: string;
@@ -333,6 +336,8 @@ export interface TripScheduleItem {
   location?: string;
   memo?: string;
   type: TripScheduleType;
+  /** 何で移動するか。種類が「移動」の時だけ(2026-10-11、要望の受信箱から)。 */
+  transportMode?: TripTransportMode;
   createdAt: number;
   updatedAt?: number;
   deviceId?: string;

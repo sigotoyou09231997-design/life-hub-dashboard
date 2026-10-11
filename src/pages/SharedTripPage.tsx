@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { FeedbackButton } from "../components/feedback/FeedbackButton";
+import { TransportModeChip } from "../components/trips/transportModes";
 import { MapPin } from "lucide-react";
 import { fetchSharedTrip, type SharedTrip } from "../lib/tripShare";
 import { formatDisplayDate, tripDayList, tripDurationLabel } from "../lib/date";
@@ -8,6 +9,7 @@ import {
   getTripExpenseCategory,
   getTripPackingCategory,
   getTripScheduleType,
+  isTripTransportMode,
 } from "../lib/tripCategories";
 import type { TripExpenseCategory, TripPackingCategory, TripScheduleType } from "../types";
 import { Badge } from "../components/ui/Badge";
@@ -160,6 +162,9 @@ export default function SharedTripPage() {
                               <span className="flex flex-wrap items-center gap-2">
                                 <span className="text-sm text-slate-700">{item.title}</span>
                                 <Badge tone={type.tone}>{type.label}</Badge>
+                                {item.type === "transport" && isTripTransportMode(item.transportMode) && (
+                                  <TransportModeChip mode={item.transportMode} />
+                                )}
                               </span>
                               {item.location && (
                                 <span className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">

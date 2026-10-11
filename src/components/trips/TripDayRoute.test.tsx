@@ -133,3 +133,21 @@ describe("TripDayRoute", () => {
     expect(screen.getByText(/この日は場所の入った予定がありません/)).toBeTruthy();
   });
 });
+
+describe("予定の移動手段を、区間の手段の初期値にする", () => {
+  it("新幹線の予定から出る区間は電車・バス、車の予定から出る区間は車になる(選び直せば、そちらが勝つ)", async () => {
+    const items: TripScheduleItem[] = [
+      { ...item("東京駅 東京都千代田区", "06:48"), type: "transport", transportMode: "shinkansen" },
+      { ...item("岡山駅 岡山県岡山市", "10:05"), type: "transport", transportMode: "car" },
+      item("高松駅 香川県高松市", "11:18"),
+    ];
+    openSheet(items);
+    const first = screen.getByRole("combobox", { name: "東京駅 → 岡山駅 の移動手段" }) as HTMLSelectElement;
+    const second = screen.getByRole("combobox", { name: "岡山駅 → 高松駅 の移動手段" }) as HTMLSelectElement;
+    expect(first.value).toBe("transit");
+    expect(second.value).toBe("driving");
+    fireEvent.change(first, { target: { value: "walking" } });
+    expect((screen.getByRole("combobox", { name: "東京駅 → 岡山駅 の移動手段" }) as HTMLSelectElement).value).toBe("walking");
+  });
+});
+

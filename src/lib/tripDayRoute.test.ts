@@ -5,6 +5,8 @@ import {
   buildSegmentLinks,
   dayRouteStops,
   legKey,
+  legModeForTransport,
+  transportHints,
   stopKeys,
   maxWaypointsForDevice,
   MAX_WAYPOINTS_DESKTOP,
@@ -213,3 +215,32 @@ describe("legKey / stopKeys", () => {
     expect(stopKeys(DAY, ["桂浜", "海津見神社", "桂浜"])).toEqual([`${DAY}|桂浜|0`, `${DAY}|海津見神社|0`, `${DAY}|桂浜|1`]);
   });
 });
+
+describe("予定の移動手段から、区間の手段を決める", () => {
+  it("車・タクシーは車、徒歩は徒歩、電車・新幹線・バス・フェリーは電車・バス。飛行機・自転車は決めない", () => {
+    expect(legModeForTransport("car")).toBe("driving");
+    expect(legModeForTransport("taxi")).toBe("driving");
+    expect(legModeForTransport("walk")).toBe("walking");
+    for (const mode of ["train", "shinkansen", "bus", "ferry"] as const) expect(legModeForTransport(mode), mode).toBe("transit");
+    expect(legModeForTransport("plane")).toBeUndefined();
+    expect(legModeForTransport("bicycle")).toBeUndefined();
+    expect(legModeForTransport(undefined)).toBeUndefined();
+  });
+
+  it("その日の移動の予定の出発地(場所)を鍵に、手段を引く", () => {
+    const hints = transportHints(
+      [
+        item("小金井駅", "04:57", { type: "transport", transportMode: "train" }),
+        item("レンタカー店", "12:10", { type: "transport", transportMode: "car" }),
+        item("霊山寺", "13:15", { type: "sightseeing", transportMode: "car" }),
+        item("別の日の駅", "09:00", { type: "transport", transportMode: "walk", date: "2026-12-29" }),
+      ],
+      DAY,
+    );
+    expect([...hints.entries()]).toEqual([
+      ["小金井駅", "transit"],
+      ["レンタカー店", "driving"],
+    ]);
+  });
+});
+

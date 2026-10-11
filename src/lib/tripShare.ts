@@ -39,6 +39,8 @@ export interface SharedScheduleItem {
   location?: string;
   memo?: string;
   type: string;
+  /** 何で移動するか(030)。古い関数からは返ってこない。 */
+  transportMode?: string | null;
 }
 
 export interface SharedPackingItem {
