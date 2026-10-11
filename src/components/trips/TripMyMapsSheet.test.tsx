@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { Trip, TripScheduleItem } from "../../types";
 import { ToastProvider } from "../ui/ToastProvider";
 import { TripMyMapsSheet } from "./TripMyMapsSheet";
@@ -65,10 +65,10 @@ describe("TripMyMapsSheet", () => {
     expect(screen.queryByText(/載せられない日程/)).toBeNull();
   });
 
-  it("downloads the CSV under the trip's name and closes", () => {
+  it("downloads one combined CSV under the trip's name and closes", () => {
     const onClose = vi.fn();
     renderSheet([item({ id: "a" })], onClose);
-    fireEvent.click(screen.getByRole("button", { name: /CSVを書き出す/ }));
+    fireEvent.click(screen.getByRole("button", { name: /1つにまとめて書き出す/ }));
     expect(mocks.download).toHaveBeenCalledTimes(1);
     const [csv, filename] = mocks.download.mock.calls[0];
     expect(filename).toBe("四国-マイマップ用.csv");
@@ -76,11 +76,31 @@ describe("TripMyMapsSheet", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("disables the button when nothing has a location", () => {
+  it("downloads one CSV per day when asked to split by day", async () => {
+    const onClose = vi.fn();
+    renderSheet(
+      [item({ id: "a" }), item({ id: "b", title: "二日目の場所", date: "2026-10-13", location: "徳島駅" })],
+      onClose,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /日ごとに分けて書き出す（2ファイル）/ }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(mocks.download.mock.calls.map((call) => call[1])).toEqual(["1日目-四国.csv", "2日目-四国.csv"]);
+    expect(mocks.download.mock.calls[1][0]).toContain("徳島駅,二日目の場所,2日目,2026-10-13");
+  });
+
+  it("disables both buttons when nothing has a location", () => {
     renderSheet([item({ location: undefined })]);
-    const button = screen.getByRole("button", { name: /CSVを書き出す/ }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    fireEvent.click(button);
+    const byDay = screen.getByRole("button", { name: /日ごとに分けて書き出す/ }) as HTMLButtonElement;
+    const whole = screen.getByRole("button", { name: /1つにまとめて書き出す/ }) as HTMLButtonElement;
+    expect(byDay.disabled).toBe(true);
+    expect(whole.disabled).toBe(true);
+    fireEvent.click(byDay);
+    fireEvent.click(whole);
     expect(mocks.download).not.toHaveBeenCalled();
+  });
+
+  it("tells the user to uncheck a pre-selected column such as the date", () => {
+    renderSheet([item({ id: "a" })]);
+    expect(screen.getByText(/最初から別の列（「日付」など）にチェックが入っている/)).toBeTruthy();
   });
 });

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Trip, TripScheduleItem } from "../types";
-import { buildTripMyMapsCsv, MYMAPS_CSV_HEADER, tripMyMapsFilename } from "./tripMyMapsCsv";
+import {
+  buildTripMyMapsCsv,
+  buildTripMyMapsDayFiles,
+  MYMAPS_CSV_HEADER,
+  tripMyMapsDayFilename,
+  tripMyMapsFilename,
+} from "./tripMyMapsCsv";
 
 const trip: Trip = {
   id: "t1",
@@ -90,6 +96,57 @@ describe("buildTripMyMapsCsv", () => {
   });
 });
 
+describe("buildTripMyMapsDayFiles", () => {
+  it("makes one file per day, in day order, named after the day and the trip", () => {
+    const { files } = buildTripMyMapsDayFiles(trip, [
+      item({ id: "c", title: "C", date: "2026-10-14" }),
+      item({ id: "a", title: "A", date: "2026-10-12", startTime: "09:00" }),
+      item({ id: "b", title: "B", date: "2026-10-12", startTime: "15:00" }),
+    ]);
+    expect(files.map((f) => [f.label, f.filename, f.placed])).toEqual([
+      ["1日目", "1日目-四国.csv", 2],
+      ["3日目", "3日目-四国.csv", 1],
+    ]);
+    expect(files[0].csv.split("\r\n").slice(1).map((l) => l.split(",")[1])).toEqual(["A", "B"]);
+  });
+
+  it("gives every file the header and keeps the day number column", () => {
+    const { files } = buildTripMyMapsDayFiles(trip, [item({ date: "2026-10-13" })]);
+    const lines = files[0].csv.split("\r\n");
+    expect(lines[0]).toBe(MYMAPS_CSV_HEADER.join(","));
+    expect(lines[1].split(",")[2]).toBe("2日目");
+  });
+
+  it("does not make a file for a day whose items all lack a location", () => {
+    const { files, skipped } = buildTripMyMapsDayFiles(trip, [
+      item({ id: "a", date: "2026-10-12" }),
+      item({ id: "b", date: "2026-10-13", location: undefined }),
+    ]);
+    expect(files.map((f) => f.label)).toEqual(["1日目"]);
+    expect(skipped).toHaveLength(1);
+  });
+
+  it("labels a date outside the trip with the date itself", () => {
+    const { files } = buildTripMyMapsDayFiles(trip, [item({ date: "2026-11-01" })]);
+    expect(files[0].label).toBe("2026-11-01");
+  });
+
+  it("covers every placed item exactly once, matching the combined CSV", () => {
+    const schedule = [
+      item({ id: "a", date: "2026-10-12" }),
+      item({ id: "b", date: "2026-10-13" }),
+      item({ id: "c", date: "2026-10-13", title: "D", startTime: "10:00" }),
+      item({ id: "d", date: "2026-10-14", location: undefined }),
+    ];
+    const { files } = buildTripMyMapsDayFiles(trip, schedule);
+    expect(files.reduce((sum, f) => sum + f.placed, 0)).toBe(buildTripMyMapsCsv(trip, schedule).placed);
+  });
+
+  it("returns no files when nothing can be placed", () => {
+    expect(buildTripMyMapsDayFiles(trip, [item({ location: undefined })]).files).toEqual([]);
+  });
+});
+
 describe("tripMyMapsFilename", () => {
   it("names the file after the trip", () => {
     expect(tripMyMapsFilename("四国")).toBe("四国-マイマップ用.csv");
@@ -101,5 +158,15 @@ describe("tripMyMapsFilename", () => {
 
   it("falls back to a generic name when nothing is left", () => {
     expect(tripMyMapsFilename("///")).toBe("旅行-マイマップ用.csv");
+  });
+});
+
+describe("tripMyMapsDayFilename", () => {
+  it("puts the day first so the layer name stays readable when truncated", () => {
+    expect(tripMyMapsDayFilename("2日目", "四国・小豆島旅行 完全版")).toBe("2日目-四国・小豆島旅行 完全版.csv");
+  });
+
+  it("drops characters that file systems reject", () => {
+    expect(tripMyMapsDayFilename("1日目", "夏/旅:行?")).toBe("1日目-夏旅行.csv");
   });
 });
