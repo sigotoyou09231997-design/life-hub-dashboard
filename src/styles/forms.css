@@ -289,6 +289,26 @@ textarea.field-shell {
   box-shadow: 0 3px 10px rgba(10, 24, 46, 0.12);
 }
 
+/* 1つずつ分けたボタン(SegmentedField の separate)。溝を無くし、選んでいない方にも面と縁を持たせる。 */
+.segmented--separate {
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.segmented--separate .segmented__option {
+  border-color: var(--hub-hairline);
+  border-radius: var(--hub-r-sm);
+  background: rgba(240, 244, 250, 0.9);
+}
+
+.segmented--separate .segmented__option[aria-pressed="true"] {
+  border-color: var(--hub-blue);
+  background: #fff;
+}
+
 .segmented__option:focus-visible {
   outline: 3px solid var(--hub-blue);
   outline-offset: 2px;

@@ -254,3 +254,34 @@ describe("下に貼りついたキャンセル/保存の帯の裏に、入力欄
   });
 });
 
+describe("外側(暗い所)を押した時に閉じる", () => {
+  it("外側で押して離したら閉じる", () => {
+    const onClose = vi.fn();
+    render(
+      <Sheet open onClose={onClose} title="持ち物を編集">
+        <input />
+      </Sheet>,
+    );
+    const backdrop = document.querySelector<HTMLElement>(".spatial-sheet-backdrop")!;
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("シートの中で触り始めた指が、ずれて外側で離れても閉じない(iPhone でキーボードが閉じてシートが下りた時)", () => {
+    const onClose = vi.fn();
+    const { getByTestId } = render(
+      <Sheet open onClose={onClose} title="持ち物を編集">
+        <button type="button" data-testid="chip">衣類</button>
+      </Sheet>,
+    );
+    const backdrop = document.querySelector<HTMLElement>(".spatial-sheet-backdrop")!;
+    fireEvent.pointerDown(getByTestId("chip"));
+    fireEvent.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+    // 次にちゃんと外側を押せば閉じる。
+    fireEvent.pointerDown(backdrop);
+    fireEvent.click(backdrop);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
