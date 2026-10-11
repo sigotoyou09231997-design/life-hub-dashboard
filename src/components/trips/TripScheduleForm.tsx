@@ -122,6 +122,7 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
             options={TRANSPORT_OPTIONS}
             onChange={setTransportMode}
             columns={5}
+            stacked
           />
         )}
       </FormPanel>
