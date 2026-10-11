@@ -4,7 +4,8 @@ import type { TripScheduleItem, TripScheduleType, TripTransportMode } from "../.
 import { TRIP_SCHEDULE_TYPES, TRIP_TRANSPORT_MODES } from "../../lib/tripCategories";
 import { SegmentedField, type SegmentedOption } from "../ui/SegmentedField";
 import { TRANSPORT_MODE_ICON } from "./transportModes";
-import { ImagePlus, MapPinned } from "lucide-react";
+import { ChevronDown, ImagePlus, MapPinned } from "lucide-react";
+import { detailsForSave, hasScheduleDetails, type ScheduleDetailField } from "../../lib/scheduleDetails";
 import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
 import { PhotoField } from "../attachments/PhotoField";
 import { Input, Textarea } from "../ui/Input";
@@ -42,6 +43,18 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
   const [type, setType] = useState<TripScheduleType>(initial?.type ?? "sightseeing");
   /** 何で移動するか。種類が「移動」の時だけ出して、保存する。 */
   const [transportMode, setTransportMode] = useState<TripTransportMode | "">(initial?.transportMode ?? "");
+  // 詳細(住所・電話・URL・営業時間・チェックイン/アウト)。ふだんは畳み、どれかが入っている予定では開いて出す。
+  const [details, setDetails] = useState<Record<ScheduleDetailField, string>>({
+    address: initial?.address ?? "",
+    phone: initial?.phone ?? "",
+    url: initial?.url ?? "",
+    openingHours: initial?.openingHours ?? "",
+    checkInTime: initial?.checkInTime ?? "",
+    checkOutTime: initial?.checkOutTime ?? "",
+  });
+  const [detailsOpen, setDetailsOpen] = useState(() => hasScheduleDetails(initial));
+  const setDetail = (field: ScheduleDetailField) => (event: React.ChangeEvent<HTMLInputElement>) =>
+    setDetails((current) => ({ ...current, [field]: event.target.value }));
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -80,6 +93,7 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
       memo: memo || undefined,
       type,
       transportMode: type === "transport" && transportMode ? transportMode : undefined,
+      ...detailsForSave(type, details),
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
@@ -167,9 +181,35 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
         <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
       </FormPanel>
 
+      <FormPanel caption="詳細">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between px-[0.9rem] py-3 text-left text-sm text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
+          aria-expanded={detailsOpen}
+          onClick={() => setDetailsOpen((open) => !open)}
+        >
+          <span>{type === "lodging" ? "住所・電話・URL・チェックイン/アウト" : "住所・電話・URL・営業時間"}</span>
+          <ChevronDown size={16} className={`transition-transform ${detailsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
+        {detailsOpen && (
+          <>
+            <Input label="住所" optional value={details.address} onChange={setDetail("address")} placeholder="例: 徳島県鳴門市鳴門町土佐泊浦字大毛264-1" />
+            <Input label="電話番号" optional type="tel" inputMode="tel" value={details.phone} onChange={setDetail("phone")} placeholder="例: 088-687-0613" />
+            <Input label="URL" optional type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={details.url} onChange={setDetail("url")} placeholder="例: https://www.uzusio.com" />
+            {type === "lodging" ? (
+              <>
+                <Input label="チェックイン" optional type="time" value={details.checkInTime} onChange={setDetail("checkInTime")} />
+                <Input label="チェックアウト" optional type="time" value={details.checkOutTime} onChange={setDetail("checkOutTime")} />
+              </>
+            ) : (
+              <Input label="営業時間" optional value={details.openingHours} onChange={setDetail("openingHours")} placeholder="例: 9:00〜16:30(水曜休み)" />
+            )}
+          </>
+        )}
+      </FormPanel>
+
       <FormPanel caption="写真" icon={ImagePlus}>
         <PhotoField value={photos} onChange={setPhotos} />
-        <p className="text-xs text-slate-400">写真は、この端末の中にだけ保存されます(ほかの端末・共有したしおりには出ません)。</p>
       </FormPanel>
 
       <FormActions>

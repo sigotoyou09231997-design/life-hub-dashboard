@@ -86,7 +86,7 @@ describe("旅行の予定の入力: 写真", () => {
     const user = userEvent.setup();
     renderForm();
     expect(screen.getByText("写真")).toBeTruthy();
-    expect(screen.getByText(/この端末の中にだけ保存されます/)).toBeTruthy();
+    expect(screen.getByText(/この端末の中だけに残ります/)).toBeTruthy();
     await user.type(screen.getByPlaceholderText("例: 五稜郭"), "霊山寺");
     await user.click(screen.getByRole("button", { name: "予定を追加" }));
     expect(mocks.savedPhotos).toEqual([["tripSchedule", "new-schedule-id", []]]);
@@ -100,6 +100,43 @@ describe("旅行の予定の入力: 写真", () => {
     expect(mocks.savedPhotos[0][0]).toBe("tripSchedule");
     expect(mocks.savedPhotos[0][1]).toBe("s9");
     expect(mocks.savedPhotos[0][2]).toHaveLength(1);
+  });
+});
+
+describe("旅行の予定の入力: 詳細", () => {
+  it("ふだんは畳んであり、開くと住所・電話・URL・営業時間を入れて保存できる", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    expect(screen.queryByText("住所")).toBeNull();
+    await user.type(screen.getByPlaceholderText("例: 五稜郭"), "うずしお観潮船");
+    await user.click(screen.getByRole("button", { name: /住所・電話・URL・営業時間/ }));
+    await user.type(screen.getByPlaceholderText(/土佐泊浦/), "徳島県鳴門市鳴門町土佐泊浦字大毛264-1");
+    await user.type(screen.getByPlaceholderText("例: 088-687-0613"), "088-687-0613");
+    await user.type(screen.getByPlaceholderText(/https:\/\/www/), "www.uzusio.com");
+    await user.type(screen.getByPlaceholderText(/水曜休み/), "9:00〜16:30");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(mocks.added[0]).toMatchObject({
+      address: "徳島県鳴門市鳴門町土佐泊浦字大毛264-1",
+      phone: "088-687-0613",
+      url: "https://www.uzusio.com",
+      openingHours: "9:00〜16:30",
+    });
+  });
+
+  it("宿泊の予定では、営業時間の代わりにチェックイン・チェックアウトを入れる", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByPlaceholderText("例: 五稜郭"), "ダイワロイネットホテル");
+    await user.selectOptions(screen.getByRole("combobox"), "lodging");
+    await user.click(screen.getByRole("button", { name: /チェックイン\/アウト/ }));
+    expect(screen.queryByPlaceholderText(/水曜休み/)).toBeNull();
+    expect(screen.getByText("チェックイン")).toBeTruthy();
+    expect(screen.getByText("チェックアウト")).toBeTruthy();
+  });
+
+  it("詳細が入っている予定を開くと、詳細を開いた状態で出す", () => {
+    renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "桂浜", type: "sightseeing", phone: "088-000-0000", createdAt: 1 });
+    expect((screen.getByPlaceholderText("例: 088-687-0613") as HTMLInputElement).value).toBe("088-000-0000");
   });
 });
 

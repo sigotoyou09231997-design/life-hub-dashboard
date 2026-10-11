@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { FeedbackButton } from "../components/feedback/FeedbackButton";
 import { TransportModeChip } from "../components/trips/transportModes";
+import { ScheduleDetailLines } from "../components/trips/ScheduleDetailLines";
 import { MapPin } from "lucide-react";
 import { fetchSharedTrip, type SharedTrip } from "../lib/tripShare";
 import { formatDisplayDate, tripDayList, tripDurationLabel } from "../lib/date";
@@ -172,6 +173,7 @@ export default function SharedTripPage() {
                                   {item.location}
                                 </span>
                               )}
+                              <ScheduleDetailLines item={item} />
                               {item.memo && (
                                 <span className="mt-0.5 block whitespace-pre-wrap text-xs text-slate-500">
                                   {item.memo}
