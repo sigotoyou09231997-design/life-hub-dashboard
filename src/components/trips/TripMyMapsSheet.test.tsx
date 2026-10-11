@@ -103,4 +103,9 @@ describe("TripMyMapsSheet", () => {
     renderSheet([item({ id: "a" })]);
     expect(screen.getByText(/最初から別の列（「日付」など）にチェックが入っている/)).toBeTruthy();
   });
+
+  it("explains how to switch an imported layer from uniform to individual style", () => {
+    renderSheet([item({ id: "a" })]);
+    expect(screen.getByText(/「場所のグループ化方法」で「個別スタイル」を選ぶ/)).toBeTruthy();
+  });
 });
