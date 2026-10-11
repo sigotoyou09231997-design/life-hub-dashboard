@@ -467,6 +467,10 @@ textarea.field-shell {
      入力欄など)へ寄せ直そうとするのを止める。Sheet.tsxのtouchmoveでのblurと合わせて、
      入力シートで下の項目までスクロールできない不具合(2026-09-20)への対策。 */
   overflow-anchor: none;
+  /* 下に貼りつく操作の帯(.form-actions)の裏を、スクロールで見せる範囲に数えない。数えると、
+     iOS が「打っている所を見せる」時に入力欄を帯とキーボードの裏へ置いてしまう
+     (2026-10-11、「キーボードと入力してる文字がかぶる」)。帯の高さ+ゆとり。 */
+  scroll-padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem);
 }
 
 /* PCでは下端に貼りつく必要が無い。画面の真ん中に置いて、ダイアログとして扱う。 */

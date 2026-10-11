@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
-import { Sheet } from "./Sheet";
+import { Sheet, revealAboveActions } from "./Sheet";
 
 afterEach(cleanup);
 
@@ -175,3 +175,82 @@ describe("入力シートでキーボードが出た時のスクロール", () =
     }
   });
 });
+
+/** 要素の位置を決め打ちする(jsdom は配置を計算しないため)。 */
+function placeAt(el: Element, top: number, bottom: number) {
+  el.getBoundingClientRect = () => ({ top, bottom, height: bottom - top, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+}
+
+describe("下に貼りついたキャンセル/保存の帯の裏に、入力欄を入れない", () => {
+  // 2026-10-11、iPhone のホーム画面アプリで「修正」の入力欄に打つと、キーボードと文字がかぶった。
+  function setup() {
+    const body = document.createElement("div");
+    const field = document.createElement("textarea");
+    const actions = document.createElement("div");
+    actions.className = "form-actions";
+    body.append(field, actions);
+    body.scrollTop = 0;
+    placeAt(body, 100, 500);
+    placeAt(actions, 420, 500);
+    return { body, field, actions };
+  }
+
+  it("欄の下端が帯の裏に入っていたら、帯の上まで送る", () => {
+    const { body, field } = setup();
+    placeAt(field, 300, 450); // 帯(420〜)の裏に30px入っている
+    revealAboveActions(body, field);
+    expect(body.scrollTop).toBe(450 - (420 - 8));
+  });
+
+  it("帯より上に収まっていれば、動かさない", () => {
+    const { body, field } = setup();
+    placeAt(field, 200, 380);
+    revealAboveActions(body, field);
+    expect(body.scrollTop).toBe(0);
+  });
+
+  it("欄が見える範囲より大きい時は、上端を見える範囲の上に合わせる(打ち始めの行を見せる)", () => {
+    const { body, field } = setup();
+    placeAt(field, 250, 700);
+    revealAboveActions(body, field);
+    expect(body.scrollTop).toBe(250 - (100 + 8));
+  });
+
+  it("帯の中の部品(保存ボタン)にフォーカスした時は、何もしない", () => {
+    const { body, actions } = setup();
+    const button = document.createElement("button");
+    actions.append(button);
+    placeAt(button, 430, 470);
+    revealAboveActions(body, button);
+    expect(body.scrollTop).toBe(0);
+  });
+
+  it("キーボードが出たら、シートの中で帯より上へ入れ直す", async () => {
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = () => {};
+    Object.defineProperty(window, "innerHeight", { value: 800, configurable: true, writable: true });
+    const visual = installFakeViewport(800);
+    try {
+      const { getByTestId, container } = render(
+        <Sheet open onClose={() => {}} title="直してほしいことを送る">
+          <textarea data-testid="message" />
+          <div className="form-actions">
+            <button type="button">送る</button>
+          </div>
+        </Sheet>,
+      );
+      const body = document.querySelector<HTMLElement>(".sheet-body") ?? (container.firstElementChild as HTMLElement);
+      const field = getByTestId("message");
+      placeAt(body, 100, 400);
+      placeAt(body.querySelector(".form-actions")!, 330, 400);
+      placeAt(field, 250, 360);
+      field.focus();
+      visual.height = 400;
+      visual.dispatchEvent(new Event("resize"));
+      await waitFor(() => expect(body.scrollTop).toBe(360 - (330 - 8)));
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
+});
+
