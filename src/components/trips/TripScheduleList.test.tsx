@@ -100,7 +100,8 @@ describe("旅行の日程の時間軸", () => {
     expect(onEdit).toHaveBeenCalledWith(target);
 
     await user.click(screen.getByRole("button", { name: "東京駅" }));
-    expect(onLocationTap).toHaveBeenCalledWith("東京駅", "東京発");
+    // 押した日程の日も渡す(同じ場所に2回寄る旅行で、ルートの同じ日の方へ飛ぶため)。
+    expect(onLocationTap).toHaveBeenCalledWith("東京駅", "東京発", "2026-12-27");
     expect(onEdit).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole("button", { name: "削除" }));

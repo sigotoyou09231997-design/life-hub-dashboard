@@ -363,3 +363,39 @@ describe("旅行のルート: 時間で見る", () => {
   });
 });
 
+describe("日程の場所を押して来た時", () => {
+  it("その場所の日に切り替え、その場所まで送って光らせる", async () => {
+    const scrolled: string[] = [];
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+      scrolled.push(this.dataset.routePlace ?? "");
+    };
+    try {
+      render(
+        <TripRouteView
+          tripId="t1"
+          destination="松山"
+          places={[place("p1", "松山駅", 1, "2026-09-19"), place("p2", "道後温泉", 2, "2026-09-20"), place("p3", "ダイワロイネットホテル松山", 3, "2026-09-20")]}
+          focus={{ id: "p3", at: 1 }}
+          dayList={["2026-09-19", "2026-09-20"]}
+          suggestions={[]}
+          onAddSuggestions={() => {}}
+          onAdd={() => {}}
+          onFirstSaved={() => {}}
+          onEdit={() => {}}
+          onDelete={() => {}}
+        />,
+        { wrapper: ConfirmProvider },
+      );
+      // 1日目ではなく、その場所のある2日目が開く。
+      expect(await screen.findByTitle("ダイワロイネットホテル松山の地図")).toBeTruthy();
+      expect(screen.queryByTitle("松山駅の地図")).toBeNull();
+      expect(screen.getByRole("button", { name: /2日目/ }).getAttribute("aria-pressed")).toBe("true");
+      expect(scrolled).toContain("p3");
+      const card = document.querySelector('[data-route-place="p3"]')!;
+      expect(card.className).toContain("trip-route-card--match");
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
+});

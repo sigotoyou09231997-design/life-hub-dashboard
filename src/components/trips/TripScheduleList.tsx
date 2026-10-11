@@ -23,7 +23,7 @@ interface Props {
   expenseBySchedule?: Map<string, TripExpense>;
   onEdit: (item: TripScheduleItem) => void;
   onDelete: (id: string) => void;
-  onLocationTap: (location: string, title: string) => void;
+  onLocationTap: (location: string, title: string, date: string) => void;
   /** その日を初期値にして「予定を追加」を開く。 */
   onAddForDate: (date: string) => void;
   /** 行き先の天気予報。まだ引いている最中(undefined)・引けなかった場合は何も出さない
@@ -155,7 +155,7 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                             {item.location && (
                               <button
                                 type="button"
-                                onClick={() => onLocationTap(item.location!, item.title)}
+                                onClick={() => onLocationTap(item.location!, item.title, item.date)}
                                 className="pointer-events-auto mt-0.5 flex items-center gap-1 text-xs text-accent active:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
                               >
                                 <MapPin size={12} />

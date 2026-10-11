@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TripRoutePlace, TripScheduleItem } from "../types";
-import { toRouteSuggestions } from "./tripRouteSuggestions";
+import { findRoutePlaceFor, toRouteSuggestions } from "./tripRouteSuggestions";
 
 function item(over: Partial<TripScheduleItem> & { id: string; date: string; title: string }): TripScheduleItem {
   return { tripId: "t1", type: "sightseeing", createdAt: 1, ...over };
@@ -48,5 +48,24 @@ describe("日程からルートの候補を起こす", () => {
       [],
     );
     expect(result.map((s) => s.scheduleId)).toEqual(["s1"]);
+  });
+});
+
+describe("日程の場所から、ルートの場所を探す", () => {
+  it("住所か名前が同じものを、大文字小文字・前後の空白を見ずに探す", () => {
+    const hotel = { ...place("愛媛県松山市千舟町", "2026-12-29"), name: "ダイワロイネットホテル松山" };
+    expect(findRoutePlaceFor([place("松山駅"), hotel], " ダイワロイネットホテル松山 ", "2026-12-29")).toBe(hotel);
+    expect(findRoutePlaceFor([place("Matsuyama")], "matsuyama")?.address).toBe("Matsuyama");
+  });
+
+  it("同じ場所に2回寄るなら、押した日程と同じ日の方を選ぶ", () => {
+    const first = place("岡山駅", "2026-12-27");
+    const back = { ...place("岡山駅", "2026-12-31"), id: "p-back" };
+    expect(findRoutePlaceFor([first, back], "岡山駅", "2026-12-31")).toBe(back);
+    expect(findRoutePlaceFor([first, back], "岡山駅", "2026-12-28")).toBe(first);
+  });
+
+  it("ルートに無ければ、何も返さない", () => {
+    expect(findRoutePlaceFor([place("松山駅")], "道後温泉")).toBeUndefined();
   });
 });

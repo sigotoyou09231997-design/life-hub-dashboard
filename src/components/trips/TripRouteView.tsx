@@ -38,6 +38,8 @@ interface Props {
   destination: string;
   /** 並べ替え済み(sortOrder昇順)で渡すこと。 */
   places: TripRoutePlace[];
+  /** 日程の場所を押して来た時の、見せる場所。その場所の日に切り替え、そこまで送って光らせる。 */
+  focus?: { id: string; at: number } | null;
   /** 旅行の全日程(YYYY-MM-DD)。日にちの切り替えに使う。 */
   dayList: string[];
   /** 旅行の日程。「時間で見る」で、場所に時刻を付けるのに使う。無くても動く(時刻なしで並ぶ)。 */
@@ -148,6 +150,7 @@ export function TripRouteView({
   schedule = [],
   suggestions,
   onAddSuggestions,
+  focus,
   onAdd,
   onFirstSaved,
   onEdit,
@@ -212,6 +215,29 @@ export function TripRouteView({
     const hasDated = places.some((place) => place.date);
     setDay(!hasDated && places.length > 0 ? NO_DAY : dayList[0]);
   }, [showsDayTabs, day, dayList, places]);
+
+  // 日程の場所を押して来たら、その場所の日に切り替える(上の「1日目に合わせる」より後に置く —
+  // 同じ描画で両方が日を決める時に、こちらを勝たせる)。送るのは描画の後(下の効果)。
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const focusAt = focus?.at;
+  useEffect(() => {
+    if (!focus) return;
+    const place = places.find((p) => p.id === focus.id);
+    if (!place) return;
+    if (showsDayTabs) setDay(place.date ?? NO_DAY);
+    setQuery("");
+    setFocusedId(focus.id);
+    // 同じ場所をもう一度押した時にも送り直す(at が変わる)。places の更新では送り直さない。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusAt]);
+  useEffect(() => {
+    if (!focusedId) return;
+    const el = Array.from(document.querySelectorAll<HTMLElement>("[data-route-place]")).find((node) => node.dataset.routePlace === focusedId);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    const timer = window.setTimeout(() => setFocusedId(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [focusedId, day, view]);
 
   // ボタンを押させずに、ルートを開いた時点で現在地を取りにいく。旅行中に開くのは
   // たいてい「いまここからどう行くか」を見たいときで、毎回押させる意味が薄い。
@@ -381,6 +407,7 @@ export function TripRouteView({
               <TripRouteTimeline
                 stops={buildRouteTimeline(shown, schedule)}
                 modeOf={(placeId) => legMode(placeId)}
+                focusedId={focusedId}
               />
               <p className="trip-route__time-note">
                 時刻は日程に入れた時刻です。変えるときは日程を直してください。移動時間は、地図の画面で選んだ移動手段のものです。
@@ -449,7 +476,12 @@ export function TripRouteView({
                 return (
                   <Fragment key={place.id}>
                     <li className="trip-route__node">
-                      <article className={`trip-route-card trip-route-card--place${place.id && matchedIds.has(place.id) ? " trip-route-card--match" : ""}`}>
+                      <article
+                        data-route-place={place.id}
+                        className={`trip-route-card trip-route-card--place${
+                          place.id && (matchedIds.has(place.id) || place.id === focusedId) ? " trip-route-card--match" : ""
+                        }`}
+                      >
                         <header className="trip-route-card__head">
                           <button
                             type="button"
