@@ -25,3 +25,6 @@ _to_delete/
 AGENTS.md
 .claude/skills/gmail-reply-style/
 指示書_*.md
+
+# 要望の受信箱を Mac から読むコード(scripts/feedback-inbox.mjs)。秘密なので入れない。
+.feedback-code

@@ -13,6 +13,7 @@ import { refreshViewportGap } from "./lib/viewport";
 import { finishAddAccount, isRestarting, rememberSignedInAccount } from "./lib/accountSwitch";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { ConfirmProvider } from "./components/ui/ConfirmProvider";
+import { FeedbackButton } from "./components/feedback/FeedbackButton";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AmbientBackground } from "./components/layout/AmbientBackground";
 import { AppHeader } from "./components/layout/AppHeader";
@@ -210,6 +211,8 @@ export default function App() {
   // 通さずに、しおり1枚だけを出す(src/pages/SharedTripPage.tsx)。
   if (isSharedTripRoute) {
     return (
+      // しおりのページにも「修正」ボタンを置くので、トースト・確認ダイアログの土台で包む。
+      <AppProviders>
       <Suspense fallback={<div className="shared-trip" />}>
         <Routes location={location}>
           <Route path="/share/trip/:token" element={<SharedTripPage />} />
@@ -218,6 +221,7 @@ export default function App() {
           <Route path="*" element={<SharedTripPage />} />
         </Routes>
       </Suspense>
+      </AppProviders>
     );
   }
 
@@ -300,6 +304,8 @@ export default function App() {
                 切り替えのアニメーションが position:fixed の基準になってボタンが動いて
                 見えるので、その外側に出す(src/components/ui/PageFab.tsx)。 */}
             <div id="page-fab-root" />
+            {/* 「ここ直した方がいい」を送る入口。右下の「＋」の真上(src/components/feedback/FeedbackButton.tsx)。 */}
+            <FeedbackButton />
           </div>
           <QuickActionBar />
         </div>
