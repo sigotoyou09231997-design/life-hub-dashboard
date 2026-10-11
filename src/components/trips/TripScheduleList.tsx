@@ -142,6 +142,27 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                       <div className={`trip-timeline__time${time.plain ? " is-plain" : ""}`}>
                         <span>{time.main}</span>
                         {time.sub && <small>{time.sub}</small>}
+                        {/* 入れ替えは時刻の下(2026-10-11、本人「入れ替えるボタンの位置を日付の下ぐらいがいいな」)。 */}
+                        {onReorder && dayItems.length > 1 && (
+                          <div className="trip-timeline__order" role="group" aria-label="予定の順番">
+                            <button
+                              type="button"
+                              disabled={!canUp}
+                              onClick={() => onReorder(moveInDay(dayItems, index, -1))}
+                              aria-label={`「${item.title}」を上へ`}
+                            >
+                              <ChevronUp size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!canDown}
+                              onClick={() => onReorder(moveInDay(dayItems, index, 1))}
+                              aria-label={`「${item.title}」を下へ`}
+                            >
+                              <ChevronDown size={15} />
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <span className="trip-timeline__dot" aria-hidden="true" />
                       <div className="trip-timeline__body">
@@ -194,28 +215,6 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                               </div>
                             )}
                           </div>
-                          {onReorder && dayItems.length > 1 && (
-                            <div className="pointer-events-auto ml-auto flex shrink-0 flex-col" role="group" aria-label="予定の順番">
-                              <button
-                                type="button"
-                                disabled={!canUp}
-                                onClick={() => onReorder?.(moveInDay(dayItems, index, -1))}
-                                aria-label={`「${item.title}」を上へ`}
-                                className="rounded-full p-1 text-slate-400 transition-colors active:bg-slate-100 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-                              >
-                                <ChevronUp size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                disabled={!canDown}
-                                onClick={() => onReorder?.(moveInDay(dayItems, index, 1))}
-                                aria-label={`「${item.title}」を下へ`}
-                                className="rounded-full p-1 text-slate-400 transition-colors active:bg-slate-100 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-                              >
-                                <ChevronDown size={16} />
-                              </button>
-                            </div>
-                          )}
                           <button
                             type="button"
                             onClick={async () => {
