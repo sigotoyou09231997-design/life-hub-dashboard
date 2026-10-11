@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Download } from "lucide-react";
 import type { Trip, TripScheduleItem } from "../../types";
 import { formatDisplayDate } from "../../lib/date";
-import { buildTripMyMapsCsv, tripMyMapsFilename } from "../../lib/tripMyMapsCsv";
+import { buildTripMyMapsCsv, buildTripMyMapsDayFiles, tripMyMapsFilename } from "../../lib/tripMyMapsCsv";
 import { downloadTransactionCsv } from "../../lib/transactionCsv";
 import { Button } from "../ui/Button";
 import { useToast } from "../ui/ToastProvider";
@@ -13,6 +13,12 @@ interface Props {
   onClose: () => void;
 }
 
+/** マイマップの1つの地図に置けるレイヤーの数。 */
+const MYMAPS_LAYER_LIMIT = 10;
+
+/** 続けて何ファイルも落とすと、ブラウザが先のダウンロードを取りこぼすことがあるので間を空ける。 */
+const DOWNLOAD_GAP_MS = 300;
+
 /**
  * 日程を Google マイマップへ取り込むための CSV を書き出すシート。
  *
@@ -22,11 +28,22 @@ interface Props {
  */
 export function TripMyMapsSheet({ trip, schedule, onClose }: Props) {
   const showToast = useToast();
-  const { csv, placed, skipped } = useMemo(() => buildTripMyMapsCsv(trip, schedule), [trip, schedule]);
+  const whole = useMemo(() => buildTripMyMapsCsv(trip, schedule), [trip, schedule]);
+  const { files } = useMemo(() => buildTripMyMapsDayFiles(trip, schedule), [trip, schedule]);
+  const { placed, skipped } = whole;
 
-  function handleDownload() {
-    downloadTransactionCsv(csv, tripMyMapsFilename(trip.name));
+  function handleDownloadWhole() {
+    downloadTransactionCsv(whole.csv, tripMyMapsFilename(trip.name));
     showToast("CSVを書き出しました");
+    onClose();
+  }
+
+  async function handleDownloadByDay() {
+    for (const [index, file] of files.entries()) {
+      if (index > 0) await new Promise((resolve) => window.setTimeout(resolve, DOWNLOAD_GAP_MS));
+      downloadTransactionCsv(file.csv, file.filename);
+    }
+    showToast(`${files.length}ファイルを書き出しました`);
     onClose();
   }
 
@@ -53,21 +70,35 @@ export function TripMyMapsSheet({ trip, schedule, onClose }: Props) {
         </div>
       )}
 
-      <Button disabled={placed === 0} onClick={handleDownload}>
-        <Download size={16} />
-        CSVを書き出す
-      </Button>
+      <div className="flex flex-col gap-2">
+        <Button disabled={files.length === 0} onClick={() => void handleDownloadByDay()}>
+          <Download size={16} />
+          日ごとに分けて書き出す（{files.length}ファイル）
+        </Button>
+        <p className="text-xs text-slate-500">
+          1日ぶんが1枚のレイヤーになります。ブラウザが複数ファイルのダウンロードを聞いてきたら、許可してください。
+          {files.length > MYMAPS_LAYER_LIMIT &&
+            `${files.length}日あるので、1つの地図に置けるレイヤー（${MYMAPS_LAYER_LIMIT}枚まで）に入り切りません。下の「1つにまとめて」を使ってください。`}
+        </p>
+        <Button variant="secondary" disabled={placed === 0} onClick={handleDownloadWhole}>
+          <Download size={16} />
+          1つにまとめて書き出す
+        </Button>
+        <p className="text-xs text-slate-500">
+          全日程が1枚のレイヤーに入ります。取り込んだあと、レイヤのスタイル設定で「日目」の列を選ぶと、日ごとに色分けできます。
+        </p>
+      </div>
 
       <div className="text-sm text-slate-600">
         <p className="font-medium text-slate-700">マイマップへの入れ方（パソコンのブラウザで）</p>
         <ol className="mt-1.5 list-decimal space-y-1 pl-5">
           <li>入れたい地図をマイマップで開く</li>
-          <li>左の「レイヤを追加」を押し、できたレイヤの「インポート」から、書き出した CSV を選ぶ</li>
-          <li>場所の列は「場所」、マーカーの名前の列は「名前」を選ぶ</li>
-          <li>取り込んだあと、レイヤのスタイル設定で「日目」の列を選ぶと、日ごとに色分けできる</li>
+          <li>左の「レイヤを追加」を押し、できたレイヤの「インポート」から、書き出した CSV を選ぶ（日ごとに分けたときは、ファイルごとにこれを繰り返す）</li>
+          <li>「目印を配置する列」の画面では、最初から別の列（「日付」など）にチェックが入っていることがあります。それを外して、「場所」だけにチェックを入れる</li>
+          <li>マーカーの名前の列は「名前」を選ぶ</li>
         </ol>
         <p className="mt-2 text-xs text-slate-400">
-          1つの地図に置けるレイヤーは10枚までです。地名があいまいだと別の場所に置かれることがあるので、取り込み後に地図で確かめてください。
+          1つの地図に置けるレイヤーは{MYMAPS_LAYER_LIMIT}枚までで、いまその地図にあるレイヤーも数えます。地名があいまいだと別の場所に置かれることがあるので、取り込み後に地図で確かめてください。
         </p>
       </div>
     </div>

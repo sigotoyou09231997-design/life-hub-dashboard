@@ -11,9 +11,13 @@ import { csvCell } from "./transactionCsv";
  * 「場所」の列の住所・地名をマイマップ側で探して置いてくれるので、こちらで座標を
  * 持つ必要はない(GOOGLE_MAPS_API_KEY が未発行でも使える)。
  *
- * 全日程を1ファイル=1レイヤーにして「日目」の列を付けてある。日ごとに分けると
- * 1つの地図に置けるレイヤーは10枚までなので、11日以上の旅行が入らなくなる。
- * 取り込んだあと、マイマップの「スタイル」で「日目」を選べば日ごとに色分けできる。
+ * 書き出し方は2通り。
+ * - 全日程を1ファイル=1レイヤーにまとめる(buildTripMyMapsCsv)。「日目」の列を付けてあり、
+ *   取り込んだあとマイマップの「スタイル」で選べば日ごとに色分けできる。
+ * - 1日ぶん=1ファイル=1レイヤーに分ける(buildTripMyMapsDayFiles)。マイマップは1回の
+ *   取り込みで1枚のレイヤーしか作らず、複数シートのExcelや複数フォルダのKMLが
+ *   レイヤーに分かれるとは公式に書かれていない。確実なのは1日1ファイルを取り込む形。
+ *   ただし1つの地図に置けるレイヤーは10枚までなので、11日以上の旅行は入り切らない。
  */
 export const MYMAPS_CSV_HEADER = ["場所", "名前", "日目", "日付", "終了日", "時刻", "種類", "メモ"] as const;
 
@@ -23,6 +27,15 @@ export interface MyMapsExport {
   placed: number;
   /** 場所が空で、地図に置けなかった日程。画面でそのまま見せる。 */
   skipped: TripScheduleItem[];
+}
+
+/** 1日ぶんのファイル。レイヤー名はマイマップがファイル名から付けるので、先頭を「n日目」にしてある。 */
+export interface MyMapsDayFile {
+  /** 「1日目」。旅行の期間の外の日付は、その日付をそのまま使う。 */
+  label: string;
+  filename: string;
+  csv: string;
+  placed: number;
 }
 
 const TYPE_LABEL = new Map(TRIP_SCHEDULE_TYPES.map((t) => [t.value, t.label]));
@@ -42,16 +55,22 @@ function timeLabel(item: TripScheduleItem): string {
   return "";
 }
 
-/** 日程をマイマップ用のCSV本文にする。改行はExcelでもそのまま開けるCRLF。 */
-export function buildTripMyMapsCsv(trip: Trip, schedule: TripScheduleItem[]): MyMapsExport {
+/** 日程を並べ、場所のある日程と場所が空の日程に分ける。 */
+function prepare(trip: Trip, schedule: TripScheduleItem[]) {
   const dayNumber = new Map(tripDayList(trip.startDate, trip.endDate).map((date, index) => [date, index + 1]));
   const sorted = [...schedule].sort(byDateThenTime);
-  const placedItems = sorted.filter((item) => item.location?.trim());
-  const skipped = sorted.filter((item) => !item.location?.trim());
+  return {
+    dayNumber,
+    placedItems: sorted.filter((item) => item.location?.trim()),
+    skipped: sorted.filter((item) => !item.location?.trim()),
+  };
+}
 
+/** 日程をCSV本文にする。改行はExcelでもそのまま開けるCRLF。 */
+function toCsv(items: TripScheduleItem[], dayNumber: Map<string, number>): string {
   const rows = [
     MYMAPS_CSV_HEADER.join(","),
-    ...placedItems.map((item) => {
+    ...items.map((item) => {
       const day = dayNumber.get(item.date);
       return [
         csvCell(item.location?.trim()),
@@ -65,11 +84,53 @@ export function buildTripMyMapsCsv(trip: Trip, schedule: TripScheduleItem[]): My
       ].join(",");
     }),
   ];
-  return { csv: rows.join("\r\n"), placed: placedItems.length, skipped };
+  return rows.join("\r\n");
+}
+
+/** 全日程を1つのCSVにまとめる。 */
+export function buildTripMyMapsCsv(trip: Trip, schedule: TripScheduleItem[]): MyMapsExport {
+  const { dayNumber, placedItems, skipped } = prepare(trip, schedule);
+  return { csv: toCsv(placedItems, dayNumber), placed: placedItems.length, skipped };
+}
+
+/** 日ごとに1ファイルずつ作る。日程の無い日・場所が1つも無い日のファイルは作らない。 */
+export function buildTripMyMapsDayFiles(
+  trip: Trip,
+  schedule: TripScheduleItem[],
+): { files: MyMapsDayFile[]; skipped: TripScheduleItem[] } {
+  const { dayNumber, placedItems, skipped } = prepare(trip, schedule);
+  // placedItems は日付順に並んでいるので、Map に入れた順がそのまま日の順になる。
+  const groups = new Map<string, TripScheduleItem[]>();
+  for (const item of placedItems) {
+    const group = groups.get(item.date);
+    if (group) group.push(item);
+    else groups.set(item.date, [item]);
+  }
+  const files = [...groups].map(([date, items]) => {
+    const day = dayNumber.get(date);
+    const label = day ? `${day}日目` : date;
+    return {
+      label,
+      filename: tripMyMapsDayFilename(label, trip.name),
+      csv: toCsv(items, dayNumber),
+      placed: items.length,
+    };
+  });
+  return { files, skipped };
 }
 
 /** ファイル名に使えない文字(OSによって禁止されるもの)を取り除く。 */
+function safeTripName(tripName: string): string {
+  return tripName.replace(/[\\/:*?"<>|]/g, "").trim() || "旅行";
+}
+
 export function tripMyMapsFilename(tripName: string): string {
-  const safe = tripName.replace(/[\\/:*?"<>|]/g, "").trim() || "旅行";
-  return `${safe}-マイマップ用.csv`;
+  return `${safeTripName(tripName)}-マイマップ用.csv`;
+}
+
+/** 「1日目-旅行名.csv」。マイマップはレイヤー名をファイル名から付けるので、日を先頭に置く
+ * (レイヤーの一覧は幅が狭く、後ろが切れる)。旅行名を残すのは、別の旅行の同名ファイルが
+ * ダウンロード先に残っていて「1日目 (1).csv」になるのを避けるため。 */
+export function tripMyMapsDayFilename(label: string, tripName: string): string {
+  return `${label}-${safeTripName(tripName)}.csv`;
 }
