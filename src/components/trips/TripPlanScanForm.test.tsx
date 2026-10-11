@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   notices: [] as string[],
   extractError: null as Error | null,
   existingTripSchedule: [] as Record<string, unknown>[],
-  saved: { tripSchedule: [] as unknown[], tripExpenses: [] as unknown[], updated: [] as { id: string; patch: unknown }[] },
+  saved: { tripSchedule: [] as unknown[], tripExpenses: [] as unknown[], updated: [] as { id: string; patch: unknown }[], deleted: [] as string[] },
   sent: [] as Record<string, unknown>[],
   // 専用GPTから届いた旅程(受信箱)と、送信コードの状態。
   inbox: [] as unknown[],
@@ -24,6 +24,7 @@ vi.mock("../../db/schema", () => ({
     tripSchedule: {
       add: async (row: unknown) => void mocks.saved.tripSchedule.push(row),
       update: async (id: string, patch: unknown) => void mocks.saved.updated.push({ id, patch }),
+      delete: async (id: string) => void mocks.saved.deleted.push(id),
       where: () => ({ equals: () => ({ toArray: async () => mocks.existingTripSchedule }) }),
     },
     tripExpenses: { add: async (row: unknown) => void mocks.saved.tripExpenses.push(row) },
@@ -100,7 +101,7 @@ beforeEach(() => {
   mocks.notices = [];
   mocks.extractError = null;
   mocks.existingTripSchedule = [];
-  mocks.saved = { tripSchedule: [], tripExpenses: [], updated: [] };
+  mocks.saved = { tripSchedule: [], tripExpenses: [], updated: [], deleted: [] };
   mocks.sent = [];
   mocks.inbox = [];
   mocks.sendCodeState = { kind: "unavailable" };
@@ -274,6 +275,52 @@ describe("写真・文章から日程を読み取る画面", () => {
       expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ title: "松山城山ロープウェイ", startTime: "15:00" })]);
       expect((mocks.saved.tripSchedule[0] as { memo?: string }).memo).toBeUndefined();
       expect(mocks.saved.updated).toEqual([]);
+    });
+
+    it("組み直した計画: 順番が入れ替わった予定は時刻の更新に、文章に無い古い区間は選べば消せる", async () => {
+      mocks.existingTripSchedule = [
+        { id: "o", date: "2026-09-12", startTime: "13:15", endTime: "13:30", title: "大麻比古神社", type: "sightseeing" },
+        { id: "r", date: "2026-09-12", startTime: "13:30", endTime: "13:45", title: "霊山寺", type: "sightseeing" },
+        { id: "leg", date: "2026-09-12", startTime: "13:45", endTime: "14:25", title: "霊山寺→鳴門観光汽船", type: "transport" },
+        { id: "other-day", date: "2026-09-13", startTime: "09:00", title: "函館朝市", type: "sightseeing" },
+      ];
+      mocks.items = [
+        { date: "2026-09-12", startTime: "13:15", endTime: "13:30", title: "霊山寺参拝", type: "sightseeing" },
+        { date: "2026-09-12", startTime: "13:45", endTime: "14:00", title: "大麻比古神社参拝", type: "sightseeing" },
+        { date: "2026-09-12", startTime: "14:00", endTime: "14:25", title: "アクアエディ乗り場へ移動", type: "transport" },
+      ];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText("まだ入っていない予定：1件")).toBeTruthy();
+      expect(screen.getByText("内容が違う予定：2件")).toBeTruthy();
+      expect(screen.getByText("文章に無い予定：1件")).toBeTruthy();
+      // 文章が扱っていない日(9/13)の予定は、文章に無い予定に出さない。
+      const unmentioned = screen.getByRole("region", { name: "文章に無い予定" });
+      expect(unmentioned.textContent).toContain("霊山寺→鳴門観光汽船");
+      expect(unmentioned.textContent).not.toContain("函館朝市");
+      // 既定では消さない。
+      expect(screen.getByRole("button", { name: "1件を入れて2件を更新する" })).toBeTruthy();
+      await user.click(screen.getByRole("checkbox", { name: "霊山寺→鳴門観光汽船を消す" }));
+      await user.click(screen.getByRole("button", { name: "1件を入れて2件を更新し、1件を消す" }));
+      expect(mocks.saved.deleted).toEqual(["leg"]);
+      expect(mocks.saved.updated.map((u) => u.id).sort()).toEqual(["o", "r"]);
+      expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ title: "アクアエディ乗り場へ移動" })]);
+    });
+
+    it("「すべて選ぶ」で文章に無い予定をまとめて選び、消すだけでも押せる", async () => {
+      mocks.existingTripSchedule = [
+        { id: "a", date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" },
+        { id: "b", date: "2026-09-12", startTime: "16:00", title: "古い予定1", type: "other" },
+        { id: "c", date: "2026-09-12", startTime: "17:00", title: "古い予定2", type: "meal" },
+      ];
+      mocks.items = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" }];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      await user.click(screen.getByRole("button", { name: "すべて選ぶ" }));
+      await user.click(screen.getByRole("button", { name: "2件を消す" }));
+      expect(mocks.saved.deleted.sort()).toEqual(["b", "c"]);
     });
 
     it("まだ日程が1件も無い旅行では、比べた結果ではなく、これまでの説明を出す", async () => {

@@ -29,18 +29,25 @@ export interface ScheduleMatch {
   /** 突き合わせた既存の日程。 */
   item: TripScheduleItem;
   strength: MatchStrength;
+  /** 題名ではなく、時刻の枠(開始・終了・種類が同じ)で当てた。書き方を変えた同じ予定なので、
+   * 題名の書き換えも更新の候補にする(diffAgainstSchedule の allowRename)。 */
+  bySlot?: boolean;
 }
 
 /** 突き合わせに使う最小限の形。読み取った行(TripImportRow)がそのまま渡せる。 */
 interface Matchable {
   date: string;
   startTime?: string;
+  endTime?: string;
   title: string;
   location?: string;
+  type?: TripScheduleItem["type"];
 }
 
 
 const STRONG_SCORE = 50;
+/** 時刻の枠だけで当てた時の点。弱い一致(既定では選ばない)。 */
+const SLOT_SCORE = 40;
 
 function minutesOf(time: string): number {
   const [hour, minute] = time.split(":").map(Number);
@@ -73,22 +80,45 @@ function matchScore(row: Matchable, item: Matchable): number {
   // 題名が同じなら、時刻が変わっていても同じ予定(出発が10時→11時、がいちばんの編集)。
   if (a === b) return (sameTime || (!row.startTime && !item.startTime) ? 90 : 70) + closeness * 5;
 
-  // 題名が違う書き方の時は、時刻が食い違っていたら別の予定とみなす
-  // (mergeDuplicateItems と同じ。片方に時刻が無いのは食い違いではない)。
-  if (bothTimed && !sameTime) return 0;
-  // 場所まで食い違うなら、題名が片方を含んでいても別の予定(同じ15:00の「松山城」と
-  // 「松山城山ロープウェイ」)。同じ予定として当てると、足りない予定が既存の予定の「更新」になり、
-  // 既定で選ばれて元の予定を書き換えてしまう(2026-10-11、本人の旅行の規模で試して見つかった)。
-  if (!sameSpot(row.location, item.location)) return 0;
-
   const [shorter, longer] = a.length <= b.length ? [a, b] : [b, a];
+  const contains = shorter.length >= 3 && longer.includes(shorter);
+  // 場所が別の所なら、題名が片方を含んでいても同じ予定とは言い切れない(同じ15:00の「松山城」と
+  // 「松山城山ロープウェイ」)。弱い一致に下げ、既定では選ばない。同じ文章に「松山城」の行もあれば、
+  // そちらが強い一致で先に松山城を取るので、ロープウェイは新しい予定になる(2026-10-11)。
+  const spotOk = sameSpot(row.location, item.location);
+  const sameType = !!row.type && row.type === item.type;
+
+  if (bothTimed && !sameTime) {
+    // 計画を組み直して時刻がずれた同じ予定(「霊山寺」13:30 → 「霊山寺参拝」13:15)。
+    // 種類が同じで、1時間以内のずれだけ。種類が違う「高知城」と「高知城へ移動」は別の予定。
+    const gap = Math.abs(minutesOf(row.startTime!) - minutesOf(item.startTime!));
+    if (contains && sameType && gap <= 60) return (spotOk ? 52 : 30) + closeness * 5;
+    // 題名の一部だけ同じ(「小歩危峡展望台」9:25 と「小歩危の景色」9:30)は、別の予定かもしれないので弱い一致。
+    if (sameType && gap <= 30 && longestCommonRun(wordKey(row.title), wordKey(item.title)) >= 3) return 30 + closeness * 5;
+    return 0;
+  }
+
   // 2文字の短い言葉(「移動」「昼食」)は、別の予定にも普通に出るので、含むだけでは見ない。
   // ただし開始時刻まで同じなら、同じ予定のことがほとんど(「16:40 屋島」と「16:40〜17:20 屋島観光」。
   // 読み直すたびに題名の書き方が変わるので、2文字の題名で取り逃がすと二重に入ってしまう)。
-  if (shorter.length >= 3 && longer.includes(shorter)) return sameTime ? 60 : 30;
-  if (sameTime && shorter.length === 2 && longer.includes(shorter)) return 55;
+  if (contains) return spotOk ? (sameTime ? 60 : 30) : 30;
+  if (sameTime && shorter.length === 2 && longer.includes(shorter)) return spotOk ? 55 : 30;
   // 同じ時刻に、題名に3文字以上の同じ語がある(「フェリー乗船」と「土庄→高松 フェリー」)。
-  if (sameTime && longestCommonRun(wordKey(row.title), wordKey(item.title)) >= 3) return 50;
+  if (sameTime && longestCommonRun(wordKey(row.title), wordKey(item.title)) >= 3) return spotOk ? 50 : 30;
+  // 題名の書き方がまるで違っても、開始時刻と種類が同じなら、同じ枠の同じ予定
+  // (「12:10〜13:15 高松→大麻比古神社」と「12:10〜13:15 霊山寺へ移動」、「14:25〜14:45 アクア・エディ
+  // 乗船手続き」と「受付・乗船準備」)。ChatGPT で作り直した計画は毎回書き方が変わるので、題名だけで
+  // 見ると、入っている予定がそっくり「まだ入っていない」に並んで二重に入る。弱い一致にして既定では
+  // 選ばない(更新しなければ、いまの日程のまま。二重には入れない)。
+  // 終了時刻が片方に無い・違うものも、開始時刻と種類が同じなら同じ枠(「07:00 ホテル出発」と
+  // 「07:00 徳島市内出発」、「13:10〜14:30 祖谷→桂浜」と「13:10〜15:00 高知市方面へ移動」)。
+  // 同じ分に同じ種類の予定が2つ始まることは、まず無い。
+  // 同じ時刻に同じ種類が2件ある時(「12:10 レンタカー出発」と「12:10〜13:15 高松→大麻比古神社」)は、
+  // 終了時刻まで合う方を先に取る。
+  if (sameTime && sameType) {
+    const sameEnd = (row.endTime ?? "") === (item.endTime ?? "");
+    return SLOT_SCORE + (sameEnd ? (row.endTime ? 2 : 1) : 0);
+  }
   return 0;
 }
 
@@ -122,6 +152,7 @@ export function matchRowsToSchedule(rows: Matchable[], existing: TripScheduleIte
     result[candidate.row] = {
       item: existing[candidate.item],
       strength: candidate.score >= STRONG_SCORE ? "strong" : "loose",
+      ...(candidate.score >= SLOT_SCORE && candidate.score <= SLOT_SCORE + 2 ? { bySlot: true } : {}),
     };
   }
   return result;
@@ -165,7 +196,11 @@ function typeLabel(type: TripScheduleItem["type"]): string {
  * - 種類: いまが「その他」の時だけ(本人が選んだ種類をAIの推測で上書きしない)。
  * - メモ: いまが空の時だけ(本人が書いたメモを上書きしない)。
  */
-export function diffAgainstSchedule(item: TripScheduleItem, row: TripImportRow): ScheduleUpdate {
+export function diffAgainstSchedule(
+  item: TripScheduleItem,
+  row: TripImportRow,
+  options: { allowRename?: boolean } = {},
+): ScheduleUpdate {
   const patch: ScheduleUpdate["patch"] = {};
   const changes: PlanChange[] = [];
   const add = <F extends ChangeField>(field: F, label: string, value: NonNullable<TripScheduleItem[F]>, before: string | undefined, after: string) => {
@@ -190,7 +225,10 @@ export function diffAgainstSchedule(item: TripScheduleItem, row: TripImportRow):
   const title = row.title.trim();
   const titleKey = normalizePlanTitle(title);
   const itemTitleKey = normalizePlanTitle(item.title);
-  if (itemTitleKey.length >= 3 && titleKey !== itemTitleKey && titleKey.includes(itemTitleKey)) {
+  // 時刻の枠で当てた同じ予定は、題名の書き方が変わっていれば、それも書き換えの候補にする
+  // (「高松→大麻比古神社」の枠が、組み直した計画では「霊山寺へ移動」になっている)。
+  const renamed = options.allowRename && titleKey && titleKey !== itemTitleKey;
+  if (renamed || (itemTitleKey.length >= 3 && titleKey !== itemTitleKey && titleKey.includes(itemTitleKey))) {
     add("title", "題名", title, item.title, title);
   }
 
@@ -210,6 +248,8 @@ export interface ScanRow extends TripImportRow {
   /** 突き合わせた既存の日程の id。無ければ新しい予定として入れる。 */
   matchId?: string;
   matchStrength?: MatchStrength;
+  /** 時刻の枠で当てた(題名の書き換えも更新の候補になる)。 */
+  matchBySlot?: boolean;
   /** matchId がある時、その日程を更新する(true)か、別の予定として追加する(false)か。 */
   update: boolean;
   /** 更新にはならないが、同じ予定らしい日程の題名。重ねて入れることになるので断りを出す。 */
@@ -217,14 +257,39 @@ export interface ScanRow extends TripImportRow {
   /** いまの日程の同じ予定に当たり、変わる所も無かった(similarTitle がその題名)。
    * 確認画面では「入っている予定」に回す — 似ているだけの別の予定とは分けて見せる。 */
   sameAsExisting?: boolean;
+  /** sameAsExisting の時の、当たった既存の日程の id(「文章に無い予定」から外すのに使う)。 */
+  sameAsId?: string;
 }
 
 /** 入れ終わった知らせ。追加だけの時は、これまでと同じ文言(「日程に3件入れました」)。 */
-export function describeScanSaved(added: number, updated: number, expenses: number): string {
+export function describeScanSaved(added: number, updated: number, expenses: number, deleted = 0): string {
   const parts: string[] = [];
   if (added > 0) parts.push(`日程に${added}件`);
   if (expenses > 0) parts.push(`費用に${expenses}件`);
-  if (updated === 0) return `${parts.join("、")}入れました`;
-  if (parts.length === 0) return `日程を${updated}件更新しました`;
-  return `${parts.join("、")}入れ、日程を${updated}件更新しました`;
+  const base =
+    updated === 0
+      ? parts.length > 0 ? `${parts.join("、")}入れました` : ""
+      : parts.length === 0
+        ? `日程を${updated}件更新しました`
+        : `${parts.join("、")}入れ、日程を${updated}件更新しました`;
+  if (deleted === 0) return base;
+  return base ? `${base.replace(/ました$/, "")}、${deleted}件消しました` : `日程を${deleted}件消しました`;
+}
+
+/**
+ * 文章に無かった日程(文章が扱っている日だけ)。計画を組み直すと、移動の区間などは時刻ごと
+ * 変わるので、新しい区間は「まだ入っていない予定」として入り、古い区間が日程に残る。
+ * それを並べて、選んだものだけ消せるようにする。既定では何も選ばない — 文章がその日の
+ * 一部だけのこともある(10/5に決めた「文章に無い日程は消さない」は、選ばない限りそのまま)。
+ */
+export function unmentionedSchedule(
+  existing: TripScheduleItem[] | undefined,
+  rows: { date: string; matchId?: string; sameAsId?: string }[],
+): TripScheduleItem[] {
+  if (!existing || rows.length === 0) return [];
+  const dates = new Set(rows.map((row) => row.date));
+  const used = new Set(rows.flatMap((row) => [row.matchId, row.sameAsId]).filter((id): id is string => !!id));
+  return existing
+    .filter((item) => item.id && dates.has(item.date) && !used.has(item.id))
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.startTime ?? "").localeCompare(b.startTime ?? ""));
 }

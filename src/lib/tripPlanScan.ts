@@ -97,6 +97,8 @@ const SCAN_PARALLEL = 4;
 
 const HEADING_MARKERS = "■□●○◆◇▼▽▲△▶◎★☆【［[";
 const WEEKDAY = /^(?:\(\s*[月火水木金土日祝]\s*曜?日?\s*\)|[月火水木金土日]曜日?)/;
+/** 行頭の絵文字(「🚗」「📅」「⛩️」)。異体字セレクタや結合子が付いたものもまとめて外す。 */
+const LEADING_EMOJI = /^(?:[\p{Extended_Pictographic}\u{FE0F}\u{200D}\u{20E3}]+\s*)+/u;
 const NTH_DAY = /^(?:第?\d{1,2}日目|Day\s*\d{1,2}|初日|最終日)/i;
 const DATE_AT_START = /^(?:\d{4}\s*[/.年-]\s*)?\d{1,2}\s*[/月.]\s*\d{1,2}\s*日?/;
 
@@ -109,20 +111,26 @@ const DATE_AT_START = /^(?:\d{4}\s*[/.年-]\s*)?\d{1,2}\s*[/月.]\s*\d{1,2}\s*�
  *
  * ChatGPT の返事は見出しを Markdown で飾りがちなので(「### 12/27(日)」「**12/27(日)**」)、
  * その飾りは外して見る。外さないと見出しと見なされず、複数日が1回に詰まって後ろの日が切れる。
- * 「#」は見出しの印そのものなので、「■」と同じく印として扱う。 */
+ * 「#」は見出しの印そのものなので、「■」と同じく印として扱う。
+ *
+ * 行頭の絵文字(「🚗 12/27(日) 高松→鳴門→徳島泊」)も印として扱う。本人が送ってくる旅程が
+ * この形で、見出しと見なされずに2日ぶん(時刻つき58行)が1回に詰まり、サーバーの上限(40件)で
+ * 2日目の後ろが切れていた(2026-10-11)。 */
 function isDayHeading(rawLine: string): boolean {
   const normalized = rawLine.normalize("NFKC").trim();
   const hashed = /^#{1,6}\s/.test(normalized);
-  const line = normalized
+  const unmarked = normalized
     .replace(/^(?:#{1,6}\s+|>\s*)/, "")
     .replace(/^[*_]{1,3}/, "")
     .replace(/[*_]{1,3}$/, "")
     .trim();
+  const emojiLed = LEADING_EMOJI.test(unmarked);
+  const line = unmarked.replace(LEADING_EMOJI, "").trim();
   if (!line || line.length > 40) return false;
   if (/\d{1,2}:\d{2}/.test(line) || /[〜~～]/.test(line)) return false;
 
   let rest = line;
-  const marked = hashed || HEADING_MARKERS.includes(rest[0]);
+  const marked = hashed || emojiLed || HEADING_MARKERS.includes(rest[0]);
   if (marked && HEADING_MARKERS.includes(rest[0])) rest = rest.slice(1).trimStart();
 
   const nth = rest.match(NTH_DAY);

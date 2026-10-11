@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { TripScheduleItem } from "../types";
 import type { TripImportRow } from "./mailPlanImport";
-import { describeScanSaved, diffAgainstSchedule, hasPrefecture, matchRowsToSchedule } from "./tripPlanEdit";
+import { describeScanSaved, diffAgainstSchedule, hasPrefecture, matchRowsToSchedule, unmentionedSchedule } from "./tripPlanEdit";
 
 function item(partial: Partial<TripScheduleItem> & { id: string; title: string }): TripScheduleItem {
   return { tripId: "trip-1", date: "2026-09-12", type: "other", createdAt: 0, ...partial };
@@ -85,12 +85,13 @@ describe("読み取った行と既存の日程の突き合わせ", () => {
     expect(matchRowsToSchedule([row({ title: "屋島", startTime: "09:00" })], [item({ id: "a", title: "屋島観光", startTime: "16:40" })])).toEqual([undefined]);
   });
 
-  it("矢印だけが同じ「羽田→福岡」と「羽田→大阪」は別の予定", () => {
+  it("矢印だけが同じ「羽田→福岡」と「羽田→大阪」は、確かな一致にしない(同じ時刻・同じ種類の枠として弱く当てる)", () => {
+    // 1人の旅で同じ分に2便は出ないので、行き先が変わった同じ便の枠とみなす。ただし既定では選ばない。
     const matches = matchRowsToSchedule(
       [row({ title: "羽田→大阪", startTime: "08:20" })],
       [item({ id: "a", title: "羽田→福岡", startTime: "08:20" })],
     );
-    expect(matches).toEqual([undefined]);
+    expect(matches[0]).toMatchObject({ strength: "loose", bySlot: true });
   });
 
   it("既存の日程1件に当てられる行は1行だけ(2行が同じ日程を書き換えない)", () => {
@@ -246,19 +247,104 @@ describe("地域つきに直した場所を、計画文の名前で書き戻さ�
 });
 
 describe("足りない予定を、似た題名の既存の予定の更新にしない", () => {
-  it("同じ時刻でも、場所が別の所なら当てない(新しい予定になる)", () => {
-    const castle = item({ id: "c", title: "松山城", date: "2026-12-29", startTime: "15:00", location: "松山城 愛媛県松山市丸之内" });
+  it("同じ時刻でも、場所が別の所なら確かな一致にしない(既定で選ばれて松山城を書き換えない)", () => {
+    const castle = item({ id: "c", title: "松山城", date: "2026-12-29", startTime: "15:00", type: "sightseeing", location: "松山城 愛媛県松山市丸之内" });
     const [match] = matchRowsToSchedule(
-      [row({ title: "松山城山ロープウェイ", date: "2026-12-29", startTime: "15:00", location: "松山城山ロープウェイ" })],
+      [row({ title: "松山城山ロープウェイ", date: "2026-12-29", startTime: "15:00", type: "sightseeing", location: "松山城山ロープウェイ" })],
       [castle],
     );
-    expect(match).toBeUndefined();
+    expect(match?.strength).toBe("loose");
+  });
+
+  it("同じ文章に「松山城」の行もあれば、松山城はそちらが取り、ロープウェイは新しい予定になる", () => {
+    const castle = item({ id: "c", title: "松山城", date: "2026-12-29", startTime: "15:00", type: "sightseeing", location: "松山城" });
+    const matches = matchRowsToSchedule(
+      [
+        row({ title: "松山城山ロープウェイ", date: "2026-12-29", startTime: "15:00", type: "sightseeing", location: "松山城山ロープウェイ" }),
+        row({ title: "松山城", date: "2026-12-29", startTime: "15:00", type: "sightseeing", location: "松山城" }),
+      ],
+      [castle],
+    );
+    expect(matches[0]).toBeUndefined();
+    expect(matches[1]?.item.id).toBe("c");
   });
 
   it("場所が同じ所(都道府県を足しただけ)なら、これまでどおり当てる", () => {
     const yashima = item({ id: "y", title: "屋島観光", date: "2026-12-30", startTime: "17:05", location: "屋島 香川県" });
     const [match] = matchRowsToSchedule([row({ title: "屋島", date: "2026-12-30", startTime: "17:05", location: "屋島" })], [yashima]);
     expect(match?.item.id).toBe("y");
+  });
+});
+
+describe("組み直した計画との突き合わせ(ChatGPTで作り直すと、順番も書き方も変わる)", () => {
+  it("順番が入れ替わった予定は、題名で当てて時刻を更新する(二重に入れない)", () => {
+    const existing = [
+      item({ id: "o", title: "大麻比古神社", startTime: "13:15", endTime: "13:30", type: "sightseeing" }),
+      item({ id: "r", title: "霊山寺", startTime: "13:30", endTime: "13:45", type: "sightseeing" }),
+    ];
+    const rows = [
+      row({ title: "霊山寺参拝", startTime: "13:15", endTime: "13:30", type: "sightseeing" }),
+      row({ title: "大麻比古神社参拝", startTime: "13:45", endTime: "14:00", type: "sightseeing" }),
+    ];
+    const matches = matchRowsToSchedule(rows, existing);
+    expect(matches.map((m) => [m?.item.id, m?.strength])).toEqual([
+      ["r", "strong"],
+      ["o", "strong"],
+    ]);
+  });
+
+  it("種類が違えば、時刻がずれた同じ名前でも当てない(「高知城」と「高知城へ移動」)", () => {
+    const [match] = matchRowsToSchedule(
+      [row({ title: "高知城へ移動", startTime: "17:00", type: "transport" })],
+      [item({ id: "k", title: "高知城", startTime: "17:10", type: "sightseeing" })],
+    );
+    expect(match).toBeUndefined();
+  });
+
+  it("書き方がまるで違っても、開始・終了の時刻と種類が同じなら同じ枠として当てる", () => {
+    const existing = [
+      item({ id: "rent", title: "レンタカー出発", startTime: "12:10", type: "transport" }),
+      item({ id: "leg", title: "高松→大麻比古神社", startTime: "12:10", endTime: "13:15", type: "transport" }),
+    ];
+    const [match] = matchRowsToSchedule([row({ title: "霊山寺へ移動", startTime: "12:10", endTime: "13:15", type: "transport" })], existing);
+    // 終了時刻まで合う方を取る。弱い一致なので、既定では選ばない(更新しなければ二重にも入らない)。
+    expect(match).toMatchObject({ item: { id: "leg" }, strength: "loose", bySlot: true });
+  });
+
+  it("枠で当てた時だけ、題名の書き換えも更新の候補にする", () => {
+    const leg = item({ id: "leg", title: "高松→大麻比古神社", startTime: "12:10", endTime: "13:15", type: "transport" });
+    const next = row({ title: "霊山寺へ移動", startTime: "12:10", endTime: "13:15", type: "transport" });
+    expect(diffAgainstSchedule(leg, next).changes).toEqual([]);
+    expect(diffAgainstSchedule(leg, next, { allowRename: true }).changes).toEqual([
+      { field: "title", label: "題名", before: "高松→大麻比古神社", after: "霊山寺へ移動" },
+    ]);
+  });
+});
+
+describe("文章に無い予定", () => {
+  const existing = [
+    item({ id: "a", title: "霊山寺", date: "2026-12-27", startTime: "13:30" }),
+    item({ id: "b", title: "霊山寺→鳴門観光汽船", date: "2026-12-27", startTime: "13:45" }),
+    item({ id: "c", title: "うだつの町並み", date: "2026-12-28", startTime: "07:45" }),
+    item({ id: "d", title: "松山城", date: "2026-12-29", startTime: "15:00" }),
+  ];
+
+  it("文章が扱っている日のうち、どの行にも当たらなかった日程だけを出す(他の日は見ない)", () => {
+    const rows = [
+      { date: "2026-12-27", matchId: "a" },
+      { date: "2026-12-28", sameAsId: "c" },
+    ];
+    expect(unmentionedSchedule(existing, rows).map((i) => i.id)).toEqual(["b"]);
+  });
+
+  it("読み取った行が無ければ、何も出さない", () => {
+    expect(unmentionedSchedule(existing, [])).toEqual([]);
+  });
+
+  it("消した数も知らせる", () => {
+    expect(describeScanSaved(2, 1, 0, 3)).toBe("日程に2件入れ、日程を1件更新し、3件消しました");
+    expect(describeScanSaved(0, 0, 0, 2)).toBe("日程を2件消しました");
+    expect(describeScanSaved(1, 0, 0, 1)).toBe("日程に1件入れ、1件消しました");
   });
 });
 
