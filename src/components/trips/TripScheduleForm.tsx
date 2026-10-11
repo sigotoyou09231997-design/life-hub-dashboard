@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { db } from "../../db/schema";
-import type { TripScheduleItem, TripScheduleType, TripTransportMode } from "../../types";
+import type { TripExpense, TripScheduleItem, TripScheduleType, TripTransportMode } from "../../types";
+import { toExpenseCategory } from "../../lib/mailPlanImport";
+import { deleteCurrencyFor } from "../../lib/currency";
 import { TRIP_SCHEDULE_TYPES, TRIP_TRANSPORT_MODES } from "../../lib/tripCategories";
 import { SegmentedField, type SegmentedOption } from "../ui/SegmentedField";
 import { TRANSPORT_MODE_ICON } from "./transportModes";
@@ -8,7 +10,7 @@ import { ChevronDown, ImagePlus, MapPinned } from "lucide-react";
 import { detailsForSave, hasScheduleDetails, type ScheduleDetailField } from "../../lib/scheduleDetails";
 import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
 import { PhotoField } from "../attachments/PhotoField";
-import { Input, Textarea } from "../ui/Input";
+import { AmountInput, Input, Textarea } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { DateRangeField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
@@ -19,6 +21,8 @@ import { isMultiDay, normalizeEndDate, shiftEndDate, spanDays } from "../../lib/
 interface Props {
   tripId: string;
   initial?: TripScheduleItem;
+  /** 旅行の参加者。いれば、予定の費用の「支払った人」を選べる(src/lib/tripMembers.ts)。 */
+  members?: string[];
   defaultDate: string;
   /** 保存した予定の日(開始日)。旅行の画面が、その日へ表示を切り替えるのに使う。 */
   onSaved: (date: string) => void;
@@ -31,7 +35,7 @@ const TRANSPORT_OPTIONS: SegmentedOption<TripTransportMode | "">[] = [
   { value: "", label: "未定" },
 ];
 
-export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCancel }: Props) {
+export function TripScheduleForm({ tripId, initial, members = [], defaultDate, onSaved, onCancel }: Props) {
   const [date, setDate] = useState(initial?.date ?? defaultDate);
   /** 終了日。宿泊のように何日かにまたがるものだけ入れる(空＝その日で終わる)。 */
   const [endDate, setEndDate] = useState(initial?.endDate ?? "");
@@ -56,9 +60,14 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
   const setDetail = (field: ScheduleDetailField) => (event: React.ChangeEvent<HTMLInputElement>) =>
     setDetails((current) => ({ ...current, [field]: event.target.value }));
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
+  // この予定の費用(TripExpense.scheduleId がこの予定)。金額を入れると作り、消すと消す。費用タブにも出る。
+  const [linkedExpense, setLinkedExpense] = useState<TripExpense>();
+  const [amount, setAmount] = useState("");
+  const [paidBy, setPaidBy] = useState("");
   const [saving, setSaving] = useState(false);
 
   // 貼ってある写真は別のテーブルにあるので、開いた時に読み直す(書類・メモ・日記と同じ。src/lib/attachments.ts)。
+  // この予定の費用も、費用の表にあるので一緒に読む。
   const initialId = initial?.id;
   useEffect(() => {
     if (!initialId) return;
@@ -66,10 +75,51 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
     loadAttachmentDrafts("tripSchedule", initialId).then((drafts) => {
       if (alive) setPhotos(drafts);
     });
+    void db.tripExpenses
+      .where("tripId")
+      .equals(tripId)
+      .filter((expense) => expense.scheduleId === initialId)
+      .first()
+      .then((expense) => {
+        if (!alive || !expense) return;
+        setLinkedExpense(expense);
+        setAmount(String(expense.amount));
+        setPaidBy(expense.paidBy ?? "");
+      });
     return () => {
       alive = false;
     };
-  }, [initialId]);
+  }, [initialId, tripId]);
+
+  // 参加者から外した人が払っていた費用も、その名前のまま選べるように残す。
+  const payerOptions = linkedExpense?.paidBy && !members.includes(linkedExpense.paidBy) ? [...members, linkedExpense.paidBy] : members;
+
+  /** 予定の費用を、入れた金額に合わせる(作る・書き換える・消す)。 */
+  async function saveLinkedExpense(scheduleId: string, scheduleTitle: string) {
+    const yen = Math.round(Number(amount));
+    if (!amount.trim() || !Number.isFinite(yen) || yen <= 0) {
+      if (linkedExpense?.id) {
+        await db.tripExpenses.delete(linkedExpense.id);
+        await deleteCurrencyFor(linkedExpense.id);
+      }
+      return;
+    }
+    if (linkedExpense?.id) {
+      await db.tripExpenses.update(linkedExpense.id, { amount: yen, paidBy: paidBy || undefined, title: scheduleTitle });
+      return;
+    }
+    await db.tripExpenses.add({
+      tripId,
+      title: scheduleTitle,
+      amount: yen,
+      category: toExpenseCategory(type),
+      paidDate: date,
+      paid: Boolean(paidBy),
+      paidBy: paidBy || undefined,
+      scheduleId,
+      createdAt: Date.now(),
+    });
+  }
 
   /** 開始日を動かしたら、終了日も同じ日数ぶん一緒に動かす(src/lib/eventSpan.ts)。 */
   function changeDate(next: string) {
@@ -106,6 +156,7 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
       scheduleId = String(await db.tripSchedule.add(record));
     }
     await saveAttachmentDrafts("tripSchedule", scheduleId, photos);
+    await saveLinkedExpense(scheduleId, record.title);
     setSaving(false);
     onSaved(date);
   }
@@ -205,6 +256,22 @@ export function TripScheduleForm({ tripId, initial, defaultDate, onSaved, onCanc
               <Input label="営業時間" optional value={details.openingHours} onChange={setDetail("openingHours")} placeholder="例: 9:00〜16:30(水曜休み)" />
             )}
           </>
+        )}
+      </FormPanel>
+
+      <FormPanel caption="費用">
+        <AmountInput label="金額" optional value={amount} onChange={(e) => setAmount(e.target.value)} min={0} placeholder="0" />
+        {payerOptions.length > 0 ? (
+          <Select label="支払った人" optional value={paidBy} onChange={(e) => setPaidBy(e.target.value)}>
+            <option value="">決めていない</option>
+            {payerOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        ) : (
+          <p className="px-[0.9rem] py-2.5 text-xs text-slate-400">旅行の編集で参加者を入れると、誰が払ったかも選べます。</p>
         )}
       </FormPanel>
 

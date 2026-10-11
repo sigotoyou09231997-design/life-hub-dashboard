@@ -129,6 +129,7 @@ export default function SharedTripPage() {
           </span>
           <span>{tripDurationLabel(trip.startDate, trip.endDate)}</span>
         </p>
+        {trip.members && trip.members.length > 0 && <p className="shared-trip__meta">参加者: {trip.members.join("・")}</p>}
       </header>
 
       <main className="shared-trip__body">
@@ -209,6 +210,7 @@ export default function SharedTripPage() {
                             <span className="text-sm text-slate-700">{expense.title}</span>
                             <Badge tone={category.tone}>{category.label}</Badge>
                             {!expense.paid && <Badge tone="warning">未払い</Badge>}
+                            {expense.paidBy && <span className="text-xs text-slate-500">{expense.paidBy}が支払い</span>}
                           </span>
                           {expense.memo && (
                             <span className="mt-0.5 block whitespace-pre-wrap text-xs text-slate-500">

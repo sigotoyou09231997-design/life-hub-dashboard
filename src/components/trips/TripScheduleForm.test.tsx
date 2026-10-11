@@ -9,7 +9,16 @@ const mocks = vi.hoisted(() => ({
   updated: [] as [string, unknown][],
   savedPhotos: [] as [string, string, unknown[]][],
   existingPhotos: [] as unknown[],
+  linkedExpense: undefined as undefined | Record<string, unknown>,
+  expenseAdded: [] as unknown[],
+  expenseUpdated: [] as [string, unknown][],
+  expenseDeleted: [] as string[],
 }));
+
+vi.mock("../../lib/currency", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/currency")>("../../lib/currency");
+  return { ...actual, deleteCurrencyFor: async () => {} };
+});
 
 // 写真は別のテーブル(端末の中だけ)。ここでは「どの予定に何枚貼るか」だけを見る。
 vi.mock("../../lib/attachments", async () => {
@@ -30,6 +39,12 @@ vi.mock("../../db/schema", () => ({
       },
       update: async (id: string, row: unknown) => void mocks.updated.push([id, row]),
     },
+    tripExpenses: {
+      where: () => ({ equals: () => ({ filter: () => ({ first: async () => mocks.linkedExpense }) }) }),
+      add: async (row: unknown) => void mocks.expenseAdded.push(row),
+      update: async (id: string, patch: unknown) => void mocks.expenseUpdated.push([id, patch]),
+      delete: async (id: string) => void mocks.expenseDeleted.push(id),
+    },
   },
 }));
 
@@ -42,12 +57,16 @@ beforeEach(() => {
   mocks.updated = [];
   mocks.savedPhotos = [];
   mocks.existingPhotos = [];
+  mocks.linkedExpense = undefined;
+  mocks.expenseAdded = [];
+  mocks.expenseUpdated = [];
+  mocks.expenseDeleted = [];
 });
 afterEach(cleanup);
 
-function renderForm(initial?: TripScheduleItem) {
+function renderForm(initial?: TripScheduleItem, members?: string[]) {
   const saved = vi.fn();
-  render(<TripScheduleForm tripId="t1" initial={initial} defaultDate="2026-12-27" onSaved={saved} onCancel={() => {}} />);
+  render(<TripScheduleForm tripId="t1" initial={initial} members={members} defaultDate="2026-12-27" onSaved={saved} onCancel={() => {}} />);
   return saved;
 }
 
@@ -137,6 +156,44 @@ describe("旅行の予定の入力: 詳細", () => {
   it("詳細が入っている予定を開くと、詳細を開いた状態で出す", () => {
     renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "桂浜", type: "sightseeing", phone: "088-000-0000", createdAt: 1 });
     expect((screen.getByPlaceholderText("例: 088-687-0613") as HTMLInputElement).value).toBe("088-000-0000");
+  });
+});
+
+describe("旅行の予定の入力: 費用と支払った人", () => {
+  it("金額と支払った人を入れると、その予定の費用を作る(費用タブにも出る)", async () => {
+    const user = userEvent.setup();
+    renderForm(undefined, ["ふなだ", "えっくん"]);
+    await user.type(screen.getByPlaceholderText("例: 五稜郭"), "うずしお観潮船");
+    await user.type(screen.getByLabelText(/^金額/), "2500");
+    await user.selectOptions(screen.getByRole("combobox", { name: /支払った人/ }), "えっくん");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(mocks.expenseAdded).toEqual([
+      expect.objectContaining({ tripId: "t1", title: "うずしお観潮船", amount: 2500, paidBy: "えっくん", scheduleId: "new-schedule-id", category: "sightseeing" }),
+    ]);
+  });
+
+  it("参加者がいなければ、支払った人の代わりに案内を出す(金額だけは入れられる)", () => {
+    renderForm();
+    expect(screen.queryByRole("combobox", { name: /支払った人/ })).toBeNull();
+    expect(screen.getByText(/参加者を入れると、誰が払ったかも選べます/)).toBeTruthy();
+  });
+
+  it("今ある予定の費用を読み、直すと書き換える。金額を消すと、その費用を消す", async () => {
+    mocks.linkedExpense = { id: "e1", tripId: "t1", title: "桂浜", amount: 1000, paidBy: "ふなだ", scheduleId: "s1" };
+    const user = userEvent.setup();
+    renderForm({ id: "s1", tripId: "t1", date: "2026-12-28", title: "桂浜", type: "sightseeing", createdAt: 1 }, ["ふなだ", "えっくん"]);
+    const amount = await screen.findByDisplayValue("1000");
+    await user.clear(amount);
+    await user.type(amount, "1200");
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.expenseUpdated).toEqual([["e1", { amount: 1200, paidBy: "ふなだ", title: "桂浜" }]]);
+
+    cleanup();
+    mocks.expenseUpdated = [];
+    renderForm({ id: "s1", tripId: "t1", date: "2026-12-28", title: "桂浜", type: "sightseeing", createdAt: 1 }, ["ふなだ"]);
+    await user.clear(await screen.findByDisplayValue("1000"));
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.expenseDeleted).toEqual(["e1"]);
   });
 });
 

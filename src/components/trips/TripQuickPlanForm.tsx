@@ -114,8 +114,9 @@ export function TripQuickPlanForm({ tripId, defaultDate, nextSortOrder, existing
       nextSortOrder,
       existingRouteKeys,
     });
-    await db.tripSchedule.add(records.schedule);
-    if (records.expense) await db.tripExpenses.add(records.expense);
+    // 一緒に入れた費用は、その予定の費用にする(予定の一覧に金額が出る・予定の入力で直せる)。
+    const scheduleId = String(await db.tripSchedule.add(records.schedule));
+    if (records.expense) await db.tripExpenses.add({ ...records.expense, scheduleId });
     if (records.route) await db.tripRoutePlaces.add(records.route);
     setSaving(false);
     onSaved(describeTripQuickPlanSaved(records));
