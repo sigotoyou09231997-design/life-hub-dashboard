@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { canSwapWithinTime, compareScheduleTime, swapWithinTime } from "../../lib/scheduleOrder";
 import type { Attachment, TripExpense, TripScheduleItem } from "../../types";
 import { formatDisplayDate, formatShortDate } from "../../lib/date";
 import { occurringOn, spanLabel } from "../../lib/eventSpan";
@@ -12,7 +13,7 @@ import { PhotoStrip } from "../attachments/PhotoStrip";
 import { ScheduleDetailLines } from "./ScheduleDetailLines";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { Button } from "../ui/Button";
-import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Trash2, Wallet } from "lucide-react";
+import { CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MapPin, Plus, Trash2, Wallet } from "lucide-react";
 
 interface Props {
   dayList: string[];
@@ -24,6 +25,8 @@ interface Props {
   onEdit: (item: TripScheduleItem) => void;
   onDelete: (id: string) => void;
   onLocationTap: (location: string, title: string, date: string) => void;
+  /** 同じ時刻の予定を入れ替えた時に書き直す並び順(src/lib/scheduleOrder.ts)。無ければ「↑」「↓」を出さない。 */
+  onReorder?: (changes: { id: string; sortOrder: number }[]) => void;
   /** その日を初期値にして「予定を追加」を開く。 */
   onAddForDate: (date: string) => void;
   /** 行き先の天気予報。まだ引いている最中(undefined)・引けなかった場合は何も出さない
@@ -51,7 +54,7 @@ interface Props {
  * 全部の日を縦に並べていた頃は、7日間の旅行で2日目以降へ行くのに、1日目の15件ぶんを
  * 延々と送る必要があった。下には「前の日・次の日」を置き、1日を読み終えたらそのまま次へ進める。
  */
-export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySchedule, onEdit, onDelete, onLocationTap, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
+export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySchedule, onEdit, onDelete, onLocationTap, onReorder, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
   const confirm = useConfirm();
   const chipsRef = useRef<HTMLDivElement>(null);
 
@@ -106,9 +109,8 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
       </div>
       {shownDays.map(({ date, i }) => {
         // またがる日程(2泊の宿泊など)は、初日だけでなくその間の日すべてに出す。
-        const dayItems = occurringOn(items, date).sort((a, b) =>
-          (a.startTime ?? "").localeCompare(b.startTime ?? ""),
-        );
+        // 同じ時刻の予定は、入れ替えた順(無ければ先に入れた方が上)。
+        const dayItems = occurringOn(items, date).sort(compareScheduleTime);
         const forecast = forecastForDate(forecasts, date);
 
         return (
@@ -130,7 +132,9 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
               </button>
             ) : (
               <ol className="trip-timeline">
-                {dayItems.map((item) => {
+                {dayItems.map((item, index) => {
+                  const canUp = Boolean(onReorder) && canSwapWithinTime(dayItems, index, -1);
+                  const canDown = Boolean(onReorder) && canSwapWithinTime(dayItems, index, 1);
                   const typeDef = getTripScheduleType(item.type);
                   const time = timelineTimeParts(item, date);
                   return (
@@ -190,6 +194,28 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                               </div>
                             )}
                           </div>
+                          {(canUp || canDown) && (
+                            <div className="pointer-events-auto flex shrink-0 flex-col" role="group" aria-label="同じ時刻の予定の順番">
+                              <button
+                                type="button"
+                                disabled={!canUp}
+                                onClick={() => onReorder?.(swapWithinTime(dayItems, index, -1))}
+                                aria-label={`「${item.title}」を上へ`}
+                                className="rounded-full p-1 text-slate-400 transition-colors active:bg-slate-100 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                              >
+                                <ChevronUp size={16} />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={!canDown}
+                                onClick={() => onReorder?.(swapWithinTime(dayItems, index, 1))}
+                                aria-label={`「${item.title}」を下へ`}
+                                className="rounded-full p-1 text-slate-400 transition-colors active:bg-slate-100 disabled:opacity-25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                              >
+                                <ChevronDown size={16} />
+                              </button>
+                            </div>
+                          )}
                           <button
                             type="button"
                             onClick={async () => {

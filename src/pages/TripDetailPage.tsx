@@ -357,6 +357,9 @@ export default function TripDetailPage() {
                 setScheduleDatePreset(date);
                 setEditingSchedule("new");
               }}
+              onReorder={(changes) => {
+                void Promise.all(changes.map((change) => db.tripSchedule.update(change.id, { sortOrder: change.sortOrder })));
+              }}
               onLocationTap={(location, title, date) => {
                 setTab("route");
                 // ルートにある場所なら、その日に切り替えて、その場所まで送る(2026-10-11、「ルートの該当の

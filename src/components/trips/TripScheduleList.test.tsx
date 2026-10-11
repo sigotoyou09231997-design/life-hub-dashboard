@@ -272,3 +272,34 @@ describe("予定の費用", () => {
   });
 });
 
+describe("同じ時刻の予定の順番", () => {
+  it("同じ時刻の予定にだけ「↑」「↓」を出し、押すと入れ替える並び順を渡す", async () => {
+    const user = userEvent.setup();
+    const onReorder = vi.fn();
+    render(
+      <TripScheduleList
+        dayList={["2026-12-27"]}
+        items={[
+          item({ id: "boat", title: "高知→四万十の碧 乗船場所", startTime: "06:00", createdAt: 1 }),
+          item({ id: "leave", title: "ホテル出発", startTime: "06:00", createdAt: 2 }),
+          item({ id: "desk", title: "受付・待機", startTime: "08:15", createdAt: 3 }),
+        ]}
+        onEdit={() => {}}
+        onDelete={() => {}}
+        onLocationTap={() => {}}
+        onReorder={onReorder}
+        onAddForDate={() => {}}
+        selectedDate="2026-12-27"
+        onSelectDate={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+    expect(screen.queryByRole("button", { name: "「受付・待機」を上へ" })).toBeNull();
+    expect((screen.getByRole("button", { name: "「高知→四万十の碧 乗船場所」を上へ" }) as HTMLButtonElement).disabled).toBe(true);
+    await user.click(screen.getByRole("button", { name: "「ホテル出発」を上へ" }));
+    expect(onReorder).toHaveBeenCalledWith([
+      { id: "leave", sortOrder: 1 },
+      { id: "boat", sortOrder: 2 },
+    ]);
+  });
+});
