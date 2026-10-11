@@ -80,6 +80,8 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
   const scrollYRef = useRef(0);
   /** キーボードでシートを持ち上げたか。閉じた後に位置を戻すのは、この時だけ。 */
   const liftedRef = useRef(false);
+  /** いまの指(ポインタ)を、シートの中で置いたか。外側(暗い所)のクリックで閉じてよいかの判断に使う。 */
+  const pressedInPanelRef = useRef(false);
 
   // Capture synchronously during render (before commit) rather than in an effect:
   // an autoFocus field inside the sheet's content steals focus during commit, which
@@ -254,8 +256,25 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      onPointerDownCapture={(event) => {
+        pressedInPanelRef.current = panelRef.current?.contains(event.target as Node) ?? false;
+      }}
     >
-      <div className="spatial-sheet-backdrop absolute inset-0 animate-fade-in motion-reduce:animate-none" onClick={onClose} aria-hidden />
+      <div
+        className="spatial-sheet-backdrop absolute inset-0 animate-fade-in motion-reduce:animate-none"
+        onClick={() => {
+          // シートの中で触り始めた指が、離した時には外側(暗い所)の上にあっても閉じない。
+          // iPhone では、キーボードを出したまま下の方を押すと、触れた瞬間にフォーカスが外れて
+          // (上の touchstart)キーボードが閉じ、シートが下りる。指を離す頃には同じ場所が外側に
+          // なっていて、押したつもりのない「外側のクリック」で編集画面ごと消えていた(2026-10-11)。
+          if (pressedInPanelRef.current) {
+            pressedInPanelRef.current = false;
+            return;
+          }
+          onClose();
+        }}
+        aria-hidden
+      />
       <div
         ref={panelRef}
         className={`glass-modal spatial-sheet sheet-panel relative z-10 flex w-full max-w-md flex-col animate-slide-up motion-reduce:animate-none lg:max-w-xl ${

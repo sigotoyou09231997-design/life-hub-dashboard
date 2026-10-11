@@ -19,6 +19,9 @@ interface Props<T extends string> {
   /** 絵を上・文字を下に積む。選択肢が多く1つの幅が狭い時(移動手段の5列×2行など)、絵と文字を横に並べると
    * 文字が1字ずつ縦に折れてしまう(2026-10-11、スマホで「タクシー」が4行になった)。 */
   stacked?: boolean;
+  /** 1つの溝に入れず、1つずつ分けたボタンとして並べる。2段に折り返す時は、溝の中で行が割れて
+   * どこまでが1つのボタンか分からなくなるので、こちらにする(本人の好み、2026-09-06)。 */
+  separate?: boolean;
 }
 
 /** 選択肢が少ないものをプルダウンにしない。全部見えていて、1回で選べる。 */
@@ -31,11 +34,12 @@ export function SegmentedField<T extends string>({
   onChange,
   columns,
   stacked = false,
+  separate = false,
 }: Props<T>) {
   return (
     <Field label={label} optional={optional} hint={hint} as="div">
       <div
-        className="segmented"
+        className={`segmented${separate ? " segmented--separate" : ""}`}
         style={{ gridTemplateColumns: `repeat(${columns ?? options.length}, minmax(0, 1fr))` }}
       >
         {options.map((option) => {

@@ -3,7 +3,7 @@ import { db } from "../../db/schema";
 import type { TripPackingItem, TripPackingCategory } from "../../types";
 import { TRIP_PACKING_CATEGORIES } from "../../lib/tripCategories";
 import { Input } from "../ui/Input";
-import { Select } from "../ui/Select";
+import { SegmentedField } from "../ui/SegmentedField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
@@ -55,17 +55,18 @@ export function TripPackingForm({ tripId, initial, onSaved, onCancel }: Props) {
           required
           autoFocus
         />
-        <Select
+        {/* プルダウンにしない(2026-10-11)。iPhone では、持ち物の欄でキーボードを出したまま
+            プルダウンを押すと、選択肢がキーボードで持ち上がったシートの位置に出て、キーボードが
+            閉じてシートが下りた後も上に取り残された。5つなら全部並べて1回で選べる。
+            2段になるので、1つの溝に入れずボタンを分ける(separate)。 */}
+        <SegmentedField
           label="カテゴリ"
           value={category}
-          onChange={(e) => setCategory(e.target.value as TripPackingCategory)}
-        >
-          {TRIP_PACKING_CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </Select>
+          options={TRIP_PACKING_CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
+          onChange={setCategory}
+          columns={3}
+          separate
+        />
       </FormPanel>
 
       <FormActions>
