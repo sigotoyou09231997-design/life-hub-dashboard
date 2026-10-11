@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   extractError: null as Error | null,
   existingTripSchedule: [] as Record<string, unknown>[],
   saved: { tripSchedule: [] as unknown[], tripExpenses: [] as unknown[], updated: [] as { id: string; patch: unknown }[], deleted: [] as string[] },
+  deletedPhotosFor: [] as string[],
   sent: [] as Record<string, unknown>[],
   // 専用GPTから届いた旅程(受信箱)と、送信コードの状態。
   inbox: [] as unknown[],
@@ -34,6 +35,12 @@ vi.mock("../../db/schema", () => ({
 // useLiveQuery は本物のDexieテーブルを相手にしないと値を返さない。ここで見たいのは
 // 画面の組み立てなので、問い合わせ関数を1回実行するだけの最小版に差し替える
 // (src/components/gmail/MailPlanImport.test.tsx と同じ)。
+// 予定を消す時は、その予定に貼った写真も片付ける(写真は別のテーブル)。ここでは誰の分を片付けたかだけ見る。
+vi.mock("../../lib/attachments", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/attachments")>("../../lib/attachments");
+  return { ...actual, deleteAttachmentsFor: async (_ownerType: string, ownerId: string) => void mocks.deletedPhotosFor.push(ownerId) };
+});
+
 vi.mock("dexie-react-hooks", async () => {
   const { useEffect, useState } = await import("react");
   return {
@@ -102,6 +109,7 @@ beforeEach(() => {
   mocks.extractError = null;
   mocks.existingTripSchedule = [];
   mocks.saved = { tripSchedule: [], tripExpenses: [], updated: [], deleted: [] };
+  mocks.deletedPhotosFor = [];
   mocks.sent = [];
   mocks.inbox = [];
   mocks.sendCodeState = { kind: "unavailable" };
@@ -321,6 +329,7 @@ describe("写真・文章から日程を読み取る画面", () => {
       await user.click(screen.getByRole("button", { name: "すべて選ぶ" }));
       await user.click(screen.getByRole("button", { name: "2件を消す" }));
       expect(mocks.saved.deleted.sort()).toEqual(["b", "c"]);
+      expect(mocks.deletedPhotosFor.sort()).toEqual(["b", "c"]);
     });
 
     it("まだ日程が1件も無い旅行では、比べた結果ではなく、これまでの説明を出す", async () => {

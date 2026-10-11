@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { TripScheduleItem } from "../../types";
+import type { Attachment, TripScheduleItem } from "../../types";
 import { formatDisplayDate, formatShortDate } from "../../lib/date";
 import { occurringOn, spanLabel } from "../../lib/eventSpan";
 import { timelineTimeParts } from "../../lib/tripTimeline";
@@ -8,6 +8,7 @@ import { forecastForDate, forecastHorizon, type TripWeather } from "../../lib/we
 import { TripDayWeather, TripWeatherBanner } from "./TripDayWeather";
 import { Badge } from "../ui/Badge";
 import { TransportModeChip } from "./transportModes";
+import { PhotoStrip } from "../attachments/PhotoStrip";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { Button } from "../ui/Button";
 import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Trash2 } from "lucide-react";
@@ -15,6 +16,8 @@ import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Trash2 } from "
 interface Props {
   dayList: string[];
   items: TripScheduleItem[];
+  /** 予定に貼った写真(予定の id ごと)。無ければ写真を出さない。 */
+  photosBySchedule?: Map<string, Attachment[]>;
   onEdit: (item: TripScheduleItem) => void;
   onDelete: (id: string) => void;
   onLocationTap: (location: string, title: string) => void;
@@ -45,7 +48,7 @@ interface Props {
  * 全部の日を縦に並べていた頃は、7日間の旅行で2日目以降へ行くのに、1日目の15件ぶんを
  * 延々と送る必要があった。下には「前の日・次の日」を置き、1日を読み終えたらそのまま次へ進める。
  */
-export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationTap, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
+export function TripScheduleList({ dayList, items, photosBySchedule, onEdit, onDelete, onLocationTap, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
   const confirm = useConfirm();
   const chipsRef = useRef<HTMLDivElement>(null);
 
@@ -168,6 +171,11 @@ export function TripScheduleList({ dayList, items, onEdit, onDelete, onLocationT
                                 </span>
                               )}
                             </div>
+                            {item.id && (photosBySchedule?.get(item.id)?.length ?? 0) > 0 && (
+                              <div className="pointer-events-auto mt-2">
+                                <PhotoStrip attachments={photosBySchedule!.get(item.id)!} limit={4} interactive />
+                              </div>
+                            )}
                           </div>
                           <button
                             type="button"
