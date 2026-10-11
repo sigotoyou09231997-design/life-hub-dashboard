@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TripScheduleItem } from "../types";
 import {
   buildDayRoute,
+  buildSegmentLinks,
   dayRouteStops,
+  legKey,
+  stopKeys,
   maxWaypointsForDevice,
   MAX_WAYPOINTS_DESKTOP,
   MAX_WAYPOINTS_MOBILE,
@@ -149,5 +152,64 @@ describe("maxWaypointsForDevice", () => {
     expect(maxWaypointsForDevice()).toBe(MAX_WAYPOINTS_MOBILE);
     vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/120" });
     expect(maxWaypointsForDevice()).toBe(MAX_WAYPOINTS_DESKTOP);
+  });
+});
+
+describe("buildSegmentLinks", () => {
+  const stops = ["A", "B", "C", "D", "E"];
+
+  it("keeps one link when every leg uses the same mode", () => {
+    const links = buildSegmentLinks(stops, ["driving", "driving", "driving", "driving"], 9);
+    expect(links.map((l) => [l.mode, l.from, l.to, l.count])).toEqual([["driving", "A", "E", 5]]);
+  });
+
+  it("splits where the mode changes, sharing the place where it changes", () => {
+    const links = buildSegmentLinks(stops, ["walking", "driving", "driving", "walking"], 9);
+    expect(links.map((l) => [l.mode, l.from, l.to])).toEqual([
+      ["walking", "A", "B"],
+      ["driving", "B", "D"],
+      ["walking", "D", "E"],
+    ]);
+    expect(params(links[1].url).get("travelmode")).toBe("driving");
+    expect(params(links[1].url).get("waypoints")).toBe("C");
+  });
+
+  it("opens train/bus legs one at a time (Google cannot route transit through stops)", () => {
+    const links = buildSegmentLinks(stops, ["transit", "transit", "driving", "driving"], 9);
+    expect(links.map((l) => [l.mode, l.from, l.to])).toEqual([
+      ["transit", "A", "B"],
+      ["transit", "B", "C"],
+      ["driving", "C", "E"],
+    ]);
+    for (const link of links.filter((l) => l.mode === "transit")) {
+      expect(params(link.url).get("waypoints")).toBeNull();
+      expect(params(link.url).get("travelmode")).toBe("transit");
+    }
+  });
+
+  it("still splits a long same-mode stretch by the stop limit", () => {
+    const many = Array.from({ length: 7 }, (_, i) => `P${i}`);
+    const links = buildSegmentLinks(many, Array(6).fill("driving"), MAX_WAYPOINTS_MOBILE);
+    expect(links.map((l) => [l.from, l.to, l.count])).toEqual([
+      ["P0", "P4", 5],
+      ["P4", "P6", 3],
+    ]);
+  });
+
+  it("handles a single leg and a single place", () => {
+    expect(buildSegmentLinks(["A", "B"], ["walking"], 9).map((l) => [l.mode, l.from, l.to])).toEqual([["walking", "A", "B"]]);
+    expect(buildSegmentLinks(["A"], [], 9)[0].url).toContain("/maps/search/");
+    expect(buildSegmentLinks([], [], 9)).toEqual([]);
+  });
+});
+
+describe("legKey / stopKeys", () => {
+  it("names a leg by the day and both ends, ignoring case and spaces", () => {
+    expect(legKey(DAY, " 桂浜 ", "Kochi")).toBe(legKey(DAY, "桂浜", "kochi"));
+    expect(legKey(DAY, "A", "B")).not.toBe(legKey(DAY, "B", "A"));
+  });
+
+  it("tells apart the same place visited twice in a day", () => {
+    expect(stopKeys(DAY, ["桂浜", "海津見神社", "桂浜"])).toEqual([`${DAY}|桂浜|0`, `${DAY}|海津見神社|0`, `${DAY}|桂浜|1`]);
   });
 });

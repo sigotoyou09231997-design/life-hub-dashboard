@@ -3,16 +3,29 @@ import { buildRouteSearchUrl, type TravelMode } from "./googleMaps";
 import { routeKey } from "./mailPlanImport";
 
 /**
- * 旅行の1日ぶんの日程を、Googleマップの1本の経路(出発地 → 経由地 → 目的地)として開くためのリンク。
+ * 旅行の1日ぶんの日程を、Googleマップの経路(出発地 → 経由地 → 目的地)として開くためのリンク。
  *
- * 経由地を入れて経路になるのは車と徒歩だけ。公共交通機関は、複数の経由地を入れても
+ * Googleマップの1本の経路は、移動手段を1つしか持てない。区間(場所から場所への移動)ごとに
+ * 手段を選べるようにするため、同じ手段が続く区間をまとめて1本にし、手段が変わる所で分ける
+ * (buildSegmentLinks)。
+ *
+ * 経由地を入れて1本の経路になるのは車と徒歩だけ。公共交通機関は、複数の経由地を入れても
  * 「乗換案内を計算できませんでした」になる(2026-10-11に実際に開いて確かめた)ので、
- * ここでは扱わず、区間ごとに見るルートの画面に任せる。
+ * 電車・バスの区間は1区間ずつ開く。
  */
-export type DayRouteMode = Extract<TravelMode, "driving" | "walking">;
+export type LegMode = Extract<TravelMode, "driving" | "walking" | "transit">;
+/** 経由地をまとめて渡せる手段。 */
+export type DayRouteMode = Extract<LegMode, "driving" | "walking">;
+
+export const LEG_MODE_LABEL: Record<LegMode, string> = {
+  driving: "車",
+  walking: "徒歩",
+  transit: "電車・バス",
+};
 
 export interface DayRouteLink {
   url: string;
+  mode: LegMode;
   /** この1本が始まる場所と終わる場所。分けたときに「どこからどこまで」を見せるため。 */
   from: string;
   to: string;
@@ -71,9 +84,10 @@ export function buildRouteLinks(
   maxWaypoints: number = maxWaypointsForDevice(),
 ): DayRouteLink[] {
   if (stops.length === 0) return [];
-  if (stops.length === 1) return [{ url: buildRouteSearchUrl(stops, mode), from: stops[0], to: stops[0], count: 1 }];
+  if (stops.length === 1) return [{ url: buildRouteSearchUrl(stops, mode), mode, from: stops[0], to: stops[0], count: 1 }];
   return chunkStops(stops, maxWaypoints).map((chunk) => ({
     url: buildRouteSearchUrl(chunk, mode),
+    mode,
     from: chunk[0],
     to: chunk[chunk.length - 1],
     count: chunk.length,
@@ -89,3 +103,51 @@ export function buildDayRoute(
   const stops = dayRouteStops(items, date);
   return { stops, links: buildRouteLinks(stops, mode, maxWaypoints) };
 }
+
+/**
+ * 区間ごとの手段(legModes[i] は stops[i] → stops[i + 1])で、開くリンクを並べる。
+ * 同じ手段が続く区間は1本にまとめ(車・徒歩は経由地の上限ごとにさらに分ける)、
+ * 電車・バスは1区間ずつにする。
+ */
+export function buildSegmentLinks(
+  stops: string[],
+  legModes: LegMode[],
+  maxWaypoints: number = maxWaypointsForDevice(),
+): DayRouteLink[] {
+  if (stops.length <= 1) return buildRouteLinks(stops, "driving", maxWaypoints);
+  const links: DayRouteLink[] = [];
+  let start = 0;
+  for (let leg = 1; leg <= stops.length - 1; leg++) {
+    const mode = legModes[start] ?? "driving";
+    const last = leg === stops.length - 1;
+    if (!last && (legModes[leg] ?? "driving") === mode) continue;
+    const segment = stops.slice(start, leg + 1);
+    if (mode === "transit") {
+      for (let i = 0; i < segment.length - 1; i++) {
+        const pair = [segment[i], segment[i + 1]];
+        links.push({ url: buildRouteSearchUrl(pair, "transit"), mode, from: pair[0], to: pair[1], count: 2 });
+      }
+    } else {
+      links.push(...buildRouteLinks(segment, mode, maxWaypoints));
+    }
+    start = leg;
+  }
+  return links;
+}
+
+/** 区間の手段を端末に覚えるときの鍵。日付と、両端の場所で決める(外す場所を変えても同じ区間は同じ鍵)。 */
+export function legKey(date: string, from: string, to: string): string {
+  return `${date}|${routeKey(from)}|${routeKey(to)}`;
+}
+
+/** 外した場所を覚えるときの鍵。同じ日に同じ場所が2度出る(桂浜 → 海津見神社 → 桂浜)ので、何度目かも入れる。 */
+export function stopKeys(date: string, stops: string[]): string[] {
+  const seen = new Map<string, number>();
+  return stops.map((stop) => {
+    const key = routeKey(stop);
+    const nth = seen.get(key) ?? 0;
+    seen.set(key, nth + 1);
+    return `${date}|${key}|${nth}`;
+  });
+}
+

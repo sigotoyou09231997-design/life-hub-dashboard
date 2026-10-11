@@ -4,24 +4,28 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { TripScheduleItem } from "../../types";
 import { TripDayRoute } from "./TripDayRoute";
 
-const DAY = "2026-12-28";
+const DAY = "2026-12-27";
 
 function item(location: string | undefined, startTime: string): TripScheduleItem {
   return { id: `${location}${startTime}`, tripId: "t1", date: DAY, title: "x", location, startTime, type: "sightseeing", createdAt: 1 };
 }
 
-const ITEMS = [item("ホテル 徳島県徳島市", "07:00"), item("うだつの町並み 徳島県美馬市", "07:45"), item("桂浜 高知県高知市", "14:50")];
+/** 1日目の形: 電車で高松まで → 歩いてレンタカー店 → 車で回ってホテル。 */
+const DAY1 = [
+  item("小金井駅 栃木県下野市", "04:57"),
+  item("東京駅 東京都千代田区", "06:48"),
+  item("高松駅 香川県高松市", "11:18"),
+  item("ニコニコレンタカー 香川県高松市", "12:10"),
+  item("霊山寺 徳島県鳴門市", "13:30"),
+  item("ホテル 徳島県徳島市", "17:30"),
+];
 
 let open: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   open = vi.fn();
   vi.stubGlobal("open", open);
-  try {
-    window.localStorage.clear();
-  } catch {
-    // 触れない環境では既定のまま。
-  }
+  window.localStorage.clear();
 });
 
 afterEach(() => {
@@ -29,82 +33,103 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+function openSheet(items = DAY1) {
+  render(<TripDayRoute items={items} date={DAY} />);
+  fireEvent.click(screen.getByRole("button", { name: "この日の経路をGoogleマップで開く" }));
+}
+
+function openedParams(call = 0) {
+  return new URL(open.mock.calls[call][0]).searchParams;
+}
+
 describe("TripDayRoute", () => {
-  it("opens the day's route in Google Maps (by car by default)", () => {
-    render(<TripDayRoute items={ITEMS} date={DAY} />);
-    fireEvent.click(screen.getByRole("button", { name: "この日の経路をGoogleマップで開く" }));
-    expect(open).toHaveBeenCalledTimes(1);
-    const [url, target, features] = open.mock.calls[0];
-    expect(target).toBe("_blank");
-    expect(features).toContain("noopener");
-    const params = new URL(url).searchParams;
-    expect(params.get("origin")).toBe("ホテル 徳島県徳島市");
-    expect(params.get("destination")).toBe("桂浜 高知県高知市");
-    expect(params.get("waypoints")).toBe("うだつの町並み 徳島県美馬市");
-    expect(params.get("travelmode")).toBe("driving");
+  it("does not open Google Maps until the user has chosen in the sheet", () => {
+    openSheet();
+    expect(open).not.toHaveBeenCalled();
+    expect(screen.getByText(/チェックを外した場所は、Googleマップの経路に出ません/)).toBeTruthy();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(6);
   });
 
-  it("shows the places that will be routed, in order", () => {
-    render(<TripDayRoute items={ITEMS} date={DAY} />);
-    expect(screen.getByText("ホテル 徳島県徳島市 → うだつの町並み 徳島県美馬市 → 桂浜 高知県高知市")).toBeTruthy();
+  it("opens one route through every place when nothing is changed (by car)", () => {
+    openSheet();
+    fireEvent.click(screen.getByRole("button", { name: "Googleマップで開く（車）" }));
+    const p = openedParams();
+    expect(p.get("origin")).toBe("小金井駅 栃木県下野市");
+    expect(p.get("destination")).toBe("ホテル 徳島県徳島市");
+    expect(p.get("travelmode")).toBe("driving");
+    expect(open.mock.calls[0][1]).toBe("_blank");
   });
 
-  it("switches to walking and remembers the choice", () => {
-    render(<TripDayRoute items={ITEMS} date={DAY} />);
-    fireEvent.click(screen.getByRole("tab", { name: "徒歩" }));
-    fireEvent.click(screen.getByRole("button", { name: "この日の経路をGoogleマップで開く" }));
-    expect(new URL(open.mock.calls[0][0]).searchParams.get("travelmode")).toBe("walking");
-    cleanup();
-    render(<TripDayRoute items={ITEMS} date={DAY} />);
-    expect(screen.getByRole("tab", { name: "徒歩" }).getAttribute("aria-selected")).toBe("true");
-  });
-
-  it("opens a place search when the day has one place", () => {
-    render(<TripDayRoute items={[ITEMS[0]]} date={DAY} />);
-    fireEvent.click(screen.getByRole("button", { name: "この日の場所をGoogleマップで開く" }));
-    expect(open.mock.calls[0][0]).toContain("/maps/search/");
-  });
-
-  it("leaves out a place the user unchecks (e.g. a train station) from the route", () => {
-    const items = [item("小金井駅 栃木県下野市", "04:57"), item("東京駅 東京都千代田区", "06:48"), item("高松駅 香川県高松市", "11:18"), item("ニコニコレンタカー 香川県高松市", "12:10")];
-    render(<TripDayRoute items={items} date={DAY} />);
-    expect(screen.getByText("回る場所を選ぶ（4/4か所）")).toBeTruthy();
+  it("leaves unchecked places out of the route", () => {
+    openSheet();
     fireEvent.click(screen.getByRole("checkbox", { name: "小金井駅 栃木県下野市" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "東京駅 東京都千代田区" }));
-    expect(screen.getByText("回る場所を選ぶ（2/4か所）")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "この日の経路をGoogleマップで開く" }));
-    const params = new URL(open.mock.calls[0][0]).searchParams;
-    expect(params.get("origin")).toBe("高松駅 香川県高松市");
-    expect(params.get("destination")).toBe("ニコニコレンタカー 香川県高松市");
-    expect(params.get("waypoints")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Googleマップで開く（車）" }));
+    const p = openedParams();
+    expect(p.get("origin")).toBe("高松駅 香川県高松市");
+    expect(p.get("waypoints")).toBe("ニコニコレンタカー 香川県高松市|霊山寺 徳島県鳴門市");
   });
 
-  it("tells the user when every place is unchecked", () => {
-    render(<TripDayRoute items={[ITEMS[0], ITEMS[1]]} date={DAY} />);
-    for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
-    expect(screen.queryByRole("button", { name: /Googleマップで開く/ })).toBeNull();
-    expect(screen.getByText("回る場所が1つも選ばれていません。")).toBeTruthy();
+  it("lets each leg have its own mode and splits the route where it changes", () => {
+    openSheet();
+    fireEvent.change(screen.getByRole("combobox", { name: "小金井駅 → 東京駅 の移動手段" }), { target: { value: "transit" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "東京駅 → 高松駅 の移動手段" }), { target: { value: "transit" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "高松駅 → ニコニコレンタカー の移動手段" }), { target: { value: "walking" } });
+    const labels = screen.getAllByRole("button", { name: /^\d\. / }).map((b) => b.textContent);
+    expect(labels).toEqual([
+      "1. 電車・バスで 小金井駅 → 東京駅",
+      "2. 電車・バスで 東京駅 → 高松駅",
+      "3. 徒歩で 高松駅 → ニコニコレンタカー",
+      "4. 車で ニコニコレンタカー → ホテル",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "4. 車で ニコニコレンタカー → ホテル" }));
+    expect(openedParams().get("waypoints")).toBe("霊山寺 徳島県鳴門市");
+  });
+
+  it("changes every leg that has no choice of its own when the overall mode changes", () => {
+    openSheet();
+    fireEvent.change(screen.getByRole("combobox", { name: "高松駅 → ニコニコレンタカー の移動手段" }), { target: { value: "driving" } });
+    fireEvent.click(screen.getByRole("tab", { name: "徒歩" }));
+    expect((screen.getByRole("combobox", { name: "小金井駅 → 東京駅 の移動手段" }) as HTMLSelectElement).value).toBe("walking");
+    expect((screen.getByRole("combobox", { name: "高松駅 → ニコニコレンタカー の移動手段" }) as HTMLSelectElement).value).toBe("driving");
+  });
+
+  it("remembers unchecked places and leg modes the next time", () => {
+    openSheet();
+    fireEvent.click(screen.getByRole("checkbox", { name: "小金井駅 栃木県下野市" }));
+    fireEvent.change(screen.getByRole("combobox", { name: "東京駅 → 高松駅 の移動手段" }), { target: { value: "transit" } });
+    cleanup();
+    openSheet();
+    expect((screen.getByRole("checkbox", { name: "小金井駅 栃木県下野市" }) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByRole("combobox", { name: "東京駅 → 高松駅 の移動手段" }) as HTMLSelectElement).value).toBe("transit");
   });
 
   it("treats a place that appears twice in a day as two separate checkboxes", () => {
-    const twice = [item("桂浜 高知県", "14:50"), item("海津見神社 高知県", "15:35"), item("桂浜 高知県", "16:00")];
-    render(<TripDayRoute items={twice} date={DAY} />);
+    openSheet([item("桂浜 高知県", "14:50"), item("海津見神社 高知県", "15:35"), item("桂浜 高知県", "16:00")]);
     const boxes = screen.getAllByRole("checkbox", { name: "桂浜 高知県" });
     expect(boxes).toHaveLength(2);
     fireEvent.click(boxes[1]);
-    expect(screen.getByText("回る場所を選ぶ（2/3か所）")).toBeTruthy();
+    expect((screen.getAllByRole("checkbox", { name: "桂浜 高知県" })[0] as HTMLInputElement).checked).toBe(true);
+    expect((screen.getAllByRole("checkbox", { name: "桂浜 高知県" })[1] as HTMLInputElement).checked).toBe(false);
+  });
+
+  it("says so when every place is unchecked", () => {
+    openSheet([DAY1[0], DAY1[1]]);
+    for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
+    expect(screen.queryByRole("button", { name: /Googleマップで開く（/ })).toBeNull();
+    expect(screen.getByText("経路に出す場所が1つも選ばれていません。")).toBeTruthy();
+  });
+
+  it("opens a place search when only one place is chosen", () => {
+    openSheet([DAY1[0], DAY1[1]]);
+    fireEvent.click(screen.getByRole("checkbox", { name: "東京駅 東京都千代田区" }));
+    fireEvent.click(screen.getByRole("button", { name: "Googleマップで場所を開く" }));
+    expect(open.mock.calls[0][0]).toContain("/maps/search/");
   });
 
   it("explains instead of showing a button when the day has no places", () => {
     render(<TripDayRoute items={[item(undefined, "09:00")]} date={DAY} />);
-    expect(screen.queryByRole("button", { name: /Googleマップで開く/ })).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByText(/この日は場所の入った予定がありません/)).toBeTruthy();
-  });
-
-  it("offers one button per link when a long day is split", () => {
-    const many = Array.from({ length: 12 }, (_, i) => item(`場所${i}`, `${String(7 + i).padStart(2, "0")}:00`));
-    render(<TripDayRoute items={many} date={DAY} />);
-    expect(screen.getByRole("button", { name: /経路 1\/2 をGoogleマップで開く（11地点）/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /経路 2\/2 をGoogleマップで開く（2地点）/ })).toBeTruthy();
   });
 });
