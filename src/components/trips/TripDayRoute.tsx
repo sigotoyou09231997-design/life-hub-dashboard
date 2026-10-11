@@ -1,16 +1,8 @@
 import { useState } from "react";
 import { Route } from "lucide-react";
 import type { TripScheduleItem } from "../../types";
-import {
-  buildSegmentLinks,
-  dayRouteStops,
-  hintFor,
-  LEG_MODE_LABEL,
-  legKey,
-  stopKeys,
-  transportHints,
-  type LegMode,
-} from "../../lib/tripDayRoute";
+import { dayRouteStops, LEG_MODE_LABEL, maxWaypointsForDevice, stopKeys, type LegMode } from "../../lib/tripDayRoute";
+import { buildRouteEmbedUrl, buildRouteSearchUrl } from "../../lib/googleMaps";
 import { formatDisplayDate } from "../../lib/date";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
@@ -23,9 +15,9 @@ interface Props {
   date: string;
 }
 
-/** 区間ごとに選ばなかったときの手段。以前の「車/徒歩」の切り替えと同じ鍵に覚える。 */
+/** 地図の線の手段。以前の「車/徒歩」の切り替えと同じ鍵に覚える。 */
 const MODE_KEY = "lifehub.tripDayRouteMode";
-/** 区間ごとに選んだ手段と、外した場所。端末ごとに覚える(同期はしない)。 */
+/** 外した場所。端末ごとに覚える(同期はしない)。区間ごとの手段(legs)を持っていた頃の値も読めるように同じ鍵。 */
 const CHOICES_KEY = "lifehub.tripDayRouteChoices";
 
 const MODE_OPTIONS: { value: LegMode; label: string }[] = [
@@ -33,11 +25,6 @@ const MODE_OPTIONS: { value: LegMode; label: string }[] = [
   { value: "walking", label: LEG_MODE_LABEL.walking },
   { value: "transit", label: LEG_MODE_LABEL.transit },
 ];
-
-interface Choices {
-  legs: Record<string, LegMode>;
-  excluded: string[];
-}
 
 function isLegMode(value: unknown): value is LegMode {
   return value === "driving" || value === "walking" || value === "transit";
@@ -52,13 +39,12 @@ function readStoredMode(): LegMode {
   }
 }
 
-function readChoices(): Choices {
+function readExcluded(): string[] {
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(CHOICES_KEY) ?? "{}") as Partial<Choices>;
-    const legs = Object.fromEntries(Object.entries(parsed.legs ?? {}).filter(([, mode]) => isLegMode(mode)));
-    return { legs, excluded: Array.isArray(parsed.excluded) ? parsed.excluded.filter((k) => typeof k === "string") : [] };
+    const parsed = JSON.parse(window.localStorage.getItem(CHOICES_KEY) ?? "{}") as { excluded?: unknown };
+    return Array.isArray(parsed.excluded) ? parsed.excluded.filter((k): k is string => typeof k === "string") : [];
   } catch {
-    return { legs: {}, excluded: [] };
+    return [];
   }
 }
 
@@ -66,86 +52,59 @@ function store(key: string, value: string) {
   try {
     window.localStorage.setItem(key, value);
   } catch {
-    // 覚えられない環境でも、選んだ手段はこの画面を開いている間は効く。
+    // 覚えられない環境でも、選んだ内容はこの画面を開いている間は効く。
   }
 }
 
-/** ボタンに出す短い名前。「霊山寺 徳島県鳴門市大麻町」の地域の部分は省く。 */
-function shortName(place: string): string {
-  return place.split(/\s+/).find((token) => token) ?? place;
-}
-
 /**
- * 見ている日の日程を、Googleマップの経路として開く(経路の作りは src/lib/tripDayRoute.ts)。
+ * 見ている日の日程を、1枚の地図の経路として見せる(地点の並びは src/lib/tripDayRoute.ts)。
  *
- * 地図にピンを置くだけのマイマップと違い、Googleマップ本体なら出発地から目的地まで線でつながる。
+ * 地図にピンを置くだけのマイマップと違い、Googleマップの経路なら出発地から目的地まで線でつながる。
  * ここは「その日に回る場所」の並びをそのまま渡すだけなので、日程の場所が「霊山寺」のような
  * 名前だけだと別の場所に引かれる — 都道府県・市区町村つきにする(「場所をまとめて直す」)。
  *
- * 移動手段は区間(場所から場所)ごとに選べる(2026-10-11、「徒歩とか車とかが場所移動ごとに
- * 変えられたらいい」)。Googleマップの1本の経路は手段を1つしか持てないので、手段が変わる所で
- * ボタンが分かれる。
+ * 2026-10-11 の夕方まで、区間ごとに手段を選べて、手段が変わる所と11か所ごとに「1. 車で A → B」の
+ * ボタンに分けていた。本人(と一緒に行く人)から「チェックしたところまでのマップ表示に変えて、1番とか
+ * いらない」「11経路までしか出ないのが気にくわない」。Googleマップを開くリンクは経由地9つまでで
+ * 手段も1つだが、画面の中に埋め込む地図(buildRouteEmbedUrl)には地点の上限が無いので、チェックした
+ * 場所を全部つないだ1枚を出す。手段は全体で1つ。Googleマップのアプリで開くボタンは、1本に収まる
+ * 時だけ出す。
  *
- * 押すと、まず「どの場所を経路に出すか」を選ぶシートを開く(同じ日、「選択式にして、出したく
- * ないものは表示しないでほしい」)。外した場所はGoogleマップの経路に入らない。選んだ内容は
- * 端末に覚えるので、次に開いた時もそのまま。
+ * どの場所を出すかはチェックで選ぶ(同じ日、「選択式にして、出したくないものは表示しないでほしい」)。
+ * 選んだ内容は端末に覚えるので、次に開いた時もそのまま。
  */
 export function TripDayRoute({ items, date }: Props) {
-  const [defaultMode, setDefaultMode] = useState<LegMode>(readStoredMode);
-  const [choices, setChoices] = useState<Choices>(readChoices);
+  const [mode, setMode] = useState<LegMode>(readStoredMode);
+  const [excludedKeys, setExcludedKeys] = useState<string[]>(readExcluded);
   /** 経路に出す場所を選ぶシートを開いているか。 */
   const [open, setOpen] = useState(false);
 
   const stops = dayRouteStops(items, date);
   const keys = stopKeys(date, stops);
-  const excluded = new Set(choices.excluded);
-  const chosenIndexes = stops.map((_, index) => index).filter((index) => !excluded.has(keys[index]));
-  const chosen = chosenIndexes.map((index) => stops[index]);
-  // 区間の手段は、本人が選んだもの → 予定の「移動手段」(新幹線なら電車・バス) → 全体の既定 の順。
-  const hints = transportHints(items, date);
-  const legModes = chosen
-    .slice(0, -1)
-    .map((from, i) => choices.legs[legKey(date, from, chosen[i + 1])] ?? hintFor(hints, from) ?? defaultMode);
-  const links = buildSegmentLinks(chosen, legModes);
+  const excluded = new Set(excludedKeys);
+  const chosen = stops.filter((_, index) => !excluded.has(keys[index]));
+  const maxStops = maxWaypointsForDevice() + 2;
+  // Googleマップのアプリで1本に開けるか。電車・バスは経由地を入れると調べられない(2か所だけなら開ける)。
+  const fitsOneLink = chosen.length >= 2 && (mode === "transit" ? chosen.length === 2 : chosen.length <= maxStops);
+  // 1か所だけなら、その場所の検索として開く(buildRouteSearchUrl が場所の検索にする)。
+  const appUrl = chosen.length === 1 || fitsOneLink ? buildRouteSearchUrl(chosen, mode) : undefined;
 
-  function save(next: Choices) {
-    setChoices(next);
-    store(CHOICES_KEY, JSON.stringify(next));
-  }
-
-  function changeDefault(next: LegMode) {
-    setDefaultMode(next);
+  function changeMode(next: LegMode) {
+    setMode(next);
     store(MODE_KEY, next);
-  }
-
-  function changeLeg(from: string, to: string, mode: LegMode) {
-    save({ ...choices, legs: { ...choices.legs, [legKey(date, from, to)]: mode } });
   }
 
   function toggle(index: number) {
     const key = keys[index];
-    save({
-      ...choices,
-      excluded: excluded.has(key) ? choices.excluded.filter((k) => k !== key) : [...choices.excluded, key],
-    });
-  }
-
-  function openUrl(url: string) {
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-
-  function linkLabel(index: number): string {
-    const link = links[index];
-    if (links.length === 1) {
-      return chosen.length === 1 ? "Googleマップで場所を開く" : `Googleマップで開く（${LEG_MODE_LABEL[link.mode]}）`;
-    }
-    return `${index + 1}. ${LEG_MODE_LABEL[link.mode]}で ${shortName(link.from)} → ${shortName(link.to)}`;
+    const next = excluded.has(key) ? excludedKeys.filter((k) => k !== key) : [...excludedKeys, key];
+    setExcludedKeys(next);
+    store(CHOICES_KEY, JSON.stringify({ excluded: next }));
   }
 
   if (stops.length === 0) {
     return (
       <p className="px-1 text-xs text-slate-500">
-        この日は場所の入った予定がありません。日程の「場所」を入れると、経路をGoogleマップで開けます。
+        この日は場所の入った予定がありません。日程の「場所」を入れると、経路を地図で見られます。
       </p>
     );
   }
@@ -154,45 +113,44 @@ export function TripDayRoute({ items, date }: Props) {
     <>
       <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>
         <Route size={17} />
-        この日の経路をGoogleマップで開く
+        この日の経路を地図で見る
       </Button>
       <Sheet open={open} onClose={() => setOpen(false)} title={`${formatDisplayDate(date)}の経路`}>
         {open && (
           <div className="flex flex-col gap-3">
-            <p className="text-sm text-slate-600">
-              経路に出す場所を選んでください。チェックを外した場所は、Googleマップの経路に出ません。
-            </p>
+            <p className="text-sm text-slate-600">チェックした場所を、全部つないで地図に出します。外した場所は出ません。</p>
 
             <div className="flex flex-col gap-1.5">
-              <p className="text-xs text-slate-500">移動手段（区間ごとにも変えられます）</p>
-              <Tabs options={MODE_OPTIONS} value={defaultMode} onChange={changeDefault} />
+              <p className="text-xs text-slate-500">移動手段</p>
+              <Tabs options={MODE_OPTIONS} value={mode} onChange={changeMode} />
             </div>
 
-            <ol className="flex flex-col gap-1 text-sm text-slate-700" aria-label="経路に出す場所">
+            {chosen.length > 0 ? (
+              <div className="trip-day-route__map">
+                <iframe
+                  key={buildRouteEmbedUrl(chosen, mode)}
+                  title={`${formatDisplayDate(date)}の経路の地図`}
+                  src={buildRouteEmbedUrl(chosen, mode)}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500">地図に出す場所が1つも選ばれていません。</p>
+            )}
+            {mode === "transit" && chosen.length > 2 && (
+              <p className="text-xs text-slate-500">
+                電車・バスは、Googleマップが3か所以上を1本の線でつなげないので、地図には場所だけが出ます。線で見たい時は「車」か「徒歩」にしてください。
+              </p>
+            )}
+
+            <ol className="flex flex-col gap-1 text-sm text-slate-700" aria-label="地図に出す場所">
               {stops.map((stop, index) => {
-                const position = chosenIndexes.indexOf(index);
-                const from = position > 0 ? chosen[position - 1] : null;
+                const off = excluded.has(keys[index]);
                 return (
-                  <li key={keys[index]} className="flex flex-col gap-1">
-                    {from !== null && (
-                      <label className="ml-6 flex items-center gap-2 text-xs text-slate-500">
-                        <span aria-hidden="true">↓</span>
-                        <select
-                          aria-label={`${shortName(from)} → ${shortName(stop)} の移動手段`}
-                          className="rounded-lg border border-slate-200 bg-white/70 px-2 py-1 text-xs text-slate-700"
-                          value={legModes[position - 1]}
-                          onChange={(e) => changeLeg(from, stop, e.target.value as LegMode)}
-                        >
-                          {MODE_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <label className={`flex items-start gap-2 ${position === -1 ? "text-slate-400 line-through" : ""}`}>
-                      <input type="checkbox" className="mt-1" checked={position !== -1} onChange={() => toggle(index)} />
+                  <li key={keys[index]}>
+                    <label className={`flex items-start gap-2 ${off ? "text-slate-400 line-through" : ""}`}>
+                      <input type="checkbox" className="mt-1" checked={!off} onChange={() => toggle(index)} />
                       <span>{stop}</span>
                     </label>
                   </li>
@@ -200,23 +158,20 @@ export function TripDayRoute({ items, date }: Props) {
               })}
             </ol>
 
-            <div className="flex flex-col gap-2">
-              {links.map((link, index) => (
-                <Button key={`${index}-${link.url}`} className="w-full" onClick={() => openUrl(link.url)}>
-                  <Route size={17} />
-                  {linkLabel(index)}
-                </Button>
-              ))}
-              {links.length === 0 && <p className="text-xs text-slate-500">経路に出す場所が1つも選ばれていません。</p>}
-              {links.length > 1 && (
-                <p className="text-xs text-slate-500">
-                  Googleマップの1本の経路は、移動手段を1つしか持てず、地点の数にも上限があるので、分けています。前の経路の終点が、次の経路の始点です。
+            {appUrl ? (
+              <Button className="w-full" onClick={() => window.open(appUrl, "_blank", "noopener,noreferrer")}>
+                <Route size={17} />
+                {chosen.length === 1 ? "Googleマップで場所を開く" : `Googleマップで開く（${LEG_MODE_LABEL[mode]}）`}
+              </Button>
+            ) : (
+              chosen.length > 1 && (
+                <p className="text-xs text-slate-400">
+                  {mode === "transit"
+                    ? "電車・バスは、Googleマップのアプリで開くと2か所の間しか調べられません。乗り換えを調べたい時は、2か所だけにチェックを残してください。"
+                    : `Googleマップのアプリは、1本の経路に${maxStops}か所までしか入らないので、ボタンは出していません。全部の場所は上の地図で見られます。`}
                 </p>
-              )}
-              <p className="text-xs text-slate-400">
-                電車・バスは、Googleマップが経由地をまとめて調べられないので、1区間ずつ開きます。
-              </p>
-            </div>
+              )
+            )}
           </div>
         )}
       </Sheet>

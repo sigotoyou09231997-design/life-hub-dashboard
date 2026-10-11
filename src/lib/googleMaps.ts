@@ -26,14 +26,19 @@ const DIRFLG: Record<TravelMode, string> = { transit: "r", driving: "d", walking
  * キーも課金も要らない、Googleマップ自身が出す従来型の埋め込み形式で、
  * `saddr` と `daddr`(2つ目以降は `+to:` で継ぎ足す)に地点を並べる。
  * 地点が1つしか無ければ経路にならないので、その1点の地図をそのまま返す。
+ *
+ * Googleマップを開くリンク(経由地9つまで)と違い、地点の数に上限が無い。2026-10-11に車で26か所を
+ * 渡して、1本の線でつながることを確かめた。電車・バス(mode=transit)は、3か所以上だと線を引かず
+ * 場所だけが出る。
  */
-export function buildRouteEmbedUrl(queries: string[]): string {
+export function buildRouteEmbedUrl(queries: string[], mode?: TravelMode): string {
   const stops = queries.filter((q) => q.trim());
   if (stops.length === 0) return buildMapEmbedUrl("");
   if (stops.length === 1) return buildMapEmbedUrl(stops[0]);
   const [start, ...rest] = stops;
   const daddr = rest.map((q) => encodeURIComponent(q)).join("+to:");
-  return `https://maps.google.com/maps?saddr=${encodeURIComponent(start)}&daddr=${daddr}&output=embed`;
+  const dirflg = mode ? `&dirflg=${DIRFLG[mode]}` : "";
+  return `https://maps.google.com/maps?saddr=${encodeURIComponent(start)}&daddr=${daddr}${dirflg}&output=embed`;
 }
 
 /**

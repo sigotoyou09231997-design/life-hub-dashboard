@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { TripScheduleItem } from "../../types";
+import { stopKeys } from "../../lib/tripDayRoute";
 import { TripDayRoute } from "./TripDayRoute";
 
 const DAY = "2026-12-27";
@@ -35,73 +36,97 @@ afterEach(() => {
 
 function openSheet(items = DAY1) {
   render(<TripDayRoute items={items} date={DAY} />);
-  fireEvent.click(screen.getByRole("button", { name: "この日の経路をGoogleマップで開く" }));
+  fireEvent.click(screen.getByRole("button", { name: "この日の経路を地図で見る" }));
 }
 
 function openedParams(call = 0) {
   return new URL(open.mock.calls[call][0]).searchParams;
 }
 
+/** シートの中の地図(埋め込み)が経路に入れている場所。saddr と daddr(+to: でつなぐ)を読み戻す。 */
+function mapStops(): string[] {
+  const src = screen.getByTitle(/の経路の地図$/).getAttribute("src")!;
+  const params = new URL(src.replace(/\+to:/g, "%7Cto%7C")).searchParams;
+  return [params.get("saddr")!, ...params.get("daddr")!.split("|to|")];
+}
+
+function mapSrc(): string {
+  return screen.getByTitle(/の経路の地図$/).getAttribute("src")!;
+}
+
+/** 四国の札所を n か所。Googleマップを開くリンクの上限(11か所)を超える日の形。 */
+function manyPlaces(n: number): TripScheduleItem[] {
+  return Array.from({ length: n }, (_, i) => item(`第${i + 1}番札所 徳島県`, `${String(6 + Math.floor(i / 2)).padStart(2, "0")}:${i % 2 ? "30" : "00"}`));
+}
+
 describe("TripDayRoute", () => {
   it("does not open Google Maps until the user has chosen in the sheet", () => {
     openSheet();
     expect(open).not.toHaveBeenCalled();
-    expect(screen.getByText(/チェックを外した場所は、Googleマップの経路に出ません/)).toBeTruthy();
+    expect(screen.getByText(/チェックした場所を、全部つないで地図に出します/)).toBeTruthy();
     expect(screen.getAllByRole("checkbox")).toHaveLength(6);
   });
 
-  it("opens one route through every place when nothing is changed (by car)", () => {
+  it("shows every checked place in one map, with no numbered buttons", () => {
     openSheet();
-    fireEvent.click(screen.getByRole("button", { name: "Googleマップで開く（車）" }));
-    const p = openedParams();
-    expect(p.get("origin")).toBe("小金井駅 栃木県下野市");
-    expect(p.get("destination")).toBe("ホテル 徳島県徳島市");
-    expect(p.get("travelmode")).toBe("driving");
-    expect(open.mock.calls[0][1]).toBe("_blank");
+    expect(mapStops()).toEqual(DAY1.map((i) => i.location));
+    expect(mapSrc()).toContain("dirflg=d");
+    expect(screen.queryAllByRole("button", { name: /^\d+\. / })).toHaveLength(0);
   });
 
-  it("leaves unchecked places out of the route", () => {
+  it("puts more than 11 places into the one map (the Google Maps link stops at 11)", () => {
+    openSheet(manyPlaces(20));
+    expect(mapStops()).toHaveLength(20);
+    expect(screen.queryByRole("button", { name: /Googleマップで開く/ })).toBeNull();
+    expect(screen.getByText(/1本の経路に11か所までしか入らない/)).toBeTruthy();
+  });
+
+  it("leaves unchecked places out of the map and of the Google Maps link", () => {
     openSheet();
     fireEvent.click(screen.getByRole("checkbox", { name: "小金井駅 栃木県下野市" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "東京駅 東京都千代田区" }));
+    expect(mapStops()).toEqual(DAY1.slice(2).map((i) => i.location));
     fireEvent.click(screen.getByRole("button", { name: "Googleマップで開く（車）" }));
     const p = openedParams();
     expect(p.get("origin")).toBe("高松駅 香川県高松市");
     expect(p.get("waypoints")).toBe("ニコニコレンタカー 香川県高松市|霊山寺 徳島県鳴門市");
+    expect(p.get("travelmode")).toBe("driving");
+    expect(open.mock.calls[0][1]).toBe("_blank");
   });
 
-  it("lets each leg have its own mode and splits the route where it changes", () => {
+  it("uses one mode for the whole map, and explains that trains cannot be drawn as one line", () => {
     openSheet();
-    fireEvent.change(screen.getByRole("combobox", { name: "小金井駅 → 東京駅 の移動手段" }), { target: { value: "transit" } });
-    fireEvent.change(screen.getByRole("combobox", { name: "東京駅 → 高松駅 の移動手段" }), { target: { value: "transit" } });
-    fireEvent.change(screen.getByRole("combobox", { name: "高松駅 → ニコニコレンタカー の移動手段" }), { target: { value: "walking" } });
-    const labels = screen.getAllByRole("button", { name: /^\d\. / }).map((b) => b.textContent);
-    expect(labels).toEqual([
-      "1. 電車・バスで 小金井駅 → 東京駅",
-      "2. 電車・バスで 東京駅 → 高松駅",
-      "3. 徒歩で 高松駅 → ニコニコレンタカー",
-      "4. 車で ニコニコレンタカー → ホテル",
-    ]);
-    fireEvent.click(screen.getByRole("button", { name: "4. 車で ニコニコレンタカー → ホテル" }));
-    expect(openedParams().get("waypoints")).toBe("霊山寺 徳島県鳴門市");
-  });
-
-  it("changes every leg that has no choice of its own when the overall mode changes", () => {
-    openSheet();
-    fireEvent.change(screen.getByRole("combobox", { name: "高松駅 → ニコニコレンタカー の移動手段" }), { target: { value: "driving" } });
     fireEvent.click(screen.getByRole("tab", { name: "徒歩" }));
-    expect((screen.getByRole("combobox", { name: "小金井駅 → 東京駅 の移動手段" }) as HTMLSelectElement).value).toBe("walking");
-    expect((screen.getByRole("combobox", { name: "高松駅 → ニコニコレンタカー の移動手段" }) as HTMLSelectElement).value).toBe("driving");
+    expect(mapSrc()).toContain("dirflg=w");
+    fireEvent.click(screen.getByRole("tab", { name: "電車・バス" }));
+    expect(mapSrc()).toContain("dirflg=r");
+    expect(screen.getByText(/3か所以上を1本の線でつなげない/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Googleマップで開く/ })).toBeNull();
   });
 
-  it("remembers unchecked places and leg modes the next time", () => {
+  it("opens a train search when only two places are left by train", () => {
+    openSheet([DAY1[0], DAY1[1]]);
+    fireEvent.click(screen.getByRole("tab", { name: "電車・バス" }));
+    fireEvent.click(screen.getByRole("button", { name: "Googleマップで開く（電車・バス）" }));
+    expect(openedParams().get("travelmode")).toBe("transit");
+  });
+
+  it("remembers unchecked places and the mode the next time", () => {
     openSheet();
     fireEvent.click(screen.getByRole("checkbox", { name: "小金井駅 栃木県下野市" }));
-    fireEvent.change(screen.getByRole("combobox", { name: "東京駅 → 高松駅 の移動手段" }), { target: { value: "transit" } });
+    fireEvent.click(screen.getByRole("tab", { name: "徒歩" }));
     cleanup();
     openSheet();
     expect((screen.getByRole("checkbox", { name: "小金井駅 栃木県下野市" }) as HTMLInputElement).checked).toBe(false);
-    expect((screen.getByRole("combobox", { name: "東京駅 → 高松駅 の移動手段" }) as HTMLSelectElement).value).toBe("transit");
+    expect(mapSrc()).toContain("dirflg=w");
+  });
+
+  it("still reads the places left out before, when the old choices also held leg modes", () => {
+    const [koganeiKey] = stopKeys(DAY, [DAY1[0].location!]);
+    window.localStorage.setItem("lifehub.tripDayRouteChoices", JSON.stringify({ legs: { x: "transit" }, excluded: [koganeiKey] }));
+    openSheet();
+    expect((screen.getByRole("checkbox", { name: "小金井駅 栃木県下野市" }) as HTMLInputElement).checked).toBe(false);
+    expect(mapStops()).toEqual(DAY1.slice(1).map((i) => i.location));
   });
 
   it("treats a place that appears twice in a day as two separate checkboxes", () => {
@@ -116,8 +141,9 @@ describe("TripDayRoute", () => {
   it("says so when every place is unchecked", () => {
     openSheet([DAY1[0], DAY1[1]]);
     for (const box of screen.getAllByRole("checkbox")) fireEvent.click(box);
-    expect(screen.queryByRole("button", { name: /Googleマップで開く（/ })).toBeNull();
-    expect(screen.getByText("経路に出す場所が1つも選ばれていません。")).toBeTruthy();
+    expect(screen.queryByTitle(/の経路の地図$/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Googleマップで開く/ })).toBeNull();
+    expect(screen.getByText("地図に出す場所が1つも選ばれていません。")).toBeTruthy();
   });
 
   it("opens a place search when only one place is chosen", () => {
@@ -133,21 +159,3 @@ describe("TripDayRoute", () => {
     expect(screen.getByText(/この日は場所の入った予定がありません/)).toBeTruthy();
   });
 });
-
-describe("予定の移動手段を、区間の手段の初期値にする", () => {
-  it("新幹線の予定から出る区間は電車・バス、車の予定から出る区間は車になる(選び直せば、そちらが勝つ)", async () => {
-    const items: TripScheduleItem[] = [
-      { ...item("東京駅 東京都千代田区", "06:48"), type: "transport", transportMode: "shinkansen" },
-      { ...item("岡山駅 岡山県岡山市", "10:05"), type: "transport", transportMode: "car" },
-      item("高松駅 香川県高松市", "11:18"),
-    ];
-    openSheet(items);
-    const first = screen.getByRole("combobox", { name: "東京駅 → 岡山駅 の移動手段" }) as HTMLSelectElement;
-    const second = screen.getByRole("combobox", { name: "岡山駅 → 高松駅 の移動手段" }) as HTMLSelectElement;
-    expect(first.value).toBe("transit");
-    expect(second.value).toBe("driving");
-    fireEvent.change(first, { target: { value: "walking" } });
-    expect((screen.getByRole("combobox", { name: "東京駅 → 岡山駅 の移動手段" }) as HTMLSelectElement).value).toBe("walking");
-  });
-});
-
