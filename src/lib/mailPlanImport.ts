@@ -70,6 +70,9 @@ export function mergeDuplicateItems(items: ExtractedTripItem[]): ExtractedTripIt
 function isSameAppointment(a: ExtractedTripItem, b: ExtractedTripItem): boolean {
   if (a.date !== b.date) return false;
   if (a.startTime && b.startTime && a.startTime !== b.startTime) return false;
+  // 場所が別の所なら、題名が片方を含んでいても別の用件(同じ15:00の「松山城」と「松山城山ロープウェイ」)。
+  // まとめると、片方の終了時刻やメモがもう片方に紛れ込み、1件が黙って消える(2026-10-11)。
+  if (!sameSpot(a.location, b.location)) return false;
   const [keyA, keyB] = [titleKey(a.title), titleKey(b.title)];
   // 短すぎる見出しは、たまたま文字が並んだだけで同じ扱いにしてしまうので見比べない。
   if (keyA.length < 3 || keyB.length < 3) return false;
@@ -437,6 +440,27 @@ export function planKey(date: string, time: string | undefined, title: string): 
 export function isAlreadyRegistered(row: TripImportRow, existingKeys: Set<string> | undefined): boolean {
   if (!existingKeys) return false;
   return existingKeys.has(planKey(row.date, row.startTime, row.title));
+}
+
+const PREFECTURE =
+  /(北海道|東京都|京都府|大阪府|(青森|岩手|宮城|秋田|山形|福島|茨城|栃木|群馬|埼玉|千葉|神奈川|新潟|富山|石川|福井|山梨|長野|岐阜|静岡|愛知|三重|滋賀|兵庫|奈良|和歌山|鳥取|島根|岡山|広島|山口|徳島|香川|愛媛|高知|福岡|佐賀|長崎|熊本|大分|宮崎|鹿児島|沖縄)県)/;
+
+/** 場所に都道府県が書いてあるか(「霊山寺 徳島県鳴門市」)。 */
+export function hasPrefecture(place: string): boolean {
+  return PREFECTURE.test(place);
+}
+
+/**
+ * 2つの場所が同じ所を指していると言えるか。どちらかが空・同じ・片方がもう片方に都道府県から先を
+ * 足しただけ(「屋島」と「屋島 香川県」、「霊山寺」と「霊山寺 徳島県鳴門市大麻町」)の時だけ同じ。
+ * 「松山城」と「松山城山ロープウェイ」は、片方が含んでいても別の場所。
+ */
+export function sameSpot(a: string | undefined, b: string | undefined): boolean {
+  const x = normalizePlanTitle(a ?? "");
+  const y = normalizePlanTitle(b ?? "");
+  if (!x || !y || x === y) return true;
+  const [shorter, longer] = x.length <= y.length ? [x, y] : [y, x];
+  return longer.startsWith(shorter) && hasPrefecture(longer.slice(shorter.length));
 }
 
 /** 見た目の違いだけを落としたタイトル。「似ているか」を見るためのもの。

@@ -181,6 +181,110 @@ describe("写真・文章から日程を読み取る画面", () => {
     expect(mocks.saved.tripSchedule).toHaveLength(1);
   });
 
+  describe("いまの日程との違いを分けて出す", () => {
+    // 旅行の計画の文章を丸ごと貼り直した時に、足りない予定と違う予定だけが目に入るようにする。
+    // 全部を1列に並べていた頃は、7日ぶん(約120件)の「すでに登録されています」の中に数件が埋もれた。
+
+    it("まだ入っていない・内容が違う・入っている に分けて数を出す", async () => {
+      mocks.existingTripSchedule = [
+        { id: "a", date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" },
+        { id: "b", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", type: "other" },
+      ];
+      mocks.items = [
+        { date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" },
+        { date: "2026-09-12", startTime: "11:00", title: "レンタカー受取", type: "other" },
+        { date: "2026-09-13", startTime: "09:00", title: "函館朝市", type: "sightseeing" },
+      ];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText("まだ入っていない予定：1件")).toBeTruthy();
+      expect(screen.getByText("内容が違う予定：1件")).toBeTruthy();
+      expect(screen.getByText("入っている予定（同じ内容）：1件")).toBeTruthy();
+      const fresh = screen.getByRole("region", { name: "まだ入っていない予定" });
+      expect(fresh.textContent).toContain("まだ入っていない予定（1件）");
+      expect(screen.getByDisplayValue("函館朝市").closest("section")).toBe(fresh);
+      const changed = screen.getByRole("region", { name: "内容が違う予定" });
+      expect(changed.textContent).toContain("「レンタカー受取」を、この内容に更新します");
+      // 同じ内容のものは畳んだ中にある(開けば見られる)。
+      const same = screen.getByText("入っている予定（同じ内容）1件を見る").closest("details")!;
+      expect(same.textContent).toContain("すでに登録されています");
+      expect(fresh.textContent).not.toContain("すでに登録されています");
+      await user.click(screen.getByRole("button", { name: "1件を入れて1件を更新する" }));
+      expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ title: "函館朝市" })]);
+      expect(mocks.saved.updated).toEqual([{ id: "b", patch: { startTime: "11:00" } }]);
+    });
+
+    it("足りない予定も違う予定も無ければ、そう知らせる", async () => {
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" }];
+      mocks.items = [{ date: "2026-09-12", startTime: "08:20", title: "羽田→福岡", type: "transport" }];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText(/足りない予定も、内容が違う予定もありません/)).toBeTruthy();
+      expect(screen.queryByRole("region", { name: "まだ入っていない予定" })).toBeNull();
+    });
+
+    it("書き方が少し違うだけの同じ予定は、入っている予定に回し、似た予定の断りを出さない", async () => {
+      // 読み直すたびにAIの題名の書き方が変わる(「屋島観光」と「屋島」)。変わる所が無ければ同じ予定。
+      mocks.existingTripSchedule = [{ id: "y", date: "2026-09-13", startTime: "16:40", title: "屋島観光", type: "sightseeing" }];
+      mocks.items = [{ date: "2026-09-13", startTime: "16:40", title: "屋島", type: "sightseeing" }];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText("入っている予定（同じ内容）：1件")).toBeTruthy();
+      expect(screen.getByText("まだ入っていない予定：0件")).toBeTruthy();
+      expect(screen.queryByText(/同じ日に「屋島観光」があります/)).toBeNull();
+      expect((screen.getByRole("button", { name: "0件を入れる" }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    it("地域つきに直した場所は、元の計画文を貼り直しても書き戻さない", async () => {
+      mocks.existingTripSchedule = [
+        { id: "r", date: "2026-09-12", startTime: "13:30", title: "霊山寺", type: "sightseeing", location: "霊山寺 徳島県鳴門市大麻町" },
+        { id: "m", date: "2026-09-12", startTime: "12:10", title: "高松→大麻比古神社", type: "transport", location: "ニコニコレンタカー高松県庁前店 香川県高松市" },
+      ];
+      mocks.items = [
+        { date: "2026-09-12", startTime: "13:30", title: "霊山寺", type: "sightseeing", location: "霊山寺" },
+        { date: "2026-09-12", startTime: "12:10", title: "高松→大麻比古神社", type: "transport", location: "高松市内" },
+      ];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText("内容が違う予定：0件")).toBeTruthy();
+      expect(screen.getByText("入っている予定（同じ内容）：2件")).toBeTruthy();
+    });
+
+    it("同じ時刻に似た名前の予定があっても、場所が違えば「まだ入っていない予定」として選んだ状態で出す", async () => {
+      // 本人の旅行(7日・123件)の規模で試した時、足した「松山城山ロープウェイ」が既存の「松山城」の
+      // 更新として既定で選ばれ、保存すると松山城が書き換わっていた。
+      mocks.existingTripSchedule = [
+        { id: "c", date: "2026-09-13", startTime: "15:00", endTime: "16:00", title: "松山城", type: "sightseeing", location: "松山城", memo: "外観中心" },
+      ];
+      mocks.items = [
+        { date: "2026-09-13", startTime: "15:00", endTime: "16:00", title: "松山城", type: "sightseeing", location: "松山城", memo: "外観中心" },
+        { date: "2026-09-13", startTime: "15:00", title: "松山城山ロープウェイ", type: "sightseeing", location: "松山城山ロープウェイ" },
+      ];
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.getByText("まだ入っていない予定：1件")).toBeTruthy();
+      expect(screen.getByText("内容が違う予定：0件")).toBeTruthy();
+      expect(screen.queryByText(/同じ日に「松山城」があります/)).toBeNull();
+      await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+      expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ title: "松山城山ロープウェイ", startTime: "15:00" })]);
+      expect((mocks.saved.tripSchedule[0] as { memo?: string }).memo).toBeUndefined();
+      expect(mocks.saved.updated).toEqual([]);
+    });
+
+    it("まだ日程が1件も無い旅行では、比べた結果ではなく、これまでの説明を出す", async () => {
+      const user = userEvent.setup();
+      renderForm();
+      await readFromText(user);
+      expect(screen.queryByText("いまの日程と比べました")).toBeNull();
+      expect(screen.getByText(/読み取った内容です/)).toBeTruthy();
+    });
+  });
+
   describe("すでに入っている日程の更新", () => {
     // 計画の途中で、しおりの出発が変わった・場所が分かった時に、1件ずつ開いて打ち直さずに
     // 文章を貼り直して反映する。追加だけだった頃は、同じ予定は見送るしかなかった。
