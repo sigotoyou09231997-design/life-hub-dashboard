@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { NotebookPen, Pencil, Plus, Share2, Sparkles, Trash2 } from "lucide-react";
+import { MapPinned, NotebookPen, Pencil, Plus, Share2, Sparkles, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
 import type {
   TripScheduleItem,
@@ -36,6 +36,7 @@ import { ADD_METHOD_OPTIONS, type AddMethod } from "../components/plan/addMethod
 import { Tabs } from "../components/ui/Tabs";
 import { TripDocumentForm } from "../components/trips/TripDocumentForm";
 import { TripShareSheet } from "../components/trips/TripShareSheet";
+import { TripMyMapsSheet } from "../components/trips/TripMyMapsSheet";
 import { TripDocumentList } from "../components/trips/TripDocumentList";
 import { DiaryList } from "../components/diary/DiaryList";
 import { DiaryForm } from "../components/diary/DiaryForm";
@@ -78,6 +79,8 @@ export default function TripDetailPage() {
   const [editingTrip, setEditingTrip] = useState(false);
   /** 共有の設定シートを開いているか(src/components/trips/TripShareSheet.tsx)。 */
   const [sharingTrip, setSharingTrip] = useState(false);
+  /** Googleマイマップ用のCSVを書き出すシートを開いているか(src/components/trips/TripMyMapsSheet.tsx)。 */
+  const [myMapsOpen, setMyMapsOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<TripScheduleItem | "new" | null>(null);
   /** 「この日に予定を追加」から開いた時の日付。下部の「予定を追加」からは付かない(null)。 */
   const [scheduleDatePreset, setScheduleDatePreset] = useState<string | null>(null);
@@ -371,6 +374,12 @@ export default function TripDetailPage() {
                   <Sparkles size={17} />
                   写真・文章から追加・更新
                 </Button>
+                {/* 日程をGoogleマイマップへ入れるためのCSV。マイマップには外から書き込めないので、
+                    ファイルを渡して取り込んでもらう形(TripMyMapsSheet)。 */}
+                <Button variant="secondary" className="w-full" onClick={() => setMyMapsOpen(true)}>
+                  <MapPinned size={17} />
+                  Googleマイマップに入れる
+                </Button>
               </div>
             )}
           </>
@@ -516,6 +525,10 @@ export default function TripDetailPage() {
 
       <Sheet open={sharingTrip} onClose={() => setSharingTrip(false)} title="しおりを共有">
         {sharingTrip && <TripShareSheet tripId={tripId} tripName={trip.name} onClose={() => setSharingTrip(false)} />}
+      </Sheet>
+
+      <Sheet open={myMapsOpen} onClose={() => setMyMapsOpen(false)} title="Googleマイマップに入れる">
+        {myMapsOpen && <TripMyMapsSheet trip={trip} schedule={schedule} onClose={() => setMyMapsOpen(false)} />}
       </Sheet>
 
       <Sheet open={editingTrip} onClose={() => setEditingTrip(false)} title="旅行を編集">
