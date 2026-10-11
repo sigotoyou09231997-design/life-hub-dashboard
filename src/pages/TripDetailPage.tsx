@@ -52,7 +52,7 @@ import { useTripWeather } from "../hooks/useTripWeather";
 import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
-import { toRouteSuggestions } from "../lib/tripRouteSuggestions";
+import { toRouteSuggestions, findRoutePlaceFor } from "../lib/tripRouteSuggestions";
 import type { RouteSuggestion } from "../lib/tripRouteSuggestions";
 
 type Tab = "schedule" | "expense" | "packing" | "route" | "diary" | "documents";
@@ -105,6 +105,8 @@ export default function TripDetailPage() {
   }, [editingSchedule]);
   // 日程の場所からルートを起こすとき、追加フォームに渡して埋めておく値。
   const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
+  /** 日程の場所を押して、ルートで見せたい場所。at は同じ場所をもう一度押した時にも送り直すため。 */
+  const [routeFocus, setRouteFocus] = useState<{ id: string; at: number } | null>(null);
 
   // Wrapped in an object so `undefined` unambiguously means "still loading" —
   // db.trips.get() itself resolves to `undefined` for a missing id too, which
@@ -355,14 +357,19 @@ export default function TripDetailPage() {
                 setScheduleDatePreset(date);
                 setEditingSchedule("new");
               }}
-              onLocationTap={(location, title) => {
+              onLocationTap={(location, title, date) => {
                 setTab("route");
+                // ルートにある場所なら、その日に切り替えて、その場所まで送る(2026-10-11、「ルートの該当の
+                // 部分に飛んで欲しいのに、違うところに飛んでる」— タブを替えるだけで、開いていた日の先頭が出ていた)。
+                const place = findRoutePlaceFor(routePlaces, location, date);
+                if (place?.id) {
+                  setRouteFocus({ id: place.id, at: Date.now() });
+                  return;
+                }
                 // まだルートに無い場所なら、そのまま追加フォームを開いて拾わせる。
                 // 一覧に戻って同じ住所を打ち直させない。
-                if (!routePlaces.some((place) => place.address === location || place.name === location)) {
-                  setRoutePreset({ name: title, address: location });
-                  setEditingRoute("new");
-                }
+                setRoutePreset({ name: title, address: location });
+                setEditingRoute("new");
               }}
             />
             {dayList.length > 0 && (
@@ -446,6 +453,7 @@ export default function TripDetailPage() {
             tripId={tripId}
             destination={trip.destination}
             places={routePlaces}
+            focus={routeFocus}
             suggestions={routeSuggestions}
             onAddSuggestions={addRouteSuggestions}
             onAdd={() => {

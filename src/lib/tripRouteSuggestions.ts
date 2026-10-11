@@ -27,6 +27,17 @@ export interface RouteSuggestion {
 }
 
 /**
+ * 日程の場所(location)に当たるルートの場所。日程の「場所」を押した時に、ルートのどこへ飛ぶかを決める。
+ * 住所か名前が同じもの(大文字小文字・前後の空白は見ない)のうち、同じ日のものを先に選ぶ — 同じ駅に
+ * 行きと帰りで2回寄る旅行では、押した日程の日の方へ飛ばないと「違うところに飛んでる」になる。
+ */
+export function findRoutePlaceFor(places: TripRoutePlace[], location: string, date?: string): TripRoutePlace | undefined {
+  const key = routeKey(location);
+  const same = places.filter((place) => routeKey(place.address) === key || routeKey(place.name) === key);
+  return same.find((place) => place.date === date) ?? same[0];
+}
+
+/**
  * 場所の入っている日程のうち、まだルートに無いものを候補にする。
  *
  * 移動(新幹線・飛行機)は駅名そのものを場所の名前にして、列車名はメモへ回す —

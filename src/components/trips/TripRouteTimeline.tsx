@@ -14,6 +14,8 @@ interface Props {
   stops: TimelineStop[];
   /** 区間の移動手段。地図の画面で選んだものをそのまま使う(区間の始点の場所idで引く)。 */
   modeOf: (placeId: string) => RouteMode;
+  /** 日程の場所を押して来た時に、光らせる場所。 */
+  focusedId?: string | null;
 }
 
 /**
@@ -23,7 +25,7 @@ interface Props {
  * 移動時間はサーバー側のGoogleのキーで取れた時だけ出る(キーが無い・取れない時は
  * 時刻だけの並びになる)。数字が出ないことを理由に、この見方ごと消さない。
  */
-export function TripRouteTimeline({ stops, modeOf }: Props) {
+export function TripRouteTimeline({ stops, modeOf, focusedId }: Props) {
   return (
     <ol className="trip-rtime">
       {stops.map((stop, i) => {
@@ -31,7 +33,7 @@ export function TripRouteTimeline({ stops, modeOf }: Props) {
         const { place } = stop;
         return (
           <Fragment key={place.id}>
-            <li className="trip-rtime__stop">
+            <li data-route-place={place.id} className={`trip-rtime__stop${place.id && place.id === focusedId ? " is-focus" : ""}`}>
               <div className={`trip-rtime__time${stop.startTime ? "" : " is-none"}`}>
                 <b>{stop.startTime ?? "時刻なし"}</b>
                 {stop.endTime && <small>〜{stop.endTime}</small>}
