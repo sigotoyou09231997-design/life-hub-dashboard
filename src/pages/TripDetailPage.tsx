@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { MapPinned, NotebookPen, Pencil, Plus, Share2, Sparkles, Trash2 } from "lucide-react";
+import { MapPinned, NotebookPen, Pencil, Plus, Replace, Share2, Sparkles, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
 import type {
   TripScheduleItem,
@@ -37,6 +37,7 @@ import { Tabs } from "../components/ui/Tabs";
 import { TripDocumentForm } from "../components/trips/TripDocumentForm";
 import { TripShareSheet } from "../components/trips/TripShareSheet";
 import { TripMyMapsSheet } from "../components/trips/TripMyMapsSheet";
+import { TripLocationRemapSheet } from "../components/trips/TripLocationRemapSheet";
 import { TripDocumentList } from "../components/trips/TripDocumentList";
 import { DiaryList } from "../components/diary/DiaryList";
 import { DiaryForm } from "../components/diary/DiaryForm";
@@ -81,6 +82,8 @@ export default function TripDetailPage() {
   const [sharingTrip, setSharingTrip] = useState(false);
   /** Googleマイマップ用のCSVを書き出すシートを開いているか(src/components/trips/TripMyMapsSheet.tsx)。 */
   const [myMapsOpen, setMyMapsOpen] = useState(false);
+  /** 日程の場所を表でまとめて書き換えるシートを開いているか(src/components/trips/TripLocationRemapSheet.tsx)。 */
+  const [remapOpen, setRemapOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<TripScheduleItem | "new" | null>(null);
   /** 「この日に予定を追加」から開いた時の日付。下部の「予定を追加」からは付かない(null)。 */
   const [scheduleDatePreset, setScheduleDatePreset] = useState<string | null>(null);
@@ -380,6 +383,12 @@ export default function TripDetailPage() {
                   <MapPinned size={17} />
                   Googleマイマップに入れる
                 </Button>
+                {/* 「霊山寺」のような名前だけの場所を、都道府県・市区町村つきに表でまとめて直す。
+                    地図(マイマップ・ルート)が別の場所を選ぶのを避けるため。 */}
+                <Button variant="secondary" className="w-full" onClick={() => setRemapOpen(true)}>
+                  <Replace size={17} />
+                  場所をまとめて直す
+                </Button>
               </div>
             )}
           </>
@@ -529,6 +538,10 @@ export default function TripDetailPage() {
 
       <Sheet open={myMapsOpen} onClose={() => setMyMapsOpen(false)} title="Googleマイマップに入れる">
         {myMapsOpen && <TripMyMapsSheet trip={trip} schedule={schedule} onClose={() => setMyMapsOpen(false)} />}
+      </Sheet>
+
+      <Sheet open={remapOpen} onClose={() => setRemapOpen(false)} title="場所をまとめて直す">
+        {remapOpen && <TripLocationRemapSheet schedule={schedule} routePlaces={routePlaces} onClose={() => setRemapOpen(false)} />}
       </Sheet>
 
       <Sheet open={editingTrip} onClose={() => setEditingTrip(false)} title="旅行を編集">
