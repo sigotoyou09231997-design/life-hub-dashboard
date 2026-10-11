@@ -9,6 +9,7 @@ import { TripDayWeather, TripWeatherBanner } from "./TripDayWeather";
 import { Badge } from "../ui/Badge";
 import { TransportModeChip } from "./transportModes";
 import { PhotoStrip } from "../attachments/PhotoStrip";
+import { ScheduleDetailLines } from "./ScheduleDetailLines";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { Button } from "../ui/Button";
 import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Trash2 } from "lucide-react";
@@ -159,6 +160,9 @@ export function TripScheduleList({ dayList, items, photosBySchedule, onEdit, onD
                                 {item.location}
                               </button>
                             )}
+                            <div className="pointer-events-auto">
+                              <ScheduleDetailLines item={item} />
+                            </div>
                             <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                               <Badge tone={typeDef.tone} className="trip-timeline__badge">
                                 {typeDef.label}

@@ -338,6 +338,15 @@ export interface TripScheduleItem {
   type: TripScheduleType;
   /** 何で移動するか。種類が「移動」の時だけ(2026-10-11、要望の受信箱から)。 */
   transportMode?: TripTransportMode;
+  /** 詳細(2026-10-11、要望の受信箱から。src/lib/scheduleDetails.ts)。「場所」は地図に渡す文字、こちらは郵便の住所。 */
+  address?: string;
+  phone?: string;
+  url?: string;
+  /** 営業時間(「9:00〜17:00(水曜休み)」のような自由な文)。 */
+  openingHours?: string;
+  /** 宿泊の予定だけ。HH:mm。 */
+  checkInTime?: string;
+  checkOutTime?: string;
   createdAt: number;
   updatedAt?: number;
   deviceId?: string;

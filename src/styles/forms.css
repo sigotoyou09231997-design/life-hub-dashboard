@@ -61,6 +61,12 @@
   padding: 0.78rem 0.9rem 0.85rem;
 }
 
+/* 写真の欄(PhotoField)は .field を使わない作りなので、入力の箱の中では同じ余白を足す。
+   無いと「写真を追加」と注意書きが箱の端にくっついて見えた(2026-10-11、本人の指摘「横幅とかおかしい」)。 */
+.form-panel__body > .photo-field {
+  padding: 0.78rem 0.9rem 0.85rem;
+}
+
 .field__head {
   display: flex;
   align-items: center;

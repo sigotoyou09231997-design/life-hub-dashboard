@@ -41,6 +41,13 @@ export interface SharedScheduleItem {
   type: string;
   /** 何で移動するか(030)。古い関数からは返ってこない。 */
   transportMode?: string | null;
+  /** 詳細(030)。 */
+  address?: string | null;
+  phone?: string | null;
+  url?: string | null;
+  openingHours?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
 }
 
 export interface SharedPackingItem {
