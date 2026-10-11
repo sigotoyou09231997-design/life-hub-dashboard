@@ -27,12 +27,15 @@ interface Props {
   tripId: string;
   initial?: TripExpense;
   /** 旅行の参加者。いれば「支払った人」を選べる(src/lib/tripMembers.ts)。 */
-  members?: string[];
+  members?: string[] | null;
   onSaved: () => void;
   onCancel: () => void;
 }
 
-export function TripExpenseForm({ tripId, initial, members = [], onSaved, onCancel }: Props) {
+export function TripExpenseForm({ tripId, initial, members: membersProp, onSaved, onCancel }: Props) {
+  // 同期で降りてきた旅行は、参加者の列が空だと null になる。引数の既定値(= [])は undefined にしか
+  // 効かないので、ここで空にそろえる(2026-10-11、null のまま .length を読んで予定を押すと真っ白になった)。
+  const members = membersProp ?? [];
   const [title, setTitle] = useState(initial?.title ?? "");
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? "");
   const [category, setCategory] = useState<TripExpenseCategory>(initial?.category ?? "other");
