@@ -64,7 +64,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-function renderForm(initial?: TripScheduleItem, members?: string[]) {
+function renderForm(initial?: TripScheduleItem, members?: string[] | null) {
   const saved = vi.fn();
   render(<TripScheduleForm tripId="t1" initial={initial} members={members} defaultDate="2026-12-27" onSaved={saved} onCancel={() => {}} />);
   return saved;
@@ -176,6 +176,13 @@ describe("旅行の予定の入力: 費用と支払った人", () => {
     renderForm();
     expect(screen.queryByRole("combobox", { name: /支払った人/ })).toBeNull();
     expect(screen.getByText(/参加者を入れると、誰が払ったかも選べます/)).toBeTruthy();
+  });
+
+  it("参加者の列が null(同期で降りてきた、参加者を入れていない旅行)でも開ける", async () => {
+    // 2026-10-11、本番で予定を押すと真っ白になった。既定値の [] が null には効かず .length で落ちていた。
+    renderForm({ id: "s1", tripId: "t1", date: "2026-12-28", title: "桂浜", type: "sightseeing", createdAt: 1 }, null);
+    expect(await screen.findByText(/参加者を入れると、誰が払ったかも選べます/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "変更を保存" })).toBeTruthy();
   });
 
   it("今ある予定の費用を読み、直すと書き換える。金額を消すと、その費用を消す", async () => {

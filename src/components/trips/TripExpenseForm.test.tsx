@@ -116,6 +116,13 @@ describe("費用の入力: 支払った人", () => {
     await waitFor(() => expect(mocks.updated[0]?.[1]).toMatchObject({ paidBy: "えっくん" }));
   });
 
+  it("参加者の列が null(同期で降りてきた、参加者を入れていない旅行)でも開ける", () => {
+    mocks.loadCurrencyDraft.mockResolvedValue({ currency: "JPY", originalAmount: "", rate: "", manual: false });
+    render(<TripExpenseForm tripId="t1" initial={EXPENSE} members={null} onSaved={() => {}} onCancel={() => {}} />);
+    expect(screen.queryByRole("combobox", { name: /支払った人/ })).toBeNull();
+    expect(screen.getByRole("button", { name: /保存/ })).toBeTruthy();
+  });
+
   it("参加者がいなければ、支払った人の欄は出さない", () => {
     mocks.loadCurrencyDraft.mockResolvedValue({ currency: "JPY", originalAmount: "", rate: "", manual: false });
     renderForm();
