@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { CalendarEvent } from "../../types";
 import { CalendarView } from "./CalendarView";
@@ -44,7 +44,29 @@ function tapDay(day: string) {
   fireEvent.click(cell);
 }
 
-afterEach(cleanup);
+/** 画面の幅(PC か スマホ か)。useIsDesktop は matchMedia を見るが、jsdom には無いので差し込む。 */
+function stubDesktop(desktop: boolean) {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: desktop,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }));
+}
+
+beforeEach(() => {
+  stubDesktop(false);
+  window.localStorage.clear();
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("カレンダーのマスをタップした時の動き", () => {
   it("予定が無い日をタップすると、その日を初期値にして追加フォームを開く", () => {
@@ -111,5 +133,50 @@ describe("カレンダーのマスをタップした時の動き", () => {
     fireEvent.click(screen.getByRole("button", { name: /この日に予定を追加/ }));
 
     expect(onAddEvent).toHaveBeenCalledWith("2026-09-15");
+  });
+});
+
+describe("月/週の切り替え(PC幅だけ)", () => {
+  it("PC幅では切り替えを出し、週を選ぶと週表示になって右の「その日の予定」は消える", () => {
+    stubDesktop(true);
+    renderCalendar([eventOn("dentist-1", "2026-09-01", "歯医者")]);
+
+    expect(screen.getByRole("button", { name: "月", pressed: true })).toBeTruthy();
+    expect(screen.getByText("9月1日(火)の予定")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "週" }));
+
+    expect(screen.getByRole("button", { name: "週", pressed: true })).toBeTruthy();
+    expect(document.querySelector(".week-view")).toBeTruthy();
+    expect(screen.queryByText("9月1日(火)の予定")).toBeNull();
+    // 選んだ見方は端末に覚える(次に開いた時も週のまま)。
+    expect(window.localStorage.getItem("lifehub.calendarView")).toBe("week");
+  });
+
+  it("前に週を選んでいれば、開いた時から週表示", () => {
+    stubDesktop(true);
+    window.localStorage.setItem("lifehub.calendarView", "week");
+    renderCalendar([]);
+    expect(document.querySelector(".week-view")).toBeTruthy();
+  });
+
+  it("スマホでは、週を覚えていても月表示のまま(切り替えも出さない)", () => {
+    window.localStorage.setItem("lifehub.calendarView", "week");
+    renderCalendar([]);
+    expect(document.querySelector(".week-view")).toBeNull();
+    expect(screen.queryByRole("button", { name: "週" })).toBeNull();
+  });
+
+  it("週表示で時刻の枠を押すと、その日を選んで、時刻つきで追加を開く", () => {
+    stubDesktop(true);
+    window.localStorage.setItem("lifehub.calendarView", "week");
+    const onAddEvent = vi.fn();
+    const onSelectDate = vi.fn();
+    renderCalendar([], { onAddEvent, onSelectDate });
+
+    fireEvent.click(screen.getByRole("button", { name: "9月2日(水) 10:00に予定を追加" }));
+
+    expect(onSelectDate).toHaveBeenCalledWith("2026-09-02");
+    expect(onAddEvent).toHaveBeenCalledWith("2026-09-02", "10:00");
   });
 });

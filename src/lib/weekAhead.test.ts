@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupWeekAhead, hasWeekAheadItems, weekAheadDates } from "./weekAhead";
+import { groupDueTasks, groupWeekAhead, hasWeekAheadItems, weekAheadDates } from "./weekAhead";
 
 const today = "2026-09-07";
 
@@ -86,5 +86,37 @@ describe("hasWeekAheadItems", () => {
     const dates = weekAheadDates(today, 3);
     expect(hasWeekAheadItems(groupWeekAhead([], dates))).toBe(false);
     expect(hasWeekAheadItems(groupWeekAhead([{ date: "2026-09-09" }], dates))).toBe(true);
+  });
+});
+
+describe("groupDueTasks", () => {
+  const task = (id: string, dueDate: string | undefined, extra: Record<string, unknown> = {}) => ({
+    id,
+    dueDate,
+    completed: false,
+    ...extra,
+  });
+
+  it("期限の日ごとに、終わっていない親のタスクだけを入れる", () => {
+    const tasks = [
+      task("a", "2026-09-08"),
+      task("done", "2026-09-08", { completed: true }),
+      task("child", "2026-09-08", { parentTaskId: "a" }),
+      task("b", "2026-09-10"),
+      task("nodate", undefined),
+      task("later", "2026-09-30"),
+    ];
+    const days = groupDueTasks(tasks, weekAheadDates(today, 3));
+    expect(days.map((d) => d.items.map((t) => t.id))).toEqual([["a"], [], ["b"]]);
+  });
+
+  it("時刻の無いものが先、あとは期限の時刻順", () => {
+    const tasks = [
+      task("evening", "2026-09-08", { dueTime: "18:00" }),
+      task("anytime", "2026-09-08"),
+      task("morning", "2026-09-08", { dueTime: "09:00" }),
+    ];
+    const [day] = groupDueTasks(tasks, weekAheadDates(today, 1));
+    expect(day.items.map((t) => t.id)).toEqual(["anytime", "morning", "evening"]);
   });
 });
