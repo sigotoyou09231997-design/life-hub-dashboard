@@ -22,6 +22,14 @@ export interface ChangelogEntry {
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-13-42",
+    date: "2026-10-13",
+    area: "お金管理",
+    title: "サブスクの「Claude」の料金の目安を直しました",
+    description:
+      "サービスを選ぶ画面の Claude の料金が、App Store 経由の高い値段のままでした。公式サイトの米ドル(Pro $20・年 $200・Max 5x $100・Max 20x $200)を、1ドル150円・消費税10%込みで換算した値に直しました(Pro 3,300円・年額 33,000円・Max 5x 16,500円・Max 20x 33,000円)。為替で動く目安なので、選んだあとに直せます。App Store 経由で払っている場合は、その値段に直してください。",
+  },
+  {
     id: "2026-10-13-41",
     date: "2026-10-13",
     area: "設定",
