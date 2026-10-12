@@ -108,7 +108,7 @@ export async function unsubscribeFromPush(): Promise<void> {
 
 /** バックグラウンド通知の種類。checkGmailAndNotify.ts/checkAppUpdate.ts/
  * checkRemindersAndNotify.ts/checkBudgetAndNotify.ts/checkTripBudgetAndNotify.ts/
- * sendMorningBriefing.tsが、この端末の購読(push_subscriptions.disabled_categories)に
+ * sendMorningBriefing.ts/checkFeedbackAndNotify.tsが、この端末の購読(push_subscriptions.disabled_categories)に
  * 含まれる種類だけ送信を飛ばす。disabled_categories は text[] なので、種類を足しても
  * SQL は要らない(足した種類は、止めるまで「有効」)。 */
 export const NOTIFICATION_CATEGORIES = [
@@ -120,6 +120,8 @@ export const NOTIFICATION_CATEGORIES = [
   { key: "budget", label: "使いすぎ・予算オーバー" },
   { key: "trip_budget", label: "旅行の予算オーバー" },
   { key: "morning_briefing", label: "朝のまとめ（毎朝7時）" },
+  // 持ち主(要望の受信箱の app_feedback_owner)の端末にだけ届く。設定でも持ち主にだけ出す。
+  { key: "feedback", label: "修正依頼が届いた時" },
 ] as const;
 
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number]["key"];

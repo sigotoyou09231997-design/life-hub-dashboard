@@ -10,6 +10,7 @@ import { EventPeopleManager } from "../components/settings/EventPeopleManager";
 import { FeedbackInbox } from "../components/feedback/FeedbackInbox";
 import { GoogleCalendarSyncControl } from "../components/settings/GoogleCalendarSyncControl";
 import { HomeAddressSetting } from "../components/settings/HomeAddressSetting";
+import { useIsFeedbackOwner } from "../hooks/useIsFeedbackOwner";
 import { SettingsSection, SettingsToc, type SettingsTocItem } from "../components/settings/SettingsToc";
 import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
@@ -55,6 +56,7 @@ export default function SettingsPage() {
   }, []);
 
   const [session, setSession] = useState<Session | null>(null);
+  const isFeedbackOwner = useIsFeedbackOwner() === true;
   const [sheetDebug, setSheetDebug] = useState(() => {
     try {
       return window.localStorage.getItem(SHEET_DEBUG_KEY) === "1";
@@ -666,7 +668,8 @@ export default function SettingsPage() {
                 </div>
                 {pushEnabled && (
                   <div className="mt-1 space-y-1 border-t border-white/40 pt-1">
-                    {NOTIFICATION_CATEGORIES.map((category) => (
+                    {/* 「修正依頼」は持ち主にしか届かないので、持ち主にだけ出す(checkFeedbackAndNotify.ts)。 */}
+                    {NOTIFICATION_CATEGORIES.filter((category) => category.key !== "feedback" || isFeedbackOwner).map((category) => (
                       <SwitchField
                         key={category.key}
                         label={category.label}
