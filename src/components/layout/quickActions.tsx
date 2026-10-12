@@ -1,5 +1,6 @@
 import type { ElementType } from "react";
 import { CalendarDays, Home, Mail, Plane, StickyNote, Wallet } from "lucide-react";
+import { scopedKey } from "../../lib/accounts";
 
 export type QuickActionKey = "home" | "schedule" | "money" | "notes" | "gmail" | "trips";
 /** Storage values from before 予定/タスク were merged into one "schedule" button
@@ -61,9 +62,25 @@ export function normalizeQuickActionKeys(value: unknown): QuickActionKey[] {
   return normalized.length > 0 ? normalized : [...DEFAULT_QUICK_ACTION_KEYS];
 }
 
+/** 端末に覚えている並びを入れる所。いま開いているアカウント専用(src/lib/accounts.ts の scopedKey)。
+ * 2026-10-13、本人「追従ボタンがアカウントごとに紐づいてない。端末ごとになってる」— 前は、端末の中の
+ * アカウントを切り替えても同じ並びのままだった。アカウントをまたいだ同期は quickActionsSync.ts。 */
+function storageKey(): string {
+  return scopedKey(QUICK_ACTION_STORAGE_KEY);
+}
+
+/** この端末が、並びを一度でも覚えているか(初期の並びのままか、自分で並べたかの見分け)。 */
+export function hasStoredQuickActionKeys(storage: Pick<Storage, "getItem"> = window.localStorage): boolean {
+  try {
+    return storage.getItem(storageKey()) !== null;
+  } catch {
+    return false;
+  }
+}
+
 export function loadQuickActionKeys(storage: Pick<Storage, "getItem"> = window.localStorage): QuickActionKey[] {
   try {
-    const stored = storage.getItem(QUICK_ACTION_STORAGE_KEY);
+    const stored = storage.getItem(storageKey());
     return stored === null ? [...DEFAULT_QUICK_ACTION_KEYS] : normalizeQuickActionKeys(JSON.parse(stored));
   } catch {
     return [...DEFAULT_QUICK_ACTION_KEYS];
@@ -76,7 +93,7 @@ export function saveQuickActionKeys(
 ): QuickActionKey[] {
   const normalized = normalizeQuickActionKeys(keys);
   try {
-    storage.setItem(QUICK_ACTION_STORAGE_KEY, JSON.stringify(normalized));
+    storage.setItem(storageKey(), JSON.stringify(normalized));
   } catch {
     // The live state can still update when storage is unavailable/private.
   }
