@@ -40,12 +40,14 @@ const WEEK_AHEAD_PER_DAY = 3;
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
 /** ヒーローの写真。時間帯ごとに、光の向きが合う暖色の室内カットを1枚ずつ。
- *  素材は既存の public/backgrounds（旧デザインで全画面の地に敷いていたもの）。 */
+ *  素材は既存の public/backgrounds（旧デザインで全画面の地に敷いていたもの）。
+ *  2026-10-13: 写真の上の日付・時刻・ひとこと(「静かに、今日を始める。」など)は、本人の要望で外した
+ *  (「時間と日付の項目いらない。基本時間はスマホやPCで見れてるし」)。写真だけ残してある。 */
 const HERO_PHOTO = [
-  { until: 10, src: "/backgrounds/morning-window-living-v5.jpg", quote: "静かに、今日を始める。" },
-  { until: 16, src: "/backgrounds/day-sunlit-villa-v5.jpg", quote: "急がず、ひとつずつ。" },
-  { until: 20, src: "/backgrounds/evening-warm-atrium-v5.jpg", quote: "今日の分は、ここまで。" },
-  { until: 24, src: "/backgrounds/night-ambient-lounge-v5.jpg", quote: "明日のために、休む時間を。" },
+  { until: 10, src: "/backgrounds/morning-window-living-v5.jpg" },
+  { until: 16, src: "/backgrounds/day-sunlit-villa-v5.jpg" },
+  { until: 20, src: "/backgrounds/evening-warm-atrium-v5.jpg" },
+  { until: 24, src: "/backgrounds/night-ambient-lounge-v5.jpg" },
 ] as const;
 
 function heroFor(hour: number) {
@@ -230,7 +232,7 @@ export default function TopPage() {
   const hero = heroFor(hour);
 
   // 2026-10-12: 並べ方を変えた（参考: サブスクBOX）。中身・リンク・ボタンの働きは前と同じ。
-  //  - いちばん上は写真の表紙（日付・時刻・ひとこと）に、黒い「今月のお金」が重なる形
+  //  - いちばん上は写真の表紙（日付・時刻・ひとこと は 2026-10-13 に外した）に、黒い「今月のお金」が重なる形
   //  - 見出しはカードの外に出し、カードの中は区切り線つきの行の一覧にする
   //  - DOM の順番はスマホの並び順。PC の並びは home-teal.css のグリッドが決める
   return (
@@ -238,16 +240,8 @@ export default function TopPage() {
       <header className="lh-cover" data-reveal="0">
         <div className="lh-cover__photo" style={{ backgroundImage: `url('${hero.src}')` }} aria-hidden="true" />
         <div className="lh-cover__veil" aria-hidden="true" />
-        <div className="lh-cover__copy">
-          <h1 className="lh-cover__date">
-            <time dateTime={today}>{formatDisplayDate(today)}</time>
-          </h1>
-          <p className="lh-cover__quote">{hero.quote}</p>
-        </div>
-        <p className="lh-cover__clock">
-          {/* 24時間の表記(2026-10-12、UI/UX 調査メモ C-4)。ここだけ「5:34 PM」と英語だった。 */}
-          <time dateTime={format(now, "yyyy-MM-dd'T'HH:mm")}>{format(now, "H:mm")}</time>
-        </p>
+        {/* 見出しは画面の読み上げ用に残す(見た目には出さない)。 */}
+        <h1 className="sr-only">ホーム</h1>
       </header>
 
       {budget ? (
