@@ -304,3 +304,49 @@ describe("メール一覧", () => {
     });
   });
 });
+
+describe("メール一覧の件数の区切り(iPhone で一覧ごと消える不具合の対策)", () => {
+  afterEach(cleanup);
+  beforeEach(() => {
+    mocks.emails = Array.from({ length: 120 }, (_, i) => email(`p${i}`, `件名-${i}`));
+    mocks.syncCalls = 0;
+    mocks.replyWaiting = [];
+  });
+
+  it("先頭の50通だけ並べ、「さらに表示」で足していく", async () => {
+    const user = userEvent.setup();
+    renderInbox({ id: "paging" });
+    await screen.findByRole("link", { name: /件名-0\b/ });
+    expect(screen.getAllByRole("link", { name: /件名-/ })).toHaveLength(50);
+
+    await user.click(screen.getByRole("button", { name: "さらに表示（残り70件）" }));
+    expect(screen.getAllByRole("link", { name: /件名-/ })).toHaveLength(100);
+    await user.click(screen.getByRole("button", { name: "さらに表示（残り20件）" }));
+    expect(screen.getAllByRole("link", { name: /件名-/ })).toHaveLength(120);
+    expect(screen.queryByRole("button", { name: /さらに表示/ })).toBeNull();
+  });
+
+  it("検索は区切りの外の通も相手にし、検索語を変えたら先頭から並べ直す", async () => {
+    const user = userEvent.setup();
+    renderInbox({ id: "paging-search" });
+    await screen.findByRole("link", { name: /件名-0\b/ });
+    await user.click(screen.getByRole("button", { name: "さらに表示（残り70件）" }));
+    expect(screen.getAllByRole("link", { name: /件名-/ })).toHaveLength(100);
+
+    // 件名-119 は先頭50通にも100通にも入らないが、検索には当たる。
+    await user.type(screen.getByPlaceholderText("メールを検索"), "件名-119");
+    expect(await screen.findByRole("link", { name: /件名-119/ })).toBeTruthy();
+    expect(screen.getAllByRole("link", { name: /件名-/ })).toHaveLength(1);
+
+    // 検索語を消すと、前に増やした100通のままではなく、先頭の50通に戻る。
+    await user.clear(screen.getByPlaceholderText("メールを検索"));
+    await waitFor(() => expect(screen.getAllByRole("link", { name: /件名-/ })).toHaveLength(50));
+  });
+
+  it("50通以内なら「さらに表示」は出さない", async () => {
+    mocks.emails = Array.from({ length: 50 }, (_, i) => email(`q${i}`, `件名-${i}`));
+    renderInbox({ id: "paging-small" });
+    await screen.findByRole("link", { name: /件名-0\b/ });
+    expect(screen.queryByRole("button", { name: /さらに表示/ })).toBeNull();
+  });
+});

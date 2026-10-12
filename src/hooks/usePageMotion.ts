@@ -141,6 +141,7 @@ export function usePageMotion<T extends HTMLElement>(routeKey: string) {
 
       const timers = new Set<number>();
       const reveal = (element: HTMLElement, delayIndex: number) => {
+        pending.delete(element);
         const delay = Math.min(delayIndex, 5) * 55;
         element.style.transitionDelay = `${delay}ms`;
         element.classList.add("is-page-reveal-in");
@@ -177,13 +178,26 @@ export function usePageMotion<T extends HTMLElement>(routeKey: string) {
       const handled = new WeakSet<HTMLElement>();
       let blocks: HTMLElement[] = [];
       let sweepFrame = 0;
+      /** 出現を待っている面と、待ち始めた時刻。 */
+      const pending = new Map<HTMLElement, number>();
       const sweep = () => {
         sweepFrame = 0;
-        const fresh = collectBlocks(root).filter((element) => !handled.has(element));
+        const fresh = collectBlocks(root)
+          .filter((element) => !handled.has(element))
+          .filter((element) => {
+            // 画面の2.5倍より縦に長い面(メールの一覧など)は動かさない。透明・ぼかし・ずらしを掛けた
+            // 巨大な面は、iPhoneでは描けずに消えたままになることがある(2026-10-13、Gmailが真っ白)。
+            if (element.getBoundingClientRect().height > window.innerHeight * 2.5) {
+              handled.add(element);
+              return false;
+            }
+            return true;
+          });
         if (fresh.length === 0) return;
         fresh.forEach((element) => {
           handled.add(element);
           element.classList.add("is-page-reveal");
+          pending.set(element, Date.now());
         });
         blocks = blocks.filter((element) => element.isConnected).concat(fresh);
         // クラスを付けた直後に観測を始めると、初期値(opacity:0)でのスタイル計算を
@@ -202,11 +216,22 @@ export function usePageMotion<T extends HTMLElement>(routeKey: string) {
       mutations.observe(root, { childList: true, subtree: true });
 
       // 何かの理由で交差が発火しなかったときに中身が消えたままにならないための保険。
+      // 外れた面は後片付けだけ、まだつながっているのに1.5秒たっても現れない面は、その場で出す
+      // (以前は外れた面しか見ておらず、交差が来ない面は透明のまま残った)。
       const failsafe = window.setInterval(() => {
         blocks.forEach((element) => {
-          if (!element.isConnected) settle(element);
+          if (!element.isConnected) {
+            pending.delete(element);
+            settle(element);
+          }
         });
-      }, 2000);
+        const now = Date.now();
+        pending.forEach((since, element) => {
+          if (!element.isConnected || now - since < 1500) return;
+          observer.unobserve(element);
+          reveal(element, 0);
+        });
+      }, 500);
 
       cleanups.push(() => {
         timers.forEach((id) => window.clearTimeout(id));
