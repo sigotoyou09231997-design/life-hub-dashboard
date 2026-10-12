@@ -32,6 +32,47 @@ const lastResult = new Map<string, Computed>();
  *  - メールの並びが変わらない限り、やり直さない(emails は同じ値を渡し続けること)
  * 終わるまでは、前の結果(開き直した時は直前の結果)をそのまま返す。
  */
+
+/**
+ * 判定を、10ミリ秒ずつ区切って始める。終わると、そのアカウントの結果を控えて onDone に渡す。
+ * 返り値は、途中でやめるための関数。
+ */
+export function startMailSuggestions(
+  accountId: string,
+  emails: SyncedEmail[],
+  onDone?: (done: Computed) => void,
+): () => void {
+  let cancelled = false;
+  let timer: number | undefined;
+  let index = 0;
+  const plan: SyncedEmail[] = [];
+  const expense: SyncedEmail[] = [];
+  const today = todayStr();
+
+  const step = () => {
+    if (cancelled) return;
+    const deadline = performance.now() + SLICE_MS;
+    while (index < emails.length && performance.now() < deadline) {
+      const email = emails[index++];
+      if (isPlanSuggestion(email, today)) plan.push(email);
+      if (isExpenseSuggestion(email)) expense.push(email);
+    }
+    if (index < emails.length) {
+      timer = window.setTimeout(step, 0);
+      return;
+    }
+    const done = { accountId, plan, expense };
+    lastResult.set(accountId, done);
+    onDone?.(done);
+  };
+  step();
+
+  return () => {
+    cancelled = true;
+    if (timer !== undefined) window.clearTimeout(timer);
+  };
+}
+
 export function useMailSuggestions(
   accountId: string | undefined,
   emails: SyncedEmail[] | undefined,
@@ -40,35 +81,7 @@ export function useMailSuggestions(
 
   useEffect(() => {
     if (!accountId || !emails) return;
-    let cancelled = false;
-    let timer: number | undefined;
-    let index = 0;
-    const plan: SyncedEmail[] = [];
-    const expense: SyncedEmail[] = [];
-    const today = todayStr();
-
-    const step = () => {
-      if (cancelled) return;
-      const deadline = performance.now() + SLICE_MS;
-      while (index < emails.length && performance.now() < deadline) {
-        const email = emails[index++];
-        if (isPlanSuggestion(email, today)) plan.push(email);
-        if (isExpenseSuggestion(email)) expense.push(email);
-      }
-      if (index < emails.length) {
-        timer = window.setTimeout(step, 0);
-        return;
-      }
-      const done = { accountId, plan, expense };
-      lastResult.set(accountId, done);
-      setComputed(done);
-    };
-    step();
-
-    return () => {
-      cancelled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-    };
+    return startMailSuggestions(accountId, emails, setComputed);
   }, [accountId, emails]);
 
   if (!accountId) return undefined;

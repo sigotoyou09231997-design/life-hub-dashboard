@@ -229,6 +229,9 @@ export default function App() {
       void import("./pages/records/NotePage");
       void import("./pages/GmailPage");
       void import("./pages/GmailMailPage");
+      // Gmail の一覧は端末から読み出すのが遅い(iPhone で数百〜千通)ので、先に読んで控えておく。
+      // 押してから読むと、起動後の最初の1回だけ一覧が出るまでが長かった(src/lib/gmailWarmup.ts)。
+      window.setTimeout(() => void import("./lib/gmailWarmup").then((module) => module.warmGmail()), 800);
     };
     if (typeof window.requestIdleCallback === "function") {
       window.requestIdleCallback(prefetch);
@@ -308,7 +311,7 @@ export default function App() {
           <div className="app-workspace">
             <AppHeader />
             <main className={`app-main ${isGmailListRoute ? "app-main--fixed" : ""}`}>
-              <div key={location.pathname} ref={pageMotionRef} className="page-transition">
+              <div key={location.pathname} ref={pageMotionRef} className={`page-transition ${isGmailListRoute ? "page-transition--quick" : ""}`}>
                 <Routes location={location}>
               <Route path="/" element={<TopPage />} />
               <Route path="/schedule" element={<LazyRoute><SchedulePage /></LazyRoute>} />

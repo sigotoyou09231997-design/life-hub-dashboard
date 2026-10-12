@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router-dom";
 import { Ban, CalendarPlus, Check, Hourglass, Mail, MailCheck, Receipt, Search, Star } from "lucide-react";
 import { db } from "../../db/schema";
-import type { BlockedSender, EmailStatus, GmailAccount, SyncedEmail } from "../../types";
+import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender, snippetText } from "../../lib/gmail";
 import { summarizeGmailSync, syncGmailAccount } from "../../lib/gmailSync";
 import { formatGmailTimestamp } from "../../lib/date";
@@ -12,6 +12,7 @@ import { updateMessageState } from "../../lib/gmailMessageState";
 import { planSuggestionHint } from "../../lib/mailPlanSuggestion";
 import { expenseSuggestionHint } from "../../lib/expenseMailSuggestion";
 import { useMailSuggestions } from "../../hooks/useMailSuggestions";
+import { gmailViewCache, visibleMailsFor } from "../../lib/gmailViewCache";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
@@ -72,11 +73,6 @@ const MAIL_PAGE_SIZE = 50;
  * Gmail APIの1分あたりの上限に近づく(src/lib/gmailSync.ts の絞り込みと同じ理由)。 */
 const OPEN_SYNC_COOLDOWN_MS = 60_000;
 
-/** 前に読んだ一覧(アカウントごとに1つ)。画面を開き直した時に、端末から読み出し終わるまでの一瞬を
- * 空白・誤表示にしない控え(2026-10-13、本人「一瞬真っ白になる」)。読み出しが終われば本物に置き換わる。
- * ブロック中の送信者も一緒に控える — 無いと、ブロックしたはずの送信者のメールが一瞬だけ並ぶ。 */
-let rememberedList: { accountId: string; emails: SyncedEmail[]; blocked: BlockedSender[] | undefined } | null = null;
-
 const STATUS_LABEL: Record<EmailStatus, string> = {
   unprocessed: "未処理",
   generating: "生成中",
@@ -119,7 +115,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
   // 動かすたびにここへ写しておく。
   const listScrollRef = useRef(restoredRef.current?.listScroll ?? 0);
   const scrollRestoredRef = useRef(false);
-  const remembered = rememberedList?.accountId === account.id ? rememberedList : null;
+  const remembered = gmailViewCache.list?.accountId === account.id ? gmailViewCache.list : null;
   const liveEmails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
     [account.id],
@@ -134,7 +130,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
   const blockedSenders = liveBlocked ?? remembered?.blocked;
   useEffect(() => {
     if (!account.id || !liveEmails) return;
-    rememberedList = { accountId: account.id, emails: liveEmails, blocked: liveBlocked ?? remembered?.blocked };
+    gmailViewCache.list = { accountId: account.id, emails: liveEmails, blocked: liveBlocked ?? remembered?.blocked };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account.id, liveEmails, liveBlocked]);
 
@@ -156,10 +152,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
   }, [blockedSenders, account.email]);
 
   // 描き直すたびに全メールの差出人を読み直さない(2026-10-13)。メールかブロックの一覧が変わった時だけ作り直す。
-  const visibleEmails = useMemo(() => {
-    const blockedSet = new Set((blockedSenders ?? []).map((b) => b.email));
-    return emails?.filter((email) => !blockedSet.has(parseSender(email.from).email.toLowerCase()));
-  }, [emails, blockedSenders]);
+  const visibleEmails = useMemo(() => (emails ? visibleMailsFor(emails, blockedSenders) : undefined), [emails, blockedSenders]);
 
   // 日時が書かれていそうなメール(端末の中の文字合わせだけで見る。AIは呼ばない —
   // src/lib/mailPlanSuggestion.ts)と、注文確認・領収書らしいメール(src/lib/expenseMailSuggestion.ts)。

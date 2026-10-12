@@ -22,7 +22,7 @@ import {
   resolveSelectedGmailAccountId,
 } from "../lib/gmailAccounts";
 import { summarizeGmailSync, syncGmailAccount, type AccountSyncOutcome } from "../lib/gmailSync";
-import type { GmailAccount } from "../types";
+import { gmailViewCache } from "../lib/gmailViewCache";
 import { ComposeMail } from "../components/gmail/ComposeMail";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
@@ -39,10 +39,6 @@ const BACK_BUTTON_CLASS =
 interface SplitHistoryState {
   gmailMailFromList?: boolean;
 }
-
-/** 前に読んだ連携アカウント。画面を開き直した時の、端末から読み出し終わるまでの一瞬を空白・誤表示にしないための控え
- * (読み出しが終われば本物に置き換わる)。 */
-let rememberedAccounts: GmailAccount[] | undefined;
 
 /** PC(lg以上)で、一覧の右側に出すメール1通(本文と返信)。
  *
@@ -101,9 +97,9 @@ export default function GmailPage() {
   // 画面を開き直した時に、端末から読み出し終わるまでの一瞬を空白・誤表示にしないよう、前に読んだ
   // 連携アカウントを控えておき、読み出しが終わるまではそれを使う(2026-10-13、本人「一瞬真っ白になる」)。
   const liveAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
-  const accounts = liveAccounts ?? rememberedAccounts;
+  const accounts = liveAccounts ?? gmailViewCache.accounts;
   useEffect(() => {
-    if (liveAccounts) rememberedAccounts = liveAccounts;
+    if (liveAccounts) gmailViewCache.accounts = liveAccounts;
   }, [liveAccounts]);
   const showSkeleton = useDelayedFlag(accounts === undefined);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(() => readSelectedGmailAccountId());
