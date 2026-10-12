@@ -5,7 +5,7 @@ import { Ban, CalendarPlus, Check, Hourglass, Mail, MailCheck, Receipt, Search, 
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender, snippetText } from "../../lib/gmail";
-import { summarizeGmailSync, syncGmailAccount } from "../../lib/gmailSync";
+import { autoSyncModeOnOpen, summarizeGmailSync, syncGmailAccount, type GmailSyncMode } from "../../lib/gmailSync";
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { updateMessageState } from "../../lib/gmailMessageState";
@@ -76,10 +76,6 @@ const REVEAL_ROWS = 8;
 /** 開いた最初の描画に並べる行の数と、残りを足すまでの時間(ミリ秒。ページが現れる動き 340ms が終わるころ)。 */
 const FIRST_PAINT_ROWS = 12;
 const FIRST_PAINT_SETTLE_MS = 350;
-
-/** 一覧を開いた時の自動同期を見送る間隔。メールを1通開いて戻るだけで毎回取りに行くと、
- * Gmail APIの1分あたりの上限に近づく(src/lib/gmailSync.ts の絞り込みと同じ理由)。 */
-const OPEN_SYNC_COOLDOWN_MS = 60_000;
 
 const STATUS_LABEL: Record<EmailStatus, string> = {
   unprocessed: "未処理",
@@ -224,21 +220,23 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
   });
 
   /** 画面を開いた時の自動同期。二重実行の見張りは syncGmailAccount 側が持っているので、
-   * ヘッダーの「今すぐ同期」(全アカウントを回る)と重なっても2本は走らない。 */
-  async function handleSync() {
-    const summary = summarizeGmailSync([{ email: account.email, result: await syncGmailAccount(account) }]);
+   * ヘッダーの「今すぐ同期」(全アカウントを回る)と重なっても2本は走らない。
+   * 「新着はありませんでした」は出さない(quiet)。新着と失敗だけ知らせる。 */
+  async function handleSync(mode: GmailSyncMode) {
+    const summary = summarizeGmailSync([{ email: account.email, result: await syncGmailAccount(account, mode) }], { quiet: true });
     if (summary) showToast(summary.message, summary.tone);
   }
 
   // 画面を開いた瞬間に最新化する — ヘッダーの「今すぐ同期」は以降の手動リフレッシュ用として残す。
   // 連携が切れているアカウントでは走らせない。何度やっても同じ所で失敗し、赤いトーストが
   // 出るだけなので、画面上部の「つなぎ直す」の帯(GmailPage)に任せる。
-  // 直前に同期したばかりなら見送る — メールを開いて戻るとこの一覧は作り直されるので、
-  // 見送らないと1通読むごとに同期が走る。
+  // 何をするかは autoSyncModeOnOpen(src/lib/gmailSync.ts)が決める: 前に全部の同期をしてから10分たっていれば全部、
+  // それより前なら軽い確認(新着だけ)、直前(1分以内)に同期か確認をしていれば何もしない。
+  // メールを開いて戻るとこの一覧は作り直されるので、これが無いと1通読むごとに同期が走る。
   useEffect(() => {
     if (account.reauthRequiredAt) return;
-    if (account.lastSyncedAt && Date.now() - account.lastSyncedAt < OPEN_SYNC_COOLDOWN_MS) return;
-    void handleSync();
+    const mode = autoSyncModeOnOpen(account);
+    if (mode) void handleSync(mode);
   }, [account.id, account.reauthRequiredAt]);
 
   // 離れる時の見え方を控える。最新の値を掴めるよう、描画のたびにrefへ写しておく

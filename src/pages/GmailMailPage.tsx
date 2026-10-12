@@ -8,7 +8,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { EmptyState } from "../components/ui/EmptyState";
 import { DraftReview } from "../components/gmail/DraftReview";
-import { pullBlockedSenders } from "../lib/blockedSenders";
+import { pullBlockedSendersIfDue } from "../lib/blockedSenders";
 import { pullMessageStates } from "../lib/gmailMessageState";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 
@@ -48,7 +48,7 @@ function GmailMailScreen({ emailId }: { emailId: string | undefined }) {
   // ブロックリストの取り込みをここでも行う — DraftReviewのブロックボタンの状態
   // (ブロック済みかどうか)が他端末での操作を反映していないままになるのを防ぐ。
   useEffect(() => {
-    if (data?.account.id) void pullBlockedSenders(data.account.id, data.account.email);
+    if (data?.account.id) void pullBlockedSendersIfDue(data.account.id, data.account.email);
   }, [data?.account.id, data?.account.email]);
 
   // 他端末で既読にした/未読に戻した分をこの画面にも反映する(一覧側は同期のたびに

@@ -45,7 +45,7 @@ vi.mock("./syncedEmails", () => ({
 }));
 
 import { NO_CHANGES_SUMMARY } from "./gmail";
-import { describeSyncError, isReauthRequiredError, summarizeGmailSync, syncGmailAccount } from "./gmailSync";
+import { autoSyncModeOnOpen, decideOpenSyncMode, describeSyncError, isReauthRequiredError, summarizeGmailSync, syncGmailAccount } from "./gmailSync";
 
 const account = (id: string, email: string): GmailAccount => ({
   id,
@@ -172,5 +172,95 @@ describe("syncGmailAccount", () => {
       syncGmailAccount(account("account-b", "b@example.com")),
     ]);
     expect(mocks.ensureFreshAccessToken).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("画面を開いた時の自動同期の決め方(decideOpenSyncMode)", () => {
+  const NOW = 1_000_000_000_000;
+  const min = (n: number) => n * 60_000;
+
+  it("一度も全部の同期をしていなければ、全部の同期", () => {
+    expect(decideOpenSyncMode(undefined, undefined, NOW)).toBe("full");
+  });
+
+  it("全部の同期から10分以上たっていれば、全部の同期(確認だけしていても)", () => {
+    expect(decideOpenSyncMode(NOW - min(10), NOW - 1_000, NOW)).toBe("full");
+    expect(decideOpenSyncMode(NOW - min(30), undefined, NOW)).toBe("full");
+  });
+
+  it("全部の同期から10分以内で、直前(1分以内)に同期か確認をしていなければ、軽い確認", () => {
+    expect(decideOpenSyncMode(NOW - min(5), undefined, NOW)).toBe("quick");
+    expect(decideOpenSyncMode(NOW - min(5), NOW - min(2), NOW)).toBe("quick");
+  });
+
+  it("直前(1分以内)に同期か確認をしていれば、何もしない(メールを開いて戻るたびに走らせない)", () => {
+    expect(decideOpenSyncMode(NOW - 5_000, undefined, NOW)).toBeNull();
+    expect(decideOpenSyncMode(NOW - min(5), NOW - 30_000, NOW)).toBeNull();
+  });
+
+  it("アカウントごとに、この起動での確認を覚える(別のアカウントは別)", async () => {
+    const a = account("open-a", "a@example.com");
+    const recent = { ...a, lastSyncedAt: Date.now() - min(5) };
+    expect(autoSyncModeOnOpen(recent)).toBe("quick");
+    await syncGmailAccount(recent, "quick");
+    expect(autoSyncModeOnOpen(recent)).toBeNull();
+    expect(autoSyncModeOnOpen({ ...account("open-b", "b@example.com"), lastSyncedAt: Date.now() - min(5) })).toBe("quick");
+  });
+});
+
+describe("軽い確認(quick)", () => {
+  beforeEach(() => {
+    mocks.ensureFreshAccessToken.mockClear();
+    mocks.listRecentMessageIds.mockClear();
+    mocks.pushPendingMessageStates.mockClear();
+    mocks.pullMessageStates.mockClear();
+    mocks.db.gmailAccounts.update.mockClear();
+  });
+
+  it("新着の確認(一覧の取得)だけで、既読の共有(Supabase)はしない。lastSyncedAt も進めない", async () => {
+    await syncGmailAccount(account("q1", "q@example.com"), "quick");
+    expect(mocks.listRecentMessageIds).toHaveBeenCalledTimes(1);
+    expect(mocks.pushPendingMessageStates).not.toHaveBeenCalled();
+    expect(mocks.pullMessageStates).not.toHaveBeenCalled();
+    expect(mocks.db.gmailAccounts.update).not.toHaveBeenCalled();
+  });
+
+  it("全部の同期は、これまでどおり既読の共有もして、lastSyncedAt を進める", async () => {
+    await syncGmailAccount(account("f1", "f@example.com"));
+    expect(mocks.pushPendingMessageStates).toHaveBeenCalledTimes(1);
+    expect(mocks.pullMessageStates).toHaveBeenCalledTimes(1);
+    expect(mocks.db.gmailAccounts.update).toHaveBeenCalledWith("f1", expect.objectContaining({ lastSyncedAt: expect.any(Number) }));
+  });
+
+  it("軽い確認が走っている最中に全部の同期が来たら、確認が終わってから全部をやる(確認の結果で済ませない)", async () => {
+    const target = account("q2", "q@example.com");
+    const quick = syncGmailAccount(target, "quick");
+    const full = syncGmailAccount(target, "full");
+    expect(full).not.toBe(quick);
+    await Promise.all([quick, full]);
+    expect(mocks.listRecentMessageIds).toHaveBeenCalledTimes(2);
+    expect(mocks.pullMessageStates).toHaveBeenCalledTimes(1);
+  });
+
+  it("全部の同期が走っている最中に軽い確認が来たら、相乗りする", async () => {
+    const target = account("q3", "q@example.com");
+    const full = syncGmailAccount(target, "full");
+    const quick = syncGmailAccount(target, "quick");
+    expect(quick).toBe(full);
+    await full;
+    expect(mocks.listRecentMessageIds).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("summarizeGmailSync の quiet(自動の同期)", () => {
+  it("何も無かった時は、お知らせしない。「今すぐ同期」(quiet なし)は今までどおり出す", () => {
+    const none = [{ email: "me@example.com", result: ok(NO_CHANGES_SUMMARY) }];
+    expect(summarizeGmailSync(none, { quiet: true })).toBeNull();
+    expect(summarizeGmailSync(none)).toEqual({ message: NO_CHANGES_SUMMARY, tone: "success" });
+  });
+
+  it("新着があった時・失敗した時は、自動でもお知らせする", () => {
+    expect(summarizeGmailSync([{ email: "me@example.com", result: ok("3件の新着メールを取り込みました") }], { quiet: true })?.message).toContain("3件");
+    expect(summarizeGmailSync([{ email: "me@example.com", result: { summary: "", stateError: null, error: "失敗" } }], { quiet: true })).toEqual({ message: "失敗", tone: "error" });
   });
 });

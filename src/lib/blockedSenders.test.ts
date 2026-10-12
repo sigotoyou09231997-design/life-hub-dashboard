@@ -107,6 +107,34 @@ describe("pullBlockedSenders", () => {
   });
 });
 
+describe("pullBlockedSendersIfDue(画面を開くたびに取りに行かない)", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    mocks.getSession.mockResolvedValue({ data: { session: { user: { id: "user-1" } } } });
+    remoteRows([]);
+    localRows([]);
+  });
+
+  it("前の取り込みから5分以内なら、取りに行かない。5分たてばまた取りに行く", async () => {
+    const { pullBlockedSendersIfDue, BLOCKED_PULL_INTERVAL_MS } = await import("./blockedSenders");
+    const t0 = 1_000_000;
+    await pullBlockedSendersIfDue("acct", "me@gmail.com", t0);
+    await pullBlockedSendersIfDue("acct", "me@gmail.com", t0 + 60_000);
+    await pullBlockedSendersIfDue("acct", "me@gmail.com", t0 + BLOCKED_PULL_INTERVAL_MS - 1);
+    expect(mocks.from).toHaveBeenCalledTimes(1);
+    await pullBlockedSendersIfDue("acct", "me@gmail.com", t0 + BLOCKED_PULL_INTERVAL_MS);
+    expect(mocks.from).toHaveBeenCalledTimes(2);
+  });
+
+  it("アカウントごとに数える(別のアカウントは、すぐ取りに行く)", async () => {
+    const { pullBlockedSendersIfDue } = await import("./blockedSenders");
+    await pullBlockedSendersIfDue("a", "a@gmail.com", 1);
+    await pullBlockedSendersIfDue("b", "b@gmail.com", 2);
+    expect(mocks.from).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("blockSenderRemote", () => {
   beforeEach(() => {
     vi.resetModules();

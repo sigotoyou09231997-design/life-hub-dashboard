@@ -9,6 +9,8 @@ import { ToastProvider } from "../ui/ToastProvider";
 const mocks = vi.hoisted(() => ({
   emails: [] as Record<string, unknown>[],
   syncCalls: 0,
+  /** 同期に渡された種類("full" か "quick")。 */
+  syncModes: [] as string[],
   /** 返信待ちの判定そのものは src/lib/replyWaiting.test.ts で見る。ここでは結果だけ渡す。 */
   replyWaiting: [] as { email: Record<string, unknown>; sentAt: number; waitingDays: number }[],
   /** 既読にした・重要にした等(updateMessageState)の呼び出し。 */
@@ -56,9 +58,12 @@ vi.mock("dexie-react-hooks", async () => {
   };
 });
 
-vi.mock("../../lib/gmailSync", () => ({
-  syncGmailAccount: async () => {
+// 何をするかの決め方(autoSyncModeOnOpen)は本物のまま使い、通信する同期だけ差し替える。
+vi.mock("../../lib/gmailSync", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../lib/gmailSync")>()),
+  syncGmailAccount: async (_account: unknown, mode: string = "full") => {
     mocks.syncCalls += 1;
+    mocks.syncModes.push(mode);
     return { summary: "", stateError: null, error: null };
   },
   summarizeGmailSync: () => null,
@@ -118,6 +123,7 @@ describe("メール一覧", () => {
   beforeEach(() => {
     mocks.emails = [email("m1", "一次面接のご案内"), email("m2", "説明会の御礼", { readAt: 1, status: "sent" })];
     mocks.syncCalls = 0;
+    mocks.syncModes = [];
     mocks.replyWaiting = [];
   });
 
@@ -179,15 +185,28 @@ describe("メール一覧", () => {
     expect(screen.getByRole("button", { name: "送信済み" }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("直前に同期していれば、開き直しで取りに行かない", async () => {
+  it("直前(1分以内)に全部の同期をしていれば、開き直しでは何もしない", async () => {
     renderInbox({ id: "fresh", lastSyncedAt: Date.now() - 5_000 });
     await screen.findByRole("link", { name: /一次面接のご案内/ });
     expect(mocks.syncCalls).toBe(0);
   });
 
-  it("しばらく同期していなければ、開いた時に取りに行く", async () => {
-    renderInbox({ id: "stale", lastSyncedAt: Date.now() - 10 * 60_000 });
+  it("全部の同期から10分以内なら、開いた時は軽い確認(新着だけ)にする。重い突き合わせはしない", async () => {
+    renderInbox({ id: "recent", lastSyncedAt: Date.now() - 5 * 60_000 });
     await waitFor(() => expect(mocks.syncCalls).toBe(1));
+    expect(mocks.syncModes).toEqual(["quick"]);
+  });
+
+  it("全部の同期から10分以上たっていれば、開いた時に全部の同期をする", async () => {
+    renderInbox({ id: "stale", lastSyncedAt: Date.now() - 11 * 60_000 });
+    await waitFor(() => expect(mocks.syncCalls).toBe(1));
+    expect(mocks.syncModes).toEqual(["full"]);
+  });
+
+  it("一度も同期していないアカウントは、開いた時に全部の同期をする", async () => {
+    renderInbox({ id: "never" });
+    await waitFor(() => expect(mocks.syncCalls).toBe(1));
+    expect(mocks.syncModes).toEqual(["full"]);
   });
 
   it("抜粋の &amp; などは元の字に戻して出し、戻した字で探せる", async () => {
