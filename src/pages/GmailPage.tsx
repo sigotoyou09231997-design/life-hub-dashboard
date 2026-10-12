@@ -102,7 +102,13 @@ export default function GmailPage() {
     if (liveAccounts) gmailViewCache.accounts = liveAccounts;
   }, [liveAccounts]);
   const showSkeleton = useDelayedFlag(accounts === undefined);
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(() => readSelectedGmailAccountId());
+  // 最初の描画から、選ぶアカウントを決める。控えのアカウント(gmailViewCache)があれば、それと突き合わせて確定させる。
+  // 前は、覚えている id をそのまま入れて、下の突き合わせの useEffect で直していたので、一覧が2回目の描画まで
+  // 出ず、開いた直後に見出しだけが先に出ていた(2026-10-13、本人「切り替わり方が違和感ある」)。
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(() => {
+    const remembered = readSelectedGmailAccountId();
+    return gmailViewCache.accounts ? resolveSelectedGmailAccountId(gmailViewCache.accounts, remembered) : remembered;
+  });
   const [syncing, setSyncing] = useState(false);
   const [composeOpen, setComposeOpen] = useState(false);
 
@@ -257,7 +263,7 @@ export default function GmailPage() {
   return (
     <div ref={pull.containerRef} className="spatial-page mail-page micro-contrast mx-auto pb-10 lg:flex lg:h-full lg:min-h-0 lg:max-w-[1480px] lg:flex-col lg:pb-0" style={AREA_ACCENT_STYLE.gmail}>
       <PullToRefreshIndicator ref={pull.indicatorRef} phase={pull.phase} />
-      <div className="mail-page-header flex items-center justify-between gap-2 px-5 pb-4 pt-6 lg:shrink-0 lg:px-8 lg:pb-5 lg:pt-7">
+      <div data-page-block className="mail-page-header flex items-center justify-between gap-2 px-5 pb-4 pt-6 lg:shrink-0 lg:px-8 lg:pb-5 lg:pt-7">
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={() => navigate("/")} aria-label="戻る" className={`${BACK_BUTTON_CLASS} lg:hidden`}>
             <ChevronLeft size={22} />

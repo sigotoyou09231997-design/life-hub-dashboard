@@ -325,9 +325,6 @@ a {
    背景の暗転は見えるがダイアログ本体は現在のビューポート外(ページ最下部)に描画され、
    「画面がぼやけるだけで何も出ない」ように見えていた。 */
 .page-transition { animation: page-enter 340ms cubic-bezier(.16,.78,.24,1); }
-/* Gmail の一覧は、押してから見えるまでを速くするため、出現の動きを短くする(2026-10-13、本人「1秒の切り替わりも
-   短くできない?」)。ほかの画面は 340ms のまま。 */
-.page-transition--quick { animation-duration: 160ms; }
 
 .card-interactive {
   transition: transform 260ms ease-out, box-shadow 260ms ease-out, border-color 220ms ease-out;

@@ -311,7 +311,7 @@ export default function App() {
           <div className="app-workspace">
             <AppHeader />
             <main className={`app-main ${isGmailListRoute ? "app-main--fixed" : ""}`}>
-              <div key={location.pathname} ref={pageMotionRef} className={`page-transition ${isGmailListRoute ? "page-transition--quick" : ""}`}>
+              <div key={location.pathname} ref={pageMotionRef} className="page-transition">
                 <Routes location={location}>
               <Route path="/" element={<TopPage />} />
               <Route path="/schedule" element={<LazyRoute><SchedulePage /></LazyRoute>} />
