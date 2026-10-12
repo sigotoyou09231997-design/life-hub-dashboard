@@ -8,6 +8,7 @@ import type { TripExpenseCurrencyDraft } from "../../lib/currency";
 const mocks = vi.hoisted(() => ({
   loadCurrencyDraft: vi.fn(),
   fetchRateToYen: vi.fn(),
+  saveCurrencyDraft: vi.fn(async () => {}),
   updated: [] as [string, unknown][],
 }));
 
@@ -16,13 +17,16 @@ vi.mock("../../db/schema", () => ({
 }));
 
 // レートの判定(needsRateRefetch / isRateFetchable)は本物のまま使い、
-// 「読み込み」と「取りに行く」の2つだけ差し替える。
+// 「読み込み」「取りに行く」「保存」の3つだけ差し替える。
+// 保存を本物のままにすると、偽の db に無い tripExpenseCurrencies を引いて
+// テストの後ろで落ち、npm test 全体が失敗になる(Unhandled Rejection)。
 vi.mock("../../lib/currency", async () => {
   const actual = await vi.importActual<typeof import("../../lib/currency")>("../../lib/currency");
   return {
     ...actual,
     loadCurrencyDraft: mocks.loadCurrencyDraft,
     fetchRateToYen: mocks.fetchRateToYen,
+    saveCurrencyDraft: mocks.saveCurrencyDraft,
   };
 });
 
