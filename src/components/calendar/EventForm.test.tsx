@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { CalendarEvent } from "../../types";
 import { ToastProvider } from "../ui/ToastProvider";
@@ -301,5 +301,226 @@ describe("日付(開始日・終了日)", () => {
     renderForm({ ...existingEvent, date: "2026-09-01", endDate: "2026-09-03" });
     expect(screen.getByRole("button", { name: "日付の終了日" }).textContent).toContain("9/3");
     expect(screen.getByText(/3日間/)).toBeTruthy();
+  });
+});
+
+describe("時刻の入れ方(開始を入れると終了が付いてくる)", () => {
+  const startInput = () => screen.getByLabelText("開始時刻") as HTMLInputElement;
+  const endInput = () => screen.getByLabelText("終了時刻") as HTMLInputElement;
+
+  it("開始を入れると、空の終了に1時間後が入る(あとから直せる)", () => {
+    renderForm();
+    fireEvent.change(startInput(), { target: { value: "10:00" } });
+    expect(endInput().value).toBe("11:00");
+
+    fireEvent.change(endInput(), { target: { value: "10:45" } });
+    expect(endInput().value).toBe("10:45");
+  });
+
+  it("こちらで入れた終了は、開始を直すとついてくる", () => {
+    renderForm();
+    fireEvent.change(startInput(), { target: { value: "10:00" } });
+    fireEvent.change(startInput(), { target: { value: "14:30" } });
+    expect(endInput().value).toBe("15:30");
+  });
+
+  it("手で入れた終了は、開始を直しても動かさない", () => {
+    renderForm();
+    fireEvent.change(startInput(), { target: { value: "10:00" } });
+    fireEvent.change(endInput(), { target: { value: "12:00" } });
+    fireEvent.change(startInput(), { target: { value: "10:30" } });
+    expect(endInput().value).toBe("12:00");
+  });
+
+  it("編集で開いた予定の終了は、開始を直しても動かさない", () => {
+    renderForm({ ...existingEvent, allDay: false, startTime: "10:00", endTime: "12:00" });
+    fireEvent.change(startInput(), { target: { value: "09:00" } });
+    expect(endInput().value).toBe("12:00");
+  });
+
+  it("1時間後が日付をまたぐ時は、終了を空のままにする", () => {
+    renderForm();
+    fireEvent.change(startInput(), { target: { value: "23:30" } });
+    expect(endInput().value).toBe("");
+  });
+
+  it("開始の早押しで開始と終了が入り、そのまま保存される", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByLabelText("タイトル"), "歯医者");
+    await user.click(screen.getByRole("button", { name: "19:00" }));
+
+    expect(startInput().value).toBe("19:00");
+    expect(endInput().value).toBe("20:00");
+    expect(screen.getByRole("button", { name: "19:00" }).getAttribute("aria-pressed")).toBe("true");
+
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(mocks.added[0]).toMatchObject({ startTime: "19:00", endTime: "20:00", allDay: false });
+  });
+
+  it("長さの早押しは、開始が無いうちは押せない", () => {
+    renderForm();
+    for (const name of ["30分", "1時間", "2時間"]) {
+      expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
+    }
+  });
+
+  it("長さを押すと終了が開始+長さになり、そのあと開始を動かしても長さを保つ", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("button", { name: "9:00" }));
+    await user.click(screen.getByRole("button", { name: "2時間" }));
+    expect(endInput().value).toBe("11:00");
+    expect(screen.getByRole("button", { name: "2時間" }).getAttribute("aria-pressed")).toBe("true");
+
+    await user.click(screen.getByRole("button", { name: "12:00" }));
+    expect(endInput().value).toBe("14:00");
+
+    await user.click(screen.getByRole("button", { name: "30分" }));
+    expect(endInput().value).toBe("12:30");
+  });
+
+  it("日付をまたぐ長さは押せない", () => {
+    renderForm();
+    fireEvent.change(startInput(), { target: { value: "22:30" } });
+    expect((screen.getByRole("button", { name: "30分" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "1時間" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "2時間" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("通知・カテゴリはプルダウンにしない", () => {
+  it("ボタンで選べ、保存される値は今までと同じ", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    // iPhone のシートの中でプルダウンの選択肢が離れて出るので、この画面には1つも置かない。
+    expect(screen.queryByRole("combobox")).toBeNull();
+
+    await user.type(screen.getByLabelText("タイトル"), "会議");
+    await user.click(screen.getByRole("button", { name: "30分前" }));
+    await user.click(screen.getByRole("button", { name: "仕事" }));
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+
+    expect(mocks.added[0]).toMatchObject({ notifyMinutesBefore: 30, category: "work" });
+  });
+
+  it("「通知しない」は今までどおり値を持たない", async () => {
+    const user = userEvent.setup();
+    renderForm({ ...existingEvent, allDay: false, startTime: "10:00", notifyMinutesBefore: 10 });
+    await user.click(screen.getByRole("button", { name: "通知しない" }));
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.updated[0].notifyMinutesBefore).toBeUndefined();
+  });
+
+  it("開いた予定の通知とカテゴリが、選ばれた状態で出る", () => {
+    renderForm({ ...existingEvent, allDay: false, startTime: "10:00", notifyMinutesBefore: 1440, category: "important" });
+    expect(screen.getByRole("button", { name: "前日" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "重要" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "その他" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("選択肢に無い分数の通知も、消さずに見えるように出す", async () => {
+    const user = userEvent.setup();
+    renderForm({ ...existingEvent, allDay: false, startTime: "10:00", notifyMinutesBefore: 15 });
+    expect(screen.getByRole("button", { name: "15分前" }).getAttribute("aria-pressed")).toBe("true");
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.updated[0].notifyMinutesBefore).toBe(15);
+  });
+});
+
+describe("タイトルに書いた日時", () => {
+  beforeEach(() => {
+    // 「明日」が何日かを決めるため、今日を 2026-10-12(月) に止める。タイマーは本物のまま。
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 9, 12, 9, 0));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("「明日19時 歯医者」で提案が出て、押すと日付・開始・終了が入り、タイトルは残りだけになる", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByLabelText("タイトル"), "明日19時 歯医者");
+
+    await user.click(screen.getByRole("button", { name: "10/13(火) 19:00 で入れる" }));
+
+    expect((screen.getByLabelText("タイトル") as HTMLInputElement).value).toBe("歯医者");
+    expect((screen.getByLabelText("開始時刻") as HTMLInputElement).value).toBe("19:00");
+    expect((screen.getByLabelText("終了時刻") as HTMLInputElement).value).toBe("20:00");
+    // 入れ終わったら、提案はもう出さない。
+    expect(screen.queryByRole("button", { name: /で入れる/ })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(mocks.added[0]).toMatchObject({
+      title: "歯医者",
+      date: "2026-10-13",
+      startTime: "19:00",
+      endTime: "20:00",
+    });
+  });
+
+  it("押さなければ何も変えない(勝手に入れない)", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByLabelText("タイトル"), "明日19時 歯医者");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+
+    expect(mocks.added[0]).toMatchObject({ title: "明日19時 歯医者", date: "2026-09-01" });
+    expect(mocks.added[0].startTime).toBeUndefined();
+  });
+
+  it("終わりまで書いてあれば、その終了を入れる", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByLabelText("タイトル"), "来週の火曜 19時〜21時 飲み会");
+    await user.click(screen.getByRole("button", { name: "10/20(火) 19:00〜21:00 で入れる" }));
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+
+    expect(mocks.added[0]).toMatchObject({
+      title: "飲み会",
+      date: "2026-10-20",
+      startTime: "19:00",
+      endTime: "21:00",
+    });
+  });
+
+  it("終日にしていても、時刻つきの提案を押すと時刻のある予定に戻す", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("button", { name: "終日" }));
+    await user.type(screen.getByLabelText("タイトル"), "明日19時 歯医者");
+    await user.click(screen.getByRole("button", { name: "10/13(火) 19:00 で入れる" }));
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+
+    expect(mocks.added[0]).toMatchObject({ allDay: false, startTime: "19:00" });
+  });
+
+  it("日付だけの提案は、時刻と終日の設定に触らない", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("button", { name: "終日" }));
+    await user.type(screen.getByLabelText("タイトル"), "10/20 健康診断");
+    await user.click(screen.getByRole("button", { name: "10/20(火) で入れる" }));
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+
+    expect(mocks.added[0]).toMatchObject({ title: "健康診断", date: "2026-10-20", allDay: true });
+  });
+
+  it("名前まで日時だった時は、タイトルを空にして打てるようにする", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByLabelText("タイトル"), "明日19時");
+    await user.click(screen.getByRole("button", { name: "10/13(火) 19:00 で入れる" }));
+
+    const titleInput = screen.getByLabelText("タイトル") as HTMLInputElement;
+    expect(titleInput.value).toBe("");
+    expect(document.activeElement).toBe(titleInput);
+  });
+
+  it("編集で開いた予定は、タイトルを書き換えるまで提案を出さない", () => {
+    renderForm({ ...existingEvent, title: "3時のおやつ" });
+    expect(screen.queryByRole("button", { name: /で入れる/ })).toBeNull();
   });
 });

@@ -6,18 +6,17 @@ import { NOTE_TYPE_DEFS, getNoteType } from "../../lib/noteTypes";
 import { groupByOwner } from "../../lib/attachments";
 import { NoteCard } from "./NoteCard";
 import { EmptyState } from "../ui/EmptyState";
-import { Plus, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 interface Props {
   notes: Note[];
-  onAdd: () => void;
   onEdit: (note: Note) => void;
   onDelete: (id: string) => void;
 }
 
 type TypeFilter = "all" | NoteType;
 
-export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
+export function NoteList({ notes, onEdit, onDelete }: Props) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 
@@ -105,9 +104,10 @@ export function NoteList({ notes, onAdd, onEdit, onDelete }: Props) {
                 return <div key={def.value}><Icon size={16} /><span>{def.label}</span><strong>0</strong></div>;
               })}
             </div>
+            {/* 「新しいメモ」のボタンは、右下の「＋」と同じ働きで2つ並んでいたので外した
+                (UI/UX 調査メモ A-3。追加の入口は各画面の「＋」1つに決めた)。 */}
             <div className="notes-empty-control__action">
-              <p><strong>最初のメモを作成</strong><span>アイデアやリストを、ここから整理できます。</span></p>
-              <button type="button" onClick={onAdd}><Plus size={15} />新しいメモ</button>
+              <p><strong>最初のメモを作成</strong><span>右下の「＋」から、アイデアやリストを作れます。</span></p>
             </div>
           </section>
         ) : (

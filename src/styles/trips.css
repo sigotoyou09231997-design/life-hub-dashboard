@@ -643,6 +643,26 @@ a.trip-leg-mode--link {
   min-width: 0;
 }
 
+/* --- 日程タブ: 旅行のメモの「続きを読む」(TripMemoNote) ------------------------
+   メモは3行で畳む。押せる所だと分かるよう青緑の字にし、指で押しやすい高さを持たせる。 */
+.trip-memo-note__toggle {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0.1rem 0 -0.45rem -0.15rem;
+  padding: 0 0.15rem;
+  border-radius: var(--hub-r-sm);
+  color: var(--accent, var(--hub-blue));
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.trip-memo-note__toggle:focus-visible {
+  outline: 2px solid var(--accent, var(--hub-blue));
+  outline-offset: 1px;
+}
+
 /* --- 場所1件のカード ------------------------------------------------------ */
 /* --- 日程タブ: 1日=1枚のカード ------------------------------------------
    以前は日付も「予定はまだありません」も背景の写真の上に文字だけで置いていたため、
@@ -827,36 +847,34 @@ a.trip-leg-mode--link {
   line-height: 1.1;
 }
 
-/* 予定の上下の入れ替え(TripScheduleList)。時刻の下に、右へ寄せて2つ並べる。 */
-.trip-timeline__order {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 0.3rem;
-  margin-right: -0.3rem;
+/* 長押しで並べ替えられる行(TripScheduleList、src/hooks/useLongPressReorder.ts)。
+   長押しで文字の選択や端末のメニューが出ると、指の動きを取られて並べ替えが始まらない。 */
+.trip-timeline__item[data-reorder-row] {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
-.trip-timeline__order button {
-  display: flex;
-  width: 1.6rem;
-  height: 1.6rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
+/* 動かしている行。持ち上げて、どれを掴んでいるか分かるようにする(持ち物の並べ替えと同じ見せ方)。 */
+.trip-timeline__item.is-dragging {
+  z-index: 2;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-surface);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--hub-blue) 40%, transparent),
+    0 10px 24px rgba(28, 45, 75, 0.18);
+  transform: scale(1.02);
+}
+
+.trip-timeline__item.is-dragging .trip-timeline__body:hover {
+  background: transparent;
+}
+
+/* 並べ替えの案内。行ごとに矢印を出すのをやめた代わりに、1日に1行だけ置く。 */
+.trip-day__hint {
+  margin: 0.1rem 0 0;
   color: var(--hub-ink-3);
-  transition: background-color 150ms var(--hub-ease);
-}
-
-.trip-timeline__order button:active:not(:disabled) {
-  background: var(--hub-inset);
-}
-
-.trip-timeline__order button:disabled {
-  opacity: 0.25;
-}
-
-.trip-timeline__order button:focus-visible {
-  outline: 2px solid var(--hub-blue);
-  outline-offset: 1px;
+  font-size: 0.72rem;
 }
 
 /* 「終日」「時刻なし」は時刻ではないので、一段小さく淡くする。 */
@@ -1349,10 +1367,11 @@ a.trip-leg-mode--link {
   cursor: pointer;
 }
 
+/* 選んでいる方だけ黒く塗る(日にちのチップと同じ決まり。以前は薄い青緑の面に青緑の字)。 */
 .trip-leg-via__pick.is-active {
-  border-color: transparent;
-  background: rgba(79, 111, 255, 0.12);
-  color: var(--accent, var(--hub-blue));
+  border-color: var(--ink-black, transparent);
+  background: var(--ink-black, var(--accent, var(--hub-blue)));
+  color: #fff;
 }
 
 .trip-leg-via__steps {
@@ -1463,15 +1482,18 @@ a.trip-leg-mode--link {
   font-variant-numeric: tabular-nums;
 }
 
+/* 選んでいる所だけ黒く塗る(theme-teal.css の決まり。ページのタブと同じ黒)。以前は青緑で塗っていて、
+   黒いタブのすぐ下に青緑の日にちが並び、「選んでいる」の印が2通りあった(2026-10-12)。
+   --ink-black は theme-teal.css にあるので、あの1行を外せば元の青に戻る。 */
 .trip-route__day.is-active,
 .trip-day-pick__chip.is-active {
-  border-color: transparent;
-  background: var(--accent, var(--hub-blue));
+  border-color: var(--ink-black, transparent);
+  background: var(--ink-black, var(--accent, var(--hub-blue)));
   color: #fff;
 }
 
 .trip-route__day.is-active small {
-  background: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.2);
   color: #fff;
 }
 

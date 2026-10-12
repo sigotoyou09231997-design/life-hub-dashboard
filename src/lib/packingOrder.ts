@@ -12,7 +12,7 @@ export function sortPacking(items: TripPackingItem[]): TripPackingItem[] {
   );
 }
 
-/** from 番目を to 番目へ動かした並び(間のものは1つずつずれる)。 */
+/** from 番目を to 番目へ動かした並び(間のものは1つずつずれる)。日程の並べ替え(scheduleOrder.ts)でも使う。 */
 export function moveTo<T>(list: T[], from: number, to: number): T[] {
   if (from === to || from < 0 || from >= list.length) return list;
   const next = [...list];

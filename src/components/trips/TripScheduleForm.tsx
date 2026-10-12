@@ -6,7 +6,7 @@ import { deleteCurrencyFor } from "../../lib/currency";
 import { TRIP_SCHEDULE_TYPES, TRIP_TRANSPORT_MODES } from "../../lib/tripCategories";
 import { SegmentedField, type SegmentedOption } from "../ui/SegmentedField";
 import { TRANSPORT_MODE_ICON } from "./transportModes";
-import { ChevronDown, ImagePlus, MapPinned } from "lucide-react";
+import { ChevronDown, ImagePlus, MapPinned, Trash2 } from "lucide-react";
 import { detailsForSave, hasScheduleDetails, type ScheduleDetailField } from "../../lib/scheduleDetails";
 import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
 import { PhotoField } from "../attachments/PhotoField";
@@ -16,6 +16,7 @@ import { DateRangeField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
+import { useConfirm } from "../ui/ConfirmProvider";
 import { isMultiDay, normalizeEndDate, shiftEndDate, spanDays } from "../../lib/eventSpan";
 
 interface Props {
@@ -27,6 +28,11 @@ interface Props {
   /** 保存した予定の日(開始日)。旅行の画面が、その日へ表示を切り替えるのに使う。 */
   onSaved: (date: string) => void;
   onCancel: () => void;
+  /**
+   * 予定を消す(確認はこのフォームが取る)。編集の時だけ渡す。
+   * 2026-10-12 に日程の行からゴミ箱をなくし、削除はここだけにした(スクロールの途中で押しかけるため)。
+   */
+  onDelete?: () => void | Promise<void>;
 }
 
 /** 「未定」は空の値。選び直して消せるように、手段と同じ並びに置く。 */
@@ -35,7 +41,8 @@ const TRANSPORT_OPTIONS: SegmentedOption<TripTransportMode | "">[] = [
   { value: "", label: "未定" },
 ];
 
-export function TripScheduleForm({ tripId, initial, members: membersProp, defaultDate, onSaved, onCancel }: Props) {
+export function TripScheduleForm({ tripId, initial, members: membersProp, defaultDate, onSaved, onCancel, onDelete }: Props) {
+  const confirm = useConfirm();
   // 同期で降りてきた旅行は、参加者の列が空だと null になる。引数の既定値(= [])は undefined にしか
   // 効かないので、ここで空にそろえる(2026-10-11、null のまま .length を読んで予定を押すと真っ白になった)。
   const members = membersProp ?? [];
@@ -68,6 +75,7 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
   const [amount, setAmount] = useState("");
   const [paidBy, setPaidBy] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // 貼ってある写真は別のテーブルにあるので、開いた時に読み直す(書類・メモ・日記と同じ。src/lib/attachments.ts)。
   // この予定の費用も、費用の表にあるので一緒に読む。
@@ -165,6 +173,18 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
     await saveLinkedExpense(scheduleId, record.title);
     setSaving(false);
     onSaved(date);
+  }
+
+  async function handleDelete() {
+    if (!onDelete || !initial) return;
+    // 見出しは保存済みの題名で聞く(打ちかけの題名だと、どの予定を消すのか分からなくなる)。
+    if (!(await confirm({ title: `「${initial.title}」を削除しますか?` }))) return;
+    setDeleting(true);
+    try {
+      await onDelete();
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -284,6 +304,14 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
       <FormPanel caption="写真" icon={ImagePlus}>
         <PhotoField value={photos} onChange={setPhotos} />
       </FormPanel>
+
+      {/* 保存・キャンセルの帯とは離して、フォームのいちばん下に1つだけ置く。 */}
+      {initial && onDelete && (
+        <Button type="button" variant="danger" className="w-full" disabled={saving || deleting} onClick={() => void handleDelete()}>
+          <Trash2 size={16} aria-hidden="true" />
+          この予定を削除
+        </Button>
+      )}
 
       <FormActions>
         <Button type="button" variant="secondary" onClick={onCancel}>

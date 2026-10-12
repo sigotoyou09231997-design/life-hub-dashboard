@@ -24,6 +24,7 @@ import { Card } from "../components/ui/Card";
 import { TripForm } from "../components/trips/TripForm";
 import { TripScheduleForm } from "../components/trips/TripScheduleForm";
 import { TripScheduleList } from "../components/trips/TripScheduleList";
+import { TripMemoNote } from "../components/trips/TripMemoNote";
 import { TripExpenseForm } from "../components/trips/TripExpenseForm";
 import { TripExpenseList } from "../components/trips/TripExpenseList";
 import { TripPackingForm } from "../components/trips/TripPackingForm";
@@ -244,6 +245,15 @@ export default function TripDetailPage() {
 
   const trip = tripResult.trip;
 
+  /** 予定を消す(編集の中の「この予定を削除」から。確認はフォームが取る)。貼った写真は別のテーブルにあるので一緒に。 */
+  function deleteSchedule(id: string) {
+    db.tripSchedule.delete(id);
+    void deleteAttachmentsFor("tripSchedule", id);
+    setEditingSchedule(null);
+    setScheduleDatePreset(null);
+    showToast("削除しました");
+  }
+
   async function handleDelete() {
     if (!trip?.id) return;
     const ok = await confirm({
@@ -332,12 +342,7 @@ export default function TripDetailPage() {
           <>
             {/* 旅行のメモ。専用の「概要」タブは行き先も日程もヒーローと重複していて
                 消したので、唯一そこにしか無かったメモを日程の先頭に置く。 */}
-            {trip.memo && (
-              <Card className="trip-memo-note mb-3">
-                <p className="text-xs text-slate-400">メモ</p>
-                <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700">{trip.memo}</p>
-              </Card>
-            )}
+            {trip.memo && <TripMemoNote memo={trip.memo} />}
             <TripScheduleList
               photosBySchedule={schedulePhotos ? groupByOwner(schedulePhotos) : undefined}
               expenseBySchedule={new Map(expenses.filter((e) => e.scheduleId).map((e) => [e.scheduleId!, e]))}
@@ -347,11 +352,6 @@ export default function TripDetailPage() {
               selectedDate={activeScheduleDay}
               onSelectDate={setScheduleDay}
               onEdit={(item) => setEditingSchedule(item)}
-              onDelete={(id) => {
-                db.tripSchedule.delete(id);
-                void deleteAttachmentsFor("tripSchedule", id);
-                showToast("削除しました");
-              }}
               onAddForDate={(date) => {
                 setScheduleDay(date);
                 setScheduleDatePreset(date);
@@ -607,6 +607,7 @@ export default function TripDetailPage() {
               members={trip.members}
               initial={editingSchedule === "new" ? undefined : editingSchedule}
               defaultDate={scheduleDatePreset ?? scheduleDefaultDate}
+              onDelete={editingSchedule !== "new" && editingSchedule.id ? () => deleteSchedule(editingSchedule.id!) : undefined}
               onSaved={(date) => {
                 setEditingSchedule(null);
                 setScheduleDatePreset(null);

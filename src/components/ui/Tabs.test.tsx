@@ -1,19 +1,27 @@
-import { describe, expect, it } from "vitest";
-import { tabGridLayout } from "./Tabs";
+/** @vitest-environment jsdom */
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { Tabs } from "./Tabs";
 
-describe("tabGridLayout", () => {
-  it("5個までは1段に並ぶ", () => {
-    expect(tabGridLayout(2)).toEqual({ cols: 2, rows: 1 });
-    expect(tabGridLayout(4)).toEqual({ cols: 4, rows: 1 });
-    expect(tabGridLayout(5)).toEqual({ cols: 5, rows: 1 });
+afterEach(cleanup);
+
+const OPTIONS = ["日程", "費用", "持ち物", "ルート", "日記", "書類"].map((label, i) => ({ value: `t${i}`, label }));
+
+describe("Tabs", () => {
+  it("6個でも2段に折り返さず、1段の横に流せる帯に並ぶ", () => {
+    render(<Tabs options={OPTIONS} value="t0" onChange={() => {}} />);
+    const list = screen.getByRole("tablist");
+    expect(list.className).toContain("overflow-x-auto");
+    expect(list.className).toContain("flex");
+    expect(list.className).not.toContain("grid-cols");
+    expect(screen.getAllByRole("tab")).toHaveLength(6);
   });
 
-  it("6個は3列×2段になる（お金管理のタブ）", () => {
-    expect(tabGridLayout(6)).toEqual({ cols: 3, rows: 2 });
-  });
-
-  it("表に無い数でも3列で並べる", () => {
-    expect(tabGridLayout(7)).toEqual({ cols: 3, rows: 3 });
-    expect(tabGridLayout(0)).toEqual({ cols: 3, rows: 1 });
+  it("押したタブを選び、選んでいるものに印が付く", () => {
+    const onChange = vi.fn();
+    render(<Tabs options={OPTIONS} value="t2" onChange={onChange} />);
+    expect(screen.getByRole("tab", { name: "持ち物" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("tab", { name: "書類" }));
+    expect(onChange).toHaveBeenCalledWith("t5");
   });
 });

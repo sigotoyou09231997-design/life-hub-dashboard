@@ -29,7 +29,7 @@ const COUNT_SELECTOR = [
 ].join(",");
 
 const TILT_SELECTOR = ".lh-home > a.lh-money";
-const SHEEN_SELECTOR = `${TILT_SELECTOR}, .finance-control-center > .finance-balance-module, .subs-total`;
+const SHEEN_SELECTOR = `${TILT_SELECTOR}, .lh-home > .lh-money.is-unset, .finance-control-center > .finance-balance-module, .subs-total`;
 const GLOW_SELECTOR = `.warm-card, .glass-card, ${SHEEN_SELECTOR}`;
 
 const NUMBER_PATTERN = /\d{1,3}(?:,\d{3})+|\d+/g;
@@ -102,7 +102,7 @@ function replaySheen(element: HTMLElement) {
 /** 下のナビの、選んでいる項目の位置をつまみ（nav::before）に渡す。 */
 function placeNavIndicator(instant: boolean) {
   document.querySelectorAll<HTMLElement>(".glass-nav nav").forEach((nav) => {
-    const active = nav.querySelector<HTMLElement>("a.is-active");
+    const active = nav.querySelector<HTMLElement>(":is(a, button).is-active");
     if (!active) {
       nav.style.setProperty("--ind-o", "0");
       return;

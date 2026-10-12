@@ -21,24 +21,39 @@ function renderBar(path = "/") {
 }
 
 describe("QuickActionBar customization UI", () => {
-  it("replaces Gmail with Travel and persists the selection", async () => {
+  it("replaces Memo with Travel and persists the selection", async () => {
     const user = userEvent.setup();
     renderBar();
 
     await user.click(screen.getByRole("button", { name: "すべての機能" }));
     await user.click(screen.getByRole("button", { name: "追従ボタンを編集" }));
-    await user.click(screen.getByRole("button", { name: "Gmailを外す" }));
+    await user.click(screen.getByRole("button", { name: "メモを外す" }));
     await user.click(screen.getByRole("button", { name: "旅行を追加" }));
     await user.click(screen.getByRole("button", { name: "保存する" }));
 
     expect(screen.getByRole("link", { name: "旅行" }).getAttribute("href")).toBe("/trips");
-    expect(screen.queryByRole("link", { name: "Gmail" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "メモ" })).toBeNull();
     expect(JSON.parse(localStorage.getItem(QUICK_ACTION_STORAGE_KEY) ?? "[]")).toEqual([
+      "home",
       "schedule",
       "money",
-      "notes",
       "trips",
     ]);
+  });
+
+  it("starts with ホーム・予定・お金管理・メモ and a fixed すべて at the end", () => {
+    renderBar("/");
+    const nav = screen.getByRole("navigation", { name: "追従ナビゲーション" });
+    const labels = Array.from(nav.querySelectorAll("a, button")).map((el) => el.textContent);
+    expect(labels).toEqual(["ホーム", "予定", "お金管理", "メモ", "すべて"]);
+    expect(screen.getByRole("link", { name: "ホーム" }).className).toContain("is-active");
+  });
+
+  it("lights up すべて when the current page is not in the nav", () => {
+    localStorage.setItem(QUICK_ACTION_STORAGE_KEY, JSON.stringify(["schedule", "money", "gmail", "trips"]));
+    renderBar("/records/notes");
+    expect(screen.getByRole("button", { name: "すべての機能" }).className).toContain("is-active");
+    expect(screen.getByRole("link", { name: "予定" }).className).not.toContain("is-active");
   });
 
   it("shows the configured Travel action as active on travel routes", () => {
@@ -47,6 +62,7 @@ describe("QuickActionBar customization UI", () => {
 
     const travel = screen.getByRole("link", { name: "旅行" });
     expect(travel.querySelector(".bg-teal-500")).not.toBeNull();
-    expect(container.querySelector('[aria-label="追従ナビゲーション"]')?.getAttribute("style")).toContain("repeat(2");
+    // 2つ＋右端の「すべて」で3列
+    expect(container.querySelector('[aria-label="追従ナビゲーション"]')?.getAttribute("style")).toContain("repeat(3");
   });
 });

@@ -633,15 +633,125 @@ function codePointOr(code: number, fallback: string): string {
   return Number.isInteger(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : fallback;
 }
 
-/** メールの本文。text/plain があればそれを、無ければHTMLを文章に直したものを返す。
+/** 「このメールはHTML形式です。HTMLを表示できるメーラーでご覧ください」のような、
+ * 平文の側に置かれた案内だけの文かどうか。
+ *
+ * 日本のメルマガは、平文の部分にこの一文だけを入れ、中身はHTMLの部分にしか書かないことが
+ * 多い。平文を優先して読んでいたので、画面にもAIにもこの一文しか届いていなかった
+ * (2026-10-12 の見直し A-7)。長い文は本物の本文として扱う(案内はたいてい数行で終わる)。 */
+export function isHtmlOnlyNotice(plain: string): boolean {
+  const text = plain.trim();
+  if (!text || text.length > 300) return false;
+  if (!/HTML/i.test(text)) return false;
+  return /表示|閲覧|ご覧|見られ|見れ|読め|対応|形式|設定|メーラー|ブラウザ|view|display|support|enable|client|browser|read/i.test(text);
+}
+
+/** メール1通の本文を、文章とHTMLの両方の形で持ったもの。 */
+export interface MessageContent {
+  /** 文章としての本文。平文があればそれ、無い(または案内だけの)時はHTMLを文章に直したもの。 */
+  text: string;
+  /** HTMLの部分そのまま(無ければ空)。画面に出すだけで、保存はしない。 */
+  html: string;
+  /** 平文が無い・案内だけ、で、元の見た目(HTML)で見せた方がよいメールか。 */
+  preferHtml: boolean;
+}
+
+/** 本文を文章とHTMLの両方の形で取り出す。
  *
  * 平文を先に木全体から探すのが要点。手前から見て最初に見つかった部分を返していた頃は、
  * 添付付き(multipart/mixed)のように平文がHTMLより後ろに置かれた組み立てで、
- * HTMLの方を読んでいた。 */
-export function extractPlainText(payload: any): string {
+ * HTMLの方を読んでいた。
+ *
+ * 平文が「HTMLで見てください」の案内だけの時は、HTMLの方を使う。人が書いた短い平文を
+ * 案内と取り違えても、HTMLの部分は同じ文面を飾っただけのものなので、読める中身は変わらない。
+ * 画像だけのメルマガでHTMLを文章に直すと何も残らない時は、文章は案内のまま残す(空よりは状況が分かる)。 */
+export function extractMessageContent(payload: any): MessageContent {
   const plain = readPart(payload, "text/plain");
-  if (plain.trim()) return plain;
-  return htmlToText(readPart(payload, "text/html"));
+  const rawHtml = readPart(payload, "text/html");
+  const html = rawHtml.trim() ? rawHtml : "";
+  const plainIsNotice = !!html && isHtmlOnlyNotice(plain);
+  if (plain.trim() && !plainIsNotice) {
+    return { text: plain, html, preferHtml: false };
+  }
+  const htmlText = html ? htmlToText(html) : "";
+  return { text: htmlText || plain, html, preferHtml: !!html };
+}
+
+/** メールの本文(文章)。text/plain があればそれを、無ければHTMLを文章に直したものを返す
+ * (詳しくは extractMessageContent)。AIの下書き・予定の読み取りはこちらを使う。 */
+export function extractPlainText(payload: any): string {
+  return extractMessageContent(payload).text;
+}
+
+/** HTMLの中から cid: で参照される、メールに同封された画像の部分。 */
+export interface InlineImagePart {
+  /** 山かっこを外した Content-ID。 */
+  contentId: string;
+  mimeType: string;
+  /** 部分に直接入っている中身(base64url)。大きい画像は入っておらず、attachmentId で別に取る。 */
+  data?: string;
+  attachmentId?: string;
+  size: number;
+}
+
+/** 同封画像(Content-ID の付いた image/*)を木全体から集める。 */
+export function findInlineImageParts(payload: any): InlineImagePart[] {
+  const found: InlineImagePart[] = [];
+  const walk = (part: any) => {
+    if (!part) return;
+    const mimeType = String(part.mimeType ?? "").toLowerCase();
+    const contentId = findHeader(part.headers ?? [], "Content-ID").trim().replace(/^<|>$/g, "");
+    if (mimeType.startsWith("image/") && contentId && (part.body?.data || part.body?.attachmentId)) {
+      found.push({
+        contentId,
+        mimeType,
+        data: part.body?.data,
+        attachmentId: part.body?.attachmentId,
+        size: Number(part.body?.size ?? 0),
+      });
+    }
+    for (const child of part.parts ?? []) walk(child);
+  };
+  walk(payload);
+  return found;
+}
+
+/** 同封画像を取りに行く上限。添付のように大きな画像が何十枚も付いたメールで、
+ * 開くたびに通信が膨らむのを防ぐ(超えた分は画像が出ないだけで、本文は読める)。 */
+const INLINE_IMAGE_LIMIT = 20;
+const INLINE_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
+
+/** base64url を data: URL で使える普通の base64 に直す。 */
+function base64UrlToBase64(input: string): string {
+  const normalized = input.replace(/-/g, "+").replace(/_/g, "/").replace(/\s+/g, "");
+  return normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+}
+
+/** メール画面(DraftReview)で使う、本文の文章とHTML、同封画像をまとめて取る。
+ *
+ * 画面を開いた時にその都度 Gmail から取る。HTMLも画像も保存しない(一覧が持つのは
+ * 抜粋だけ、という決め事のまま)。同封画像は HTML が cid: で参照している時だけ取りに行く。 */
+export async function getMessageContent(
+  accessToken: string,
+  id: string,
+): Promise<MessageContent & { inlineImages: Record<string, string> }> {
+  const data = await gmailFetch(accessToken, `/messages/${id}?format=full`);
+  const content = extractMessageContent(data.payload);
+  const inlineImages: Record<string, string> = {};
+  if (content.html && /cid:/i.test(content.html)) {
+    const parts = findInlineImageParts(data.payload)
+      .filter((part) => part.size <= INLINE_IMAGE_MAX_BYTES)
+      .slice(0, INLINE_IMAGE_LIMIT);
+    await mapWithConcurrency(parts, 3, async (part) => {
+      try {
+        const raw = part.data ?? (await gmailFetch(accessToken, `/messages/${id}/attachments/${part.attachmentId}`)).data;
+        if (raw) inlineImages[part.contentId] = `data:${part.mimeType};base64,${base64UrlToBase64(raw)}`;
+      } catch {
+        // 1枚取れなくても本文は出す。その画像の所が空くだけ。
+      }
+    });
+  }
+  return { ...content, text: content.text.trim(), inlineImages };
 }
 
 function readPart(payload: any, mimeType: string): string {

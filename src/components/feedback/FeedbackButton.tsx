@@ -4,6 +4,7 @@ import { MessageSquarePlus } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 import { FeedbackForm } from "./FeedbackForm";
+import { useIsFeedbackOwner } from "../../hooks/useIsFeedbackOwner";
 
 interface Props {
   /** 共有した「しおり」のページから使う時の合鍵(ログインしていない人が送れるように)。 */
@@ -53,4 +54,17 @@ export function FeedbackButton({ shareToken, standalone = false }: Props) {
       </Sheet>
     </>
   );
+}
+
+/**
+ * アプリの中(右下の「＋」の上)に出す「修正」。**持ち主(本人)には出さない**(2026-10-12、
+ * UI/UX 調査メモ A-1)。本人は要望を設定の「届いた要望」で読むので送る側の入口は要らず、
+ * 出ていると「＋タスクを追加」「CSVで書き出す」などの上に重なって邪魔になっていた。
+ * 持ち主かどうか分かるまでは出さない — 本人の画面で一瞬出てから消えるのを避けるため
+ * (ほかの人には、問い合わせが返った時点で出る)。
+ */
+export function InAppFeedbackButton() {
+  const isOwner = useIsFeedbackOwner();
+  if (isOwner !== false) return null;
+  return <FeedbackButton />;
 }

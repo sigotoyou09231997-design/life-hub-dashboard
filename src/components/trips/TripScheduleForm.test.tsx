@@ -1,8 +1,9 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { TripScheduleItem } from "../../types";
+import { ConfirmProvider } from "../ui/ConfirmProvider";
 
 const mocks = vi.hoisted(() => ({
   added: [] as unknown[],
@@ -64,9 +65,12 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-function renderForm(initial?: TripScheduleItem, members?: string[] | null) {
+function renderForm(initial?: TripScheduleItem, members?: string[] | null, onDelete?: () => void) {
   const saved = vi.fn();
-  render(<TripScheduleForm tripId="t1" initial={initial} members={members} defaultDate="2026-12-27" onSaved={saved} onCancel={() => {}} />);
+  render(
+    <TripScheduleForm tripId="t1" initial={initial} members={members} defaultDate="2026-12-27" onSaved={saved} onCancel={() => {}} onDelete={onDelete} />,
+    { wrapper: ConfirmProvider },
+  );
   return saved;
 }
 
@@ -219,5 +223,31 @@ describe("旅行の予定の入力: 入れ替えた並び", () => {
     fireEvent.click(screen.getByRole("button", { name: "変更を保存" }));
     await waitFor(() => expect(mocks.updated.length).toBe(1));
     expect(mocks.updated[0][1]).not.toHaveProperty("sortOrder");
+  });
+});
+
+describe("旅行の予定の入力: 削除", () => {
+  const existing: TripScheduleItem = { id: "s1", tripId: "t1", date: "2026-12-28", title: "桂浜", type: "sightseeing", createdAt: 1 };
+
+  it("新しい予定には「この予定を削除」を出さない", () => {
+    renderForm(undefined, undefined, vi.fn());
+    expect(screen.queryByRole("button", { name: "この予定を削除" })).toBeNull();
+  });
+
+  it("今ある予定は、いちばん下の「この予定を削除」から、確認のあとで消す(やめれば消さない)", async () => {
+    const onDelete = vi.fn();
+    const user = userEvent.setup();
+    renderForm(existing, undefined, onDelete);
+
+    await user.click(screen.getByRole("button", { name: "この予定を削除" }));
+    const ask = screen.getByRole("dialog", { name: "「桂浜」を削除しますか?" });
+    await user.click(within(ask).getByRole("button", { name: "キャンセル" }));
+    expect(onDelete).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "この予定を削除" }));
+    await user.click(within(screen.getByRole("dialog", { name: "「桂浜」を削除しますか?" })).getByRole("button", { name: "削除する" }));
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    // 消すだけで、保存はしない。
+    expect(mocks.updated).toEqual([]);
   });
 });

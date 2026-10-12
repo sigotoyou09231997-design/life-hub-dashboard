@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { UpdateSpec } from "dexie";
-import { CalendarDays, Tag, Users } from "lucide-react";
+import { CalendarClock, CalendarDays, Tag, Users } from "lucide-react";
 import { db } from "../../db/schema";
 import type { CalendarEvent, RepeatRule, ScheduleCategory } from "../../types";
 import { SCHEDULE_CATEGORIES } from "../../lib/scheduleCategories";
 import { EventPeopleField } from "./EventPeopleField";
 import { Input, Textarea } from "../ui/Input";
-import { Select } from "../ui/Select";
 import { SegmentedField } from "../ui/SegmentedField";
 import { DateField, DateRangeField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
@@ -16,6 +15,15 @@ import { Button } from "../ui/Button";
 import { SwitchField } from "../ui/SwitchField";
 import { isMultiDay, normalizeEndDate, shiftEndDate, spanDays } from "../../lib/eventSpan";
 import { isRepeating } from "../../lib/repeatRule";
+import {
+  DEFAULT_EVENT_MINUTES,
+  DURATION_CHIPS,
+  START_TIME_CHIPS,
+  addMinutesSameDay,
+  formatClock,
+  minutesBetween,
+} from "../../lib/eventTime";
+import { describeTitleDateTime, parseTitleDateTime, type TitleDateTime } from "../../lib/titleDateTime";
 import { RepeatField } from "./RepeatField";
 import { SourceMailLink } from "./SourceMailLink";
 import { useToast } from "../ui/ToastProvider";
@@ -39,6 +47,8 @@ interface Props {
   onCancel: () => void;
 }
 
+/** 通知の選択肢。プルダウンにしないのは、選択肢が全部見えて1回で選べるのと、
+ * iPhone ではシートの中のプルダウンの選択肢が欄から離れて出るため(2026-10-11の持ち物と同じ)。 */
 const NOTIFY_OPTIONS = [
   { value: "", label: "通知しない" },
   { value: "5", label: "5分前" },
@@ -47,6 +57,9 @@ const NOTIFY_OPTIONS = [
   { value: "60", label: "1時間前" },
   { value: "1440", label: "前日" },
 ];
+
+/** 保存する値は今までのプルダウンと同じ(category の文字列そのまま)。 */
+const CATEGORY_OPTIONS = SCHEDULE_CATEGORIES.map((c) => ({ value: c.value, label: c.label }));
 
 const SPAN_OPTIONS = [
   { value: "timed", label: "時間を決める" },
@@ -61,6 +74,11 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   const [allDay, setAllDay] = useState(initial?.allDay ?? false);
   const [startTime, setStartTime] = useState(initial?.startTime ?? "");
   const [endTime, setEndTime] = useState(initial?.endTime ?? "");
+  // 終了を「開始の何分後」として追いかけているか。開始だけ入れた時にこちらで終了を入れた
+  // (または長さの早押しを押した)時はその分数、本人が終了を手で入れた時は null。
+  // 手で入れた終了を、開始を直したからといって勝手に動かさないために分けて持つ。
+  // 編集で開いた予定の終了は本人が決めたものなので、null から始める。
+  const [followMinutes, setFollowMinutes] = useState<number | null>(null);
   const [category, setCategory] = useState<ScheduleCategory>(initial?.category ?? "other");
   // 「誰の予定か」。カテゴリとは別の軸で、こちらは何人でも付けられる(src/lib/eventPeople.ts)。
   const [personIds, setPersonIds] = useState<string[]>(initial?.personIds ?? []);
@@ -71,6 +89,24 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   const [repeatUntil, setRepeatUntil] = useState(initial?.repeatUntil ?? "");
   const [saving, setSaving] = useState(false);
   const showToast = useToast();
+  const titleId = useId();
+  // 選択肢に無い分数(ほかの経路で入った値)の予定を開いた時も、その値を見えるように1つ足す。
+  // 足さないと、どれも選ばれていない見た目のまま、保存では元の値が残って分かりにくい。
+  // 開いた時の値で決める — 今の値で決めると、ほかを押した途端にその選択肢が消えて戻せなくなる。
+  const notifyOptions = useMemo(() => {
+    const original = initial?.notifyMinutesBefore?.toString();
+    return original && !NOTIFY_OPTIONS.some((o) => o.value === original)
+      ? [...NOTIFY_OPTIONS, { value: original, label: `${original}分前` }]
+      : NOTIFY_OPTIONS;
+  }, [initial?.notifyMinutesBefore]);
+
+  // タイトルに書いた日時(「明日19時 歯医者」)。提案として出すだけで、押すまで何も入れない。
+  // 編集で開いた予定は、タイトルを書き換えるまで出さない — 「3時のおやつ」のような
+  // 今までの予定名を開くたびに、時刻の提案が出てしまうため。
+  const titleSuggestion = useMemo(
+    () => (initial && title === initial.title ? null : parseTitleDateTime(title)),
+    [initial, title],
+  );
 
   // 同じ端末に登録した、いま開いていない方のアカウント(src/lib/accounts.ts)。
   // 新規作成でも編集でも出す — 作る時に入れ忘れた予定を、後から相手のアカウントへ
@@ -123,6 +159,52 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   function handleDateChange(next: string) {
     setEndDate((current) => shiftEndDate(date, next, current));
     setDate(next);
+  }
+
+  /**
+   * 開始を変えた時。終了が空か、こちらで入れた終了なら、開始に合わせて終了も入れ直す
+   * (既定は1時間後)。終了を毎回手で打たなくて済むように。日付をまたぐ時は空にする
+   * (理由は src/lib/eventTime.ts の addMinutesSameDay)。
+   */
+  function changeStartTime(next: string) {
+    setStartTime(next);
+    if (endTime && followMinutes === null) return;
+    const minutes = followMinutes ?? DEFAULT_EVENT_MINUTES;
+    setEndTime(next ? (addMinutesSameDay(next, minutes) ?? "") : "");
+    setFollowMinutes(minutes);
+  }
+
+  function changeEndTime(next: string) {
+    setEndTime(next);
+    setFollowMinutes(null);
+  }
+
+  /** 長さの早押し。終了を「開始 + 長さ」にし、このあと開始を動かしてもその長さを保つ。 */
+  function pickDuration(minutes: number) {
+    const end = addMinutesSameDay(startTime, minutes);
+    if (!end) return;
+    setEndTime(end);
+    setFollowMinutes(minutes);
+  }
+
+  /** タイトルから読んだ日時を入れ、タイトルからはその言葉を取り除く。 */
+  function applyTitleSuggestion(suggestion: TitleDateTime) {
+    if (suggestion.date) handleDateChange(suggestion.date);
+    if (suggestion.startTime) {
+      // 時刻まで書いてあるなら、終日のままにしておく理由が無い。
+      setAllDay(false);
+      if (suggestion.endTime) {
+        // 「19時〜21時」と終わりまで書いてあれば、それは本人が決めた終了。
+        setStartTime(suggestion.startTime);
+        setEndTime(suggestion.endTime);
+        setFollowMinutes(null);
+      } else {
+        changeStartTime(suggestion.startTime);
+      }
+    }
+    handleTitleChange(suggestion.title);
+    // 「明日19時」だけ書いてあった時は名前が空になるので、続けて打てるようタイトルへ戻す。
+    if (!suggestion.title) document.getElementById(titleId)?.focus();
   }
 
   function handleTitleChange(next: string) {
@@ -227,14 +309,29 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <FormPanel caption="何の予定" icon={CalendarDays}>
-        <Input
-          label="タイトル"
-          value={title}
-          onChange={(e) => handleTitleChange(e.target.value)}
-          placeholder="例: 歯医者"
-          required
-          autoFocus
-        />
+        <div>
+          <Input
+            id={titleId}
+            label="タイトル"
+            value={title}
+            onChange={(e) => handleTitleChange(e.target.value)}
+            placeholder="例: 明日19時 歯医者"
+            required
+            autoFocus
+          />
+          {titleSuggestion && (
+            <div className="title-when">
+              <button
+                type="button"
+                className="title-when__chip"
+                onClick={() => applyTitleSuggestion(titleSuggestion)}
+              >
+                <CalendarClock size={15} strokeWidth={2.1} aria-hidden="true" />
+                {describeTitleDateTime(titleSuggestion)} で入れる
+              </button>
+            </div>
+          )}
+        </div>
       </FormPanel>
 
       <FormPanel caption="いつ">
@@ -277,7 +374,7 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
                 aria-label="開始時刻"
                 className="field-shell"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => changeStartTime(e.target.value)}
               />
               <span className="range-field__arrow" aria-hidden="true">
                 〜
@@ -287,30 +384,73 @@ export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
                 aria-label="終了時刻"
                 className="field-shell"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
+                onChange={(e) => changeEndTime(e.target.value)}
               />
+            </div>
+            {/* 早押し。時刻の欄を開いて回すより、よく使う時刻と長さは1回押す方が早い。 */}
+            <div className="time-quick">
+              <div className="time-quick__row" role="group" aria-label="開始の早押し">
+                <span className="time-quick__label" aria-hidden="true">
+                  開始
+                </span>
+                {START_TIME_CHIPS.map((time) => (
+                  <button
+                    key={time}
+                    type="button"
+                    className="time-quick__chip"
+                    aria-pressed={startTime === time}
+                    onClick={() => changeStartTime(time)}
+                  >
+                    {formatClock(time)}
+                  </button>
+                ))}
+              </div>
+              <div className="time-quick__row" role="group" aria-label="長さの早押し">
+                <span className="time-quick__label" aria-hidden="true">
+                  長さ
+                </span>
+                {DURATION_CHIPS.map((chip) => {
+                  // 開始が無いうちは「何時まで」が決まらないので押せない。日付をまたぐ長さも押せない。
+                  const end = startTime ? addMinutesSameDay(startTime, chip.minutes) : undefined;
+                  return (
+                    <button
+                      key={chip.minutes}
+                      type="button"
+                      className="time-quick__chip"
+                      disabled={!end}
+                      title={startTime ? undefined : "先に開始を選ぶと押せます"}
+                      aria-pressed={Boolean(end) && minutesBetween(startTime, endTime) === chip.minutes}
+                      onClick={() => pickDuration(chip.minutes)}
+                    >
+                      {chip.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </Field>
         )}
         {!allDay && (
-          <Select label="通知" value={notify} onChange={(e) => setNotify(e.target.value)}>
-            {NOTIFY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
+          <SegmentedField
+            label="通知"
+            value={notify}
+            options={notifyOptions}
+            onChange={setNotify}
+            columns={3}
+            separate
+          />
         )}
       </FormPanel>
 
       <FormPanel caption="そのほか" icon={Tag}>
-        <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value as ScheduleCategory)}>
-          {SCHEDULE_CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </Select>
+        <SegmentedField<ScheduleCategory>
+          label="カテゴリ"
+          value={category}
+          options={CATEGORY_OPTIONS}
+          onChange={setCategory}
+          columns={2}
+          separate
+        />
         <EventPeopleField value={personIds} onChange={setPersonIds} />
         <Input
           label="場所"

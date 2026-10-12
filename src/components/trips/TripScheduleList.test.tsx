@@ -1,10 +1,11 @@
 /** @vitest-environment jsdom */
 import { useState } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Attachment, TripExpense, TripScheduleItem } from "../../types";
 import { ConfirmProvider } from "../ui/ConfirmProvider";
+import { LONG_PRESS_MS } from "../../hooks/useLongPressReorder";
 import { TripScheduleList } from "./TripScheduleList";
 
 function item(partial: Partial<TripScheduleItem> & { id: string; title: string }): TripScheduleItem {
@@ -19,7 +20,6 @@ function renderList(items: TripScheduleItem[], handlers: Partial<React.Component
       selectedDate="2026-12-27"
       onSelectDate={() => {}}
       onEdit={() => {}}
-      onDelete={() => {}}
       onLocationTap={() => {}}
       onAddForDate={() => {}}
       {...handlers}
@@ -88,13 +88,12 @@ describe("旅行の日程の時間軸", () => {
     expect(within(screen.getByRole("list")).getByText("終日")).toBeTruthy();
   });
 
-  it("行を押せば編集、場所を押せば場所の操作、ゴミ箱は確認のあとで消す(従来どおり)", async () => {
+  it("行を押せば編集、場所を押せば場所の操作(従来どおり)", async () => {
     const onEdit = vi.fn();
     const onLocationTap = vi.fn();
-    const onDelete = vi.fn();
     const user = userEvent.setup();
     const target = item({ id: "a", title: "東京発", startTime: "06:48", location: "東京駅" });
-    renderList([target], { onEdit, onLocationTap, onDelete });
+    renderList([target], { onEdit, onLocationTap });
 
     await user.click(screen.getByRole("button", { name: "東京発を編集" }));
     expect(onEdit).toHaveBeenCalledWith(target);
@@ -103,11 +102,21 @@ describe("旅行の日程の時間軸", () => {
     // 押した日程の日も渡す(同じ場所に2回寄る旅行で、ルートの同じ日の方へ飛ぶため)。
     expect(onLocationTap).toHaveBeenCalledWith("東京駅", "東京発", "2026-12-27");
     expect(onEdit).toHaveBeenCalledTimes(1);
+  });
 
-    await user.click(screen.getByRole("button", { name: "削除" }));
-    expect(onDelete).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "削除する" }));
-    expect(onDelete).toHaveBeenCalledWith("a");
+  it("行にゴミ箱は出さない(削除は、押して開く編集の中から)", () => {
+    renderList([item({ id: "a", title: "東京発", startTime: "06:48" }), item({ id: "b", title: "高松着", startTime: "11:18" })], { onReorder: () => {} });
+    expect(screen.queryByRole("button", { name: "削除" })).toBeNull();
+  });
+
+  it("種類の札は「その他」なら出さない(選ばなかった予定の全部に同じ札が並ぶため)", () => {
+    renderList([
+      item({ id: "a", title: "集合", startTime: "06:00", type: "other" }),
+      item({ id: "b", title: "うどん", startTime: "12:00", type: "meal" }),
+    ]);
+    const [other, meal] = screen.getAllByRole("listitem");
+    expect(within(other).queryByText("その他")).toBeNull();
+    expect(within(meal).getByText("食事")).toBeTruthy();
   });
 });
 
@@ -121,7 +130,6 @@ function Switchable({ items, start = "2026-12-27", days = ["2026-12-27", "2026-1
       selectedDate={selected}
       onSelectDate={setSelected}
       onEdit={() => {}}
-      onDelete={() => {}}
       onLocationTap={() => {}}
       onAddForDate={() => {}}
     />
@@ -162,7 +170,7 @@ describe("日程を、日にちごとに切り替える", () => {
   });
 
   it("親が選んだ日を変えれば、表示も変わる(予定を足した日へ切り替えるのに使う)", () => {
-    const props = { dayList: ["2026-12-27", "2026-12-28"], items: THREE_DAYS, onSelectDate: () => {}, onEdit: () => {}, onDelete: () => {}, onLocationTap: () => {}, onAddForDate: () => {} };
+    const props = { dayList: ["2026-12-27", "2026-12-28"], items: THREE_DAYS, onSelectDate: () => {}, onEdit: () => {}, onLocationTap: () => {}, onAddForDate: () => {} };
     const { rerender } = render(<TripScheduleList {...props} selectedDate="2026-12-27" />, { wrapper: ConfirmProvider });
     expect(screen.getByText("小金井発")).toBeTruthy();
     rerender(<TripScheduleList {...props} selectedDate="2026-12-28" />);
@@ -237,8 +245,7 @@ describe("予定に貼った写真", () => {
         selectedDate="2026-12-27"
         onSelectDate={() => {}}
         onEdit={() => {}}
-        onDelete={() => {}}
-        onLocationTap={() => {}}
+          onLocationTap={() => {}}
         onAddForDate={() => {}}
       />,
       { wrapper: ConfirmProvider },
@@ -260,8 +267,7 @@ describe("予定の費用", () => {
         selectedDate="2026-12-27"
         onSelectDate={() => {}}
         onEdit={() => {}}
-        onDelete={() => {}}
-        onLocationTap={() => {}}
+          onLocationTap={() => {}}
         onAddForDate={() => {}}
       />,
       { wrapper: ConfirmProvider },
@@ -272,32 +278,90 @@ describe("予定の費用", () => {
   });
 });
 
-describe("予定の上下の入れ替え", () => {
-  it("すべての予定に「↑」「↓」を出し(端は押せない)、押すとその日の並び順を渡す", async () => {
-    const user = userEvent.setup();
-    const onReorder = vi.fn();
-    render(
-      <TripScheduleList
-        dayList={["2026-12-27"]}
-        items={[
-          item({ id: "boat", title: "高知→四万十の碧 乗船場所", startTime: "06:00", createdAt: 1 }),
-          item({ id: "leave", title: "ホテル出発", startTime: "06:00", createdAt: 2 }),
-          item({ id: "desk", title: "受付・待機", startTime: "08:15", createdAt: 3 }),
-        ]}
-        onEdit={() => {}}
-        onDelete={() => {}}
-        onLocationTap={() => {}}
-        onReorder={onReorder}
-        onAddForDate={() => {}}
-        selectedDate="2026-12-27"
-        onSelectDate={() => {}}
-      />,
-      { wrapper: ConfirmProvider },
-    );
-    expect((screen.getByRole("button", { name: "「高知→四万十の碧 乗船場所」を上へ" }) as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByRole("button", { name: "「受付・待機」を下へ" }) as HTMLButtonElement).disabled).toBe(true);
-    // 時刻がちがっても動かせる。
-    await user.click(screen.getByRole("button", { name: "「受付・待機」を上へ" }));
+/** jsdom は配置を計算しないので、行は上から 50px ずつ並んでいることにする(いまの DOM の並び順で)。 */
+function layoutRows() {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-reorder-row]"));
+    const top = rows.indexOf(this) * 50;
+    return { top, bottom: top + 40, height: 40, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+  });
+}
+
+/** jsdom には PointerEvent が無く、指の位置(clientY)や pointerId が渡らない。ブラウザと同じ形のものを用意する。 */
+class TestPointerEvent extends MouseEvent {
+  pointerId: number;
+  constructor(type: string, init: PointerEventInit = {}) {
+    super(type, init);
+    this.pointerId = init.pointerId ?? 1;
+  }
+}
+
+const SAME_TIME_DAY = [
+  item({ id: "boat", title: "高知→四万十の碧 乗船場所", startTime: "06:00", createdAt: 1 }),
+  item({ id: "leave", title: "ホテル出発", startTime: "06:00", createdAt: 2 }),
+  item({ id: "desk", title: "受付・待機", startTime: "08:15", createdAt: 3 }),
+];
+
+function renderReorderable(items: TripScheduleItem[], onReorder = vi.fn(), onEdit = vi.fn()) {
+  render(
+    <TripScheduleList
+      dayList={["2026-12-27"]}
+      items={items}
+      onEdit={onEdit}
+      onLocationTap={() => {}}
+      onReorder={onReorder}
+      onAddForDate={() => {}}
+      selectedDate="2026-12-27"
+      onSelectDate={() => {}}
+    />,
+    { wrapper: ConfirmProvider },
+  );
+  return { onReorder, onEdit };
+}
+
+function rowOf(title: string): HTMLElement {
+  return screen.getByRole("button", { name: `${title}を編集` }).closest("li") as HTMLElement;
+}
+
+function shownTitles(): string[] {
+  return Array.from(document.querySelectorAll(".trip-timeline__title")).map((el) => el.textContent!);
+}
+
+/** 長押しして、clientY の高さまで動かして離す。 */
+async function longPressDrag(row: HTMLElement, fromY: number, toY: number, pointerId = 1) {
+  fireEvent.pointerDown(row, { pointerId, button: 0, clientX: 10, clientY: fromY });
+  act(() => vi.advanceTimersByTime(LONG_PRESS_MS + 10));
+  fireEvent.pointerMove(row, { pointerId, clientX: 10, clientY: toY });
+  await act(async () => {
+    fireEvent.pointerUp(row, { pointerId, clientX: 10, clientY: toY });
+  });
+}
+
+describe("予定の並べ替え(長押しして動かす)", () => {
+  beforeEach(() => {
+    vi.stubGlobal("PointerEvent", TestPointerEvent);
+    vi.useFakeTimers();
+    layoutRows();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("行ごとの「↑」「↓」は出さず、並べ替えられることは1行の案内で伝える", () => {
+    renderReorderable(SAME_TIME_DAY);
+    expect(screen.queryByRole("button", { name: /を上へ|を下へ/ })).toBeNull();
+    expect(screen.getByText("長押しして上下に動かすと、並べ替えられます。")).toBeTruthy();
+  });
+
+  it("長押しして1つ上へ動かすと、以前の「↑」と同じ並び順を渡す(時刻がちがっても動かせる)", async () => {
+    const { onReorder } = renderReorderable(SAME_TIME_DAY);
+    // 3番目(y=100〜140)を、2番目の真ん中(y=70)より上へ。
+    await longPressDrag(rowOf("受付・待機"), 120, 60);
+    expect(onReorder).toHaveBeenCalledTimes(1);
     expect(onReorder).toHaveBeenLastCalledWith([
       { id: "boat", sortOrder: 1 },
       { id: "desk", sortOrder: 2 },
@@ -305,21 +369,89 @@ describe("予定の上下の入れ替え", () => {
     ]);
   });
 
-  it("予定が1つだけの日は出さない", () => {
-    render(
-      <TripScheduleList
-        dayList={["2026-12-27"]}
-        items={[item({ id: "only", title: "ホテル出発", startTime: "06:00" })]}
-        onEdit={() => {}}
-        onDelete={() => {}}
-        onLocationTap={() => {}}
-        onReorder={() => {}}
-        onAddForDate={() => {}}
-        selectedDate="2026-12-27"
-        onSelectDate={() => {}}
-      />,
-      { wrapper: ConfirmProvider },
-    );
-    expect(screen.queryByRole("button", { name: /を上へ/ })).toBeNull();
+  it("離れた位置へも一度で動かせる。動かしている間は、落とす位置に並べて見せる", async () => {
+    const { onReorder } = renderReorderable(SAME_TIME_DAY);
+    const row = rowOf("受付・待機");
+    fireEvent.pointerDown(row, { pointerId: 1, button: 0, clientX: 10, clientY: 120 });
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS + 10));
+    expect(row.classList.contains("is-dragging")).toBe(true);
+    fireEvent.pointerMove(row, { pointerId: 1, clientX: 10, clientY: 5 });
+    expect(shownTitles()).toEqual(["受付・待機", "高知→四万十の碧 乗船場所", "ホテル出発"]);
+    await act(async () => {
+      fireEvent.pointerUp(row, { pointerId: 1, clientX: 10, clientY: 5 });
+    });
+    expect(onReorder).toHaveBeenLastCalledWith([
+      { id: "desk", sortOrder: 1 },
+      { id: "boat", sortOrder: 2 },
+      { id: "leave", sortOrder: 3 },
+    ]);
+  });
+
+  it("動かしている途中で指が一覧の外へ出て離れても、そこで並べ替えを終える", async () => {
+    // 並びを入れ替えて見せると行の要素が DOM の中で動き、行に付けた指の捕まえが外れる。行の外で離しても取りこぼさない。
+    const { onReorder } = renderReorderable(SAME_TIME_DAY);
+    const row = rowOf("高知→四万十の碧 乗船場所");
+    fireEvent.pointerDown(row, { pointerId: 1, button: 0, clientX: 10, clientY: 20 });
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS + 10));
+    fireEvent.pointerMove(document.body, { pointerId: 1, clientX: 10, clientY: 300 });
+    await act(async () => {
+      fireEvent.pointerUp(document.body, { pointerId: 1, clientX: 10, clientY: 300 });
+    });
+    expect(onReorder).toHaveBeenLastCalledWith([
+      { id: "leave", sortOrder: 1 },
+      { id: "desk", sortOrder: 2 },
+      { id: "boat", sortOrder: 3 },
+    ]);
+    expect(document.querySelector(".is-dragging")).toBeNull();
+  });
+
+  it("端末に取り消されたら(着信など)、並びは変えない", async () => {
+    const { onReorder } = renderReorderable(SAME_TIME_DAY);
+    const row = rowOf("高知→四万十の碧 乗船場所");
+    fireEvent.pointerDown(row, { pointerId: 1, button: 0, clientX: 10, clientY: 20 });
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS + 10));
+    fireEvent.pointerMove(row, { pointerId: 1, clientX: 10, clientY: 300 });
+    await act(async () => {
+      fireEvent.pointerCancel(row, { pointerId: 1 });
+    });
+    expect(onReorder).not.toHaveBeenCalled();
+    expect(shownTitles()).toEqual(["高知→四万十の碧 乗船場所", "ホテル出発", "受付・待機"]);
+  });
+
+  it("長押しになる前に指が動いたら、スクロールとして扱い、並べ替えない", async () => {
+    const { onReorder } = renderReorderable(SAME_TIME_DAY);
+    const row = rowOf("ホテル出発");
+    fireEvent.pointerDown(row, { pointerId: 1, button: 0, clientX: 10, clientY: 70 });
+    fireEvent.pointerMove(row, { pointerId: 1, clientX: 10, clientY: 110 });
+    act(() => vi.advanceTimersByTime(LONG_PRESS_MS + 10));
+    fireEvent.pointerMove(row, { pointerId: 1, clientX: 10, clientY: 140 });
+    await act(async () => {
+      fireEvent.pointerUp(row, { pointerId: 1, clientX: 10, clientY: 140 });
+    });
+    expect(onReorder).not.toHaveBeenCalled();
+    expect(shownTitles()).toEqual(["高知→四万十の碧 乗船場所", "ホテル出発", "受付・待機"]);
+  });
+
+  it("ふつうに押せば編集が開く。長押しのあとの押しでは開かない(その場で離しても)", async () => {
+    const { onEdit, onReorder } = renderReorderable(SAME_TIME_DAY);
+    fireEvent.click(screen.getByRole("button", { name: "ホテル出発を編集" }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+
+    // 長押ししたが動かさずに離した。並びは変えず、編集も開かない。
+    await longPressDrag(rowOf("ホテル出発"), 70, 70, 2);
+    fireEvent.click(screen.getByRole("button", { name: "ホテル出発を編集" }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onReorder).not.toHaveBeenCalled();
+
+    // 少し経てば、また押して開ける。
+    act(() => vi.advanceTimersByTime(10));
+    fireEvent.click(screen.getByRole("button", { name: "ホテル出発を編集" }));
+    expect(onEdit).toHaveBeenCalledTimes(2);
+  });
+
+  it("予定が1つだけの日は並べ替えにしない(案内も出さない)", () => {
+    renderReorderable([item({ id: "only", title: "ホテル出発", startTime: "06:00" })]);
+    expect(rowOf("ホテル出発").hasAttribute("data-reorder-row")).toBe(false);
+    expect(screen.queryByText(/長押しして上下に動かすと/)).toBeNull();
   });
 });

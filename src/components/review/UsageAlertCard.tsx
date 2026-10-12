@@ -12,8 +12,31 @@ const ALERT_PREVIEW_LIMIT = 2;
  * data-reveal(ホームの出てくる動き)は付けない。集計は開いた後に届くので、動きの
  * 見張り(useHubMotion)が付いた後に現れた要素は、透明のまま出てこなくなる。
  */
-export function UsageAlertCard({ alerts, onDismiss }: { alerts: UsageAlert[]; onDismiss: () => void }) {
+export function UsageAlertCard({
+  alerts,
+  onDismiss,
+  compact = false,
+}: {
+  alerts: UsageAlert[];
+  onDismiss: () => void;
+  /** ホームのいちばん下に出す1行の帯(2026-10-12、UI/UX 調査メモ A-5)。中身はふりかえりで見る。 */
+  compact?: boolean;
+}) {
   if (alerts.length === 0) return null;
+  if (compact) {
+    return (
+      <aside className="warm-usage-band" aria-label="最近使われていない機能">
+        <TrendingDown size={15} aria-hidden="true" />
+        <Link to="/review" className="warm-usage-band__link">
+          最近使われていない機能が {alerts.length} 件
+          <ArrowRight size={13} aria-hidden="true" />
+        </Link>
+        <button type="button" onClick={onDismiss} className="warm-usage-band__dismiss">
+          今月は表示しない
+        </button>
+      </aside>
+    );
+  }
   const shown = alerts.slice(0, ALERT_PREVIEW_LIMIT);
   const rest = alerts.length - shown.length;
 

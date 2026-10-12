@@ -7,8 +7,11 @@ import {
   base64UrlEncode,
   buildRawMessage,
   encodeHeaderWord,
+  extractMessageContent,
   extractPlainText,
+  findInlineImageParts,
   htmlToText,
+  isHtmlOnlyNotice,
   isUnhandledEmail,
   mapWithConcurrency,
 } from "./gmail";
@@ -287,5 +290,89 @@ describe("extractPlainText", () => {
   it("読めるものが無ければ空で返す", () => {
     expect(extractPlainText(undefined)).toBe("");
     expect(extractPlainText({ mimeType: "multipart/mixed", parts: [] })).toBe("");
+  });
+
+  it("平文が「HTMLで見てください」の案内だけなら、HTMLの方を文章に直して読む", () => {
+    // 日本のメルマガに多い形。平文を優先していた頃は、画面にもAIにもこの一文しか届いていなかった。
+    const payload = {
+      mimeType: "multipart/alternative",
+      parts: [
+        part("text/plain", "このメールはHTML形式で配信しています。HTMLメールを表示できる環境でご覧ください。"),
+        part("text/html", "<p>秋のセールのお知らせ</p><p>10月20日(月)から10月26日(日)まで、全品20%オフです。</p>"),
+      ],
+    };
+    expect(extractPlainText(payload)).toContain("10月20日(月)から10月26日(日)まで");
+  });
+});
+
+describe("isHtmlOnlyNotice", () => {
+  it("HTMLで見るよう促すだけの短い文を案内とみなす", () => {
+    expect(isHtmlOnlyNotice("このメールはHTMLメールです。HTML形式で表示できるメーラーでご覧ください。")).toBe(true);
+    expect(isHtmlOnlyNotice("※本メールはHTML形式です。正しく表示されない場合はブラウザでご覧ください")).toBe(true);
+    expect(isHtmlOnlyNotice("This is an HTML email. Please use an HTML-capable email client to view it.")).toBe(true);
+  });
+
+  it("中身のある平文や、HTMLと関係のない文は案内とみなさない", () => {
+    expect(isHtmlOnlyNotice("")).toBe(false);
+    expect(isHtmlOnlyNotice("9月3日 10:00 一次面接のご案内です。ご都合をお知らせください。")).toBe(false);
+    // 長い文は本物の本文(案内の一文がたまたま含まれていても、平文のまま読む)。
+    expect(isHtmlOnlyNotice(`HTML形式で表示できない場合はこちら。${"本文".repeat(200)}`)).toBe(false);
+  });
+});
+
+describe("extractMessageContent", () => {
+  const part = (mimeType: string, text: string) => ({ mimeType, body: { data: base64UrlEncode(text) } });
+
+  it("平文とHTMLの両方があれば、文章は平文・HTMLも持つ・最初は文章で見せる", () => {
+    const content = extractMessageContent({
+      mimeType: "multipart/alternative",
+      parts: [part("text/plain", "平文の本文"), part("text/html", "<p>HTMLの本文</p>")],
+    });
+    expect(content).toEqual({ text: "平文の本文", html: "<p>HTMLの本文</p>", preferHtml: false });
+  });
+
+  it("HTMLしか無いメールは、最初から元の見た目で見せる", () => {
+    const content = extractMessageContent(part("text/html", "<p>HTMLだけの本文</p>"));
+    expect(content).toEqual({ text: "HTMLだけの本文", html: "<p>HTMLだけの本文</p>", preferHtml: true });
+  });
+
+  it("平文が案内だけのメールも、最初から元の見た目で見せる", () => {
+    const content = extractMessageContent({
+      mimeType: "multipart/alternative",
+      parts: [part("text/plain", "HTMLメールが表示できない場合は、ブラウザでご覧ください。"), part("text/html", "<p>本当の本文がここにあります</p>")],
+    });
+    expect(content.preferHtml).toBe(true);
+    expect(content.text).toBe("本当の本文がここにあります");
+  });
+
+  it("平文しか無いメールは今までどおり(HTMLは空)", () => {
+    expect(extractMessageContent(part("text/plain", "平文だけ"))).toEqual({ text: "平文だけ", html: "", preferHtml: false });
+  });
+});
+
+describe("findInlineImageParts", () => {
+  it("Content-ID の付いた画像の部分だけを集める(山かっこは外す)", () => {
+    const payload = {
+      mimeType: "multipart/related",
+      parts: [
+        { mimeType: "text/html", body: { data: base64UrlEncode('<img src="cid:logo@x">') } },
+        {
+          mimeType: "image/png",
+          headers: [{ name: "Content-ID", value: "<logo@x>" }],
+          body: { data: "AAAA", size: 3 },
+        },
+        {
+          mimeType: "image/jpeg",
+          headers: [{ name: "content-id", value: "<photo@x>" }],
+          body: { attachmentId: "att-1", size: 120000 },
+        },
+        // Content-ID の無い添付は、本文の中に出てこないので取らない。
+        { mimeType: "image/png", filename: "a.png", headers: [], body: { attachmentId: "att-2", size: 10 } },
+      ],
+    };
+    expect(findInlineImageParts(payload)).toEqual([
+      { contentId: "logo@x", mimeType: "image/png", data: "AAAA", attachmentId: undefined, size: 3 },
+      { contentId: "photo@x", mimeType: "image/jpeg", data: undefined, attachmentId: "att-1", size: 120000 },
+    ]);
   });
 });

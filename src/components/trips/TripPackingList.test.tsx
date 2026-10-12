@@ -9,7 +9,8 @@ vi.mock("../../db/schema", () => ({
   db: { tripPackingItems: { update: async (id: string, patch: unknown) => void mocks.updates.push([id, patch]) } },
 }));
 
-import { LONG_PRESS_MS, TripPackingList } from "./TripPackingList";
+import { LONG_PRESS_MS } from "../../hooks/useLongPressReorder";
+import { TripPackingList } from "./TripPackingList";
 
 function item(id: string, sortOrder?: number): TripPackingItem {
   return { id, tripId: "t", title: id, category: "essentials", checked: false, createdAt: 0, sortOrder };
@@ -18,7 +19,7 @@ function item(id: string, sortOrder?: number): TripPackingItem {
 /** jsdom は配置を計算しないので、行は上から 50px ずつ並んでいることにする(いまの DOM の並び順で)。 */
 function layoutRows() {
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-    const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-pack-row]"));
+    const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-reorder-row]"));
     const index = rows.indexOf(this);
     const top = index * 50;
     return { top, bottom: top + 40, height: 40, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
@@ -26,11 +27,11 @@ function layoutRows() {
 }
 
 function rowOf(title: string): HTMLElement {
-  return screen.getByRole("button", { name: `持ち物「${title}」を編集` }).closest("[data-pack-row]") as HTMLElement;
+  return screen.getByRole("button", { name: `持ち物「${title}」を編集` }).closest("[data-reorder-row]") as HTMLElement;
 }
 
 function titles(): string[] {
-  return Array.from(document.querySelectorAll("[data-pack-row]")).map((row) => row.querySelector("button[title]")!.getAttribute("title")!);
+  return Array.from(document.querySelectorAll("[data-reorder-row]")).map((row) => row.querySelector("button[title]")!.getAttribute("title")!);
 }
 
 /** jsdom には PointerEvent が無く、指の位置(clientY)や pointerId が渡らない。ブラウザと同じ形のものを用意する。 */

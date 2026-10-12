@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, LineChart, Mail, Pencil, Plane, Plus, RotateCcw, Settings as SettingsIcon, StickyNote, Trash2, Wallet, type LucideIcon } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Home, LineChart, Mail, Pencil, Plane, Plus, RotateCcw, Settings as SettingsIcon, StickyNote, Trash2, Wallet, type LucideIcon } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import {
@@ -26,14 +26,18 @@ interface FeatureLink {
   bg: string;
 }
 
+// アイコンの色は青緑1色(2026-10-12、UI/UX 調査メモ C-1)。前は暖色デザインの頃の
+// 青・オレンジ・紫・ピンク・緑のままで、ここだけ多色に浮いていた。
+const FEATURE_TONE = { color: "text-teal-700", bg: "bg-teal-50" };
 const FEATURES: FeatureLink[] = [
-  { to: "/schedule", label: "予定・タスク", icon: CalendarDays, color: "text-blue-500", bg: "bg-blue-50" },
-  { to: "/records/expense", label: "お金管理", icon: Wallet, color: "text-orange-500", bg: "bg-orange-50" },
-  { to: "/records/notes", label: "メモ・リスト", icon: StickyNote, color: "text-violet-500", bg: "bg-violet-50" },
-  { to: "/trips", label: "旅行計画", icon: Plane, color: "text-teal-500", bg: "bg-teal-50" },
-  { to: "/gmail", label: "Gmail自動返信", icon: Mail, color: "text-pink-500", bg: "bg-pink-50" },
-  { to: "/review", label: "ふりかえり", icon: LineChart, color: "text-emerald-500", bg: "bg-emerald-50" },
-  { to: "/settings", label: "設定", icon: SettingsIcon, color: "text-slate-500", bg: "bg-slate-100" },
+  { to: "/", label: "ホーム", icon: Home, ...FEATURE_TONE },
+  { to: "/schedule", label: "予定・タスク", icon: CalendarDays, ...FEATURE_TONE },
+  { to: "/records/expense", label: "お金管理", icon: Wallet, ...FEATURE_TONE },
+  { to: "/records/notes", label: "メモ・リスト", icon: StickyNote, ...FEATURE_TONE },
+  { to: "/trips", label: "旅行計画", icon: Plane, ...FEATURE_TONE },
+  { to: "/gmail", label: "Gmail自動返信", icon: Mail, ...FEATURE_TONE },
+  { to: "/review", label: "ふりかえり", icon: LineChart, ...FEATURE_TONE },
+  { to: "/settings", label: "設定", icon: SettingsIcon, ...FEATURE_TONE },
 ];
 
 /** Feature launcher and editor for the mobile persistent action bar. */
@@ -74,7 +78,7 @@ export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props)
         <div className="space-y-5">
           <div>
             <p className="text-sm font-medium text-slate-700">表示中のボタン</p>
-            <p className="mt-1 text-xs text-slate-500">1〜5個を表示できます。矢印で並び順を変更できます。</p>
+            <p className="mt-1 text-xs text-slate-500">1〜5個を表示できます。矢印で並び順を変更できます。右端の「すべて」はいつも出ます。</p>
           </div>
 
           <div className="space-y-2">
