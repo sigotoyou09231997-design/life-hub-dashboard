@@ -9,8 +9,15 @@ import {
 } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { CalendarDays, CornerDownLeft, ListTodo, Mail, MapPin, Plane, Search, StickyNote } from "lucide-react";
+import { CalendarDays, CornerDownLeft, ListTodo, Mail, MapPin, Plane, Search, StickyNote, Wallet } from "lucide-react";
 import { db } from "../../db/schema";
+import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from "../../lib/categories";
+import { orderCategoriesByUsage } from "../../lib/categoryUsage";
+import { todayStr } from "../../lib/date";
+import { deleteProjectTagFor } from "../../lib/projectTags";
+import { parseQuickExpense, resolveQuickCategory } from "../../lib/quickExpense";
+import { showToast } from "../ui/toastStore";
+import type { Transaction } from "../../types";
 import { countHits, searchEverything, type SearchGroup, type SearchHit, type SearchKind } from "../../lib/globalSearch";
 import {
   isPaletteShortcut,
@@ -58,7 +65,10 @@ interface PaletteOption {
   key: string;
   title: string;
   subtitle: string;
-  to: string;
+  /** 開く先。onSelect のある行(支出の記録)は、画面を移らないので持たない。 */
+  to?: string;
+  /** 選んだ時に、画面を移らずにすること(「ランチ 1200」を支出として記録する)。 */
+  onSelect?: () => void;
   icon: ElementType;
   personIds?: string[];
   /** 開いた時に「最近見たもの」へ残すもの。操作は残さない — 行き先の画面はURLの変化の
@@ -78,6 +88,47 @@ interface PaletteSection {
 
 function actionOption(action: PaletteAction): PaletteOption {
   return { key: `action:${action.id}`, title: action.label, subtitle: action.hint, to: action.to, icon: action.icon };
+}
+
+/** 「ランチ 1200」を支出として記録する行(第5弾 B-1)。カテゴリと日付・支払い方法を、行の2行目に出して、記録する前に見えるようにする。 */
+function quickExpenseOption(plan: QuickExpensePlan, onSelect: () => void): PaletteOption {
+  return {
+    key: "quick-expense",
+    title: `支出 ¥${plan.amount.toLocaleString()} ${plan.store} を記録`,
+    subtitle: `${plan.category}${plan.basis === "default" ? "(仮)" : ""}・今日・${PAYMENT_METHODS[0]}。Enter で記録`,
+    icon: Wallet,
+    onSelect,
+  };
+}
+
+interface QuickExpensePlan {
+  store: string;
+  amount: number;
+  category: string;
+  basis: "history" | "keyword" | "default";
+}
+
+/** 支出を1件書き込み、「元に戻す」付きでお知らせする(ホームの「その場で記録」と同じ項目)。 */
+async function recordQuickExpense(plan: QuickExpensePlan): Promise<void> {
+  const record: Transaction = {
+    type: "expense",
+    amount: plan.amount,
+    category: plan.category,
+    method: PAYMENT_METHODS[0],
+    store: plan.store,
+    memo: "",
+    date: todayStr(),
+    isFixed: false,
+    createdAt: Date.now(),
+  };
+  try {
+    const id = String(await db.transactions.add(record));
+    showToast(`${plan.store} ¥${plan.amount.toLocaleString()} を記録しました`, {
+      action: { label: "元に戻す", onClick: () => Promise.all([db.transactions.delete(id), deleteProjectTagFor(id)]) },
+    });
+  } catch {
+    showToast("記録できませんでした", "error");
+  }
 }
 
 function hitOption(hit: SearchHit): PaletteOption {
@@ -172,7 +223,8 @@ export function GlobalSearch({ open, onClose }: Props) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState(0);
+  /** 選んでいる行。null のあいだは、既定の行(下の preferred)。打つたびに null へ戻す。 */
+  const [active, setActive] = useState<number | null>(null);
   const [recentEntries, setRecentEntries] = useState<RecentEntry[]>([]);
   const baseId = useId();
   /** ↑↓で動かした時だけ、選んだ行が見える所までスクロールする(指やマウスで選んだ時は動かさない)。 */
@@ -199,7 +251,7 @@ export function GlobalSearch({ open, onClose }: Props) {
       setQuery("");
       return;
     }
-    setActive(0);
+    setActive(null);
     setRecentEntries(loadRecent());
   }, [open]);
 
@@ -240,8 +292,28 @@ export function GlobalSearch({ open, onClose }: Props) {
 
   const matchedActions = useMemo(() => (searching ? matchActions(query) : []), [searching, query]);
 
+  // 「ランチ 1200」のような、店・品名と金額だけの文字は、支出の記録の候補にもする(第5弾 B-1)。
+  // 過去の支出(店名からのカテゴリの推測に使う)は、この形の語を打った時だけ読む。
+  const quick = useMemo(() => (searching ? parseQuickExpense(query) : null), [searching, query]);
+  const pastForQuick = useLiveQuery(async () => (quick ? db.transactions.toArray() : []), [quick !== null]);
+  const quickPlan = useMemo<QuickExpensePlan | null>(() => {
+    if (!quick || pastForQuick === undefined) return null;
+    const ordered = orderCategoriesByUsage(EXPENSE_CATEGORIES, pastForQuick, "expense", todayStr());
+    return { ...quick, ...resolveQuickCategory(quick.store, pastForQuick, ordered) };
+  }, [quick, pastForQuick]);
+
   const sections: PaletteSection[] = searching
     ? [
+        // 探している最中(source が来る前)は、Enter を受け付けない: 当たりがあるかどうかが分からないうちに記録してしまわないように。
+        ...(quickPlan
+          ? [
+              {
+                id: "record",
+                label: "記録",
+                options: [quickExpenseOption(quickPlan, () => { if (source !== undefined) void recordQuickExpense(quickPlan); })],
+              },
+            ]
+          : []),
         ...(matchedActions.length > 0 ? [{ id: "actions", label: "操作", options: matchedActions.map(actionOption) }] : []),
         ...groups.map((group) => ({
           id: group.kind,
@@ -255,7 +327,11 @@ export function GlobalSearch({ open, onClose }: Props) {
         ...(recentItems.length > 0 ? [{ id: "recent", label: "最近見たもの", options: recentItems.map(recentOption) }] : []),
       ];
   const flat = sections.flatMap((section) => section.options);
-  const activeIndex = flat.length === 0 ? -1 : Math.min(active, flat.length - 1);
+  // 既定の行: 記録の行が先頭にあっても、探した当たり(予定・メモなど)や操作がある時は、その次の行。
+  // 「ランチ 1200」で探しただけの人が、Enter でうっかり記録しないため。当たりが何も無い時だけ、記録の行が既定。
+  const hasRecordRow = quickPlan !== null;
+  const preferred = hasRecordRow && (total > 0 || matchedActions.length > 0) ? 1 : 0;
+  const activeIndex = flat.length === 0 ? -1 : Math.min(active ?? preferred, flat.length - 1);
   const optionId = (index: number) => `${baseId}-option-${index}`;
 
   useEffect(() => {
@@ -272,7 +348,7 @@ export function GlobalSearch({ open, onClose }: Props) {
    * 直後の画面の移り変わりでは残し直さない。
    */
   function remember(option: PaletteOption) {
-    if (!option.record) return;
+    if (!option.record || !option.to) return;
     const targetPath = option.to.split(/[?#]/)[0];
     const host = recentEntryForPath(targetPath);
     if (host && !(host.kind === option.record.kind && host.id === option.record.id)) {
@@ -301,6 +377,13 @@ export function GlobalSearch({ open, onClose }: Props) {
       const option = flat[activeIndex];
       if (!option) return;
       event.preventDefault();
+      if (option.onSelect) {
+        // 画面を移らずにすること(支出の記録)。閉じてから実行する。
+        onClose();
+        option.onSelect();
+        return;
+      }
+      if (!option.to) return;
       remember(option);
       onClose();
       navigate(option.to);
@@ -319,7 +402,7 @@ export function GlobalSearch({ open, onClose }: Props) {
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
-            setActive(0);
+            setActive(null);
           }}
           onKeyDown={handleKeyDown}
           placeholder="探したい言葉や、やりたいこと"
@@ -336,7 +419,7 @@ export function GlobalSearch({ open, onClose }: Props) {
         />
 
         {!searching && (
-          <p className="cmd-palette__intro">予定・メモ・旅行・Gmailを探したり、「支出」と打って追加したりできます。</p>
+          <p className="cmd-palette__intro">予定・メモ・旅行・Gmailを探したり、「支出」と打って追加したり、「ランチ 1200」と打って支出を記録したりできます。</p>
         )}
 
         <div id={`${baseId}-list`} role="listbox" aria-label="候補" className="cmd-palette__list">
@@ -353,13 +436,49 @@ export function GlobalSearch({ open, onClose }: Props) {
                     const index = runningIndex++;
                     const Icon = option.icon;
                     const selected = index === activeIndex;
+                    const rowProps = {
+                      id: optionId(index),
+                      role: "option",
+                      "aria-selected": selected,
+                      onMouseMove: () => {
+                        if (!selected) setActive(index);
+                      },
+                      className: `cmd-row ${selected ? "is-active" : ""}`,
+                    } as const;
+                    const rowBody = (
+                      <>
+                        <span className="cmd-row__icon" aria-hidden="true">
+                          <Icon size={17} />
+                        </span>
+                        <span className="cmd-row__text">
+                          <span className="cmd-row__title">{option.title}</span>
+                          {option.subtitle && <span className="cmd-row__sub">{option.subtitle}</span>}
+                        </span>
+                        <CornerDownLeft size={14} className="cmd-row__enter" aria-hidden="true" />
+                      </>
+                    );
+                    if (option.onSelect) {
+                      // 画面を移らない行(支出の記録)。押しても、Enter と同じ。
+                      return (
+                        <div
+                          key={option.key}
+                          {...rowProps}
+                          onClick={() => {
+                            onClose();
+                            option.onSelect?.();
+                          }}
+                        >
+                          {rowBody}
+                        </div>
+                      );
+                    }
                     return (
                       <Link
                         key={option.key}
                         id={optionId(index)}
                         role="option"
                         aria-selected={selected}
-                        to={option.to}
+                        to={option.to ?? "/"}
                         onClick={() => {
                           remember(option);
                           onClose();
