@@ -32,3 +32,5 @@ AGENTS.md
 .feedback-images
 # 見張り(scripts/feedback-watch.mjs)が、どの依頼を会話へ流したかを覚えるファイル。
 .feedback-seen
+# 修正を出すのにかかった時間の記録(scripts/ship.sh が書く。scripts/fix-times.mjs で見る)。
+.fix-times.log
