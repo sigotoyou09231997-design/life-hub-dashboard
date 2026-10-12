@@ -4,11 +4,16 @@ import { useState } from "react";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
+import { ToastProvider } from "../ui/ToastProvider";
 
 const mocks = vi.hoisted(() => ({
   trips: [] as Record<string, unknown>[],
   emails: [] as Record<string, unknown>[],
   events: [] as Record<string, unknown>[],
+  /** 検索から記録した支出(db.transactions.add に渡されたもの)と、「元に戻す」で消したid。 */
+  transactions: [] as Record<string, unknown>[],
+  added: [] as Record<string, unknown>[],
+  deleted: [] as string[],
 }));
 
 /** Dexie の表のうち、まとめて検索が使う所だけ(全件・idでまとめて引く)。 */
@@ -28,8 +33,19 @@ vi.mock("../../db/schema", () => ({
     trips: table(() => mocks.trips),
     tripSchedule: table(() => []),
     syncedEmails: table(() => mocks.emails),
+    transactions: {
+      toArray: async () => mocks.transactions,
+      add: async (record: Record<string, unknown>) => {
+        mocks.added.push(record);
+        return "tx1";
+      },
+      delete: async (id: string) => {
+        mocks.deleted.push(id);
+      },
+    },
   },
 }));
+vi.mock("../../lib/projectTags", () => ({ deleteProjectTagFor: async () => undefined }));
 
 // useLiveQuery は本物のDexieテーブルを相手にしないと値を返さないので、問い合わせを
 // 1回実行するだけの最小版に差し替える(EventScanForm.test.tsx と同じ)。
@@ -83,6 +99,9 @@ beforeEach(() => {
     { id: "m1", accountId: "a1", gmailMessageId: "g1", threadId: "t1", from: "予約係", subject: "ご予約の確認", snippet: "", receivedAt: 1, status: "unprocessed", createdAt: 1 },
   ];
   mocks.events = [];
+  mocks.transactions = [];
+  mocks.added = [];
+  mocks.deleted = [];
   localStorage.clear();
 });
 
@@ -276,5 +295,82 @@ describe("⌘K / Ctrl+K", () => {
     );
     await user.keyboard("{Meta>}k{/Meta}");
     expect(screen.getByTestId("state").textContent).toBe("閉じている");
+  });
+});
+
+describe("まとめて検索から、支出を記録する(「ランチ 1200」)", () => {
+  it("店と金額を打つと、先頭に「記録」の行が出る(カテゴリ・今日・支払い方法つき)", async () => {
+    const user = userEvent.setup();
+    renderPalette();
+    await user.type(screen.getByRole("combobox", { name: "まとめて検索" }), "ランチ 1200");
+    const row = await screen.findByRole("option", { name: /支出 ¥1,200 ランチ を記録/ });
+    expect(row.textContent).toContain("食費");
+    expect(row.textContent).toContain("今日");
+    expect(row.textContent).toContain("現金");
+    expect(optionLabels()[0]).toContain("支出 ¥1,200 ランチ を記録");
+    expect(mocks.added).toHaveLength(0); // 出しているだけでは、何も保存しない
+  });
+
+  it("当たりが無ければ、記録の行が既定。Enter で1件記録して、検索を閉じる(画面は移らない)", async () => {
+    const user = userEvent.setup();
+    const { onClose } = renderPalette("/schedule");
+    await user.type(screen.getByRole("combobox", { name: "まとめて検索" }), "ランチ 1200");
+    await waitFor(() => expect(selectedOption()?.textContent).toContain("支出 ¥1,200 ランチ を記録"));
+    await user.keyboard("{Enter}");
+    await waitFor(() => expect(mocks.added).toHaveLength(1));
+    expect(mocks.added[0]).toMatchObject({ type: "expense", amount: 1200, store: "ランチ", category: "食費", method: "現金", memo: "", isFixed: false });
+    expect(onClose).toHaveBeenCalled();
+    expect(screen.getByTestId("location").textContent).toBe("/schedule"); // 画面は移らない
+  });
+
+  it("探した当たり(旅行など)がある時は、記録の行が先頭にあっても、既定は当たりの行(うっかり記録しない)", async () => {
+    mocks.trips = [{ id: "trip2", name: "ランチ 1200 の旅", destination: "京都", startDate: "2026-09-01", endDate: "2026-09-03", status: "planning", createdAt: 1 }];
+    const user = userEvent.setup();
+    renderPalette();
+    await user.type(screen.getByRole("combobox", { name: "まとめて検索" }), "ランチ 1200");
+    await waitFor(() => expect(optionLabels().some((label) => label.includes("ランチ 1200 の旅"))).toBe(true));
+    expect(optionLabels()[0]).toContain("を記録"); // 先頭は記録の行
+    expect(selectedOption()?.textContent).not.toContain("を記録"); // でも既定は当たりの行
+    await userEvent.keyboard("{Enter}");
+    expect(mocks.added).toHaveLength(0); // Enter で記録されていない
+  });
+
+  it("行を押しても記録できる。記録のあとは「元に戻す」が出て、押すとその1件を消す", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ToastProvider>
+          <GlobalSearch open onClose={vi.fn()} />
+        </ToastProvider>
+      </MemoryRouter>,
+    );
+    await user.type(screen.getByRole("combobox", { name: "まとめて検索" }), "コンビニ 580円");
+    await user.click(await screen.findByRole("option", { name: /支出 ¥580 コンビニ を記録/ }));
+    await waitFor(() => expect(mocks.added).toHaveLength(1));
+    expect(mocks.added[0]).toMatchObject({ amount: 580, store: "コンビニ", category: "食費" });
+    await user.click(await screen.findByRole("button", { name: "元に戻す" }));
+    await waitFor(() => expect(mocks.deleted).toEqual(["tx1"]));
+  });
+
+  it("日付や時刻・数字が2つ・金額が小さすぎる語では、記録の行を出さない", async () => {
+    const user = userEvent.setup();
+    renderPalette();
+    const input = screen.getByRole("combobox", { name: "まとめて検索" });
+    for (const text of ["歯医者 3月5日", "ランチ 1200 800", "iPhone 15", "ランチ"]) {
+      await user.clear(input);
+      await user.type(input, text);
+      await waitFor(() => expect(screen.queryByRole("option", { name: /を記録/ })).toBeNull());
+    }
+  });
+
+  it("過去に同じ店で選んだカテゴリがあれば、それを使う", async () => {
+    mocks.transactions = [
+      { type: "expense", amount: 700, category: "娯楽", store: "ゲームセンター", memo: "", date: "2026-10-01", isFixed: false, createdAt: 1 },
+    ];
+    const user = userEvent.setup();
+    renderPalette();
+    await user.type(screen.getByRole("combobox", { name: "まとめて検索" }), "ゲームセンター 500");
+    const row = await screen.findByRole("option", { name: /支出 ¥500 ゲームセンター を記録/ });
+    expect(row.textContent).toContain("娯楽");
   });
 });
