@@ -24,7 +24,8 @@ export interface SubscriptionTemplate {
 }
 
 /** 料金を確かめた月。画面の注意書きに出す。2026-10-12 に公式ページと記事で調べた
- * (App Store とWebで値段が違うものは、Webの値段。ChatGPT・Claude だけは App Store の円の値段)。 */
+ * (App Store とWebで値段が違うものは、Webの値段。ChatGPT だけは App Store の円の値段。
+ *  Claude は 2026-10-13 に、Web の値段(米ドルを1ドル150円・消費税10%込みで換算)に直した)。 */
 export const TEMPLATE_PRICES_CHECKED_AT = "2026年10月";
 
 export const SUBSCRIPTION_TEMPLATES: SubscriptionTemplate[] = [
@@ -76,10 +77,13 @@ export const SUBSCRIPTION_TEMPLATES: SubscriptionTemplate[] = [
   { key: "chatgpt-plus", service: "ChatGPT", plan: "Plus", category: "AI・仕事", cycle: "monthly", price: 3000, color: "#10a37f", mark: "G", manageUrl: "https://chatgpt.com/pricing" },
   { key: "chatgpt-pro-5x", service: "ChatGPT", plan: "Pro(5倍)", category: "AI・仕事", cycle: "monthly", price: 16800, color: "#10a37f", mark: "G", manageUrl: "https://chatgpt.com/pricing" },
   { key: "chatgpt-pro", service: "ChatGPT", plan: "Pro(20倍)", category: "AI・仕事", cycle: "monthly", price: 30000, color: "#10a37f", mark: "G", manageUrl: "https://chatgpt.com/pricing" },
-  { key: "claude-pro", service: "Claude", plan: "Pro", category: "AI・仕事", cycle: "monthly", price: 3000, color: "#d97757", mark: "C", manageUrl: "https://claude.ai/settings/billing" },
-  { key: "claude-pro-yearly", service: "Claude", plan: "Pro(年額)", category: "AI・仕事", cycle: "yearly", price: 35000, color: "#d97757", mark: "C", manageUrl: "https://claude.ai/settings/billing" },
-  { key: "claude-max", service: "Claude", plan: "Max 5x", category: "AI・仕事", cycle: "monthly", price: 20000, color: "#d97757", mark: "C", manageUrl: "https://claude.ai/settings/billing" },
-  { key: "claude-max-20x", service: "Claude", plan: "Max 20x", category: "AI・仕事", cycle: "monthly", price: 40000, color: "#d97757", mark: "C", manageUrl: "https://claude.ai/settings/billing" },
+  // Claude は公式サイト(claude.com/pricing)が米ドルだけ・税抜。2026-10-13、本人「金額おかしい」で、App Store 経由の円
+  // (Pro 3000・年額 35000・Max 5x 20000・Max 20x 40000)から、Web の値段に直した: Pro $20(年$200)・Max 5x $100・Max 20x $200 を
+  // 1ドル150円で換算し、日本の消費税10%(2026-04-01から加算)を足した税込の円。為替で動くので目安(選んだあとフォームで直せる)。
+  { key: "claude-pro", service: "Claude", plan: "Pro", category: "AI・仕事", cycle: "monthly", price: 3300, color: "#d97757", mark: "C", manageUrl: "https://claude.ai/settings/billing" },
+  { key: "claude-pro-yearly", service: "Claude", plan: "Pro(年額)", category: "AI・仕事", cycle: "yearly", price: 33000, color: "#d97757", mark: "C", manageUrl: "https://claude.ai/settings/billing" },
+  { key: "claude-max", service: "Claude", plan: "Max 5x", category: "AI・仕事", cycle: "monthly", price: 16500, color: "#d97757", mark: "C", manageUrl: "https://claude.ai/settings/billing" },
+  { key: "claude-max-20x", service: "Claude", plan: "Max 20x", category: "AI・仕事", cycle: "monthly", price: 33000, color: "#d97757", mark: "C", manageUrl: "https://claude.ai/settings/billing" },
   { key: "google-ai-pro", service: "Google AI Pro", plan: "月額", category: "AI・仕事", cycle: "monthly", price: 2900, color: "#4285f4", mark: "G", manageUrl: "https://one.google.com/about/plans" },
   { key: "google-ai-pro-yearly", service: "Google AI Pro", plan: "年額", category: "AI・仕事", cycle: "yearly", price: 29000, color: "#4285f4", mark: "G", manageUrl: "https://one.google.com/about/plans" },
   { key: "m365-personal-yearly", service: "Microsoft 365", plan: "Personal(年額)", category: "AI・仕事", cycle: "yearly", price: 21300, color: "#d83b01", mark: "M", manageUrl: "https://account.microsoft.com/services" },
