@@ -9,7 +9,6 @@ import {
 } from "../../lib/placeReminders";
 import type { PlaceReminderTrigger } from "../../types";
 import { Input } from "../ui/Input";
-import { Select } from "../ui/Select";
 import { Field } from "../ui/Field";
 import { SwitchField } from "../ui/SwitchField";
 import { SegmentedField } from "../ui/SegmentedField";
@@ -24,6 +23,10 @@ const TRIGGER_OPTIONS = [
   { value: "enter" as PlaceReminderTrigger, label: "着いたら" },
   { value: "leave" as PlaceReminderTrigger, label: "離れたら" },
 ];
+
+/** 距離の選択肢。保存する値は今までのプルダウンと同じメートルの数で、ボタンの値は文字列にして持つ
+ * (SegmentedField が文字列で受け渡すため)。 */
+const RADIUS_BUTTONS = RADIUS_OPTIONS.map((meters) => ({ value: String(meters), label: radiusLabel(meters) }));
 
 /**
  * タスク・メモに付ける「場所で知らせる」の設定。
@@ -89,6 +92,12 @@ export function PlaceReminderField({ value, onChange }: Props) {
   }
 
   const hasPlace = value.latitude != null && value.longitude != null;
+  // 一覧に無い距離(ほかの経路で入った値)のときは、末尾に1つ足して選んだ状態で見せる。足さないと、
+  // どれも選ばれていない見た目のまま、保存では元の値が残って分かりにくい。下書きは開いた後に
+  // 読み込まれる(src/lib/placeReminders.ts)ので、ここは今の値で決める。
+  const radiusButtons = RADIUS_OPTIONS.some((meters) => meters === value.radiusMeters)
+    ? RADIUS_BUTTONS
+    : [...RADIUS_BUTTONS, { value: String(value.radiusMeters), label: radiusLabel(value.radiusMeters) }];
 
   return (
     <>
@@ -172,17 +181,17 @@ export function PlaceReminderField({ value, onChange }: Props) {
             hint="通知に出る名前です。"
           />
 
-          <Select
+          {/* プルダウンにしない。この欄はタスク・買い物リストのシートの中にあり、iPhone ではシートの中の
+              プルダウンを押すとキーボードが閉じてシートが動き、選択肢が欄から離れた所に出て、押したつもりが
+              外れる(2026-10-12。2026-10-11の持ち物と同じ直し方)。4つなら1段に収まる。 */}
+          <SegmentedField
             label="この距離まで近づいたら"
             value={String(value.radiusMeters)}
-            onChange={(e) => patch({ radiusMeters: Number(e.target.value) })}
-          >
-            {RADIUS_OPTIONS.map((meters) => (
-              <option key={meters} value={meters}>
-                {radiusLabel(meters)}
-              </option>
-            ))}
-          </Select>
+            options={radiusButtons}
+            onChange={(meters) => patch({ radiusMeters: Number(meters) })}
+            columns={4}
+            separate
+          />
 
           <SegmentedField
             label="いつ知らせる"

@@ -2,10 +2,12 @@ import { useEffect, useState } from "react";
 import { db } from "../../db/schema";
 import type { SyncedEmail } from "../../types";
 import { toExpenseSuggestion } from "../../lib/expenseMailSuggestion";
-import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from "../../lib/categories";
+import { EXPENSE_CATEGORIES, PAYMENT_METHODS, PAYMENT_METHOD_BUTTON_LABELS } from "../../lib/categories";
+import { orderCategoriesByUsage } from "../../lib/categoryUsage";
+import { todayStr } from "../../lib/date";
 import { Sheet } from "../ui/Sheet";
 import { Input, AmountInput } from "../ui/Input";
-import { Select } from "../ui/Select";
+import { SegmentedField } from "../ui/SegmentedField";
 import { DateField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
@@ -22,6 +24,9 @@ interface Props {
 
 /** 同じメールから2回登録しないための印。取り込みの重複よけ(PayPay CSVの
  * externalId と同じ考え方)で、Transaction.externalId に入れる。 */
+/** 支払い方法のボタン。値は今までのプルダウンと同じ、名前は収支の入力(ExpenseForm)と同じ短い形。 */
+const METHOD_OPTIONS = PAYMENT_METHODS.map((m) => ({ value: m, label: PAYMENT_METHOD_BUTTON_LABELS[m] ?? m }));
+
 export function expenseExternalId(gmailMessageId: string): string {
   return `gmail-expense:${gmailMessageId}`;
 }
@@ -43,6 +48,10 @@ export function MailExpenseImport({ email, open, onClose }: Props) {
   const [method, setMethod] = useState(PAYMENT_METHODS[1]);
   const [saving, setSaving] = useState(false);
   const [alreadySaved, setAlreadySaved] = useState(false);
+  // カテゴリのボタンの並び。収支の入力(ExpenseForm)と同じく最近よく使う順(src/lib/categoryUsage.ts)で、
+  // 開いた時に1回だけ決める(開いているあいだに並びが動くと、押そうとしたボタンが逃げる)。
+  // 既定で選ぶカテゴリは今までどおり「食費」のまま — 並びだけ変える。
+  const [categoryOrder, setCategoryOrder] = useState<string[]>(EXPENSE_CATEGORIES);
 
   // 開くたびに読み取り直した値へ戻す。前に開いたメールの値が残らないようにする。
   useEffect(() => {
@@ -58,6 +67,9 @@ export function MailExpenseImport({ email, open, onClose }: Props) {
       .equals(expenseExternalId(email.gmailMessageId))
       .count()
       .then((count) => setAlreadySaved(count > 0));
+    void db.transactions
+      .toArray()
+      .then((rows) => setCategoryOrder(orderCategoriesByUsage(EXPENSE_CATEGORIES, rows, "expense", todayStr())));
     // suggestion は毎描画で作り直されるので、開閉とメールの入れ替わりだけを見る。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, email.id]);
@@ -123,20 +135,25 @@ export function MailExpenseImport({ email, open, onClose }: Props) {
           </FormPanel>
 
           <FormPanel caption="分類">
-            <Select label="カテゴリ" value={category} onChange={(e) => setCategory(e.target.value)}>
-              {EXPENSE_CATEGORIES.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </Select>
-            <Select label="支払い方法" value={method} onChange={(e) => setMethod(e.target.value)}>
-              {PAYMENT_METHODS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </Select>
+            {/* プルダウンにしない。iPhone ではシートの中のプルダウンを押すとキーボード(金額の欄で開いている)が
+                閉じてシートが動き、選択肢が欄から離れた所に出て、押したつもりが外れる(2026-10-12。
+                2026-10-11の持ち物、収支の入力と同じ直し方)。3列も収支の入力にそろえる。 */}
+            <SegmentedField
+              label="カテゴリ"
+              value={category}
+              options={categoryOrder.map((c) => ({ value: c, label: c }))}
+              onChange={setCategory}
+              columns={3}
+              separate
+            />
+            <SegmentedField
+              label="支払い方法"
+              value={method}
+              options={METHOD_OPTIONS}
+              onChange={setMethod}
+              columns={3}
+              separate
+            />
           </FormPanel>
 
           <FormActions>

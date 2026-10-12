@@ -22,6 +22,7 @@ import {
   routeKey,
   sortDestinations,
   sortTripsForPicker,
+  visibleTripsForPicker,
   toCalendarEventRecord,
   toDestination,
   toImportRows,
@@ -50,7 +51,7 @@ import { PlanImportRow } from "../plan/PlanImportRow";
 import { Sheet } from "../ui/Sheet";
 import { Tabs } from "../ui/Tabs";
 import { Input } from "../ui/Input";
-import { Select } from "../ui/Select";
+import { SegmentedField } from "../ui/SegmentedField";
 import { SwitchField } from "../ui/SwitchField";
 import { Button } from "../ui/Button";
 import { FormActions } from "../ui/FormActions";
@@ -101,6 +102,9 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
     setExtras((current) => current.filter((d) => d !== next));
   }
   const [tripId, setTripId] = useState<string | undefined>(undefined);
+  // 入れ先の旅行を全部ボタンで出しているか。最初は新しい順の数件と選んでいる旅行だけ
+  // (src/lib/mailPlanImport.ts の visibleTripsForPicker)。
+  const [showAllTrips, setShowAllTrips] = useState(false);
   const [saving, setSaving] = useState(false);
   // この端末に登録した、いま開いていない方のアカウント(予定フォームと同じ仕組み)。
   // 面接の予定を、こちらには会社名入りで・相手には別の名前で入れられるようにする。
@@ -128,6 +132,7 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
       setExtras([]);
       setError("");
       setTripId(undefined);
+      setShowAllTrips(false);
       setAccountDrafts(emptyDrafts(otherAccountsRef.current, ""));
       return;
     }
@@ -185,6 +190,8 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
   }
 
   const selectedTrip = trips?.find((trip) => trip.id === tripId);
+  const pickerTrips = trips ? (showAllTrips ? trips : visibleTripsForPicker(trips, tripId)) : [];
+  const hiddenTripCount = (trips?.length ?? 0) - pickerTrips.length;
   /** その入れ先に実際に入る行。既に入っている行は、チェックが付いていても入れない。
    * 状態そのものは書き換えず、ここで弾く — 入れ先を切り替えた途端にチェックが消えると、
    * 何が起きたか分からないため。同じ内容でも、入れ先ごとに「既にあるか」は違う。 */
@@ -356,13 +363,27 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
                 }
               />
             ) : (
-              <Select label="どの旅行に入れる" value={tripId ?? ""} onChange={(e) => setTripId(e.target.value)}>
-                {trips.map((trip) => (
-                  <option key={trip.id} value={trip.id}>
-                    {trip.name}（{formatShortDate(trip.startDate)}〜{formatShortDate(trip.endDate)}）
-                  </option>
-                ))}
-              </Select>
+              // プルダウンにしない。iPhone ではシートの中のプルダウンを押すとキーボードが閉じてシートが動き、
+              // 選択肢が欄から離れた所に出て、押したつもりが外れる(2026-10-12。2026-10-11の持ち物と同じ直し方)。
+              // 旅行の名前と日付は長いので1列。旅行が多い時は数件だけ出す(visibleTripsForPicker)。
+              <div>
+                <SegmentedField
+                  label="どの旅行に入れる"
+                  value={tripId ?? ""}
+                  options={pickerTrips.map((trip) => ({
+                    value: trip.id ?? "",
+                    label: `${trip.name}（${formatShortDate(trip.startDate)}〜${formatShortDate(trip.endDate)}）`,
+                  }))}
+                  onChange={setTripId}
+                  columns={1}
+                  separate
+                />
+                {hiddenTripCount > 0 && (
+                  <Button type="button" variant="ghost" className="mt-1 w-full" onClick={() => setShowAllTrips(true)}>
+                    ほかの旅行も出す（{hiddenTripCount}件）
+                  </Button>
+                )}
+              </div>
             ))}
 
           {destination === "route" &&
