@@ -11,7 +11,7 @@
 //   --marker "<css>"         「見えた」と数える部品(既定: Gmail は最初のメール、ほかは見出し)
 //   --film                   押した直後をコマ送りで撮り、1枚に並べる(/tmp/probe/film-*.png。並べるには python3 + PIL)
 //   --profile                押した直後の重い関数を、自分の時間・呼び出し先を含む時間で洗い出す
-//   --shot                   スマホ幅とPC幅のスクリーンショット(/tmp/probe/shot-*.png)
+//   --shot                   スマホ幅とPC幅のスクリーンショット(/tmp/probe/shot-*.png。PC幅は --pc-width 1980 --pc-height 1050 で変えられる)
 //   --port 5175              開発サーバーの番号(既定 5175。動いていなければ、空の Supabase 設定で自動で立てて、終わったら落とす)
 //   --width 390 --height 800 画面の大きさ
 //
@@ -242,7 +242,7 @@ async function profileMode(page, cdp) {
 }
 
 async function shotMode(browser) {
-  for (const [name, vp] of [["mobile", { width: 390, height: 800 }], ["pc", { width: 1440, height: 900 }]]) {
+  for (const [name, vp] of [["mobile", { width: 390, height: 800 }], ["pc", { width: Number(opt("pc-width", 1440)), height: Number(opt("pc-height", 900)) }]]) {
     const ctx = await browser.newContext({ viewport: vp, locale: "ja-JP", hasTouch: name === "mobile", isMobile: name === "mobile" });
     const page = await ctx.newPage();
     await page.goto(BASE + "/", { waitUntil: "networkidle" });
