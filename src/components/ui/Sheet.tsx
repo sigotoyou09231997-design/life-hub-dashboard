@@ -49,6 +49,13 @@ function hasTextSelection(el: HTMLElement): boolean {
  * 「キーボードと入力している文字がかぶる」(2026-10-11、iPhone のホーム画面アプリで「修正」の
  * 入力欄)。欄が見える範囲に収まるなら下端を帯の上へ、収まらないなら上端を見える範囲の上に合わせる。
  */
+/** 押して使う部品。この上に触れた時は、触れた瞬間にはフォーカスを外さない(下の touchstart)。 */
+const PRESSABLE_SELECTOR = 'input, textarea, select, button, a[href], label, [role="button"], [contenteditable="true"]';
+/** これより指が動いたら、押したのではなくスクロールを始めたとみなす(px)。 */
+const SCROLL_INTENT_PX = 8;
+/** 触れてからこれより後に動き始めた指は、長押し(貼り付け・カーソル移動)とみなしてフォーカスを外さない(ms)。 */
+const LONG_PRESS_MS = 300;
+
 export function revealAboveActions(body: HTMLElement, field: HTMLElement): void {
   const actions = body.querySelector<HTMLElement>(".form-actions");
   if (!actions || actions.contains(field)) return;
@@ -214,28 +221,59 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     // かった(2026-09-20の再報告)。iOS側の引き戻しは指が動き始めるより前、触れた
     // 瞬間(touchstart)から始まっている可能性があり、touchmoveまで待つと手遅れに
     // なると考えられる。そこでtouchstart — 指が触れた瞬間 — で、動きの向きも距離も
-    // 見ずに即フォーカスを外す。指が置かれた先がフォーカス中の欄自身でも区別しない
-    // (キーボードで見えている範囲が狭い時は、その欄自体がほぼ画面いっぱいを占め、
-    // 指を置く先が結局その欄の上になることがほとんどのため)。
+    // 見ずに即フォーカスを外す。
     //
     // ただし、文字を選択中(コピーしようとして選択ハンドルをドラッグしている等)は
     // 外さない。selectionStart/Endの間に幅があれば選択中とみなす。ここで外して
     // しまうと選択そのものが消えてコピーできなくなる(2026-09-20の報告、「文字を
     // コピーできない」)。選択が無い(ただのカーソル)時だけ、スクロールのために外す。
     //
-    // 外れるのはタップのたびに毎回だが、実害は無い。別の欄をタップしたのであれば
-    // タップ自体(touchend側)でその欄へ普通にフォーカスし直り、同じ欄の中でタップし
-    // 直した(カーソル位置を変えたい等)のであれば、同じくタップでその位置に
-    // フォーカスし直る。キーボードが一瞬ちらつく可能性はあるが、下まで指が届かない
-    // ことに比べれば軽微。
-    const handleTouchStart = () => {
+    // また、入力欄・ボタンなど押して使う部品の上に指が触れた時は、触れた瞬間には外さない
+    // (2026-10-12)。触れた瞬間に外すとキーボードが閉じてシートが下がり、指を離す前に
+    // 指の下が別の物に入れ替わる。そのせいで、
+    //   - URL を貼ろうと入力欄をもう一度押すと、違う場所が選ばれて貼れない(要望の受信箱)
+    //   - 旅行の「写真・文章から追加・更新」で、押すとシートが下がって入力した文が見えなくなる
+    // が起きていた。その上ではスクロールだと分かった時(指を置いてすぐ動かした時)だけ外す。
+    // 長押し(貼り付けのメニュー・カーソルの移動)は、しばらく指を止めてから動くので外さない。
+    // 押して使う部品以外(余白・見出し・説明文)に触れた時は、これまでどおり触れた瞬間に外す。
+    let pending: { x: number; y: number; at: number } | null = null;
+    const handleTouchStart = (event: TouchEvent) => {
+      pending = null;
       const active = document.activeElement as HTMLElement | null;
       if (!active || !opensKeyboard(active)) return;
       if (hasTextSelection(active)) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const touch = event.touches[0];
+      if (target?.closest(PRESSABLE_SELECTOR) && touch) {
+        pending = { x: touch.clientX, y: touch.clientY, at: Date.now() };
+        return;
+      }
       active.blur();
     };
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!pending) return;
+      const touch = event.touches[0];
+      if (!touch) return;
+      if (Math.hypot(touch.clientX - pending.x, touch.clientY - pending.y) < SCROLL_INTENT_PX) return;
+      const scrolling = Date.now() - pending.at <= LONG_PRESS_MS;
+      pending = null;
+      if (!scrolling) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active && opensKeyboard(active) && !hasTextSelection(active)) active.blur();
+    };
+    const clearPending = () => {
+      pending = null;
+    };
     body.addEventListener("touchstart", handleTouchStart, { passive: true });
-    return () => body.removeEventListener("touchstart", handleTouchStart);
+    body.addEventListener("touchmove", handleTouchMove, { passive: true });
+    body.addEventListener("touchend", clearPending, { passive: true });
+    body.addEventListener("touchcancel", clearPending, { passive: true });
+    return () => {
+      body.removeEventListener("touchstart", handleTouchStart);
+      body.removeEventListener("touchmove", handleTouchMove);
+      body.removeEventListener("touchend", clearPending);
+      body.removeEventListener("touchcancel", clearPending);
+    };
   }, [open]);
 
   const maxHeightPx = sheetMaxHeightPx(visibleHeight, keyboardInset, compact);
