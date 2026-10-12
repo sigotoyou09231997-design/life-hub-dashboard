@@ -161,7 +161,7 @@ html {
 
 .glass-border { border: 1px solid var(--warm-line); }
 .glass-highlight { box-shadow: none; }
-.glass-shadow { box-shadow: var(--warm-shadow); }
+.glass-shadow { box-shadow: var(--shadow-rest); }
 
 /* 不透明にする理由は下の .glass-nav のコメントを参照（同じ理由・同じ直し方）。 */
 .glass-header {
@@ -178,14 +178,14 @@ html {
   border: 1px solid var(--warm-line);
   border-radius: var(--warm-r-lg) !important;
   background: var(--warm-surface);
-  box-shadow: var(--warm-shadow);
+  box-shadow: var(--shadow-rest);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 .glass-card--strong {
   background: var(--warm-surface);
-  box-shadow: var(--warm-shadow-lift);
+  box-shadow: var(--shadow-rest);
 }
 
 /* ガラスの照り返しは新しいトーンに無い装飾なので消す。 */
@@ -202,7 +202,7 @@ html {
   border: 1px solid var(--warm-line);
   border-radius: var(--warm-r-xl) !important;
   background: var(--warm-surface);
-  box-shadow: 0 28px 70px rgba(24, 36, 60, 0.18);
+  box-shadow: var(--shadow-float);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -217,7 +217,7 @@ html {
   border: 1px solid var(--warm-line);
   border-radius: var(--warm-r-xl);
   background: var(--warm-surface);
-  box-shadow: var(--warm-shadow-nav);
+  box-shadow: var(--shadow-float);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -310,7 +310,7 @@ html {
   height: 2.4rem;
   border: 0;
   background: var(--warm-surface);
-  box-shadow: var(--warm-shadow);
+  box-shadow: var(--shadow-rest);
   color: var(--warm-ink-2);
 }
 
@@ -443,14 +443,16 @@ html {
 
 /* ---- 角丸・影のならし -------------------------------------------------- */
 
-/* 旧デザインの「小さい角丸＋強い縁」を、大きめの角丸と薄い縁に寄せる。 */
-.app-shell .rounded-xl { border-radius: var(--warm-r-md); }
-.app-shell .rounded-2xl { border-radius: var(--warm-r-lg); }
-.app-shell .rounded-3xl { border-radius: var(--warm-r-xl); }
+/* 旧デザインの「小さい角丸＋強い縁」を、大きめの角丸と薄い縁に寄せる。
+   2026-10-12（UI/UX 調査メモ 第4弾 B-3）: 角丸の4段（theme-teal.css の --r-*）に合わせた。
+   tailwind.config.js の borderRadius も同じ対応にしてある。 */
+.app-shell .rounded-xl { border-radius: var(--r-control); }
+.app-shell .rounded-2xl { border-radius: var(--r-card); }
+.app-shell .rounded-3xl { border-radius: var(--r-card); }
 
 @media (hover: hover) and (pointer: fine) {
   .card-interactive:hover {
     border-color: var(--warm-line-strong);
-    box-shadow: var(--warm-shadow-lift);
+    box-shadow: var(--shadow-float);
   }
 }

@@ -35,7 +35,7 @@
   gap: 0.55rem;
   padding: 0.34rem 0.85rem 0.34rem 0.9rem;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(9, 19, 33, 0.46);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -45,7 +45,7 @@
   color: var(--hub-on-photo);
   font-family: var(--font-display);
   font-size: 1.18rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.01em;
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.34);
 }
@@ -57,7 +57,7 @@
   place-items: center;
   padding-inline: 0.42rem;
   border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.2);
   color: var(--hub-on-photo);
   font-size: 0.86rem;
@@ -79,7 +79,7 @@
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: var(--hub-r-xl);
   background: #3d5063;
-  box-shadow: var(--hub-shadow);
+  box-shadow: var(--shadow-rest);
   color: #fff;
   text-decoration: none;
 }
@@ -126,7 +126,7 @@
   align-items: center;
   gap: 0.34rem;
   padding: 0.32rem 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 0.88rem;
   font-weight: 700;
   backdrop-filter: blur(12px);
@@ -152,7 +152,7 @@
   margin: 0.85rem 0 0;
   font-family: var(--font-display);
   font-size: 2.1rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.005em;
   line-height: 1.18;
   text-shadow: 0 2px 22px rgba(0, 0, 0, 0.42);
@@ -247,7 +247,7 @@
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: var(--hub-r-lg);
   background: #44576b;
-  box-shadow: var(--hub-shadow);
+  box-shadow: var(--shadow-rest);
   color: #fff;
   text-decoration: none;
 }
@@ -277,7 +277,7 @@
 .trip-plan__countdown {
   align-self: flex-start;
   padding: 0.28rem 0.66rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.94);
   color: var(--hub-navy);
   font-size: 0.84rem;
@@ -291,7 +291,7 @@
   margin: 0.7rem 0 0;
   font-family: var(--font-display);
   font-size: 1.42rem;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.22;
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.4);
 }
@@ -322,7 +322,7 @@
   border: 1px solid var(--hub-edge);
   border-radius: var(--hub-r-lg);
   background: var(--hub-surface);
-  box-shadow: var(--hub-shadow-inset), var(--hub-shadow);
+  box-shadow: var(--hub-shadow-inset), var(--shadow-rest);
   backdrop-filter: var(--hub-blur);
   -webkit-backdrop-filter: var(--hub-blur);
 }
@@ -398,7 +398,7 @@
   width: 2.15rem;
   height: 2.15rem;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid rgba(255, 255, 255, 0.24);
   background: rgba(12, 22, 38, 0.42);
   color: rgba(255, 255, 255, 0.82);
@@ -430,7 +430,7 @@
   width: 2.1rem;
   height: 2.1rem;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: var(--hub-ink-3);
   transition: background-color 200ms ease, color 200ms ease;
 }
@@ -574,7 +574,7 @@
   width: 1.55rem;
   height: 1.55rem;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
 }
 
@@ -713,7 +713,7 @@ a.trip-leg-mode--link {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--hub-ink);
   font-size: 0.85rem;
@@ -735,13 +735,13 @@ a.trip-leg-mode--link {
 
 .trip-day__head h3 span {
   color: var(--hub-ink-2);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .trip-day__head b {
   flex: 0 0 auto;
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--hub-ink-2);
   font-size: 0.72rem;
@@ -805,7 +805,7 @@ a.trip-leg-mode--link {
   bottom: 0;
   left: var(--tl-x);
   width: 2px;
-  border-radius: 1px;
+  border-radius: var(--r-pill);
   transform: translateX(-50%);
   background: var(--hub-hairline);
   background: color-mix(in srgb, var(--hub-ink-3) 42%, transparent);
@@ -823,7 +823,7 @@ a.trip-leg-mode--link {
   left: var(--tl-x);
   width: 0.72rem;
   height: 0.72rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   transform: translate(-50%, -50%);
   background: var(--tl-tone);
   /* 面と同じ色の縁で、線が点の裏に透けないようにする。 */
@@ -848,7 +848,7 @@ a.trip-leg-mode--link {
   margin-top: 0.1rem;
   color: var(--hub-ink-3);
   font-size: 0.7rem;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.1;
 }
 
@@ -866,8 +866,7 @@ a.trip-leg-mode--link {
   border-radius: var(--hub-r-sm);
   background: var(--hub-surface);
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--hub-blue) 40%, transparent),
-    0 10px 24px rgba(28, 45, 75, 0.18);
+    0 0 0 2px color-mix(in srgb, var(--hub-blue) 40%, transparent), var(--shadow-float);
   transform: scale(1.02);
 }
 
@@ -901,7 +900,7 @@ a.trip-leg-mode--link {
   gap: 0.35rem;
   padding: 0.3rem 0.8rem;
   border: 1px solid var(--hub-hairline);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-surface);
   color: var(--hub-ink);
   font-size: 0.8rem;
@@ -1040,7 +1039,7 @@ a.trip-leg-mode--link {
    「傘が要るかも」の合図なので、色を1段強くする。 */
 .trip-day__weather-rain {
   padding: 0.05rem 0.3rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--hub-blue);
   font-weight: 700;
@@ -1120,7 +1119,7 @@ a.trip-leg-mode--link {
   justify-content: center;
   width: 1.65rem;
   height: 1.65rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--hub-ink);
   font-size: 0.85rem;
@@ -1147,7 +1146,7 @@ a.trip-leg-mode--link {
   justify-content: center;
   width: 1.85rem;
   height: 1.85rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: rgba(13, 27, 49, 0.42);
   transition: color 0.18s var(--hub-ease), background-color 0.18s var(--hub-ease);
 }
@@ -1227,7 +1226,7 @@ a.trip-leg-mode--link {
   background: none;
   color: var(--color-accent);
   font-size: 0.82rem;
-  font-weight: 500;
+  font-weight: 400;
   text-align: left;
   cursor: pointer;
 }
@@ -1341,10 +1340,10 @@ a.trip-leg-mode--link {
   justify-content: center;
   width: 1.85rem;
   height: 1.85rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid var(--hub-edge);
   background: var(--hub-surface);
-  box-shadow: var(--hub-shadow-inset), 0 6px 16px rgba(10, 24, 46, 0.16);
+  box-shadow: var(--hub-shadow-inset), var(--shadow-rest);
   color: var(--accent, var(--hub-blue));
   transition:
     transform 240ms var(--hub-ease),
@@ -1357,7 +1356,7 @@ a.trip-leg-mode--link {
   position: relative;
   z-index: 1;
   padding: 0.2rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   border: 1px solid var(--hub-edge);
   background: var(--hub-surface);
   box-shadow: var(--hub-shadow-inset);
@@ -1372,7 +1371,7 @@ a.trip-leg-mode--link {
   background: var(--accent, var(--hub-blue));
   color: #fff;
   transform: rotate(180deg);
-  box-shadow: 0 8px 20px rgba(10, 24, 46, 0.22);
+  box-shadow: var(--shadow-float);
 }
 
 .trip-route-arrow[aria-expanded="true"] small {
@@ -1382,7 +1381,7 @@ a.trip-leg-mode--link {
 @media (hover: hover) and (pointer: fine) {
   .trip-route-arrow:hover .trip-route-arrow__mark {
     transform: translateY(2px);
-    box-shadow: var(--hub-shadow-inset), 0 10px 22px rgba(10, 24, 46, 0.22);
+    box-shadow: var(--hub-shadow-inset), var(--shadow-float);
   }
 
   .trip-route-arrow[aria-expanded="true"]:hover .trip-route-arrow__mark {
@@ -1466,7 +1465,7 @@ a.trip-leg-mode--link {
   gap: 0.3rem;
   padding: 0.3rem 0.6rem;
   border: 1px solid var(--hub-hairline);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-surface);
   color: rgba(13, 27, 49, 0.58);
   font-size: 0.78rem;
@@ -1506,7 +1505,7 @@ a.trip-leg-mode--link {
   height: 1.25rem;
   flex: none;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: rgba(13, 27, 49, 0.55);
   font-size: 0.72rem;
@@ -1569,7 +1568,7 @@ a.trip-leg-mode--link {
   gap: 0.35rem;
   padding: 0.35rem 0.7rem;
   border: 1px solid var(--hub-hairline);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.6);
   color: var(--hub-ink-2);
   font-size: 0.82rem;
@@ -1582,7 +1581,7 @@ a.trip-leg-mode--link {
 
 .trip-route__day small {
   padding: 0.05rem 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--hub-ink-3);
   font-size: 0.72rem;
@@ -1628,7 +1627,7 @@ a.trip-leg-mode--link {
   align-items: center;
   gap: 0.35rem;
   padding: 0.4rem 0.9rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--accent, var(--hub-blue));
   font-size: 0.88rem;
@@ -1670,7 +1669,7 @@ a.trip-leg-mode--link {
 .trip-route-picks__head b {
   min-width: 1.35rem;
   padding: 0.05rem 0.4rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--hub-ink-2);
   font-size: 0.75rem;
@@ -1734,7 +1733,7 @@ a.trip-leg-mode--link {
   align-items: center;
   gap: 0.25rem;
   padding: 0.35rem 0.8rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--accent, var(--hub-blue));
   color: #fff;
   font-size: 0.83rem;
@@ -1745,7 +1744,7 @@ a.trip-leg-mode--link {
   align-self: flex-start;
   min-height: 2.1rem;
   padding: 0.35rem 0.9rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--accent, var(--hub-blue));
   font-size: 0.83rem;
@@ -1784,7 +1783,7 @@ a.trip-leg-mode--link {
   justify-content: center;
   width: 1.7rem;
   height: 1.7rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
 }
 
@@ -1815,7 +1814,7 @@ a.trip-leg-mode--link {
   justify-content: center;
   width: 2.6rem;
   height: 2.6rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--accent, var(--hub-blue));
 }
@@ -2108,7 +2107,7 @@ a.trip-leg-mode--link {
   bottom: 1.4rem;
   left: calc(var(--rtime-time-w) + var(--rtime-gap) + var(--rtime-dot-w) / 2 - 1px);
   width: 2px;
-  border-radius: 2px;
+  border-radius: var(--r-pill);
   background: var(--hub-hairline);
   content: "";
 }
@@ -2138,7 +2137,7 @@ a.trip-leg-mode--link {
 .trip-rtime__time.is-none b {
   color: var(--hub-ink-3);
   font-size: 0.72rem;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .trip-rtime__time small {
@@ -2152,7 +2151,7 @@ a.trip-leg-mode--link {
   width: var(--rtime-dot-w);
   height: var(--rtime-dot-w);
   margin-top: 0.95rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--accent, var(--hub-blue));
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.85);
 }
@@ -2279,7 +2278,7 @@ a.trip-leg-mode--link {
   height: 2.5rem;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(12, 18, 26, 0.46);
   color: #fff;
   transition: background-color 0.2s ease;
@@ -2312,7 +2311,7 @@ a.trip-leg-mode--link {
 .trip-detail-page .trip-detail-hero .trip-detail-hero__content > span {
   align-self: flex-start;
   padding: 0.18rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.18);
   color: #fff;
   backdrop-filter: blur(8px);
@@ -2437,7 +2436,7 @@ a.trip-leg-mode--link {
 
 .trip-day-panel__day span {
   color: var(--hub-ink-2);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .trip-day-panel__heading {
@@ -2594,7 +2593,7 @@ a.trip-leg-mode--link {
 
 .trip-day-forecast__rain {
   padding: 0.15rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--hub-ink-2);
   font-size: 0.75rem;
@@ -2641,7 +2640,7 @@ a.trip-leg-mode--link {
   border: 1px solid var(--hub-edge);
   border-radius: var(--hub-r-lg);
   background: var(--hub-surface);
-  box-shadow: var(--hub-shadow-inset), var(--hub-shadow);
+  box-shadow: var(--hub-shadow-inset), var(--shadow-rest);
   color: var(--hub-ink);
   text-align: left;
   transition:
@@ -2652,10 +2651,6 @@ a.trip-leg-mode--link {
 
 .trip-new:hover {
   border-color: rgba(23, 161, 153, 0.32);
-}
-
-.trip-new:active {
-  transform: scale(0.99);
 }
 
 .trip-new:focus-visible {
@@ -2669,7 +2664,7 @@ a.trip-leg-mode--link {
   height: 2.6rem;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--teal-50, var(--hub-inset));
   color: var(--teal-700, var(--hub-blue));
 }

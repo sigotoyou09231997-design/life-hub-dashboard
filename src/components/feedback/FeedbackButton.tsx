@@ -34,7 +34,7 @@ export function FeedbackButton({ shareToken, standalone = false }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label="直してほしいことを送る"
-        className={`feedback-button fixed ${position} z-40 flex transform-gpu items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-[0_6px_18px_rgba(28,45,75,0.16)] backdrop-blur transition-all active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50`}
+        className={`feedback-button fixed ${position} z-40 flex transform-gpu items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3.5 py-2 text-xs font-semibold text-slate-600 shadow-lg backdrop-blur transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50`}
       >
         <MessageSquarePlus size={15} aria-hidden="true" />
         修正

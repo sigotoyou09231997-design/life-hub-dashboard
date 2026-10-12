@@ -31,7 +31,7 @@
   gap: 1rem;
   min-height: 13.5rem;
   overflow: hidden;
-  border-radius: 28px;
+  border-radius: var(--r-card);
   padding: 1.25rem 1.25rem 3.6rem;
   color: #fff;
   isolation: isolate;
@@ -62,7 +62,7 @@
   margin: 0;
   color: #fff;
   font-size: 1.55rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
   line-height: 1.15;
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.25);
@@ -106,7 +106,7 @@
   margin-top: -3.9rem;
   z-index: 1;
   padding: 1.2rem 1.25rem 1rem;
-  border-radius: 24px !important;
+  border-radius: var(--r-card) !important;
 }
 .lh-money__label {
   color: rgba(244, 247, 247, 0.7);
@@ -140,7 +140,7 @@
   margin: 0.15rem 0 0;
   color: #fff;
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -173,7 +173,7 @@
   margin: 0;
   color: var(--warm-ink);
   font-size: 1.02rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.01em;
   white-space: nowrap;
 }
@@ -222,7 +222,7 @@ a.lh-row:active { background: var(--warm-surface-sunk); }
   width: 2.35rem;
   height: 2.35rem;
   place-items: center;
-  border-radius: 12px;
+  border-radius: var(--r-control);
   font-size: 0.85rem;
 }
 .lh-tone--accent { background: color-mix(in srgb, var(--tone-schedule) 14%, white); color: var(--tone-schedule); }
@@ -313,10 +313,10 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   align-items: flex-start;
   gap: 0.15rem;
   min-width: 0;
-  border-radius: 20px;
+  border-radius: var(--r-card);
   padding: 0.85rem 0.9rem 0.9rem;
   background: linear-gradient(160deg, #ffffff, var(--teal-50));
-  box-shadow: var(--warm-shadow);
+  box-shadow: var(--shadow-rest);
 }
 .lh-home .warm-brief__label {
   display: flex;
@@ -472,7 +472,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 .spatial-page .lh-finance .lh-group,
 .lh-finance .lh-group {
   padding: 0.3rem 0 !important;
-  border-radius: 22px !important;
+  border-radius: var(--r-card) !important;
 }
 .lh-finance .lh-section .lh-group { display: flex; flex-direction: column; }
 /* PC では「今期のまとめ」が隣の黒いカードと同じ高さに伸びるので、行を上に
@@ -492,7 +492,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   flex: 0 0 auto;
   color: var(--warm-ink);
   font-size: 0.95rem;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
@@ -505,7 +505,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 .lh-row__icon--initial {
   background: var(--teal-50);
   color: var(--teal-700);
-  font-weight: 800;
+  font-weight: 700;
 }
 .lh-row__icon--initial.is-income {
   background: var(--teal-500);
@@ -552,7 +552,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   margin-top: 0.2rem;
   color: var(--teal-600);
   font-size: 2.1rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.15;
 }
@@ -561,7 +561,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 }
 
 /* 財布の現金（別の部品）は、上下の区切りと同じ角丸にそろえる */
-.lh-finance .finance-cash-module { border-radius: 22px !important; }
+.lh-finance .finance-cash-module { border-radius: var(--r-card) !important; }
 
 /* ============================================================================
    UI/UX 調査メモの対応（2026-10-12）
@@ -580,15 +580,14 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   display: inline-flex;
   align-items: center;
   min-height: 2.4rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.35rem 1rem;
   background: #fff;
   color: var(--ink-black);
   font-size: 0.82rem;
-  font-weight: 800;
+  font-weight: 700;
   transition: transform 300ms var(--spring);
 }
-.lh-money__cta:active { transform: scale(0.96); }
 .lh-money.is-unset .warm-card__foot { margin-top: 0; }
 
 /* A-5 使われていない機能 — いちばん下の1行の帯 */
@@ -597,7 +596,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 0.6rem;
-  border-radius: 16px;
+  border-radius: var(--r-control);
   padding: 0.65rem 0.9rem;
   background: var(--warm-surface-sunk);
   color: var(--warm-ink-2);
@@ -626,10 +625,10 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  border-radius: 18px;
+  border-radius: var(--r-card);
   padding: 0.85rem 1rem;
   background: linear-gradient(160deg, #ffffff, var(--teal-50));
-  box-shadow: var(--warm-shadow);
+  box-shadow: var(--shadow-rest);
   color: var(--warm-ink);
   font-size: 0.86rem;
   font-weight: 700;
@@ -640,7 +639,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 
 /* B-4 お金管理・履歴タブ — 「収支を追加」を大きく1つ、残りは「ほかの方法」 */
 .finance-history-actions { display: grid; gap: 0.5rem; }
-.finance-history-actions .app-button { min-height: 3rem; border-radius: 999px; }
+.finance-history-actions .app-button { min-height: 3rem; border-radius: var(--r-pill); }
 .finance-history-subview { display: grid; gap: 0.9rem; }
 .finance-history-back {
   display: inline-flex;
@@ -732,7 +731,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   border-color: var(--ink-black);
   background: var(--ink-black);
   color: #fff;
-  box-shadow: 0 6px 14px rgba(18, 20, 22, 0.16);
+  box-shadow: var(--shadow-rest);
 }
 .segmented__option[aria-pressed="true"] svg { color: #fff; }
 
@@ -741,7 +740,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   flex: 0 0 auto;
   min-height: 2rem;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.25rem 0.85rem;
   background: #e9eded;
   color: var(--warm-ink-2);
@@ -779,7 +778,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 }
 .spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) .spatial-tabs__tab.is-selected {
   color: var(--ink-black) !important;
-  font-weight: 800;
+  font-weight: 700;
 }
 .spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) .spatial-tabs__tab.is-selected::after {
   content: "";
@@ -788,7 +787,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   bottom: -1px;
   left: 0.7rem;
   height: 3px;
-  border-radius: 3px 3px 0 0;
+  border-radius: var(--r-pill) var(--r-pill) 0 0;
   background: var(--ink-black);
 }
 

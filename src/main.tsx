@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App";
+import { installPressFeedback } from "./lib/pressFeedback";
 import { markUpdateAvailable, setUpdateApplier } from "./lib/pwaUpdate";
 import { trackViewportGap } from "./lib/viewport";
 import "./index.css";
@@ -22,6 +23,8 @@ import "./styles/theme-teal.css";
 import "./styles/layout-teal.css";
 // お金管理の「サブスク」タブ(2026-10-12)。layout-teal.css の行の一覧の上に足す。
 import "./styles/subscriptions.css";
+// 押した感触・アイコンの線の太さ（UI/UX 調査メモ 第4弾 A-1・B-4・B-5）。どの画面にも効くので最後に読む。
+import "./styles/touch-tokens.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()
@@ -58,6 +61,9 @@ try {
 // 画面下に貼りつくもの(追従ボタン・シート・知らせ)の位置直し。iOSが画面の高さを
 // 戻し損ねている間だけ、その差を --viewport-gap として配る(src/lib/viewport.ts)。
 trackViewportGap();
+
+// ボタン・カード・チップ・タブ・下のナビを押すと沈んで、ばねで戻る（src/lib/pressFeedback.ts）。
+installPressFeedback();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
