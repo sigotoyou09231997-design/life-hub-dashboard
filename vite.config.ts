@@ -41,7 +41,7 @@ export default defineConfig({
       injectRegister: false,
       // Time-of-day scenes are local fallbacks as well as the default visual
       // source, so keep all four available when the installed PWA is offline.
-      includeAssets: ["favicon.svg", "apple-touch-icon.png", "backgrounds/*.jpg"],
+      includeAssets: ["favicon.svg", "favicon-32.png", "apple-touch-icon.png", "backgrounds/*.jpg"],
       workbox: {
         // Loads push-sw.js's push/notificationclick listeners into the existing
         // generateSW-mode service worker via a plain importScripts() call — the
