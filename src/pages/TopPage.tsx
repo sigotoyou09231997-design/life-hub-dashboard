@@ -9,7 +9,7 @@ import type { CalendarEvent } from "../types";
 import { formatDisplayDate, formatGmailTimestamp, toDateStr, todayStr } from "../lib/date";
 import { occursOn, spanDayIndex, spanTimeText } from "../lib/eventSpan";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
-import { pullBlockedSenders } from "../lib/blockedSenders";
+import { pullBlockedSendersIfDue } from "../lib/blockedSenders";
 import { useTripCover } from "../hooks/useTripCover";
 import { getScheduleCategory } from "../lib/scheduleCategories";
 import { getHolidayMapForYears } from "../lib/holidays";
@@ -176,7 +176,7 @@ export default function TopPage() {
   const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   useEffect(() => {
     for (const account of gmailAccounts ?? []) {
-      if (account.id) void pullBlockedSenders(account.id, account.email);
+      if (account.id) void pullBlockedSendersIfDue(account.id, account.email);
     }
   }, [gmailAccounts]);
 

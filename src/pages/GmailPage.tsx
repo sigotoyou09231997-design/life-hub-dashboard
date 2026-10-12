@@ -14,7 +14,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { GmailInbox, type MailLinkTarget } from "../components/gmail/GmailInbox";
 import { DraftReview } from "../components/gmail/DraftReview";
 import { startGmailOAuth } from "../lib/gmail";
-import { pullBlockedSenders } from "../lib/blockedSenders";
+import { pullBlockedSendersIfDue } from "../lib/blockedSenders";
 import {
   consolidateGmailAccounts,
   readSelectedGmailAccountId,
@@ -88,6 +88,9 @@ function MailReadingPane({ emailId, onClose }: { emailId: string; onClose: () =>
   );
 }
 
+/** 端末の中の後片付け(consolidateGmailAccounts)を、この起動でもうやったか。 */
+let consolidatedThisLaunch = false;
+
 export default function GmailPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -131,13 +134,16 @@ export default function GmailPage() {
   // これが無いと、PCでブロックした送信者がスマホの一覧にはそのまま出続ける。
   useEffect(() => {
     for (const account of accounts ?? []) {
-      if (account.id) void pullBlockedSenders(account.id, account.email);
+      if (account.id) void pullBlockedSendersIfDue(account.id, account.email);
     }
   }, [accounts]);
 
   // 連携し直しで増えてしまった重複アカウントと、どのアカウントにも属さない
   // メール/下書き/ブロックリストを片付ける(src/lib/gmailAccounts.ts)。
+  // 起動ごとに1回で足りる(端末の中の後片付けで、開くたびにやると全メールを読み直す)。
   useEffect(() => {
+    if (consolidatedThisLaunch) return;
+    consolidatedThisLaunch = true;
     void consolidateGmailAccounts();
   }, []);
 

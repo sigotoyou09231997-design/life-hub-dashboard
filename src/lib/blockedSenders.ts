@@ -83,6 +83,20 @@ export function pullBlockedSenders(accountId: string, accountEmail: string): Pro
   return pull;
 }
 
+/** 画面を開くたびに取りに行かないための間隔。ホーム・Gmail・メール1通の画面が、どれも開くたびに Supabase へ
+ * 問い合わせていた(2026-10-13、本人「gmailの画面に切り替えるたびに同期される」)。他の端末のブロックは
+ * 数分遅れて届けば足りる。ブロック・解除の操作そのもの(blockSenderRemote など)には関係しない。 */
+export const BLOCKED_PULL_INTERVAL_MS = 5 * 60_000;
+const lastPulledAt = new Map<string, number>();
+
+/** pullBlockedSenders を、前の取り込みから間隔が空いている時だけ行う(画面を開いた時用)。 */
+export function pullBlockedSendersIfDue(accountId: string, accountEmail: string, now: number = Date.now()): Promise<void> {
+  const last = lastPulledAt.get(accountId);
+  if (last !== undefined && now - last < BLOCKED_PULL_INTERVAL_MS) return Promise.resolve();
+  lastPulledAt.set(accountId, now);
+  return pullBlockedSenders(accountId, accountEmail);
+}
+
 async function runPull(accountId: string, accountEmail: string): Promise<void> {
   const userId = await currentUserId();
   if (!userId) return;

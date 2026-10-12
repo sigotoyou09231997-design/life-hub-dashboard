@@ -39,6 +39,36 @@ const PLAN_TEXT_CHARS = 2000;
  * 連携し直した直後のように未取得が数百件ある端末では、ここを絞らないと上限に当たる。 */
 const NEW_EMAILS_PER_SYNC = 120;
 
+/** 画面を開いた時の自動同期は、2種類ある(2026-10-13、本人「gmailの画面に切り替えるたび・アップデートのたびに
+ * 同期されるから直して」)。
+ *
+ * - 軽い確認(quick): 新着の取り込みと、Gmail 側で消えたメールの掃除だけ。Gmail API は一覧の取得1回(新着があればその分)。
+ *   予定候補の本文の取り込み・「Gmail 側で返信済み」の突き合わせ(最大40スレッド)・既読の共有(Supabase)は、しない。
+ * - 全部の同期(full): 上に加えて、その3つ。ヘッダーの「今すぐ同期」・引っ張る更新は、いつもこちら。
+ *
+ * 開くたびに全部をやっていた頃は、数十回の通信と端末の書き込みが毎回走り、一覧が組み直されて(iPhone で重い)、
+ * 「新着メールはありませんでした」のお知らせも毎回出ていた。いまは、前に全部の同期をしてから
+ * FULL_SYNC_INTERVAL_MS 以内なら軽い確認だけ。直前(QUICK_CHECK_INTERVAL_MS 以内)に同期か確認をしていれば何もしない。
+ * 新着は軽い確認でも取れるので、新着メールの通知を押して開いた時に、そのメールが一覧に無い、にはならない。 */
+export const FULL_SYNC_INTERVAL_MS = 10 * 60_000;
+export const QUICK_CHECK_INTERVAL_MS = 60_000;
+
+export type GmailSyncMode = "full" | "quick";
+
+/** アカウントごとの、この起動で最後に同期か確認が通った時刻。端末に残る lastSyncedAt(全部の同期の時刻)と合わせて見る。 */
+const lastCheckedAt = new Map<string, number>();
+
+/** 画面を開いた時に、何をするか。null なら何もしない。 */
+export function decideOpenSyncMode(lastSyncedAt: number | undefined, lastChecked: number | undefined, now: number): GmailSyncMode | null {
+  if (!lastSyncedAt || now - lastSyncedAt >= FULL_SYNC_INTERVAL_MS) return "full";
+  if (now - Math.max(lastSyncedAt, lastChecked ?? 0) < QUICK_CHECK_INTERVAL_MS) return null;
+  return "quick";
+}
+
+export function autoSyncModeOnOpen(account: GmailAccount, now: number = Date.now()): GmailSyncMode | null {
+  return decideOpenSyncMode(account.lastSyncedAt, account.id ? lastCheckedAt.get(account.id) : undefined, now);
+}
+
 export interface GmailSyncResult {
   /** 「2件の新着メールしました」など、何が起きたかの1行。 */
   summary: string;
@@ -103,25 +133,41 @@ async function pruneMissingEmails(accountId: string, inboxIds: string[]): Promis
  *
  * コンポーネント内のrefではなくモジュール変数なのは、一覧(GmailInbox)とページ
  * (GmailPage)という別々の場所からの呼び出しどうしを止める必要があるため。 */
-const inFlight = new Map<string, Promise<GmailSyncResult>>();
+const inFlight = new Map<string, { mode: GmailSyncMode; promise: Promise<GmailSyncResult> }>();
 
 /** 1アカウントぶんのGmail同期。トーストやスピナーには触らず、何が起きたかを返すだけに
- * してある — メール一覧からも、全アカウントをまとめて回すページからも呼ぶため。 */
-export function syncGmailAccount(account: GmailAccount): Promise<GmailSyncResult> {
+ * してある — メール一覧からも、全アカウントをまとめて回すページからも呼ぶため。
+ *
+ * mode は既定で全部の同期("full")。画面を開いた時の自動同期だけが "quick" を使う(上の説明)。
+ * 走っている同期に相乗りするのは、それで足りる時だけ — 軽い確認が走っている最中に「今すぐ同期」(全部)が
+ * 来たら、軽い確認が終わるのを待ってから全部をやる(軽い確認の結果を、全部の結果として返さない)。 */
+export function syncGmailAccount(account: GmailAccount, mode: GmailSyncMode = "full"): Promise<GmailSyncResult> {
   if (!account.id) return Promise.resolve({ summary: "", stateError: null, error: null });
-  const running = inFlight.get(account.id);
-  if (running) return running;
-  const run = runSync(account, account.id).finally(() => inFlight.delete(account.id!));
-  inFlight.set(account.id, run);
-  return run;
+  const accountId = account.id;
+  const running = inFlight.get(accountId);
+  if (running && (running.mode === "full" || mode === "quick")) return running.promise;
+  const start = () => {
+    const promise = runSync(account, accountId, mode).finally(() => {
+      if (inFlight.get(accountId)?.promise === promise) inFlight.delete(accountId);
+    });
+    inFlight.set(accountId, { mode, promise });
+    return promise;
+  };
+  if (!running) return start();
+  // 軽い確認の最中に全部が来た。確認が終わってから(失敗していても)全部を始める。
+  const queued = running.promise.then(start, start);
+  inFlight.set(accountId, { mode, promise: queued });
+  return queued;
 }
 
-async function runSync(account: GmailAccount, accountId: string): Promise<GmailSyncResult> {
+async function runSync(account: GmailAccount, accountId: string, mode: GmailSyncMode): Promise<GmailSyncResult> {
+  const full = mode === "full";
   try {
     // Merge away any pre-existing duplicates (rows sharing a gmailMessageId) before
     // reading `existing` below — see dedupeSyncedEmails's own comment for how these
     // could have been created before the in-flight guard above existed.
-    await dedupeSyncedEmails(accountId);
+    // 軽い確認では、全メールを読み直すこの掃除はしない(全部の同期の時にやる)。
+    if (full) await dedupeSyncedEmails(accountId);
 
     // 自動下書きの要否とブロック中の送信者は、ここでDBから読む。画面から渡してもらって
     // いた頃は、一覧を開いているアカウントの分しか手元に無く、裏のアカウントを同期できなかった。
@@ -194,10 +240,12 @@ async function runSync(account: GmailAccount, accountId: string): Promise<GmailS
     // 予定候補の見落としを減らすため、案内らしいのに抜粋からは日付が読めないメールは、
     // 本文の頭も取り込んでおく。新しく取り込んだ分と、それ以前から手元にある分を
     // まとめてここで見る(以前から持っているメールも、次の同期で順に埋まっていく)。
-    const planTextTargets = (await db.syncedEmails.where("accountId").equals(accountId).toArray())
-      .filter((e) => e.id && e.receivedAt >= sinceEpochSec * 1000 && needsPlanText(e))
-      .sort((a, b) => b.receivedAt - a.receivedAt)
-      .slice(0, PLAN_TEXT_PER_SYNC);
+    const planTextTargets = full
+      ? (await db.syncedEmails.where("accountId").equals(accountId).toArray())
+          .filter((e) => e.id && e.receivedAt >= sinceEpochSec * 1000 && needsPlanText(e))
+          .sort((a, b) => b.receivedAt - a.receivedAt)
+          .slice(0, PLAN_TEXT_PER_SYNC)
+      : [];
     for (const target of planTextTargets) {
       try {
         const body = await getMessageBody(fresh.accessToken, target.gmailMessageId);
@@ -218,10 +266,13 @@ async function runSync(account: GmailAccount, accountId: string): Promise<GmailS
     // 全件を Promise.all で一斉に投げていた頃は、メールの多い端末で同期のたびに
     // Gmail APIから 403 RATE_LIMIT_EXCEEDED が返っていた。ここで確認しきれなかった
     // 分は次回の同期に回る(新しいものから確認する)。
-    const unresolvedExisting = existing
-      .filter((e) => e.status !== "sent" && e.receivedAt >= sinceEpochSec * 1000)
-      .sort((a, b) => b.receivedAt - a.receivedAt)
-      .slice(0, RECONCILE_PER_SYNC);
+    // 軽い確認では突き合わせない(1回で最大40スレッドをGmail APIに問い合わせるため)。全部の同期の時にやる。
+    const unresolvedExisting = full
+      ? existing
+          .filter((e) => e.status !== "sent" && e.receivedAt >= sinceEpochSec * 1000)
+          .sort((a, b) => b.receivedAt - a.receivedAt)
+          .slice(0, RECONCILE_PER_SYNC)
+      : [];
     let reconciled = 0;
     await mapWithConcurrency(unresolvedExisting, RECONCILE_CONCURRENCY, async (e) => {
       if (!e.id) return;
@@ -263,8 +314,9 @@ async function runSync(account: GmailAccount, accountId: string): Promise<GmailS
     // 既読の共有。まだ送っていないこの端末の既読(この機能より前の分を含む)を送ってから、
     // 他端末の分を取り込む。取り込みはメールを入れた後 — ローカルに行が無い
     // メッセージの状態は入れる場所が無いため。
-    const pushedStates = await pushPendingMessageStates(accountId, account.email);
-    const pulledStates = await pullMessageStates(accountId, account.email);
+    // 軽い確認では既読の共有(Supabase との行き来)もしない。全部の同期の時に揃える。
+    const pushedStates = full ? await pushPendingMessageStates(accountId, account.email) : { count: 0, error: null };
+    const pulledStates = full ? await pullMessageStates(accountId, account.email) : { count: 0, error: null };
 
     // 「新着」として数えるのは、実際にこの一覧へ出るものだけにする。取り込んだ中には
     // 他の端末で既に読んだもの(既読タブへ入る)や、ブロック中の送信者のもの(どこにも
@@ -283,7 +335,10 @@ async function runSync(account: GmailAccount, accountId: string): Promise<GmailS
     const freshAdded = added - blockedAdded - handledElsewhere;
 
     // 同期が通ったということは、連携は生きている。前回の失敗で立てた印は下ろす。
-    await db.gmailAccounts.update(accountId, { lastSyncedAt: Date.now(), reauthRequiredAt: 0 });
+    // lastSyncedAt は「全部の同期をした時刻」。軽い確認では進めない(進めると、全部の同期がいつまでも来ない)。
+    if (full) await db.gmailAccounts.update(accountId, { lastSyncedAt: Date.now(), reauthRequiredAt: 0 });
+    else if (account.reauthRequiredAt) await db.gmailAccounts.update(accountId, { reauthRequiredAt: 0 });
+    lastCheckedAt.set(accountId, Date.now());
     return {
       summary: buildSyncSummary({
         freshAdded,
@@ -326,6 +381,7 @@ export interface AccountSyncOutcome {
  * 分かるよう@より前を頭に付ける — アドレス全文だと1行に収まらない。 */
 export function summarizeGmailSync(
   outcomes: AccountSyncOutcome[],
+  options: { quiet?: boolean } = {},
 ): { message: string; tone: "success" | "error" } | null {
   if (outcomes.length === 0) return null;
   const tag = (email: string) => (outcomes.length > 1 ? `${email.split("@")[0]}: ` : "");
@@ -348,6 +404,9 @@ export function summarizeGmailSync(
     }
   }
   if (lines.length === 0) {
+    // 自動の同期(画面を開いた時)は、何も無かったことをお知らせしない。毎回出ると、開くたびに同期が走っている
+    // ように見える(2026-10-13)。新着・失敗は、自動でも出す。「今すぐ同期」と引っ張る更新は、これまでどおり出す。
+    if (options.quiet) return null;
     return outcomes.some((o) => o.result.summary) ? { message: NO_CHANGES_SUMMARY, tone: "success" } : null;
   }
   return { message: lines.join(" / "), tone };

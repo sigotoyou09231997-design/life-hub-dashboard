@@ -104,7 +104,7 @@ vi.mock("../lib/gmailSync", () => ({
   syncGmailAccount: async () => ({ summary: "", stateError: null, error: null }),
   summarizeGmailSync: () => null,
 }));
-vi.mock("../lib/blockedSenders", () => ({ pullBlockedSenders: async () => undefined }));
+vi.mock("../lib/blockedSenders", () => ({ pullBlockedSendersIfDue: async () => undefined }));
 vi.mock("../lib/gmailMessageState", () => ({ pullMessageStates: async () => undefined }));
 vi.mock("../lib/gmailAccounts", () => ({
   consolidateGmailAccounts: async () => 0,
