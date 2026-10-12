@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Plane, Plus } from "lucide-react";
 import { db } from "../db/schema";
-import type { Trip } from "../types";
 import { todayStr } from "../lib/date";
 import { deleteAttachmentsForAll } from "../lib/attachments";
 import { deleteCurrencyFor } from "../lib/currency";
@@ -16,10 +15,12 @@ import { TripForm } from "../components/trips/TripForm";
 import { TripLeadCard } from "../components/trips/TripLeadCard";
 import { TripPlanCard } from "../components/trips/TripPlanCard";
 import { TripArchiveList } from "../components/trips/TripArchiveList";
+import { TripNewCard } from "../components/trips/TripNewCard";
 import { useToast } from "../components/ui/ToastProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
+import { splitTrips } from "../lib/tripListSections";
 
 export async function deleteTripCascade(tripId: string) {
   // 日記は旅行の中でしか読めない(単独の画面は無い)ので、紐づけを外すと
@@ -71,37 +72,6 @@ export async function deleteTripCascade(tripId: string) {
   });
 }
 
-/**
- * 一覧の並び。以前は「旅行中 / 計画中 / 完了済み」を同じ幅の3列に流していたが、
- * 3列に割るとカードが小さくなって写真が主役になれず、旅行中が1件しか無いと
- * その列だけが空のまま伸びていた。代わりに1件だけを大きく先頭に立てる:
- *
- *   lead     いま行っている旅行。無ければ、次に出発する旅行。
- *   upcoming これから行く残り。近い順。
- *   archive  終わった旅行。新しい順。
- *
- * 終わった旅行しか無いときは archive を先頭に置いても寂しいだけなので、その
- * ときだけ最後の1件を lead に立てて画面が空で始まらないようにする。
- */
-function splitTrips(trips: Trip[], today: string) {
-  const byStart = (a: Trip, b: Trip) => a.startDate.localeCompare(b.startDate);
-
-  const ongoing = trips.filter((trip) => trip.status === "ongoing").sort(byStart);
-  const planning = trips.filter((trip) => trip.status === "planning").sort(byStart);
-  const completed = trips.filter((trip) => trip.status === "completed").sort((a, b) => b.endDate.localeCompare(a.endDate));
-
-  // 出発済みのものより、これから出発するものを先に出す。
-  const upcomingFirst = [...planning].sort(
-    (a, b) => Number(a.startDate < today) - Number(b.startDate < today) || byStart(a, b),
-  );
-
-  const lead = ongoing[0] ?? upcomingFirst[0] ?? completed[0] ?? null;
-  const upcoming = [...ongoing.slice(1), ...upcomingFirst].filter((trip) => trip !== lead);
-  const archive = completed.filter((trip) => trip !== lead);
-
-  return { lead, upcoming, archive };
-}
-
 export default function TripsPage() {
   const navigate = useNavigate();
   const showToast = useToast();
@@ -110,7 +80,7 @@ export default function TripsPage() {
   const trips = tripsResult ?? [];
   const showSkeleton = useDelayedFlag(tripsResult === undefined);
 
-  const { lead, upcoming, archive } = splitTrips(trips, todayStr());
+  const { lead, upcoming, past } = splitTrips(trips, todayStr());
 
   function handleDelete(id: string) {
     deleteTripCascade(id);
@@ -147,11 +117,15 @@ export default function TripsPage() {
             </div>
           </Card>
         ) : (
-          <div className="trips-board">
-            {lead && <TripLeadCard trip={lead} onDelete={handleDelete} />}
+          // PCでは、先頭の旅行の右に「新しい旅行」を同じ高さのタイルで並べる(styles/trips.css)。
+          // 先頭に立てる旅行が無い時は、「次の旅行を計画する」が横幅いっぱいで先頭に立つ。
+          <div className={`trips-board${lead ? " trips-board--lead" : ""}`}>
+            {lead ? <TripLeadCard trip={lead} onDelete={handleDelete} /> : <TripNewCard first onClick={() => setCreating(true)} />}
+            {/* 右下の「＋」とは別に、一覧の中にも入り口を置く。スマホでは先頭の旅行のすぐ下。 */}
+            {lead && <TripNewCard onClick={() => setCreating(true)} />}
 
             {upcoming.length > 0 && (
-              <section className="trips-board__section">
+              <section className="trips-board__section trips-board__upcoming">
                 <div data-page-block>
                   <div className="trips-head">
                     <h2>これから行く</h2>
@@ -166,16 +140,16 @@ export default function TripsPage() {
               </section>
             )}
 
-            {archive.length > 0 && (
-              <section className="trips-board__section">
+            {past.length > 0 && (
+              <section className="trips-board__section trips-board__past">
                 <div data-page-block>
                   <div className="trips-head">
-                    <h2>行ってきた</h2>
-                    <span>{archive.length}</span>
+                    <h2>過去の旅行</h2>
+                    <span>{past.length}</span>
                   </div>
                 </div>
                 <div className="mt-2.5">
-                  <TripArchiveList trips={archive} onDelete={handleDelete} />
+                  <TripArchiveList trips={past} onDelete={handleDelete} />
                 </div>
               </section>
             )}

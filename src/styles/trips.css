@@ -870,11 +870,108 @@ a.trip-leg-mode--link {
   background: transparent;
 }
 
-/* 並べ替えの案内。行ごとに矢印を出すのをやめた代わりに、1日に1行だけ置く。 */
+/* 並べ替えの案内。「並べ替え」を押している間だけ、時間軸のすぐ上に1行出す。 */
 .trip-day__hint {
   margin: 0.1rem 0 0;
-  color: var(--hub-ink-3);
-  font-size: 0.72rem;
+  color: var(--hub-ink-2);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+/* --- 日程タブ: 並べ替え(2026-10-12) -----------------------------------------
+   行ごとの「↑」「↓」を消したら、並べ替えられること自体が見えなくなった。日の見出しの横に
+   「並べ替え」のボタンを置き、押した時だけ各行の右に「つまみ」を出す(TripScheduleList)。
+   スマホは見出しの1行に入りきらない(日付・天気・件数で埋まる)ので、見出しの下の行の右端に置く。
+   横に余裕のある幅では、見出しと同じ行の右端へ上げる。 */
+.trip-day__tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.15rem;
+}
+
+.trip-day__sort {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--hub-hairline);
+  border-radius: 999px;
+  background: var(--hub-surface);
+  color: var(--hub-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition:
+    background-color 0.18s var(--hub-ease),
+    color 0.18s var(--hub-ease),
+    border-color 0.18s var(--hub-ease);
+}
+
+.trip-day__sort:hover {
+  border-color: var(--warm-line-strong, var(--hub-hairline));
+  background: var(--hub-inset);
+}
+
+/* 並べ替えている間は黒(選んでいる所だけ黒く塗る決まり。日にちのチップと同じ)。 */
+.trip-day__sort.is-active {
+  border-color: var(--ink-black, transparent);
+  background: var(--ink-black, var(--accent, var(--hub-blue)));
+  color: #fff;
+}
+
+.trip-day__sort:focus-visible,
+.trip-timeline__grip:focus-visible {
+  outline: 2px solid var(--accent, var(--hub-blue));
+  outline-offset: 2px;
+}
+
+@media (min-width: 640px) {
+  .trip-day:has(> .trip-day__tools) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.75rem;
+  }
+
+  .trip-day:has(> .trip-day__tools) > :not(.trip-day__head):not(.trip-day__tools) {
+    grid-column: 1 / -1;
+  }
+
+  .trip-day__tools {
+    margin-top: 0;
+  }
+}
+
+/* つまみを出している間は、行の右に1列足す。つまみは指で押しやすい大きさ(44px角)を取る。 */
+.trip-timeline.is-sorting .trip-timeline__item {
+  grid-template-columns: var(--tl-time) var(--tl-rail) minmax(0, 1fr) 2.75rem;
+}
+
+.trip-timeline__grip {
+  display: flex;
+  width: 2.75rem;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  align-self: start;
+  /* 題名の1行目の高さ(点の高さ)に、つまみの真ん中を合わせる。 */
+  margin-top: calc(var(--tl-dot-y) - 1.375rem);
+  border-radius: var(--hub-r-sm);
+  color: var(--hub-ink-2);
+  cursor: grab;
+  /* 押したまま動かす間、画面がスクロールしないように(並べ替えの指の動きを端末に取られない)。 */
+  touch-action: none;
+}
+
+.trip-timeline__grip:hover {
+  background: var(--hub-inset);
+  color: var(--hub-ink);
+}
+
+.trip-timeline__item.is-dragging .trip-timeline__grip {
+  cursor: grabbing;
+  color: var(--hub-ink);
 }
 
 /* 「終日」「時刻なし」は時刻ではないので、一段小さく淡くする。 */
@@ -1077,6 +1174,11 @@ a.trip-leg-mode--link {
   width: 100%;
   height: 20rem;
   border: 0;
+}
+
+/* PCの右の欄にそのまま出す地図。欄が画面の高さに収まるよう、シートの中より低くする。 */
+.trip-day-route__map--inline iframe {
+  height: 13rem;
 }
 
 .trip-route-card__map iframe {
@@ -2122,4 +2224,554 @@ a.trip-leg-mode--link {
 
 .trip-rtime__move strong {
   font-weight: 700;
+}
+
+
+/* ==========================================================================
+   旅行の詳細: 表紙(2026-10-12)
+
+   旅行の名前は表紙の写真の上に1回だけ出す。それまではページの見出し(旅行の名前)と、表紙の中
+   (行き先)に2回書いていて、スマホではタブまでに画面の半分近くを使っていた。戻る・共有・編集・削除は
+   表紙の上の端へ。写真の上でも読めるよう、ボタンには暗いすりガラスの丸を敷き、膜(veil)は
+   上の端と下(文字の所)を濃くする。
+
+   表紙の土台は index.css / pages-warm.css にあり、pages-warm.css はこのファイルより後に読まれる。
+   同じ強さでは負けるので、.trip-detail-page を前に付けて1段強くしてある。
+   ========================================================================== */
+.trip-detail-page .trip-detail-hero {
+  display: flex;
+  min-height: 14rem;
+  flex-direction: column;
+  margin-top: 1rem;
+}
+
+.trip-detail-page .trip-detail-hero .trip-detail-hero__veil {
+  background:
+    linear-gradient(180deg, rgba(14, 18, 24, 0.42) 0%, rgba(14, 18, 24, 0) 30%),
+    linear-gradient(0deg, rgba(14, 18, 24, 0.86) 0%, rgba(14, 18, 24, 0.55) 40%, rgba(14, 18, 24, 0.06) 80%),
+    linear-gradient(90deg, rgba(14, 18, 24, 0.4), rgba(14, 18, 24, 0) 70%);
+}
+
+.trip-detail-hero__bar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.8rem 0.8rem 0;
+}
+
+/* 共有・編集・削除は1つずつ別の丸にする(1つの溝に詰めない)。 */
+.trip-detail-hero__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.trip-hero-button {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(12, 18, 26, 0.46);
+  color: #fff;
+  transition: background-color 0.2s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.trip-hero-button:hover {
+  background: rgba(12, 18, 26, 0.66);
+}
+
+.trip-hero-button--danger:hover,
+.trip-hero-button--danger:active {
+  background: rgba(197, 63, 85, 0.9);
+}
+
+.trip-hero-button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+.trip-detail-page .trip-detail-hero .trip-detail-hero__content {
+  flex: 1;
+  min-height: 0;
+  max-width: 46rem;
+  padding: 0.6rem 1.4rem 1.35rem;
+}
+
+/* 状態(計画中・旅行中・完了)は、名前の上の小さな札にする。 */
+.trip-detail-page .trip-detail-hero .trip-detail-hero__content > span {
+  align-self: flex-start;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* 長い名前(「四国・小豆島旅行 最終統合スケジュール」)は2行に折る。auto-phrase は日本語を
+   文節の切れ目で折る(対応していないブラウザでは、ふつうの折り返しになるだけ)。balance は
+   1行目だけ長く2行目に1語だけ、という折れ方を避ける。 */
+.trip-detail-page .trip-detail-hero__title {
+  margin: 0.45rem 0 0;
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: clamp(1.4rem, 2.6vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.28;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+  text-wrap: balance;
+  word-break: auto-phrase;
+  overflow-wrap: anywhere;
+}
+
+.trip-detail-page .trip-detail-hero .trip-detail-hero__content p {
+  margin-top: 0.4rem;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+@media (max-width: 639px) {
+  .trip-detail-page .trip-detail-hero {
+    min-height: 11rem;
+    margin-top: 0.75rem;
+  }
+
+  .trip-detail-hero__bar {
+    padding: 0.6rem 0.6rem 0;
+  }
+
+  .trip-detail-page .trip-detail-hero .trip-detail-hero__content {
+    padding: 0.5rem 1rem 1rem;
+  }
+}
+
+/* ==========================================================================
+   旅行の詳細: 日程タブのPCの2列(2026-10-12)
+
+   PCでも日程は1列で、文字は画面の左半分に収まり、右半分が空いていた。左に見ている1日の日程、
+   右にその日の天気・地図・費用(TripDayPanel)を置く。右の欄はスクロールしても付いてくる。
+   スマホは1列のまま(右の欄は出さない。TripDetailPage が useIsDesktop で出し分ける)。
+   ========================================================================== */
+@media (min-width: 1024px) {
+  .trip-schedule-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(20rem, 23rem);
+    align-items: start;
+    gap: 1.5rem;
+  }
+
+  .trip-schedule-layout__main {
+    min-width: 0;
+  }
+
+  /* 下は、画面右下の「修正」「＋」(どちらも画面に固定)に欄の端が隠れない所で止める。
+     入りきらない時は、費用の行だけを欄の中でスクロールさせる(見出しと「旅行全体」「費用を見る」は残す)。
+     それでも入らない低い画面では、欄ごとスクロールする。 */
+  .trip-day-panel {
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100dvh - 14.5rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .trip-day-panel__block {
+    flex: 0 0 auto;
+  }
+
+  .trip-day-panel__block--spend {
+    flex: 0 1 auto;
+    min-height: 9.5rem;
+  }
+
+  .trip-day-panel__block--spend .trip-day-panel__expenses {
+    min-height: 0;
+    flex: 0 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* 天気の断り書き(どこの予報か・何日先まで出るか)は、右の欄の天気が持つので、左には出さない。 */
+  .trip-schedule-layout .trip-weather-note {
+    display: none;
+  }
+}
+
+.trip-day-panel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hub-hairline);
+  border-radius: var(--hub-r-md);
+  background: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset);
+}
+
+.trip-day-panel__block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.95rem 1rem 1rem;
+}
+
+.trip-day-panel__block + .trip-day-panel__block {
+  border-top: 1px solid var(--hub-hairline);
+}
+
+.trip-day-panel__day {
+  margin: 0;
+  color: var(--hub-ink);
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.trip-day-panel__day span {
+  color: var(--hub-ink-2);
+  font-weight: 500;
+}
+
+.trip-day-panel__heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--hub-ink-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.trip-day-panel__heading b {
+  color: var(--hub-ink);
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-day-panel__muted {
+  margin: 0;
+  color: var(--hub-ink-3);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.trip-day-panel__expenses {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip-day-panel__expenses button {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.4rem;
+  border-radius: var(--hub-r-sm);
+  color: var(--hub-ink);
+  font-size: 0.85rem;
+  text-align: left;
+  transition: background-color 0.18s var(--hub-ease);
+}
+
+.trip-day-panel__expenses button:hover {
+  background: var(--hub-inset);
+}
+
+.trip-day-panel__expenses button:focus-visible,
+.trip-day-panel__link:focus-visible {
+  outline: 2px solid var(--accent, var(--hub-blue));
+  outline-offset: 1px;
+}
+
+.trip-day-panel__expenses li + li {
+  border-top: 1px solid var(--hub-hairline);
+}
+
+.trip-day-panel__expense-name {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.trip-day-panel__expense-name small {
+  color: var(--hub-ink-3);
+  font-size: 0.72rem;
+}
+
+.trip-day-panel__expense-amount {
+  flex: 0 0 auto;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-day-panel__more {
+  padding: 0.4rem;
+  color: var(--hub-ink-3);
+  font-size: 0.78rem;
+}
+
+.trip-day-panel__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  padding-top: 0.2rem;
+  color: var(--hub-ink-2);
+  font-size: 0.78rem;
+}
+
+.trip-day-panel__foot p {
+  margin: 0;
+}
+
+.trip-day-panel__foot b {
+  color: var(--hub-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-day-panel__link {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0 0.35rem;
+  border-radius: var(--hub-r-sm);
+  color: var(--teal-700, var(--accent, var(--hub-blue)));
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.trip-day-panel__link:hover {
+  background: var(--hub-inset);
+}
+
+/* 右の欄の天気(TripDayWeatherCard)。見出しの横の小さな天気を、言葉と降水確率まで広げたもの。 */
+.trip-day-forecast {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.15rem 0.75rem;
+}
+
+.trip-day-forecast__icon {
+  color: var(--hub-ink-2);
+}
+
+.trip-day-forecast__main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.trip-day-forecast__main strong {
+  color: var(--hub-ink);
+  font-size: 0.95rem;
+}
+
+.trip-day-forecast__main span {
+  color: var(--hub-ink-2);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.trip-day-forecast__main b {
+  color: var(--hub-ink);
+}
+
+.trip-day-forecast__rain {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 傘を持つか迷う確率(30%以上)の時だけ、色を1段強くする(見出しの天気と同じ決まり)。 */
+.trip-day-forecast__rain.is-high {
+  color: var(--hub-blue);
+}
+
+.trip-day-forecast__place {
+  grid-column: 1 / -1;
+  color: var(--hub-ink-3);
+  font-size: 0.72rem;
+}
+
+.trip-day-forecast__wide {
+  grid-column: 1 / -1;
+}
+
+.trip-day-forecast__note {
+  margin: 0;
+  color: var(--hub-ink-3);
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+/* ==========================================================================
+   旅行一覧: 「新しい旅行」と、PCの並べ方(2026-10-12)
+
+   一覧が大きな旅行カード1枚と、その下の余白だけになっていた。右下の「＋」とは別に、一覧の中にも
+   「新しい旅行」を置き、終わった旅行は「過去の旅行」として小さな行で積む(TripsPage)。
+   PCでは先頭の旅行の右に「新しい旅行」を同じ高さのタイルで並べ、その下に「これから行く」、
+   さらに下に「過去の旅行」を、どちらも横幅いっぱいで置く。
+   ========================================================================== */
+.trip-new {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--hub-edge);
+  border-radius: var(--hub-r-lg);
+  background: var(--hub-surface);
+  box-shadow: var(--hub-shadow-inset), var(--hub-shadow);
+  color: var(--hub-ink);
+  text-align: left;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.trip-new:hover {
+  border-color: rgba(23, 161, 153, 0.32);
+}
+
+.trip-new:active {
+  transform: scale(0.99);
+}
+
+.trip-new:focus-visible {
+  outline: 3px solid var(--hub-blue);
+  outline-offset: 3px;
+}
+
+.trip-new__icon {
+  display: grid;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--teal-50, var(--hub-inset));
+  color: var(--teal-700, var(--hub-blue));
+}
+
+.trip-new__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.trip-new__copy strong {
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.trip-new__copy small {
+  color: var(--hub-ink-2);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.trip-new__go {
+  flex: 0 0 auto;
+  color: var(--hub-ink-3);
+}
+
+/* これから行く旅行が無い時は、一覧の先頭に立つ。少し大きくして、ここから始めると分かるように。 */
+.trip-new--first {
+  padding: 1.25rem 1.2rem;
+}
+
+.trip-new--first .trip-new__icon {
+  width: 3rem;
+  height: 3rem;
+}
+
+.trip-new--first .trip-new__copy strong {
+  font-size: 1.15rem;
+}
+
+@media (min-width: 1024px) {
+  .trips-board--lead {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 19rem;
+    align-items: start;
+  }
+
+  .trips-board--lead > .trip-lead {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  /* 先頭の旅行と同じ高さのタイル。中身は縦に積んで真ん中に寄せる。白一色だと大きな空き箱に見えるので、
+     上から薄い青緑を敷いて「ここから足す」所だと分かるようにする。 */
+  .trips-board--lead > .trip-new {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: stretch;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.9rem;
+    padding: 1.6rem 1.4rem;
+    background: linear-gradient(180deg, var(--teal-50, var(--hub-inset)) 0%, var(--hub-surface) 78%);
+    text-align: center;
+  }
+
+  .trips-board--lead > .trip-new .trip-new__icon {
+    width: 3.4rem;
+    height: 3.4rem;
+  }
+
+  .trips-board--lead > .trip-new .trip-new__copy {
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .trips-board--lead > .trip-new .trip-new__copy strong {
+    font-size: 1.2rem;
+  }
+
+  .trips-board--lead > .trip-new .trip-new__go {
+    display: none;
+  }
+
+  .trips-board--lead > .trips-board__section {
+    grid-column: 1 / -1;
+  }
+
+  /* 過去の旅行は横幅いっぱいを2列の行で使う。右の細い列に積むと、日付が2行に折れて読みにくかった。
+     1件だけの時は1列(面の右半分が空いたままにならないように)。 */
+  .trips-board__past .trip-archive {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .trips-board__past .trip-archive:has(> .trip-archive__row:only-child) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trips-board__past .trip-archive__row:nth-child(2) {
+    border-top: 0;
+  }
+
+  .trips-board__past .trip-archive__row:nth-child(even) {
+    border-left: 1px solid var(--hub-hairline);
+  }
 }

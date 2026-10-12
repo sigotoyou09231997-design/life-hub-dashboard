@@ -30,6 +30,7 @@ interface Drag {
  * 使い方: 行の入れ物に containerRef を付け、各行に rowProps(組, いまの並びでの番号) を広げる。
  * 動かしている間は preview(組, 並び) で、落とす位置へ動かした並びを出す(指を離す前に、どこに入るか分かるように)。
  * 指を離すと onMove(組, from, to)。from と to が同じなら呼ばない。
+ * 長押しを待たずに動かせる「つまみ」を出す時は、つまみに handleProps(組, 番号) を広げる。
  */
 export function useLongPressReorder(onMove: (group: string, from: number, to: number) => void) {
   const [drag, setDragState] = useState<Drag | null>(null);
@@ -178,6 +179,26 @@ export function useLongPressReorder(onMove: (group: string, from: number, to: nu
     };
   }
 
+  /**
+   * 行の「つまみ」に付けるもの(日程の「並べ替え」を押した時だけ出す。TripScheduleList)。
+   * つまみは押した瞬間から動かせる — 長押しを待つのは、行を押すと編集が開くのと区別するためで、
+   * 並べ替えると決めて出したつまみでまで待たせる理由が無い(パソコンのマウスでは、長押し自体が思いつかない)。
+   * 行に付けた rowProps はそのままでよい。内側のつまみの pointerdown が先に届いて動かし始めるので、
+   * そのあと届く行の側は「並べ替えの最中」として何もしない(長押しの待ちも始めない)。
+   */
+  function handleProps(group: string, index: number) {
+    return {
+      onPointerDown: (event: PointerEvent<HTMLElement>) => {
+        if (event.button > 0 || dragRef.current) return;
+        cancelPress();
+        // 押したまま動かした時に、文字の選択が始まらないように。
+        event.preventDefault();
+        setDrag({ group, pointerId: event.pointerId, from: index, over: index });
+        followPointer(event.pointerId);
+      },
+    };
+  }
+
   /** 動かしている最中なら、落とす位置へ動かした並び。そうでなければそのまま。 */
   function preview<T>(group: string, list: T[]): T[] {
     return drag && drag.group === group ? moveTo(list, drag.from, drag.over) : list;
@@ -188,5 +209,5 @@ export function useLongPressReorder(onMove: (group: string, from: number, to: nu
     return drag !== null && drag.group === group && drag.from === index;
   }
 
-  return { containerRef: setContainer, rowProps, preview, isDragging };
+  return { containerRef: setContainer, rowProps, handleProps, preview, isDragging };
 }

@@ -26,7 +26,9 @@ function yen(value: number): string {
 export function TripLeadCard({ trip, onDelete }: Props) {
   const today = todayStr();
   const cover = useTripCover(trip.name, trip.destination ?? "");
-  const ongoing = trip.status === "ongoing";
+  // 「計画中」の印のまま出発した旅行も、日付の上で旅行中なら旅行中として見せる(一覧の並びと同じ考え方。
+  // src/lib/tripListSections.ts)。印を直す人は少なく、旅行の最中に「次の旅行」と出ていた。
+  const ongoing = trip.status === "ongoing" || (trip.startDate <= today && today <= trip.endDate);
 
   const stats = useLiveQuery(async () => {
     if (!trip.id) return null;

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { moveInDay, orderScheduleDay } from "../../lib/scheduleOrder";
 import { useLongPressReorder } from "../../hooks/useLongPressReorder";
 import type { Attachment, TripExpense, TripScheduleItem } from "../../types";
@@ -13,7 +13,7 @@ import { TransportModeChip } from "./transportModes";
 import { PhotoStrip } from "../attachments/PhotoStrip";
 import { ScheduleDetailLines } from "./ScheduleDetailLines";
 import { Button } from "../ui/Button";
-import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Wallet } from "lucide-react";
+import { ArrowUpDown, CalendarRange, Check, ChevronLeft, ChevronRight, GripVertical, MapPin, Plus, Wallet } from "lucide-react";
 
 interface Props {
   dayList: string[];
@@ -59,13 +59,38 @@ interface Props {
  * - 並べ替えは、持ち物と同じく長押しして上下に動かす(src/hooks/useLongPressReorder.ts)。
  * - 削除は、行を押して開く編集の中(TripScheduleForm)へ移した。
  * - 種類の札は「その他」なら出さない。種類を選ばなかった予定ほど多く、全部の行に同じ札が並ぶだけだった。
+ *
+ * ただ、矢印を消すと「並べ替えられる」こと自体が見えなくなった(日の下に小さな案内を1行置いただけ)。
+ * そこで、日の見出しの横に「並べ替え」のボタンを置き、押した時だけ各行の右に「つまみ」を出す。
+ * - ボタンはいつも見えているので、一度きりの案内のように読み飛ばして終わりにならない。
+ * - つまみは押した瞬間から動かせる。パソコンのマウスでは長押しを思いつかないので、こちらが本命。
+ * - ふだんの行は中身だけのまま(つまみを常に出すと、矢印を消した意味が無くなる)。長押しは近道として残す。
+ * - つまみはキーボードの ↑ ↓ でも1つずつ動かせる。
  */
 export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySchedule, onEdit, onLocationTap, onReorder, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
   const chipsRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const hintId = useId();
   // 組 = 日付。指を離した時点の並び(時刻の順 + 並べ替えた順)の中で動かす。
   const reorder = useLongPressReorder((date, from, to) => {
     onReorder?.(moveInDay(orderScheduleDay(occurringOn(items, date)), from, to));
   });
+  /** 「並べ替え」を押して、つまみを出している日。日ごとに持つので、別の日へ切り替えた先はふだんの表示で出る。 */
+  const [sortingDay, setSortingDay] = useState<string | null>(null);
+  /** キーボードで動かした予定。並びが書き変わると行の要素が動いて押した所が外れるので、戻すために控える。 */
+  const refocusRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const id = refocusRef.current;
+    if (!id) return;
+    const grip = Array.from(rootRef.current?.querySelectorAll<HTMLElement>("[data-grip-for]") ?? []).find(
+      (el) => el.dataset.gripFor === id,
+    );
+    if (grip) {
+      grip.focus();
+      refocusRef.current = null;
+    }
+  }, [items]);
 
   // 選んだ日のチップが、横に並べきれない時でも見えるところへ送る。
   useEffect(() => {
@@ -93,7 +118,7 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
   const beyondHorizon = horizon != null && dayList[dayList.length - 1] > horizon;
 
   return (
-    <div className="trip-day-list">
+    <div className="trip-day-list" ref={rootRef}>
       {weather?.status === "ok" && weather.place && (
         <TripWeatherBanner
           placeName={weather.place.name}
@@ -122,6 +147,7 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
         const dayItems = orderScheduleDay(occurringOn(items, date));
         const forecast = forecastForDate(forecasts, date);
         const canReorder = Boolean(onReorder) && dayItems.length > 1;
+        const sorting = canReorder && sortingDay === date;
         // 長押しで動かしている間は、落とす位置へ動かした並びで見せる。
         const shownItems = canReorder ? reorder.preview(date, dayItems) : dayItems;
 
@@ -137,6 +163,24 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
               {forecast && <TripDayWeather forecast={forecast} />}
               {dayItems.length > 0 && <b>{dayItems.length}件</b>}
             </header>
+            {canReorder && (
+              <div className="trip-day__tools">
+                {/* 押すと「完了」に変わる。選んでいる間は黒(日にちのチップと同じ、選んでいる所だけ黒の決まり)。 */}
+                <button
+                  type="button"
+                  className={`trip-day__sort${sorting ? " is-active" : ""}`}
+                  onClick={() => setSortingDay(sorting ? null : date)}
+                >
+                  {sorting ? <Check size={15} aria-hidden="true" /> : <ArrowUpDown size={15} aria-hidden="true" />}
+                  {sorting ? "完了" : "並べ替え"}
+                </button>
+              </div>
+            )}
+            {sorting && (
+              <p className="trip-day__hint" id={hintId}>
+                右の <GripVertical size={13} aria-label="つまみ" className="inline align-[-2px]" /> を上下に動かすと、順番を変えられます。行を長押ししても動かせます。
+              </p>
+            )}
             {dayItems.length === 0 ? (
               <button type="button" className="trip-day__add" onClick={() => onAddForDate(date)}>
                 <Plus size={14} />
@@ -144,7 +188,7 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
               </button>
             ) : (
               <>
-                <ol className="trip-timeline" ref={reorder.containerRef}>
+                <ol className={`trip-timeline${sorting ? " is-sorting" : ""}`} ref={reorder.containerRef}>
                   {shownItems.map((item) => {
                     const index = dayItems.indexOf(item);
                     const typeDef = getTripScheduleType(item.type);
@@ -220,12 +264,31 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                             )}
                           </div>
                         </div>
+                        {sorting && (
+                          <button
+                            type="button"
+                            className="trip-timeline__grip"
+                            aria-label={`${item.title}を動かす`}
+                            aria-describedby={hintId}
+                            data-grip-for={item.id}
+                            {...reorder.handleProps(date, index)}
+                            onKeyDown={(event) => {
+                              const to = event.key === "ArrowUp" ? index - 1 : event.key === "ArrowDown" ? index + 1 : null;
+                              if (to === null) return;
+                              event.preventDefault();
+                              const changes = moveInDay(dayItems, index, to);
+                              if (changes.length === 0) return;
+                              refocusRef.current = item.id ?? null;
+                              onReorder?.(changes);
+                            }}
+                          >
+                            <GripVertical size={18} aria-hidden="true" />
+                          </button>
+                        )}
                       </li>
                     );
                   })}
                 </ol>
-                {/* 矢印を行ごとに出さなくなったので、並べ替えられることは1か所の案内で伝える(持ち物と同じ言い方)。 */}
-                {canReorder && <p className="trip-day__hint">長押しして上下に動かすと、並べ替えられます。</p>}
               </>
             )}
           </section>
