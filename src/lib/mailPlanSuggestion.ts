@@ -243,7 +243,25 @@ function readDates(text: string, base: Date): string[] {
   return dates;
 }
 
+/** 同じメールの判定を、一覧を開くたびにやり直さないための控え(2026-10-13)。
+ * 数百〜千通を毎回調べると iPhone では画面が数秒止まった(日付を探す正規表現が重い)。
+ * 受信時刻が決まっている時だけ使う — 受信時刻が無い時の「今日」は日が替われば変わるため。
+ * 件数が増えすぎたら全部捨てる(古いメールは二度と引かれないので、入れ替えの手間をかけない)。 */
+const SIGNALS_CACHE_LIMIT = 4000;
+const signalsCache = new Map<string, PlanSignals>();
+
 export function detectPlanSignals(text: string, receivedAt?: number): PlanSignals {
+  if (!receivedAt) return computePlanSignals(text, receivedAt);
+  const key = `${receivedAt}\u0000${text}`;
+  const cached = signalsCache.get(key);
+  if (cached) return cached;
+  const signals = computePlanSignals(text, receivedAt);
+  if (signalsCache.size >= SIGNALS_CACHE_LIMIT) signalsCache.clear();
+  signalsCache.set(key, signals);
+  return signals;
+}
+
+function computePlanSignals(text: string, receivedAt?: number): PlanSignals {
   const normalized = normalizeText(text);
   const base = receivedAt ? new Date(receivedAt) : new Date();
   const dates = [...new Set(readDates(normalized, base))].sort();
