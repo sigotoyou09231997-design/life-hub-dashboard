@@ -2,7 +2,7 @@
 // 要望の受信箱(supabase/sql/029_app_feedback.sql)を見張って、新しい依頼が届いたら1件ずつ標準出力へ出す。
 // Claude Code の Monitor から起こして、この会話に流す(2026-10-12、本人が「検知から本番まで全部自動」を選択)。
 //
-//   node scripts/feedback-watch.mjs            見張り続ける(60秒ごと)。最初の1回は、いま届いている分を「見た」ことにして出さない
+//   node scripts/feedback-watch.mjs            見張り続ける(10秒ごと)。最初の1回は、いま届いている分を「見た」ことにして出さない
 //   node scripts/feedback-watch.mjs --once     1回だけ調べて終わる(出すのは、まだ出していない新しい依頼だけ)
 //   node scripts/feedback-watch.mjs --replay   いま未対応の依頼を、出した・出さないに関わらず全部出す(確かめ用。記録は変えない)
 //
@@ -17,9 +17,10 @@ import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SEEN_FILE = process.env.FEEDBACK_SEEN_FILE ?? join(ROOT, ".feedback-seen");
-const INTERVAL_MS = 60_000;
+/** 受信箱を見に行く間隔。10秒ごと(2026-10-12、本人「90秒からもっと早く」。60秒ごと+90秒待ちだと最大2分半かかっていた)。 */
+const INTERVAL_MS = Number(process.env.FEEDBACK_POLL_MS ?? 10_000);
 /** 新しい依頼を見つけてから、続けて届く分を待つ時間(ミリ秒)。 */
-const COLLECT_MS = Number(process.env.FEEDBACK_COLLECT_MS ?? 90_000);
+const COLLECT_MS = Number(process.env.FEEDBACK_COLLECT_MS ?? 15_000);
 /** 1件の文章を出す長さの上限。長すぎる文章で会話が埋まらないように(あふれた分は切る)。 */
 const MAX_MESSAGE_CHARS = 1500;
 
