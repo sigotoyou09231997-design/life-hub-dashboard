@@ -11,6 +11,7 @@ import { FeedbackInbox } from "../components/feedback/FeedbackInbox";
 import { GoogleCalendarSyncControl } from "../components/settings/GoogleCalendarSyncControl";
 import { HomeAddressSetting } from "../components/settings/HomeAddressSetting";
 import { useIsFeedbackOwner } from "../hooks/useIsFeedbackOwner";
+import { currentVersion, updateToLatestNow } from "../lib/pwaUpdate";
 import { SettingsSection, SettingsToc, type SettingsTocItem } from "../components/settings/SettingsToc";
 import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
@@ -57,6 +58,16 @@ export default function SettingsPage() {
 
   const [session, setSession] = useState<Session | null>(null);
   const isFeedbackOwner = useIsFeedbackOwner() === true;
+  const [updating, setUpdating] = useState(false);
+  const [versionNote, setVersionNote] = useState<string | null>(null);
+  async function handleUpdateNow() {
+    setUpdating(true);
+    const result = await updateToLatestNow();
+    if (result === "latest") setVersionNote("すでに最新版です");
+    else if (result === "updating") setVersionNote("新しい版に切り替えています…");
+    else setVersionNote("公開されている版を読めませんでした(通信を確かめてください)");
+    setUpdating(false);
+  }
   const [sheetDebug, setSheetDebug] = useState(() => {
     try {
       return window.localStorage.getItem(SHEET_DEBUG_KEY) === "1";
@@ -311,6 +322,19 @@ export default function SettingsPage() {
                 このアプリに入った変更を、使う人から見た形でまとめています。
                 最終更新 {formatDisplayDate(CHANGELOG[0].date)}。
               </p>
+              {/* 「反映された?」をその場で確かめる(2026-10-12)。押すと、公開されている版と見比べて、違えば切り替える。 */}
+              <div className="system-state-control">
+                <div>
+                  <span>いま使っている版</span>
+                  <strong>{currentVersion()}</strong>
+                </div>
+                <small>{versionNote ?? "押すと最新版を確かめます"}</small>
+              </div>
+              <div className="system-section__actions">
+                <Button variant="secondary" className="w-full" onClick={handleUpdateNow} disabled={updating}>
+                  {updating ? "確かめています…" : "最新版にする"}
+                </Button>
+              </div>
               <div className="system-section__actions">
                 <Link
                   to="/changelog"

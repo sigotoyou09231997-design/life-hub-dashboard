@@ -20,8 +20,16 @@ const PROGRESS_DURATION_MS = 1500;
 const LAUNCH_WINDOW_MS = 15_000;
 const MAX_HOLD_MS = 3 * 60 * 60_000;
 
-/** この画面（タブ）を読み込んだ時刻。「開いてすぐ」かどうかの基準。 */
-const loadedAt = Date.now();
+/** この画面（タブ）を読み込んだ、またはほかのアプリ・タブから戻ってきた時刻。「開いてすぐ」かどうかの基準。
+ * 2026-10-12: 読み込んだ時刻だけを見ていたので、アプリを開いたまま行き来する使い方(iPhone のホーム画面アプリ)では
+ * 戻ってきて新しい版が見つかっても「使っている途中」と数えられ、反映が遅れた(本人の「反映されてない」)。
+ * 戻ってきた直後(戻ると同時に更新を確かめに行く)も、開いてすぐと同じに扱う。 */
+let loadedAt = Date.now();
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") loadedAt = Date.now();
+  });
+}
 
 /** True while a Sheet (add/edit form) is open — Sheet.tsx is the only place that
  * locks body scroll, so this doubles as "don't reload mid-edit". */
