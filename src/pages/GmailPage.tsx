@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { useNavigate } from "react-router-dom";
-import { AlertCircle, ChevronLeft, CheckCircle2, Mail, Plus, RefreshCw, Settings as SettingsIcon, Sparkles } from "lucide-react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { AlertCircle, ChevronLeft, CheckCircle2, Mail, Plus, RefreshCw, Settings as SettingsIcon, Sparkles, X } from "lucide-react";
 import { db } from "../db/schema";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { GmailLogo } from "../components/gmail/GmailLogo";
@@ -10,7 +10,9 @@ import { Card } from "../components/ui/Card";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
-import { GmailInbox } from "../components/gmail/GmailInbox";
+import { EmptyState } from "../components/ui/EmptyState";
+import { GmailInbox, type MailLinkTarget } from "../components/gmail/GmailInbox";
+import { DraftReview } from "../components/gmail/DraftReview";
 import { startGmailOAuth } from "../lib/gmail";
 import { pullBlockedSenders } from "../lib/blockedSenders";
 import {
@@ -23,12 +25,71 @@ import { summarizeGmailSync, syncGmailAccount, type AccountSyncOutcome } from ".
 import { ComposeMail } from "../components/gmail/ComposeMail";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
+import { useIsDesktop } from "../hooks/useIsDesktop";
+import { recordRecent } from "../lib/recentItems";
 
 const BACK_BUTTON_CLASS =
   "-ml-1.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50";
 
+/** PCで一覧からメールを開いた時に、履歴(location.state)へ付ける印。これがある時だけ
+ * 「閉じる」をブラウザの「戻る」と同じにする(直前の履歴が、この一覧だと分かっているため)。 */
+interface SplitHistoryState {
+  gmailMailFromList?: boolean;
+}
+
+/** PC(lg以上)で、一覧の右側に出すメール1通(本文と返信)。
+ *
+ * 中身はスマホの /gmail/mail/:id(GmailMailPage)と同じ DraftReview。左右に並べるだけの幅は
+ * 無いので stacked(本文 → 返信の縦1列)にし、この枠の中だけでスクロールする — 一覧の
+ * 位置を動かさずに、長いメールも最後まで読めるように。 */
+function MailReadingPane({ emailId, onClose }: { emailId: string; onClose: () => void }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // undefined = 読み込み中、null = メール(またはそのアカウント)が見つからない(古いリンクなど)。
+  const data = useLiveQuery(async () => {
+    const email = await db.syncedEmails.get(emailId);
+    if (!email) return null;
+    const account = await db.gmailAccounts.get(email.accountId);
+    if (!account) return null;
+    return { email, account };
+  }, [emailId]);
+
+  // 別のメールに切り替えたら、前のメールで下まで読んだ位置を持ち越さずに先頭から出す。
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [emailId]);
+
+  return (
+    <section className="mail-reading-pane" aria-label="開いているメール">
+      <div className="mail-reading-pane__bar">
+        <button
+          type="button"
+          onClick={onClose}
+          className="mail-reading-pane__close focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          <X size={16} aria-hidden="true" />
+          閉じる
+        </button>
+      </div>
+      <div ref={scrollRef} className="mail-reading-pane__scroll">
+        {data === undefined ? (
+          <ListSkeleton />
+        ) : data === null ? (
+          <EmptyState icon={Mail} title="メールが見つかりません" description="左の一覧から選び直してください" />
+        ) : (
+          // メールごとに作り直す。DraftReview は宛先・AIへの指示などを開いた時に1回だけ
+          // 読み込むので、同じ部品のまま別のメールを渡すと前のメールの宛先が残ってしまう。
+          <DraftReview key={data.email.id} email={data.email} account={data.account} stacked />
+        )}
+      </div>
+    </section>
+  );
+}
+
 export default function GmailPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const isDesktop = useIsDesktop();
   const showToast = useToast();
   const accounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   const showSkeleton = useDelayedFlag(accounts === undefined);
@@ -66,6 +127,57 @@ export default function GmailPage() {
   }, []);
 
   const selectedAccount = accounts?.find((a) => a.id === selectedAccountId);
+
+  // ---- PC: 一覧の右にメールを開く(2026-10-12 の見直し P-3) ----
+  // 以前はPCでも、メールを押すと別の画面(/gmail/mail/:id)へ移っていた。PCでは同じ画面の
+  // 右側に開き、どのメールを開いているかは /gmail?mail=<id> で表す(読み込み直し・
+  // ブックマークでも同じメールが開く)。パスを /gmail のまま変えないのは、ページを
+  // 作り直さずに右側だけを差し替えるため(App.tsx はパスが変わると画面ごと作り直す)。
+  // スマホは今までどおり、メール1通の画面へ移る。
+  const openMailId = searchParams.get("mail");
+  const paneOpen = isDesktop && !!openMailId;
+  const fromList = !!(location.state as SplitHistoryState | null)?.gmailMailFromList;
+
+  // スマホ幅で /gmail?mail=<id> を開いた時(PCで窓を狭めた時など)は、メール1通の画面へ移す。
+  useEffect(() => {
+    if (!isDesktop && openMailId) navigate(`/gmail/mail/${encodeURIComponent(openMailId)}`, { replace: true });
+  }, [isDesktop, openMailId, navigate]);
+
+  // 開いたメールが別のアカウントのもの(通知・ホーム・検索から開いた時)なら、左の一覧も
+  // そのアカウントに切り替える。開いたメールが変わった時だけ合わせる — 合わせ続けると、
+  // タブで別のアカウントを選べなくなる。
+  const openMailAccountId = useLiveQuery(
+    async () => (openMailId ? ((await db.syncedEmails.get(openMailId))?.accountId ?? null) : null),
+    [openMailId],
+  );
+  useEffect(() => {
+    if (paneOpen && openMailAccountId) setSelectedAccountId(openMailAccountId);
+  }, [paneOpen, openMailAccountId]);
+
+  // 「最近見たもの」(まとめて検索)に残す。スマホの /gmail/mail/:id はURLのパスから拾われる
+  // (GlobalSearch.tsx)が、PCはパスが /gmail のままなので、ここで残す。
+  useEffect(() => {
+    if (paneOpen && openMailId) recordRecent({ kind: "email", id: openMailId });
+  }, [paneOpen, openMailId]);
+
+  /** PCの一覧の行の行き先。1通目を開く時だけ履歴に積み、ブラウザの「戻る」でメールを閉じて
+   * 一覧だけに戻れるようにする。開いたまま別のメールへ切り替える時は積まずに置き換える —
+   * 積んでいくと、10通読んだ後は「戻る」を10回押さないと前の画面へ戻れなくなる。 */
+  const splitMailLink = useCallback(
+    (id: string): MailLinkTarget => ({
+      to: `/gmail?mail=${encodeURIComponent(id)}`,
+      replace: !!openMailId,
+      state: openMailId ? location.state : ({ gmailMailFromList: true } satisfies SplitHistoryState),
+    }),
+    [openMailId, location.state],
+  );
+
+  /** 右のメールを閉じて、一覧だけに戻す。一覧から開いた時は「戻る」と同じ(履歴を1つ戻す)。
+   * 通知などから直に開いた時は、直前の履歴がこの一覧ではないので、置き換えで閉じる。 */
+  const closeMail = useCallback(() => {
+    if (fromList) navigate(-1);
+    else navigate("/gmail", { replace: true });
+  }, [fromList, navigate]);
 
   // Googleの更新用トークンが切れたアカウント(src/lib/gmailSync.ts が印を付ける)。
   // 印がある間、自動同期は止まっている — つなぎ直す場所がここにしか無いので、
@@ -137,7 +249,7 @@ export default function GmailPage() {
             <ChevronLeft size={22} />
           </button>
           <GmailLogo size={22} />
-          <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">Gmail自動返信</h1>
+          <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">Gmail</h1>
           {selectedAccount && (
             selectedAccount.reauthRequiredAt ? (
               <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-danger">
@@ -259,7 +371,11 @@ export default function GmailPage() {
                 <Tabs
                   options={accounts.map((a) => ({ value: String(a.id), label: a.email }))}
                   value={selectedAccountId ?? ""}
-                  onChange={(v) => setSelectedAccountId(v)}
+                  onChange={(v) => {
+                    setSelectedAccountId(v);
+                    // 右に開いているのは前のアカウントのメールなので閉じる(一覧と食い違わないように)。
+                    if (paneOpen) closeMail();
+                  }}
                   // ここだけ文字を小さくする。ラベルがメールアドレスで、長さが
                   // 決まらない唯一のタブのため(大きさは他の画面と同じ)。
                   dense
@@ -268,10 +384,21 @@ export default function GmailPage() {
             )}
 
             {selectedAccount && (
-              // メールは行クリックで /gmail/mail/:id を新規タブで開く(GmailInbox.tsx)ため、
-              // ここには一覧ペイン1つだけを幅いっぱいに表示する。
-              <div className="mail-inbox-workspace lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
-                <GmailInbox account={selectedAccount} />
+              // PC: メールを開いていない間は一覧を幅いっぱいに(1通1行)、開いたら左に一覧・
+              // 右にメールの2列にする(pages-warm.css の .mail-split)。何も開いていない時に
+              // 右半分を「選んでください」の空き地にしないのは、一覧を1行で読める幅を残すため。
+              // 一覧は開いても閉じても同じ場所に置いたまま(作り直さない) — 絞り込み・検索語・
+              // スクロール位置がそのまま残る。
+              <div className={`mail-split ${paneOpen ? "is-open" : ""}`}>
+                <div className="mail-inbox-workspace lg:flex lg:min-h-0 lg:flex-col">
+                  <GmailInbox
+                    account={selectedAccount}
+                    compact={isDesktop}
+                    selectedMailId={paneOpen ? openMailId : null}
+                    mailLink={isDesktop ? splitMailLink : undefined}
+                  />
+                </div>
+                {paneOpen && openMailId && <MailReadingPane emailId={openMailId} onClose={closeMail} />}
               </div>
             )}
           </>

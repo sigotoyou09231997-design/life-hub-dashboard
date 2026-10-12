@@ -67,8 +67,14 @@ export default function SchedulePage() {
   const [scanOpen, setScanOpen] = useState(false);
   // 「予定を追加」の画面の切り替え(入力して追加 / 文章・写真から)。閉じたら入力側に戻す。
   const [addMethod, setAddMethod] = useState<AddMethod>("form");
+  // カレンダーの週表示で時刻の枠を押して開いた時の開始時刻。閉じたら忘れる
+  // (残すと、次に「＋」から開いた予定にも同じ時刻が入ってしまう)。
+  const [addStartTime, setAddStartTime] = useState<string | undefined>(undefined);
   useEffect(() => {
-    if (editingEvent === null) setAddMethod("form");
+    if (editingEvent === null) {
+      setAddMethod("form");
+      setAddStartTime(undefined);
+    }
   }, [editingEvent]);
 
   /** 文章・写真から入れ終わった時(「＋ → 写真・文章」も「予定を追加」の切り替えも同じ)。
@@ -191,9 +197,10 @@ export default function SchedulePage() {
             onDeleteEvent={handleDeleteEvent}
             onEditTask={handleEditTask}
             onAddSubtask={handleAddSubtask}
-            onAddEvent={(date) => {
+            onAddEvent={(date, startTime) => {
               // addDefaultDate は selectedDate を見るので、先に選んだ日を確定させてから開く。
               setSelectedDate(date);
+              setAddStartTime(startTime);
               setEditingEvent("new");
             }}
           />
@@ -300,6 +307,7 @@ export default function SchedulePage() {
             <EventForm
               initial={editingEvent === "new" ? undefined : editingEvent}
               defaultDate={addDefaultDate}
+              defaultStartTime={editingEvent === "new" ? addStartTime : undefined}
               onSaved={(mode) => {
                 setEditingEvent(null);
                 // 編集して開いたのに「新しく追加しました」と出たら、更新先を見失っている

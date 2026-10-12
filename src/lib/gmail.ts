@@ -162,7 +162,7 @@ export async function extractTripPlanFromEmail(
     from: email.from,
     // 本文を取り出せないメール(画像だけ・添付だけ)でも、抜粋には日時が載っていることが
     // ある。空の本文をそのまま渡すと、読めるものがあるのに0件で返ってしまう。
-    body: body || email.snippet,
+    body: body || snippetText(email.snippet),
     // 「来月12日」のような書き方を実際の日付に直すための基準日。
     today: todayStr(),
     // 「明日」「来週の火曜」の基準は、読んでいる日ではなくメールが届いた日。
@@ -312,7 +312,7 @@ export async function generateDraftForEmail(
     const result = await generateDraft({
       from: email.from,
       subject: email.subject,
-      body: body || email.snippet,
+      body: body || snippetText(email.snippet),
       busySlots,
       userNotes,
       currentDraft: currentDraftBody,
@@ -613,15 +613,9 @@ export function htmlToText(html: string): string {
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|tr|li|h[1-6]|table|blockquote)>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#(\d+);/g, (whole, code) => codePointOr(Number(code), whole))
-    .replace(/&#x([0-9a-f]+);/gi, (whole, code) => codePointOr(parseInt(code, 16), whole))
-    // &amp; は最後に戻す(先に戻すと「&amp;lt;」が「<」まで戻ってしまう)。
-    .replace(/&amp;/gi, "&")
+    // 文字参照の戻し方は一覧の抜粋と同じ(decodeHtmlEntities)。1回で全部戻すので、
+    // 「&amp;lt;」が「<」まで戻ってしまうことはない。
+    .replace(HTML_ENTITY_PATTERN, decodeEntity)
     .replace(/[ \t\u3000]+/g, " ")
     .replace(/\n[ \t]*/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -631,6 +625,39 @@ export function htmlToText(html: string): string {
 /** 文字参照を1文字に戻す。範囲外の数字はそのまま残す(String.fromCodePointが例外を投げる)。 */
 function codePointOr(code: number, fallback: string): string {
   return Number.isInteger(code) && code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : fallback;
+}
+
+/** 戻す名前付きの文字参照。メールの抜粋・本文に実際に出てくるものだけ。&nbsp; は普通の空白にする
+ * (抜粋の折り返し・AIに渡す文章のどちらも、詰めない空白として扱う意味が無いため)。 */
+const NAMED_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
+
+const HTML_ENTITY_PATTERN = /&(#x[0-9a-f]+|#\d+|[a-z]+);/gi;
+
+function decodeEntity(whole: string, ref: string): string {
+  if (ref[0] === "#") {
+    const hex = ref[1] === "x" || ref[1] === "X";
+    return codePointOr(hex ? parseInt(ref.slice(2), 16) : Number(ref.slice(1)), whole);
+  }
+  // 知らない名前(&copy; など)は、そのまま残す — 間違った字に化けるより、元の書き方の方が読める。
+  return NAMED_ENTITIES[ref.toLowerCase()] ?? whole;
+}
+
+/** HTMLの文字参照(&amp; &lt; &gt; &quot; &#39; &#NNN; &#xHH; など)を元の字に戻す。
+ *
+ * 1回の置き換えで全部戻すので、戻した結果をもう一度戻すことはない — 「&amp;lt;」は「&lt;」
+ * までで止まる(メールに「&lt;」という文字そのものが書いてある時に、それを「<」にしない)。 */
+export function decodeHtmlEntities(text: string): string {
+  return text.replace(HTML_ENTITY_PATTERN, decodeEntity);
+}
+
+/** 一覧・メール画面に出す抜粋(snippet)の文字。
+ *
+ * Gmail API の抜粋は HTML の文字参照のまま届く(「ホテル & 一軒家」が「ホテル &amp; 一軒家」)。
+ * 端末には届いたまま保存し、戻すのは見せる所・AIに渡す所でこれを1回通す時だけにする。
+ * 保存する時に戻す形にすると、もう保存してある分(戻していない)と混ざってどちらか
+ * 見分けられなくなり、戻していない分を直そうとして二重に戻す(「&amp;lt;」→「<」)ことになるため。 */
+export function snippetText(snippet: string): string {
+  return decodeHtmlEntities(snippet);
 }
 
 /** 「このメールはHTML形式です。HTMLを表示できるメーラーでご覧ください」のような、

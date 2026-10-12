@@ -41,6 +41,9 @@ import {
 interface Props {
   initial?: CalendarEvent;
   defaultDate: string;
+  /** 新しく足す時の開始時刻(HH:mm)。カレンダーの週表示で時刻の枠を押して開いた時だけ渡す。
+   * 終了は、開始だけ入れた時と同じく既定の長さ(1時間)後を入れ、開始に追従させる。 */
+  defaultStartTime?: string;
   /** 既存の予定を更新したのか、新しく1件足したのかを呼び出し側へ伝える。
    * 「編集したのに新しい予定として増える」不具合を、画面の文言で切り分けられるようにする。 */
   onSaved: (mode: "created" | "updated") => void;
@@ -66,19 +69,22 @@ const SPAN_OPTIONS = [
   { value: "allday", label: "終日" },
 ];
 
-export function EventForm({ initial, defaultDate, onSaved, onCancel }: Props) {
+export function EventForm({ initial, defaultDate, defaultStartTime, onSaved, onCancel }: Props) {
+  // 押した時刻から開く時は、開始を入れた直後と同じ状態(終了＝1時間後・開始に追従)で始める。
+  const presetStart = !initial && defaultStartTime ? defaultStartTime : "";
+  const presetEnd = presetStart ? (addMinutesSameDay(presetStart, DEFAULT_EVENT_MINUTES) ?? "") : "";
   const [title, setTitle] = useState(initial?.title ?? "");
   const [date, setDate] = useState(initial?.date ?? defaultDate);
   // 終了日は「何日かにまたがる予定」だけが持つ。空欄＝その日で終わる(src/lib/eventSpan.ts)。
   const [endDate, setEndDate] = useState(initial?.endDate ?? "");
   const [allDay, setAllDay] = useState(initial?.allDay ?? false);
-  const [startTime, setStartTime] = useState(initial?.startTime ?? "");
-  const [endTime, setEndTime] = useState(initial?.endTime ?? "");
+  const [startTime, setStartTime] = useState(initial?.startTime ?? presetStart);
+  const [endTime, setEndTime] = useState(initial?.endTime ?? presetEnd);
   // 終了を「開始の何分後」として追いかけているか。開始だけ入れた時にこちらで終了を入れた
   // (または長さの早押しを押した)時はその分数、本人が終了を手で入れた時は null。
   // 手で入れた終了を、開始を直したからといって勝手に動かさないために分けて持つ。
   // 編集で開いた予定の終了は本人が決めたものなので、null から始める。
-  const [followMinutes, setFollowMinutes] = useState<number | null>(null);
+  const [followMinutes, setFollowMinutes] = useState<number | null>(presetEnd ? DEFAULT_EVENT_MINUTES : null);
   const [category, setCategory] = useState<ScheduleCategory>(initial?.category ?? "other");
   // 「誰の予定か」。カテゴリとは別の軸で、こちらは何人でも付けられる(src/lib/eventPeople.ts)。
   const [personIds, setPersonIds] = useState<string[]>(initial?.personIds ?? []);

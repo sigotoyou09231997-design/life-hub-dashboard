@@ -114,7 +114,7 @@ export default function AuthGatePage({ addingAccount = false }: Props) {
         {/* 1つの溝に詰めた切り替えをやめ、ほかの画面と同じ1つずつのタブにする
             (ボタンを溝に詰めない本人の好み、UI/UX 調査メモ C-1)。 */}
         <Tabs<Mode>
-          className="mb-5"
+          className="tabs-primary mb-5"
           options={[
             { value: "register", label: "新規登録" },
             { value: "login", label: "ログイン" },

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ChevronDown, CreditCard, Plus } from "lucide-react";
 import { db } from "../../db/schema";
@@ -31,6 +31,14 @@ import { SubscriptionCalendar } from "./SubscriptionCalendar";
 import { SubscriptionAnalysis } from "./SubscriptionAnalysis";
 
 type View = "list" | "calendar" | "analysis";
+
+/** お金管理の「＋」(サブスクのタブを見ている時)から、追加のシートを開く合図。
+ * シートの中身(サービスを選ぶ→フォーム)はこのタブが持っているので、外からは合図だけ送る。 */
+const OPEN_ADD_EVENT = "lifehub:open-subscription-add";
+
+export function openSubscriptionAdd() {
+  window.dispatchEvent(new Event(OPEN_ADD_EVENT));
+}
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
@@ -99,6 +107,15 @@ export function SubscriptionTab() {
     setAddStep(null);
     setAdding(true);
   }
+
+  useEffect(() => {
+    const handleOpen = () => {
+      setAddStep(null);
+      setAdding(true);
+    };
+    window.addEventListener(OPEN_ADD_EVENT, handleOpen);
+    return () => window.removeEventListener(OPEN_ADD_EVENT, handleOpen);
+  }, []);
 
   function closeAdd() {
     setAdding(false);

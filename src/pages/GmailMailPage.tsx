@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router-dom";
 import { Mail } from "lucide-react";
 import { db } from "../db/schema";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
@@ -10,16 +10,27 @@ import { EmptyState } from "../components/ui/EmptyState";
 import { DraftReview } from "../components/gmail/DraftReview";
 import { pullBlockedSenders } from "../lib/blockedSenders";
 import { pullMessageStates } from "../lib/gmailMessageState";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 
-/** 一覧(GmailInbox)から同じタブで開くメール1通ぶんの画面。
+/** メール1通ぶんの画面(/gmail/mail/:id)。通知一覧・ホーム・全体検索・予定の元メールからも
+ * このURLで開く。
  *
- * 画面いっぱいを使う独立したページのままにしてある — 一覧の横に並べるペインや下からの
- * シートに入れると、長い本文とAI返信文の編集欄が狭い枠に押し込まれるため。戻ると一覧の
- * 絞り込み・検索語・スクロール位置はそのまま(GmailInbox.tsx の rememberedView)。
- * 通知一覧・ホーム・全体検索からも同じURLで開く。 */
+ * PC(lg以上)では、一覧の右側に開く形(/gmail?mail=<id>、GmailPage)へ置き換える
+ * (2026-10-12 の見直し P-3)。PCは横幅があるので、一覧を見ながら読めるようにするため。
+ * 置き換え(replace)なので、ブラウザの「戻る」は開く前の画面へ戻る。 */
 export default function GmailMailPage() {
   const { emailId } = useParams<{ emailId: string }>();
+  const isDesktop = useIsDesktop();
+  if (isDesktop && emailId) return <Navigate to={`/gmail?mail=${encodeURIComponent(emailId)}`} replace />;
+  return <GmailMailScreen emailId={emailId} />;
+}
 
+/** スマホ: 一覧(GmailInbox)から同じタブで開く、画面いっぱいのメール1通。
+ *
+ * 狭い画面では一覧の横に並べるペインや下からのシートに入れると、長い本文とAI返信文の
+ * 編集欄が狭い枠に押し込まれるため、独立したページにしてある。戻ると一覧の絞り込み・
+ * 検索語・スクロール位置はそのまま(GmailInbox.tsx の rememberedView)。 */
+function GmailMailScreen({ emailId }: { emailId: string | undefined }) {
   // undefined = still loading, null = email/account not found (e.g. bad/stale link).
   const data = useLiveQuery(async () => {
     if (!emailId) return null;

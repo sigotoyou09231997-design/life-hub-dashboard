@@ -338,6 +338,34 @@ describe("時刻の入れ方(開始を入れると終了が付いてくる)", ()
     expect(endInput().value).toBe("12:00");
   });
 
+  it("カレンダーの週表示で時刻を押して開くと、その開始と1時間後の終了が入っていて、開始を直せば終了もついてくる", () => {
+    render(
+      <ToastProvider>
+        <EventForm defaultDate="2026-09-01" defaultStartTime="14:30" onSaved={() => {}} onCancel={() => {}} />
+      </ToastProvider>,
+    );
+    expect(startInput().value).toBe("14:30");
+    expect(endInput().value).toBe("15:30");
+    fireEvent.change(startInput(), { target: { value: "16:00" } });
+    expect(endInput().value).toBe("17:00");
+  });
+
+  it("編集で開いた予定には、渡された開始時刻を使わない", () => {
+    render(
+      <ToastProvider>
+        <EventForm
+          initial={{ ...existingEvent, allDay: false, startTime: "10:00", endTime: "12:00" }}
+          defaultDate="2026-09-01"
+          defaultStartTime="14:30"
+          onSaved={() => {}}
+          onCancel={() => {}}
+        />
+      </ToastProvider>,
+    );
+    expect(startInput().value).toBe("10:00");
+    expect(endInput().value).toBe("12:00");
+  });
+
   it("1時間後が日付をまたぐ時は、終了を空のままにする", () => {
     renderForm();
     fireEvent.change(startInput(), { target: { value: "23:30" } });

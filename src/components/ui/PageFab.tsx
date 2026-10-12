@@ -1,5 +1,6 @@
-import { type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { setPageAddAction, type PageAddAction } from "../../lib/pageAddAction";
 
 interface Props {
   onClick: () => void;
@@ -29,12 +30,23 @@ interface Props {
  */
 export function PageFab({ onClick, label, children }: Props) {
   const host = typeof document === "undefined" ? null : document.getElementById("page-fab-root");
+
+  // PC ではこのボタンを出さず、上の帯の「＋追加」が同じ働きをする(src/lib/pageAddAction.ts)。
+  // 押した時に最新の onClick を呼べるよう、働きは ref 越しに渡す(タブで中身が変わる画面がある)。
+  const onClickRef = useRef(onClick);
+  onClickRef.current = onClick;
+  useEffect(() => {
+    const action: PageAddAction = { label, run: () => onClickRef.current() };
+    setPageAddAction(action);
+    return () => setPageAddAction(null);
+  }, [label]);
+
   const button = (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem-var(--viewport-gap,0px))] right-5 z-40 flex h-14 w-14 transform-gpu items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_28px_rgba(79,111,255,0.35)] transition-all active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:bottom-8 lg:right-8"
+      className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem-var(--viewport-gap,0px))] right-5 z-40 flex h-14 w-14 transform-gpu items-center justify-center rounded-full bg-accent text-white shadow-[0_10px_28px_rgba(79,111,255,0.35)] transition-all active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 lg:hidden"
     >
       {children}
     </button>

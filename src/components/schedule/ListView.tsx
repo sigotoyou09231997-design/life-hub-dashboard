@@ -96,11 +96,7 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
               type="button"
               onClick={() => setPriorityFilter(p)}
               aria-pressed={priorityFilter === p}
-              className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-                priorityFilter === p
-                  ? "border-accent bg-accent-light font-semibold text-accent"
-                  : "border-white/50 font-medium text-slate-500 hover:border-white/80"
-              }`}
+              className="lh-chip"
             >
               {p === "all" ? "すべての優先度" : `優先度: ${PRIORITY_LABEL[p]}`}
             </button>

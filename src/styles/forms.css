@@ -469,10 +469,11 @@ textarea.field-shell {
 
 .time-quick__chip:active:not(:disabled) { transform: scale(0.95); }
 
+/* 選んでいる物は黒く塗る(2026-10-12、UI/UX 調査メモ 第2弾 S-3 で全体を1つの見せ方にそろえた)。 */
 .time-quick__chip[aria-pressed="true"] {
-  border-color: var(--teal-500, #17a199);
-  background: var(--teal-50, #ebf8f6);
-  color: var(--teal-700, #0f736e);
+  border-color: var(--ink-black, #121416);
+  background: var(--ink-black, #121416);
+  color: #fff;
   font-weight: 700;
 }
 

@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router-dom";
-import { Ban, CalendarPlus, Check, Hourglass, Mail, Receipt, Search } from "lucide-react";
+import { Ban, CalendarPlus, Check, Hourglass, Mail, Receipt, Search, Star } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
-import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../../lib/gmail";
+import { avatarColor, avatarInitial, isUnhandledEmail, parseSender, snippetText } from "../../lib/gmail";
 import { summarizeGmailSync, syncGmailAccount } from "../../lib/gmailSync";
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
@@ -20,15 +20,31 @@ import { useToast } from "../ui/ToastProvider";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 import { useReplyWaiting } from "../../hooks/useReplyWaiting";
 
+/** 行を押した時の行き先(react-router の Link にそのまま渡す)。 */
+export interface MailLinkTarget {
+  to: string;
+  replace?: boolean;
+  state?: unknown;
+}
+
 interface Props {
   account: GmailAccount;
+  /** PC(lg以上)の一覧。1通を1行に詰めて並べる(スマホのカードのままだと1画面に6通ほどしか
+   * 入らなかった — 2026-10-12 の見直し P-3)。開いたメールは同じ画面の右側に出る(GmailPage)。 */
+  compact?: boolean;
+  /** 右側に開いているメールのid。その行に印を付け、見える所へ寄せる。 */
+  selectedMailId?: string | null;
+  /** 行を押した時の行き先。省略時はメール1通の画面(/gmail/mail/:id、スマホ)。 */
+  mailLink?: (id: string) => MailLinkTarget;
 }
+
+const defaultMailLink = (id: string): MailLinkTarget => ({ to: `/gmail/mail/${id}` });
 
 type StatusFilter = "all" | "plan" | "expense" | "important" | "waiting" | "drafted" | "sent" | "read";
 
 /** メールを開いて戻ってきた時に、一覧の見え方(検索語・絞り込み・スクロール位置)を戻すための控え。
  *
- * メールは同じタブで /gmail/mail/:id へ移るので、この一覧はいったん消える。控えが無いと
+ * スマホではメールは同じタブで /gmail/mail/:id へ移るので、この一覧はいったん消える。控えが無いと
  * 1通読んで戻るたびに「すべて」の先頭に戻ってしまい、続きから見られない。
  * 読み込み直し(F5)では消えてよいのでモジュール変数に置く — localStorageに残すと、
  * 何日も前の検索語が入ったままの一覧で始まってしまう。 */
@@ -64,7 +80,7 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
   skipped: "neutral",
 };
 
-export function GmailInbox({ account }: Props) {
+export function GmailInbox({ account, compact = false, selectedMailId = null, mailLink = defaultMailLink }: Props) {
   const showToast = useToast();
   // 直前にこの一覧を離れた時の見え方(同じアカウントの時だけ)。初回の描画で1度だけ読む。
   const restoredRef = useRef(rememberedView?.accountId === account.id ? rememberedView : null);
@@ -72,6 +88,8 @@ export function GmailInbox({ account }: Props) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(restoredRef.current?.statusFilter ?? "all");
   const [manageBlockedOpen, setManageBlockedOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const chipsPlacedRef = useRef(false);
   // スクロール位置は、離れる時にDOMから読もうとすると参照が外れた後になることがあるので、
   // 動かすたびにここへ写しておく。
   const listScrollRef = useRef(restoredRef.current?.listScroll ?? 0);
@@ -149,7 +167,8 @@ export function GmailInbox({ account }: Props) {
     return (
       email.from.toLowerCase().includes(q) ||
       email.subject.toLowerCase().includes(q) ||
-      email.snippet.toLowerCase().includes(q)
+      // 画面に出ている字(「&」)で探せるように、戻した抜粋で比べる(「&amp;」のままだと当たらない)。
+      snippetText(email.snippet).toLowerCase().includes(q)
     );
   });
 
@@ -198,6 +217,64 @@ export function GmailInbox({ account }: Props) {
     if (restored.pageScroll) window.scrollTo(0, restored.pageScroll);
   }, [filteredEmails]);
 
+  // 絞り込みのチップは1段のまま横に流す(2026-10-12 の見直し S-7。以前は狭い画面で2段に
+  // 折り返し、一覧の上を大きく使っていた)。入りきらない時は隠れている側の端を薄くして
+  // 「まだ続きがある」と分かるようにする(ページのタブ ui/Tabs.tsx と同じ見せ方。CSS は
+  // pages-warm.css の .mail-filter-chips)。PCで右にメールを開くと一覧が細くなるので、
+  // 窓の大きさではなく帯そのものの幅の変化を見る。
+  const chipsShown = !showSkeleton && !!emails && emails.length > 0;
+  // 並んでいるチップの数(予定候補・支出候補・返信待ちは、該当がある時だけ並ぶ)。
+  // 増えた・減った時も、端の薄めと選んだチップの位置を測り直す。
+  const chipCount =
+    5 + (planSuggestions?.length ? 1 : 0) + (expenseSuggestions?.length ? 1 : 0) + (waitingDays.size > 0 ? 1 : 0);
+  useEffect(() => {
+    const row = chipsRef.current;
+    if (!row) return;
+    const mark = () => {
+      const max = row.scrollWidth - row.clientWidth;
+      row.dataset.moreLeft = String(max > 1 && row.scrollLeft > 1);
+      row.dataset.moreRight = String(max > 1 && row.scrollLeft < max - 1);
+    };
+    mark();
+    row.addEventListener("scroll", mark, { passive: true });
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(mark);
+    observer?.observe(row);
+    return () => {
+      row.removeEventListener("scroll", mark);
+      observer?.disconnect();
+    };
+  }, [chipsShown, chipCount]);
+
+  // 選んだチップは帯の真ん中へ寄せる(右端の「既読」を選んでも隠れたままにならないように)。
+  // 控えから戻した絞り込みも、チップが並んだ時点で同じように寄せる。
+  useEffect(() => {
+    const row = chipsRef.current;
+    const selected = row?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!row || !selected) return;
+    if (row.scrollWidth <= row.clientWidth) return;
+    const left = selected.offsetLeft - (row.clientWidth - selected.offsetWidth) / 2;
+    // scrollIntoView は画面ごと縦にも動かしてしまうので、帯の中だけを動かす。
+    row.scrollTo?.({ left: Math.max(0, left), behavior: chipsPlacedRef.current ? "smooth" : "auto" });
+    chipsPlacedRef.current = true;
+  }, [statusFilter, chipsShown, chipCount]);
+
+  // 右に開いたメールの行を、一覧の見える所へ寄せる(PC)。通知やホームから開いた時に
+  // 一覧のどこにあるか分かるように。また一覧を幅いっぱいから左の列へ細くすると行が2段に
+  // なって背が伸び、押した行が下へずれて見えなくなることがあるため。行は一覧の中だけで
+  // 動かす(ページごと動かさない)。一覧が並んだ後(filteredEmails が届いた後)にも1回見る。
+  useEffect(() => {
+    const list = listRef.current;
+    if (!compact || !selectedMailId || !list) return;
+    const row = Array.from(list.querySelectorAll<HTMLElement>("[data-mail-id]")).find(
+      (el) => el.dataset.mailId === selectedMailId,
+    );
+    if (!row) return;
+    const listBox = list.getBoundingClientRect();
+    const rowBox = row.getBoundingClientRect();
+    if (rowBox.top < listBox.top) list.scrollTop += rowBox.top - listBox.top - 8;
+    else if (rowBox.bottom > listBox.bottom) list.scrollTop += rowBox.bottom - listBox.bottom + 8;
+  }, [compact, selectedMailId, filteredEmails?.length]);
+
   async function handleUnblock(id: string, email: string) {
     await db.blockedSenders.delete(id);
     void unblockSenderRemote(account.email, email);
@@ -236,8 +313,13 @@ export function GmailInbox({ account }: Props) {
       )}
 
       {!showSkeleton && emails && emails.length > 0 && (
-        <div className="flex shrink-0 flex-wrap gap-1.5" role="group" aria-label="ステータスフィルター">
-          {/* 5つ並ぶと狭い画面では1行に収まらないので折り返す(横スクロールにはしない)。
+        <div
+          ref={chipsRef}
+          className="mail-filter-chips relative flex shrink-0 gap-1.5 overflow-x-auto"
+          role="group"
+          aria-label="ステータスフィルター"
+        >
+          {/* 1段のまま横に流す(上の useEffect)。
               「予定候補」は該当が1件も無いときは出さない — 押しても空の一覧しか出ないため。 */}
           {(
             [
@@ -261,11 +343,7 @@ export function GmailInbox({ account }: Props) {
               type="button"
               onClick={() => setStatusFilter(value)}
               aria-pressed={statusFilter === value}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-                statusFilter === value
-                  ? "border-accent bg-accent-light text-accent"
-                  : "border-white/50 text-slate-500 hover:border-white/80"
-              }`}
+              className="lh-chip"
             >
               {label}
             </button>
@@ -292,23 +370,121 @@ export function GmailInbox({ account }: Props) {
         <div
           ref={listRef}
           onScroll={(e) => (listScrollRef.current = e.currentTarget.scrollTop)}
-          className="flex flex-col gap-2 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-14 lg:pr-0.5"
+          className={`relative flex flex-col lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pb-14 lg:pr-0.5 ${
+            compact ? "mail-list--compact gap-1" : "gap-2"
+          }`}
         >
           {filteredEmails.map((email) => {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed" && !email.readAt;
+            const snippet = snippetText(email.snippet);
+            const link = mailLink(email.id ?? "");
+            const selected = compact && !!selectedMailId && email.id === selectedMailId;
+            const waiting = waitingDays.get(email.id ?? "");
+            const isPlan = planSuggestionIds.has(email.id);
+            const isExpense = expenseSuggestionIds.has(email.id);
+            const markRead = email.readAt ? (
+              // 既読の行にもボタンと同じ幅の空きを置く — PCの1行表示で、時刻の列が行ごとに
+              // ずれないように。
+              compact ? <span className="w-9 shrink-0" aria-hidden="true" /> : null
+            ) : (
+              <button
+                type="button"
+                onClick={() => email.id && handleMarkRead(email.id)}
+                aria-label="既読にする"
+                title="既読にする"
+                className={`flex shrink-0 items-center justify-center text-slate-300 transition-colors active:bg-slate-100 active:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
+                  compact ? "w-9 hover:text-accent" : "w-11"
+                }`}
+              >
+                <Check size={compact ? 16 : 18} />
+              </button>
+            );
+
+            if (compact) {
+              // PC: 1通を1行に詰める(差出人・件名・抜粋・印・時刻)。一覧の幅が狭い時(右にメールを
+              // 開いている時)は、差出人と時刻の行・件名と抜粋の行の2段になる — 1段のままだと
+              // 件名が数文字しか見えないため(切り替えは pages-warm.css の @container)。
+              // 予定候補などの印は、文字を出すと1行に収まらないので小さな絵にし、中身は
+              // 指を乗せた時の説明と読み上げに回す(開けばメール画面の帯に全部出る)。
+              return (
+                <div
+                  key={email.id}
+                  data-mail-id={email.id}
+                  className={`mail-row mail-row--compact glass-row flex w-full items-stretch rounded-xl border-l-[3px] transition-colors ${
+                    unread ? "is-unread border-l-accent" : "border-l-transparent"
+                  } ${selected ? "is-selected" : ""}`}
+                >
+                  <Link
+                    to={link.to}
+                    replace={link.replace}
+                    state={link.state}
+                    aria-current={selected ? "true" : undefined}
+                    className="mail-compact min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
+                  >
+                    <span className={`mail-compact__from truncate ${unread ? "font-semibold text-slate-900" : "font-medium text-slate-600"}`}>
+                      {sender.name}
+                    </span>
+                    <span className="mail-compact__text truncate">
+                      <span className={unread ? "font-semibold text-slate-800" : "font-medium text-slate-700"}>
+                        {email.subject || "(件名なし)"}
+                      </span>
+                      {snippet && <span className="mail-compact__snippet text-slate-500">{snippet}</span>}
+                    </span>
+                    <span className="mail-compact__marks">
+                      {!!email.importantAt && (
+                        <span className="mail-mark mail-mark--icon text-warning" title="重要">
+                          <Star size={13} fill="currentColor" aria-hidden="true" />
+                          <span className="sr-only">重要</span>
+                        </span>
+                      )}
+                      {email.status !== "unprocessed" && (
+                        <Badge tone={STATUS_TONE[email.status]} className="mail-mark__badge">
+                          {STATUS_LABEL[email.status]}
+                        </Badge>
+                      )}
+                      {waiting !== undefined && (
+                        <span className="mail-mark bg-red-50 text-danger" title={`返信待ち ${waiting}日`}>
+                          <Hourglass size={12} aria-hidden="true" />
+                          <span className="sr-only">返信待ち</span>
+                          {waiting}日
+                        </span>
+                      )}
+                      {isPlan && (
+                        <span className="mail-mark bg-accent-light text-accent" title={`予定候補 ${planSuggestionHint(email)}`.trim()}>
+                          <CalendarPlus size={13} aria-hidden="true" />
+                          <span className="sr-only">{`予定候補 ${planSuggestionHint(email)}`.trim()}</span>
+                        </span>
+                      )}
+                      {isExpense && (
+                        <span className="mail-mark bg-amber-100 text-amber-700" title={`支出候補 ${expenseSuggestionHint(email)}`.trim()}>
+                          <Receipt size={13} aria-hidden="true" />
+                          <span className="sr-only">{`支出候補 ${expenseSuggestionHint(email)}`.trim()}</span>
+                        </span>
+                      )}
+                    </span>
+                    <span className="mail-compact__time text-xs text-slate-500">{formatGmailTimestamp(email.receivedAt)}</span>
+                  </Link>
+                  {markRead}
+                </div>
+              );
+            }
+
             return (
               // 「既読にする」ボタンをリンクの外(兄弟要素)に置くため、行全体を囲むdivとリンクに
               // 分けている(button要素をa要素の中にネストするのはHTML的に不正で、挙動が環境依存になる)。
               <div
                 key={email.id}
+                data-mail-id={email.id}
                 className={`mail-row glass-row flex w-full items-stretch rounded-xl border-l-[3px] transition-colors ${unread ? "is-unread border-l-accent" : "border-l-transparent"}`}
               >
                 {/* 同じタブで開く。新規タブに分けていた頃(2026-08-14〜)は、1通読むごとに
                     タブが増えていった。Linkのままcmd/ctrl+クリックや「新しいタブで開く」は
                     今までどおり効く(実体はhref付きのaのため)。 */}
                 <Link
-                  to={`/gmail/mail/${email.id}`}
+                  to={link.to}
+                  replace={link.replace}
+                  state={link.state}
                   className="flex min-w-0 flex-1 items-start gap-3 px-3.5 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 active:bg-white/60"
                 >
                   <div
@@ -326,28 +502,25 @@ export function GmailInbox({ account }: Props) {
                     <p className={`mt-0.5 truncate text-sm ${unread ? "font-medium text-slate-800" : "text-slate-600"}`}>
                       {email.subject}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-slate-500">{email.snippet}</p>
-                    {(email.status !== "unprocessed" ||
-                      planSuggestionIds.has(email.id) ||
-                      expenseSuggestionIds.has(email.id) ||
-                      waitingDays.has(email.id)) && (
+                    <p className="mt-0.5 truncate text-xs text-slate-500">{snippet}</p>
+                    {(email.status !== "unprocessed" || isPlan || isExpense || waiting !== undefined) && (
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         {email.status !== "unprocessed" && (
                           <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
                         )}
-                        {waitingDays.has(email.id) && (
+                        {waiting !== undefined && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 text-xs font-medium text-danger">
                             <Hourglass size={12} />
-                            返信待ち {waitingDays.get(email.id)}日
+                            返信待ち {waiting}日
                           </span>
                         )}
-                        {planSuggestionIds.has(email.id) && (
+                        {isPlan && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-accent-light px-2 py-0.5 text-xs font-medium text-accent">
                             <CalendarPlus size={12} />
                             {planSuggestionHint(email) || "予定候補"}
                           </span>
                         )}
-                        {expenseSuggestionIds.has(email.id) && (
+                        {isExpense && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
                             <Receipt size={12} />
                             {expenseSuggestionHint(email) || "支出候補"}
@@ -357,17 +530,7 @@ export function GmailInbox({ account }: Props) {
                     )}
                   </div>
                 </Link>
-                {!email.readAt && (
-                  <button
-                    type="button"
-                    onClick={() => email.id && handleMarkRead(email.id)}
-                    aria-label="既読にする"
-                    title="既読にする"
-                    className="flex w-11 shrink-0 items-center justify-center text-slate-300 transition-colors active:bg-slate-100 active:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
-                  >
-                    <Check size={18} />
-                  </button>
-                )}
+                {markRead}
               </div>
             );
           })}

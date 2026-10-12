@@ -681,3 +681,114 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   mask-image: linear-gradient(to right, transparent, #000 2.25rem, #000 calc(100% - 2.25rem), transparent);
 }
 
+/* ============================================================================
+   UI/UX 調査メモ 第2弾の対応（2026-10-12 夜）
+   ========================================================================= */
+
+/* P-1 PC の中身の幅は1つの決まりにする: 最大1200px・中央寄せ・中の面は幅いっぱい。
+   前は画面ごとに 900/1040/1240/1280/1480/1620px と寄せ方がばらばらで、ページを移るたびに
+   中身が左右に跳ねていた(サブスクは左寄せで右が空き、サマリーは中央、履歴は狭い左寄せ…)。
+   ページの根っこはどれも .page-transition の直下なので、そこで一度に決める
+   (各ページの max-w-[…] より詳細度が高い)。 */
+@media (min-width: 1024px) {
+  .app-main .page-transition > * {
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+  }
+  .spatial-page .finance-ledger-workspace,
+  .spatial-page .notes-empty-control,
+  .spatial-page .destination-empty-control,
+  .spatial-page .profile-control-panel,
+  .subs-home {
+    max-width: none;
+    margin-inline: 0;
+  }
+}
+
+/* S-2 ホームを開いている時のヘッダーの家の印 */
+.app-header__home.is-active {
+  background: var(--teal-50);
+  color: var(--teal-700);
+}
+
+/* S-1 スマホで、右下の「＋」(と、持ち主以外に出る「修正」)が、ページのいちばん下の行に
+   重なって押せなかった(今日タブの「＋タスクを追加」、ホームの「今月は表示しない」)。
+   浮いているボタンがある時だけ、その高さぶん下に余白を足して、最後の行が上に出るようにする。
+   (下のナビの分は index.css の .app-main { padding-bottom: 6.5rem })。 */
+@media (max-width: 1023px) {
+  .app-shell:has(#page-fab-root > button) .app-main { padding-bottom: 10.25rem; }
+  .app-shell:has(.feedback-button) .app-main { padding-bottom: 13rem; }
+}
+
+/* ---------------------------------------------------------------------------
+   P-4 / S-3 「選んでいる」の見せ方を1つに: 選んでいる物＝黒く塗る、選んでいない物＝薄い灰色。
+   前はページのタブ＝黒塗り、フォームの選択(.segmented--separate)＝白地に青緑の枠、
+   「時間を決める／終日」(溝の .segmented)＝灰色の溝に白い札、絞り込み＝青緑の枠、と
+   4通りあり、フォームでは選んでいる方が軽く見えてどれを選んだか一瞬迷った。
+   ------------------------------------------------------------------------ */
+.segmented__option[aria-pressed="true"],
+.segmented--separate .segmented__option[aria-pressed="true"] {
+  border-color: var(--ink-black);
+  background: var(--ink-black);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(18, 20, 22, 0.16);
+}
+.segmented__option[aria-pressed="true"] svg { color: #fff; }
+
+/* 絞り込みのチップ(メモの種類など)。お金管理のサブスクのチップ(.subs-chip)と同じ形。 */
+.lh-chip {
+  flex: 0 0 auto;
+  min-height: 2rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.25rem 0.85rem;
+  background: #e9eded;
+  color: var(--warm-ink-2);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background-color 220ms ease, color 220ms ease;
+}
+.lh-chip:hover { background: #dfe5e5; color: var(--warm-ink); }
+.lh-chip[aria-pressed="true"] { border-color: var(--ink-black); background: var(--ink-black); color: #fff; }
+.lh-chip:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; }
+
+/* P-4 タブの階層: ページのいちばん上のタブ(.spatial-page-tabs の中)は黒い丸、
+   中身の中のタブ(サブスクの「一覧・カレンダー・分析」、シートの中の切り替えなど)は
+   下線の小さい形にして、どちらが上の階層か分かるようにする。ログイン画面の切り替えは
+   画面の主役なので丸のまま(.tabs-primary)。 */
+.spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) {
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--warm-line-strong);
+}
+.spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) .spatial-tabs__tab {
+  position: relative;
+  flex-grow: 0;
+  min-height: 2.6rem;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0.45rem 0.85rem 0.6rem;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--warm-ink-2) !important;
+  font-weight: 700;
+  animation: none;
+}
+.spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) .spatial-tabs__tab.is-selected {
+  color: var(--ink-black) !important;
+  font-weight: 800;
+}
+.spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) .spatial-tabs__tab.is-selected::after {
+  content: "";
+  position: absolute;
+  right: 0.7rem;
+  bottom: -1px;
+  left: 0.7rem;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--ink-black);
+}
+

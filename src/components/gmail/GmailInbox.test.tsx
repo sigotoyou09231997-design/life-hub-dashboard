@@ -100,11 +100,11 @@ function email(id: string, subject: string, extra: Partial<SyncedEmail> = {}): R
 
 /** 一覧の見え方の控えはアカウントごとなので(GmailInbox.tsx の rememberedView)、
  * テストごとに別のIDを渡して、前のテストの絞り込みを持ち越さないようにする。 */
-function renderInbox(overrides: Partial<GmailAccount> = {}) {
+function renderInbox(overrides: Partial<GmailAccount> = {}, props: Partial<Parameters<typeof GmailInbox>[0]> = {}) {
   return render(
     <MemoryRouter>
       <ToastProvider>
-        <GmailInbox account={{ ...account, ...overrides }} />
+        <GmailInbox account={{ ...account, ...overrides }} {...props} />
       </ToastProvider>
     </MemoryRouter>,
   );
@@ -184,5 +184,58 @@ describe("メール一覧", () => {
   it("しばらく同期していなければ、開いた時に取りに行く", async () => {
     renderInbox({ id: "stale", lastSyncedAt: Date.now() - 10 * 60_000 });
     await waitFor(() => expect(mocks.syncCalls).toBe(1));
+  });
+
+  it("抜粋の &amp; などは元の字に戻して出し、戻した字で探せる", async () => {
+    const user = userEvent.setup();
+    // Gmail API の抜粋は文字参照のまま届く(保存も届いたまま)。
+    mocks.emails = [email("m1", "【予約確認】Agoda", { snippet: "Agoda.com ホテル &amp; 一軒家 &lt;予約番号&gt;" })];
+    renderInbox({ id: "entities" });
+
+    expect(await screen.findByText("Agoda.com ホテル & 一軒家 <予約番号>")).toBeTruthy();
+    expect(screen.queryByText(/&amp;/)).toBeNull();
+
+    await user.type(screen.getByPlaceholderText("メールを検索"), "ホテル & 一軒家");
+    expect(await screen.findByRole("link", { name: /Agoda/ })).toBeTruthy();
+  });
+
+  it("絞り込みのチップは1段のまま横に流す(折り返さない)", async () => {
+    renderInbox({ id: "chips" });
+    await screen.findByRole("link", { name: /一次面接のご案内/ });
+    const group = screen.getByRole("group", { name: "ステータスフィルター" });
+    expect(group.className).toContain("overflow-x-auto");
+    expect(group.className).not.toContain("flex-wrap");
+  });
+
+  describe("PC(compact)", () => {
+    it("1通1行で、行き先は渡された所(同じ画面の右に開く)、開いている行に印を付ける", async () => {
+      renderInbox(
+        { id: "compact" },
+        {
+          compact: true,
+          selectedMailId: "m2",
+          mailLink: (id) => ({ to: `/gmail?mail=${id}`, replace: true }),
+        },
+      );
+      // 「すべて」には m1 だけ(m2 は送信済み)。送信済みへ切り替えて m2 も見る。
+      const first = await screen.findByRole("link", { name: /一次面接のご案内/ });
+      expect(first.getAttribute("href")).toBe("/gmail?mail=m1");
+      expect(first.getAttribute("aria-current")).toBeNull();
+      // 差出人・件名・抜粋が1つの行(リンク)に入っている。
+      expect(first.textContent).toContain("採用担当");
+      expect(first.textContent).toContain("本文の抜粋");
+
+      await userEvent.click(screen.getByRole("button", { name: "送信済み" }));
+      const opened = await screen.findByRole("link", { name: /説明会の御礼/ });
+      expect(opened.getAttribute("aria-current")).toBe("true");
+    });
+
+    it("重要の印を行に出す", async () => {
+      mocks.emails = [email("m1", "見返したいメール", { importantAt: 1, readAt: 1 })];
+      renderInbox({ id: "compact-important" }, { compact: true });
+      await userEvent.click(await screen.findByRole("button", { name: "重要" }));
+      const row = await screen.findByRole("link", { name: /見返したいメール/ });
+      expect(row.querySelector('[title="重要"]')).not.toBeNull();
+    });
   });
 });

@@ -25,11 +25,12 @@ export function QuickActionBar() {
   const actions = selectedKeys.map(getQuickAction);
   // 今いる画面がナビに無い時(ナビから外したメモ・ふりかえり・設定など)は「すべて」を
   // 光らせる。どれも光らないと現在地が分からなかった(UI/UX 調査メモ A-2)。
-  const allActive = activeKey === null || !selectedKeys.includes(activeKey);
+  // ホームだけは別 — ナビに無ければヘッダーの家の印が光る(AppHeader.tsx、第2弾 S-2)。
+  const allActive = activeKey !== "home" && (activeKey === null || !selectedKeys.includes(activeKey));
 
   function handleSave(next: QuickActionKey[]) {
     setSelectedKeys(saveQuickActionKeys(next));
-    showToast("追従ボタンを更新しました");
+    showToast("下のナビを更新しました");
   }
 
   return (
