@@ -96,7 +96,7 @@ export default function NotePage() {
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[420px]">
         <Tabs
           options={[
-            { value: "notes", label: "メモ・リスト" },
+            { value: "notes", label: "メモ" },
             { value: "diary", label: "日記" },
           ]}
           value={tab}

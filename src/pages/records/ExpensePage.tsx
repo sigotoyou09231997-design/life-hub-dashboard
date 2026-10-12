@@ -18,7 +18,7 @@ import { ExpenseSummary } from "../../components/expense/ExpenseSummary";
 import { ExpenseList } from "../../components/expense/ExpenseList";
 import { ExpenseForm } from "../../components/expense/ExpenseForm";
 import { ReceiptScanForm } from "../../components/expense/ReceiptScanForm";
-import { SubscriptionTab } from "../../components/subscriptions/SubscriptionTab";
+import { SubscriptionTab, openSubscriptionAdd } from "../../components/subscriptions/SubscriptionTab";
 import { SalaryList } from "../../components/expense/SalaryList";
 import { BonusForm } from "../../components/expense/BonusForm";
 import { BonusList } from "../../components/expense/BonusList";
@@ -230,8 +230,13 @@ export default function ExpensePage() {
       </div>
 
       {/* お金管理の「＋」は、いちばん多い追加の「収支」(UI/UX 調査メモ A-3)。
-          前はサマリーに追加の入口が無く、履歴タブの中まで行く必要があった。 */}
-      <PageFab onClick={() => setEditingTransaction("new")} label="収支を追加">
+          前はサマリーに追加の入口が無く、履歴タブの中まで行く必要があった。
+          サブスクのタブを見ている時だけは「サブスクを追加」(第2弾 S-8。そこで収支が増えても
+          画面に出ないので、押した結果が見えなかった)。 */}
+      <PageFab
+        onClick={() => (tab === "subs" ? openSubscriptionAdd() : setEditingTransaction("new"))}
+        label={tab === "subs" ? "サブスクを追加" : "収支を追加"}
+      >
         <Plus size={24} />
       </PageFab>
 

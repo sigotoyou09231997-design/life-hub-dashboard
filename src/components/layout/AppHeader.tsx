@@ -14,6 +14,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { GlobalSearch, usePaletteShortcut } from "./GlobalSearch";
 import { openAddChooser } from "./AddChooser";
+import { usePageAddAction } from "../../lib/pageAddAction";
 
 /** Persistent, app-wide header (avatar / "LIFE HUB" / bell / settings) — shown
  * above every page's own PageHeader (back arrow + title), which keeps its
@@ -25,6 +26,7 @@ export function AppHeader() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const pageAdd = usePageAddAction();
   const signals = useNotificationSignals();
   // 使われなくなった機能のお知らせ。数え方が他の通知と違う(1日1回・Supabaseで数える)ので、
   // useNotificationSignals には混ぜずに別に持つ。
@@ -73,10 +75,14 @@ export function AppHeader() {
           >
             {avatar}
           </button>
+          {/* ホームを開いている時は、この家の印を光らせる。下のナビにホームを入れていない人は、
+              前は「すべて」が光っていて、いちばん見る画面なのに「その他」の中にいるように見えた
+              (UI/UX 調査メモ 第2弾 S-2)。 */}
           <Link
             to="/"
             aria-label="ホーム"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors active:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            aria-current={pathname === "/" ? "page" : undefined}
+            className={`app-header__home flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition-colors active:bg-white/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${pathname === "/" ? "is-active" : ""}`}
           >
             <Home size={19} />
           </Link>
@@ -104,9 +110,11 @@ export function AppHeader() {
           </button>
           {/* PCの「＋追加」(UI/UX 調査メモ C-5・A-3)。右下の「＋」はPCでは画面の端で遠く、
               ホームには追加の入口が無かった。押すと「何を追加しますか?」(支出・予定・タスク・メモ)。 */}
-          <button type="button" onClick={openAddChooser} className="app-header__add">
+          {/* 画面に「＋」があればその働き(旅行を追加・新規メール…)、無ければ選ぶシート。
+              PC では右下の「＋」を出さないので、ここが唯一の入口(UI/UX 調査メモ 第2弾 P-2)。 */}
+          <button type="button" onClick={pageAdd ? pageAdd.run : openAddChooser} className="app-header__add">
             <Plus size={16} aria-hidden="true" />
-            追加
+            {pageAdd && pageAdd.label !== "追加する" ? pageAdd.label : "追加"}
           </button>
         </div>
 

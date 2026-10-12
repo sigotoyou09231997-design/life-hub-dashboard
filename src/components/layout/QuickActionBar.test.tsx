@@ -26,7 +26,7 @@ describe("QuickActionBar customization UI", () => {
     renderBar();
 
     await user.click(screen.getByRole("button", { name: "すべての機能" }));
-    await user.click(screen.getByRole("button", { name: "追従ボタンを編集" }));
+    await user.click(screen.getByRole("button", { name: "下のナビの並びを編集" }));
     await user.click(screen.getByRole("button", { name: "メモを外す" }));
     await user.click(screen.getByRole("button", { name: "旅行を追加" }));
     await user.click(screen.getByRole("button", { name: "保存する" }));

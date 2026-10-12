@@ -60,16 +60,14 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
         />
       </div>
 
+      {/* 絞り込みのチップは、選んでいる物だけ黒く塗る(ページのタブと同じ。UI/UX 調査メモ 第2弾 P-4/S-3。
+          前は青緑の枠で、選んでいる方が軽く見えていた)。 */}
       <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 lg:flex-wrap lg:justify-end" role="group" aria-label="種類フィルター">
         <button
           type="button"
           onClick={() => setTypeFilter("all")}
           aria-pressed={typeFilter === "all"}
-          className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-            typeFilter === "all"
-              ? "border-accent bg-accent-light font-semibold text-accent"
-              : "border-white/50 font-medium text-slate-500 hover:border-white/80"
-          }`}
+          className="lh-chip"
         >
           すべて
         </button>
@@ -79,11 +77,7 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
             type="button"
             onClick={() => setTypeFilter(def.value)}
             aria-pressed={typeFilter === def.value}
-            className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-              typeFilter === def.value
-                ? "border-accent bg-accent-light font-semibold text-accent"
-                : "border-white/50 font-medium text-slate-500 hover:border-white/80"
-            }`}
+            className="lh-chip"
           >
             {def.label}
           </button>
@@ -95,7 +89,8 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
         notes.length === 0 ? (
           <section className="notes-empty-control" aria-labelledby="notes-empty-title">
             <div className="notes-empty-control__heading">
-              <div><h2 id="notes-empty-title">メモ・リスト</h2></div>
+              {/* 見出し・タブと「メモ・リスト」が3回続いていたので、ここは件数の見出しだけにする。 */}
+              <div><h2 id="notes-empty-title">ぜんぶ</h2></div>
               <strong>0件</strong>
             </div>
             <div className="notes-empty-control__types">

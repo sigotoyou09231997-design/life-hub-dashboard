@@ -73,7 +73,7 @@ export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props)
   const available = QUICK_ACTIONS.filter(({ key }) => !draft.includes(key));
 
   return (
-    <Sheet open={open} onClose={onClose} title={editing ? "追従ボタンを編集" : "すべての機能"}>
+    <Sheet open={open} onClose={onClose} title={editing ? "下のナビの並びを編集" : "すべての機能"}>
       {editing ? (
         <div className="space-y-5">
           <div>
@@ -117,10 +117,9 @@ export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props)
         </div>
       ) : (
         <>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="text-xs text-slate-400">機能を開く</p>
-            <button type="button" onClick={() => setEditing(true)} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/60 bg-white/35 px-3 text-xs font-semibold text-accent"><Pencil size={14} />追従ボタンを編集</button>
-          </div>
+          {/* 「機能を開く」の見出し行は、シートの題「すべての機能」と同じことを言っていて、
+              並びとの間が大きく空いていた(UI/UX 調査メモ 第2弾 S-8)。並びをすぐ出し、
+              ナビの編集は下に置く。 */}
           <div className="grid grid-cols-3 gap-3">
             {FEATURES.map(({ to, label, icon: Icon, color, bg }) => (
               <Link key={to} to={to} onClick={onClose} className="glass-row flex flex-col items-center gap-2 rounded-2xl py-5 text-center transition-colors active:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
@@ -128,6 +127,9 @@ export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props)
                 <span className="text-xs font-medium text-slate-700">{label}</span>
               </Link>
             ))}
+          </div>
+          <div className="mt-4 flex justify-center">
+            <button type="button" onClick={() => setEditing(true)} className="inline-flex min-h-10 items-center gap-2 rounded-full border border-white/60 bg-white/35 px-3 text-xs font-semibold text-accent"><Pencil size={14} />下のナビの並びを編集</button>
           </div>
         </>
       )}
