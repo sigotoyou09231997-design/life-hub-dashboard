@@ -386,6 +386,199 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 }
 
 /* ---------------------------------------------------------------------------
+   6b. まとめて検索（⌘K）— PCヘッダーの検索欄と、シートの中の候補
+       （AppHeader.tsx / GlobalSearch.tsx、2026-10-12）
+       ここに書いたものは .app-header__desk-tools / .app-header__search-field* /
+       .cmd-* だけに効く。
+   ------------------------------------------------------------------------ */
+.app-header__desk-tools { display: none; }
+
+@media (min-width: 1024px) {
+  /* PCのヘッダーは右端の通知とアバターだけで、左側が空いていた。そこを検索欄の場所にする。
+     .app-header__title は PC では中身が見えない（ブランド名はサイドバー）ので外し、
+     同じ左の枠（1列目）を使う。あとで足す「＋追加」も、この並びの中に横へ置く。 */
+  .app-header__title { display: none; }
+  .app-header__desk-tools {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+}
+
+.app-header__search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: min(100%, 22rem);
+  height: 2.5rem;
+  min-width: 0;
+  padding: 0 0.45rem 0 0.8rem;
+  border: 1px solid var(--warm-line-strong);
+  border-radius: 12px;
+  background: var(--warm-surface-sunk);
+  color: var(--warm-ink-3);
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: text;
+  transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease;
+}
+.app-header__search-field:hover {
+  border-color: rgba(23, 161, 153, 0.35);
+  background: #fff;
+}
+.app-header__search-field:focus-visible {
+  outline: none;
+  border-color: var(--teal-500);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(23, 161, 153, 0.18);
+}
+.app-header__search-field > svg { flex-shrink: 0; color: var(--warm-ink-2); }
+.app-header__search-field-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* キーの札（⌘K・Enter など）。押せるキーの形に見えるよう、下の縁だけ厚くする。 */
+.app-header__search-field-key,
+.cmd-palette__keys kbd {
+  flex-shrink: 0;
+  border: 1px solid var(--warm-line-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  padding: 0.05rem 0.38rem;
+  background: #fff;
+  color: var(--warm-ink-2);
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* シートの中。 */
+.cmd-palette { display: flex; flex-direction: column; gap: 1rem; }
+.cmd-palette__intro,
+.cmd-palette__note {
+  padding: 0 0.25rem;
+  color: var(--warm-ink-2);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.cmd-palette__intro { margin-top: -0.4rem; }
+.cmd-palette__list { display: flex; flex-direction: column; gap: 1.1rem; }
+.cmd-palette__list:empty { display: none; }
+
+.cmd-section__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+  padding: 0 0.25rem;
+}
+.cmd-section__head p {
+  color: var(--warm-ink-2);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.cmd-section__head span { color: var(--warm-ink-3); font-size: 0.72rem; }
+
+.cmd-list { display: flex; flex-direction: column; gap: 2px; }
+
+.cmd-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 2.9rem;
+  border-radius: 12px;
+  padding: 0.45rem 0.6rem;
+  color: var(--warm-ink);
+  text-decoration: none;
+  transition: background-color 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.cmd-row:active { background: var(--teal-50); }
+.cmd-row__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+  background: var(--warm-surface-sunk);
+  color: var(--warm-ink-2);
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.cmd-row__text { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.cmd-row__title {
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmd-row__sub {
+  overflow: hidden;
+  color: var(--warm-ink-3);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmd-row__enter { flex-shrink: 0; color: var(--teal-600); opacity: 0; }
+
+/* 「選んでいる行」の色は、キーやマウスで動かす端末だけ。指の端末では最初の行が
+   いつも塗られて「押したことになっている」ように見えるため。 */
+@media (hover: hover) and (pointer: fine) {
+  .cmd-row.is-active { background: var(--teal-50); }
+  .cmd-row.is-active .cmd-row__icon { background: var(--teal-500); color: #fff; }
+  .cmd-row.is-active .cmd-row__enter { opacity: 1; }
+}
+
+/* 「よく使う操作」は、スマホでは2列のタイル（縦に長くなって「最近見たもの」が
+   画面の外へ押し出されないように）。PCは1列のまま — ↑↓の順番と並びを合わせる。 */
+@media (max-width: 1023px) {
+  .cmd-list--grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem; }
+  .cmd-list--grid .cmd-row {
+    gap: 0.5rem;
+    min-height: 3.4rem;
+    border: 1px solid var(--warm-line);
+    border-radius: 14px;
+    padding: 0.5rem;
+    background: var(--warm-surface-soft);
+  }
+  /* 幅の狭いスマホでは「カレンダーを見る」が1行に収まらないので、…で切らずに折り返す。 */
+  .cmd-list--grid .cmd-row__title { line-height: 1.3; white-space: normal; }
+  .cmd-list--grid .cmd-row__enter { display: none; }
+}
+
+/* キー操作の案内。指で使う端末には出さない。 */
+.cmd-palette__keys {
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  border-top: 1px solid var(--warm-line);
+  padding: 0.75rem 0.25rem 0;
+  color: var(--warm-ink-3);
+  font-size: 0.72rem;
+}
+.cmd-palette__keys span { display: inline-flex; align-items: center; gap: 0.25rem; }
+@media (hover: hover) and (pointer: fine) {
+  .cmd-palette__keys { display: flex; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header__search-field,
+  .cmd-row,
+  .cmd-row__icon { transition: none; }
+}
+
+/* ---------------------------------------------------------------------------
    7. 下のナビ — アイコンは灰、選んでいる所だけ青緑。下線の代わりに、
       選んだ項目の後ろへ薄い青緑のつまみが滑っていく（位置はJSが --ind-* で渡す）。
    ------------------------------------------------------------------------ */

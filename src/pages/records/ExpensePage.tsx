@@ -79,7 +79,9 @@ export default function ExpensePage() {
   // 履歴タブへ移す — 保存したあとに何が増えたのかが見える場所で終わるようにする。
   // 開いたら印はURLから消す(残すと、閉じたあとの再読み込みや戻るでまた開く)。
   // ?new=salary はホームの「今月のお金」(給与がまだ無い時)の「給与を登録する」から。
-  // ?tab= は、ほかの画面から決まったタブを開くため(ホームの「支出を見る」など)。
+  // ?tab= は、ほかの画面から決まったタブを開くため(ホームの「支出を見る」、まとめて検索の
+  // 「サブスクを見る」src/lib/commandPalette.ts など)。すでにお金管理の別のタブを見ている時は
+  // 同じ画面のまま(作り直されない)なので、印を見てタブを移す。
   useEffect(() => {
     const requested = searchParams.get("new");
     const requestedTab = searchParams.get("tab");
