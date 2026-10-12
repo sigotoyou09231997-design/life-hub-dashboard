@@ -58,6 +58,36 @@ describe("App authentication bootstrap", () => {
     await waitFor(() => expect(state.startSync).toHaveBeenCalledWith("user-1", "token-1"));
   });
 
+  it("同じ人の「ログイン中」の知らせ(トークン更新・アプリに戻った時)では、画面を空白に戻さない", async () => {
+    const session = { user: { id: "user-1" }, access_token: "token-1" };
+    state.getSession.mockResolvedValue({ data: { session } });
+    render(<MemoryRouter><App /></MemoryRouter>);
+    expect(await screen.findByText("Home page")).toBeTruthy();
+
+    // 同期のトークン更新が遅れても、画面は出たまま(前は「準備中」の空白に戻って、メールなどが消えた)。
+    let finishRefresh: () => void = () => {};
+    state.startSync.mockImplementationOnce(() => new Promise<void>((resolve) => { finishRefresh = resolve; }));
+    const notify = state.onAuthStateChange.mock.calls[0][0] as (event: string, next: unknown) => void;
+    notify("SIGNED_IN", { ...session, access_token: "token-2" });
+
+    await waitFor(() => expect(state.startSync).toHaveBeenLastCalledWith("user-1", "token-2"));
+    expect(screen.queryByText("Home page")).not.toBeNull();
+    finishRefresh();
+    expect(await screen.findByText("Home page")).toBeTruthy();
+  });
+
+  it("別の人でログインし直した時は、同期の準備が済むまで空白にして、前の人の画面を出さない", async () => {
+    state.getSession.mockResolvedValue({ data: { session: { user: { id: "user-1" }, access_token: "token-1" } } });
+    render(<MemoryRouter><App /></MemoryRouter>);
+    expect(await screen.findByText("Home page")).toBeTruthy();
+
+    state.startSync.mockImplementationOnce(() => new Promise<void>(() => {}));
+    const notify = state.onAuthStateChange.mock.calls[0][0] as (event: string, next: unknown) => void;
+    notify("SIGNED_IN", { user: { id: "user-2" }, access_token: "token-9" });
+
+    await waitFor(() => expect(screen.queryByText("Home page")).toBeNull());
+  });
+
   it("記録の無い端末でログインすると、そのアカウントを端末の一覧に登録する", async () => {
     localStorage.clear();
     state.getSession.mockResolvedValue({
