@@ -69,6 +69,10 @@ let rememberedView: {
  * 先頭からこれだけ並べ、残りは下の「さらに表示」で足す。検索・絞り込みは全件が相手(出すのだけを区切る)。 */
 const MAIL_PAGE_SIZE = 50;
 
+/** ほかの画面のカードと同じ「順にせり上がって現れる」動き(usePageMotion)を付ける、先頭の行の数。
+ * 全部の行に付けると、長い一覧が数百の面になって重いので、画面に入る分だけ。残りははじめから出す。 */
+const REVEAL_ROWS = 8;
+
 /** 一覧を開いた時の自動同期を見送る間隔。メールを1通開いて戻るだけで毎回取りに行くと、
  * Gmail APIの1分あたりの上限に近づく(src/lib/gmailSync.ts の絞り込みと同じ理由)。 */
 const OPEN_SYNC_COOLDOWN_MS = 60_000;
@@ -334,7 +338,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
     // lg未満(モバイル)はflex-colのまま自然に積み重なり、ページ全体でスクロールする。
     <div className="mail-inbox flex flex-col gap-3 lg:h-full lg:min-h-0">
       {!showSkeleton && emails && emails.length > 0 && (
-        <div className="relative shrink-0">
+        <div data-page-block className="relative shrink-0">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
           <input
             value={query}
@@ -348,6 +352,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
       {!showSkeleton && emails && emails.length > 0 && (
         <div
           ref={chipsRef}
+          data-page-block
           className="mail-filter-chips relative flex shrink-0 gap-1.5 overflow-x-auto"
           role="group"
           aria-label="ステータスフィルター"
@@ -407,7 +412,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
             compact ? "mail-list--compact gap-1" : "gap-2"
           }`}
         >
-          {filteredEmails.slice(0, shown).map((email) => {
+          {filteredEmails.slice(0, shown).map((email, rowIndex) => {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed" && !email.readAt;
             const snippet = snippetText(email.snippet);
@@ -452,6 +457,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
                 <div
                   key={email.id}
                   data-mail-id={email.id}
+                  {...(rowIndex >= REVEAL_ROWS ? { "data-no-reveal": "" } : {})}
                   className={`mail-row mail-row--compact glass-row flex w-full items-stretch rounded-xl border-l-[3px] transition-colors ${
                     unread ? "is-unread border-l-accent" : "border-l-transparent"
                   } ${selected ? "is-selected" : ""}`}
@@ -519,6 +525,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
               <div
                 key={email.id}
                 data-mail-id={email.id}
+                {...(rowIndex >= REVEAL_ROWS ? { "data-no-reveal": "" } : {})}
                 className={`mail-row glass-row flex w-full items-stretch rounded-xl border-l-[3px] transition-colors ${unread ? "is-unread border-l-accent" : "border-l-transparent"}`}
               >
                 {/* 同じタブで開く。新規タブに分けていた頃(2026-08-14〜)は、1通読むごとに

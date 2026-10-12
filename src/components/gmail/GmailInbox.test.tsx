@@ -375,3 +375,22 @@ describe("メール一覧 — 開き直した時に空白・誤表示を出さ�
     await screen.findByRole("link", { name: /一次面接のご案内/ });
   });
 });
+
+describe("メール一覧 — 出現の動き(ほかの画面と同じ)", () => {
+  afterEach(cleanup);
+  beforeEach(() => {
+    mocks.emails = Array.from({ length: 20 }, (_, i) => email(`a${i}`, `件名-${i}`));
+    mocks.syncCalls = 0;
+    mocks.replyWaiting = [];
+  });
+
+  it("検索・絞り込み・先頭の8行だけが出現の動きの対象で、それより後ろははじめから出す", async () => {
+    const { container } = renderInbox({ id: "reveal" });
+    await screen.findByRole("link", { name: /件名-0\b/ });
+    expect(container.querySelectorAll("[data-page-block]").length).toBeGreaterThanOrEqual(2); // 検索と絞り込み
+    const rows = Array.from(container.querySelectorAll<HTMLElement>("[data-mail-id]"));
+    expect(rows).toHaveLength(20);
+    expect(rows.slice(0, 8).every((row) => !row.hasAttribute("data-no-reveal"))).toBe(true);
+    expect(rows.slice(8).every((row) => row.hasAttribute("data-no-reveal"))).toBe(true);
+  });
+});
