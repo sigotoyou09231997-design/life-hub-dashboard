@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { LayoutGrid } from "lucide-react";
 import { AllFeaturesSheet } from "./AllFeaturesSheet";
 import { getQuickAction, loadQuickActionKeys, saveQuickActionKeys, type QuickActionKey } from "./quickActions";
+import { pushQuickActions, supabaseQuickActionRemote, syncQuickActions } from "./quickActionsSync";
 import { useToast } from "../ui/ToastProvider";
 
 function useActiveQuickActionKey(): QuickActionKey | null {
@@ -28,8 +29,30 @@ export function QuickActionBar() {
   // ホームだけは別 — ナビに無ければヘッダーの家の印が光る(AppHeader.tsx、第2弾 S-2)。
   const allActive = activeKey !== "home" && (activeKey === null || !selectedKeys.includes(activeKey));
 
+  // 並びはアカウントに紐づけて、別の端末にも同じにする(quickActionsSync.ts)。開いた時と、
+  // アプリに戻った時に、サーバーの並びと突き合わせる。通信できない時は、端末の中の並びのまま。
+  useEffect(() => {
+    let alive = true;
+    const sync = () => {
+      void syncQuickActions(supabaseQuickActionRemote).then((next) => {
+        if (alive && next) setSelectedKeys(next);
+      });
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    sync();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
   function handleSave(next: QuickActionKey[]) {
-    setSelectedKeys(saveQuickActionKeys(next));
+    const saved = saveQuickActionKeys(next);
+    setSelectedKeys(saved);
+    void pushQuickActions(saved, supabaseQuickActionRemote);
     showToast("下のナビを更新しました");
   }
 
