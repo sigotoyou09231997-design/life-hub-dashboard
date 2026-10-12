@@ -101,9 +101,10 @@ export function CalendarView({
   // 別の色・別の線種で出し(src/lib/fixedCostCalendar.ts)、予定としては保存しない。
   // 予定ではないので「誰の」の絞り込みの対象にもしない。
   const fixedCosts = useLiveQuery(() => db.fixedCosts.toArray(), []);
+  const subscriptionDetails = useLiveQuery(() => db.subscriptionDetails.toArray(), []);
   const dayChips = mergeChips(
     collectDayChipsInRange(shownEvents, people, gridStart, gridEnd),
-    collectFixedCostChipsInRange(fixedCosts ?? [], gridStart, gridEnd),
+    collectFixedCostChipsInRange(fixedCosts ?? [], gridStart, gridEnd, subscriptionDetails ?? []),
   );
 
   const taskDates = new Set(tasks.filter((t) => !t.completed && t.dueDate).map((t) => t.dueDate!));

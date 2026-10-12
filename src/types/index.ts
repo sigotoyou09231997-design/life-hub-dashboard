@@ -153,6 +153,44 @@ export interface FixedCost {
   userId?: string;
 }
 
+/** サブスク(固定費)の払い方。 */
+export type BillingCycle = "monthly" | "yearly";
+
+/**
+ * 固定費(FixedCost)をサブスクとして扱うための付け足し(2026-10-12、参考: App Store の
+ * 「サブスクBOX」)。年払い・契約開始日・無料体験・解約日・どのサービスか、を持つ。
+ *
+ * fixed_costs に列を足すと、その列が本番に無いうちは固定費の同期ごと止まるので、
+ * 別テーブルに逃がす(EventMailLink / TripExpenseCurrency と同じ判断)。
+ * 行が無い固定費は、いままでどおり「毎月 dueDay 日に払う」ものとして扱う
+ * (src/lib/subscriptions.ts)。
+ *
+ * 消した値は undefined ではなく null で持つ。同期(src/lib/sync.ts)は undefined の項目を
+ * 送らないので、undefined にすると他の端末に古い値(解約日など)が残ったままになる。
+ *
+ * 解約したときは FixedCost.active も false にする。サーバーの支払日通知
+ * (netlify/functions/checkRemindersAndNotify.ts)や古い版のアプリは active しか
+ * 見ないので、そちらでも止まって見えるようにするため。
+ */
+export interface SubscriptionDetail {
+  id?: string;
+  /** FixedCost.id。1件の固定費に1行。 */
+  fixedCostId: string;
+  cycle: BillingCycle;
+  /** 年払いの請求月(1〜12)。日は FixedCost.dueDay。毎月払いでは使わない。 */
+  billingMonth?: number | null;
+  /** お手本の id(src/lib/subscriptionTemplates.ts)。アイコンの色と印に使う。 */
+  serviceKey?: string | null;
+  /** 契約を始めた日(YYYY-MM-DD)。これより前の請求日は数えない。未来なら「開始予定」。 */
+  startDate?: string | null;
+  /** 無料体験が終わる日(YYYY-MM-DD)。この日から請求が始まるものとして数える。 */
+  trialEndDate?: string | null;
+  /** 解約した日(YYYY-MM-DD)。 */
+  cancelledAt?: string | null;
+  createdAt: number;
+  updatedAt?: number;
+}
+
 /**
  * 固定費の金額を変えた記録1件(値上げに後から気づくためのもの)。
  *

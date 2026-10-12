@@ -139,7 +139,8 @@ export function ExpenseSummary({ onAddSalary }: Props) {
     ["今回の給与", period.hasSalaryForPeriod ? yen(period.salaryAmount) : "未入力"],
     // 賞与は給与と同じく使えるお金に足しているので、0円のときは行ごと出さない。
     ...(bonusAmount > 0 ? ([["今期の賞与", yen(bonusAmount)]] as [string, string][]) : []),
-    ["固定費合計", yen(totalFixedCosts)],
+    // 年払いは請求日がこの期に入るときだけ数える(src/lib/subscriptions.ts の chargeInPeriod)。
+    ["サブスク・固定費", yen(totalFixedCosts)],
     ["記録した収入", yen(totalIncome)],
     ["記録した支出", yen(totalExpense)],
   ];

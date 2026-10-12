@@ -3,6 +3,7 @@ import {
   buildBudgetForecastPayload,
   buildBudgetOverPayload,
   calculateRemaining,
+  fixedChargeInPeriod,
   forecastOverCategories,
   FORECAST_MIN_ELAPSED_DAYS,
   jstTodayStr,
@@ -188,5 +189,28 @@ describe("buildBudgetForecastPayload", () => {
     const other = { category: "交際費", budget: 10000, spent: 8000, projected: 24000, projectedOver: 14000 };
     const payload = JSON.parse(buildBudgetForecastPayload([FOOD, other], 5));
     expect(payload.title).toBe("このペースだと 食費・ほか1件 が給料日までに超えそうです");
+  });
+});
+
+describe("fixedChargeInPeriod(サブスクの付け足し、032)", () => {
+  const row = { id: "a", amount: 1_000, due_day: 10 };
+
+  it("付け足しが無ければ、いままでどおり毎月1回ぶん", () => {
+    expect(fixedChargeInPeriod(row, undefined, "2026-09-25", "2026-10-24")).toBe(1_000);
+  });
+
+  it("年払いは請求日が期に入るときだけ", () => {
+    const yearly = { fixed_cost_id: "a", cycle: "yearly", billing_month: 10, start_date: null, trial_end_date: null };
+    expect(fixedChargeInPeriod({ ...row, amount: 12_000 }, yearly, "2026-09-25", "2026-10-24")).toBe(12_000);
+    expect(fixedChargeInPeriod({ ...row, amount: 12_000 }, yearly, "2026-10-25", "2026-11-24")).toBe(0);
+    // 年をまたぐ期
+    const january = { ...yearly, billing_month: 1 };
+    expect(fixedChargeInPeriod({ ...row, amount: 12_000 }, january, "2026-12-25", "2027-01-24")).toBe(12_000);
+  });
+
+  it("無料体験が期の後で終わるなら0", () => {
+    const trial = { fixed_cost_id: "a", cycle: "monthly", billing_month: null, start_date: null, trial_end_date: "2026-11-01" };
+    expect(fixedChargeInPeriod(row, trial, "2026-09-25", "2026-10-24")).toBe(0);
+    expect(fixedChargeInPeriod(row, trial, "2026-10-25", "2026-11-24")).toBe(1_000);
   });
 });

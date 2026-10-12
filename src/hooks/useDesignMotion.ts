@@ -24,10 +24,12 @@ const COUNT_SELECTOR = [
   ".finance-control-center > .finance-balance-module p.tabular-nums",
   ".lh-money__stats dd",
   ".lh-savings__amount",
+  ".subs-total__amount",
+  ".subs-total__stats dd",
 ].join(",");
 
 const TILT_SELECTOR = ".lh-home > a.lh-money";
-const SHEEN_SELECTOR = `${TILT_SELECTOR}, .finance-control-center > .finance-balance-module`;
+const SHEEN_SELECTOR = `${TILT_SELECTOR}, .finance-control-center > .finance-balance-module, .subs-total`;
 const GLOW_SELECTOR = `.warm-card, .glass-card, ${SHEEN_SELECTOR}`;
 
 const NUMBER_PATTERN = /\d{1,3}(?:,\d{3})+|\d+/g;
