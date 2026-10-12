@@ -12,7 +12,7 @@ import {
   type TripQuickPlanInput,
 } from "../../lib/tripQuickPlan";
 import { Input, Textarea, AmountInput } from "../ui/Input";
-import { Select } from "../ui/Select";
+import { SegmentedField } from "../ui/SegmentedField";
 import { DateRangeField } from "../ui/DateField";
 import { SwitchField } from "../ui/SwitchField";
 import { FormPanel } from "../ui/FormPanel";
@@ -133,13 +133,9 @@ export function TripQuickPlanForm({ tripId, defaultDate, nextSortOrder, existing
           error={errors.title}
           autoFocus
         />
-        <Select label="種類" value={type} onChange={(e) => changeType(e.target.value as TripScheduleType)}>
-          {TRIP_SCHEDULE_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </Select>
+        {/* iPhone では、入力画面(シート)の中のプルダウンは、キーボードを出したあとに押すと選択肢が欄から
+            離れて出て、押した所がずれる(2026-10-11 の持ち物と同じ)。選択肢が少ないので、分けたボタンにする(2026-10-12)。 */}
+        <SegmentedField label="種類" value={type} options={TRIP_SCHEDULE_TYPES} onChange={changeType} columns={3} separate />
         <DateRangeField
           label="日付"
           start={date}
@@ -184,20 +180,17 @@ export function TripQuickPlanForm({ tripId, defaultDate, nextSortOrder, existing
               placeholder="0"
               error={errors.amount}
             />
-            <Select
+            <SegmentedField
               label="分類"
               value={expenseCategory}
-              onChange={(e) => {
+              options={TRIP_EXPENSE_CATEGORIES}
+              onChange={(next) => {
                 setCategoryTouched(true);
-                setExpenseCategory(e.target.value as TripExpenseCategory);
+                setExpenseCategory(next);
               }}
-            >
-              {TRIP_EXPENSE_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </Select>
+              columns={3}
+              separate
+            />
             <SwitchField label="支払い済み" checked={paid} onChange={setPaid} />
           </>
         )}

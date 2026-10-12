@@ -112,10 +112,10 @@ describe("費用の入力: 支払った人", () => {
     render(
       <TripExpenseForm tripId="t1" initial={{ ...EXPENSE, paidBy: "抜けた人" }} members={["ふなだ", "えっくん"]} onSaved={() => {}} onCancel={() => {}} />,
     );
-    const select = screen.getByRole("combobox", { name: /支払った人/ }) as HTMLSelectElement;
-    expect([...select.options].map((o) => o.textContent)).toEqual(["決めていない", "ふなだ", "えっくん", "抜けた人"]);
-    expect(select.value).toBe("抜けた人");
-    await user.selectOptions(select, "えっくん");
+    // 支払った人は分けたボタン(シートの中のプルダウンは iPhone で選択肢が離れて出るため、2026-10-12)。
+    const payers = ["決めていない", "ふなだ", "えっくん", "抜けた人"].map((name) => screen.getByRole("button", { name }));
+    expect(payers.map((button) => button.getAttribute("aria-pressed"))).toEqual(["false", "false", "false", "true"]);
+    await user.click(screen.getByRole("button", { name: "えっくん" }));
     await user.click(screen.getByRole("button", { name: /保存/ }));
     await waitFor(() => expect(mocks.updated[0]?.[1]).toMatchObject({ paidBy: "えっくん" }));
   });
@@ -123,14 +123,14 @@ describe("費用の入力: 支払った人", () => {
   it("参加者の列が null(同期で降りてきた、参加者を入れていない旅行)でも開ける", () => {
     mocks.loadCurrencyDraft.mockResolvedValue({ currency: "JPY", originalAmount: "", rate: "", manual: false });
     render(<TripExpenseForm tripId="t1" initial={EXPENSE} members={null} onSaved={() => {}} onCancel={() => {}} />);
-    expect(screen.queryByRole("combobox", { name: /支払った人/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "決めていない" })).toBeNull();
     expect(screen.getByRole("button", { name: /保存/ })).toBeTruthy();
   });
 
   it("参加者がいなければ、支払った人の欄は出さない", () => {
     mocks.loadCurrencyDraft.mockResolvedValue({ currency: "JPY", originalAmount: "", rate: "", manual: false });
     renderForm();
-    expect(screen.queryByRole("combobox", { name: /支払った人/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "決めていない" })).toBeNull();
   });
 });
 

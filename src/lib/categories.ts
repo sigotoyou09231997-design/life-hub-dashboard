@@ -34,6 +34,11 @@ export const FIXED_COST_CATEGORIES = [
 
 export const PAYMENT_METHODS = ["現金", "クレジットカード", "電子マネー", "銀行振込", "その他"];
 
+/** 支払い方法のボタンに出す名前。保存する値(PAYMENT_METHODS)はそのままで、
+ * 「クレジットカード」だけは3列のボタンに収まらず2行に折れるので短くして見せる。
+ * 収支の入力(ExpenseForm)とメールから支出を作るシート(MailExpenseImport)で同じものを使う。 */
+export const PAYMENT_METHOD_BUTTON_LABELS: Record<string, string> = { クレジットカード: "クレカ" };
+
 export const NOTE_CATEGORIES = ["仕事", "プライベート", "重要", "その他"];
 
 export const GOAL_CATEGORIES = ["貯金", "仕事", "健康", "学習", "その他"];

@@ -17,6 +17,7 @@ import {
 } from "../../lib/currency";
 import { Input, Textarea, AmountInput } from "../ui/Input";
 import { Select } from "../ui/Select";
+import { SegmentedField } from "../ui/SegmentedField";
 import { SwitchField } from "../ui/SwitchField";
 import { DateField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
@@ -213,26 +214,24 @@ export function TripExpenseForm({ tripId, initial, members: membersProp, onSaved
           />
         )}
 
-        <Select label="種類" value={category} onChange={(e) => setCategory(e.target.value as TripExpenseCategory)}>
-          {TRIP_EXPENSE_CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </Select>
+        {/* iPhone では、入力画面(シート)の中のプルダウンは、キーボードを出したあとに押すと選択肢が欄から
+            離れて出て、押した所がずれる(2026-10-11 の持ち物と同じ)。選択肢が少ないものは、分けたボタンにする
+            (2026-10-12)。通貨は17あってボタンでは長すぎ、使うのも海外の時だけなので、プルダウンのまま。 */}
+        <SegmentedField label="種類" value={category} options={TRIP_EXPENSE_CATEGORIES} onChange={setCategory} columns={3} separate />
       </FormPanel>
 
       <FormPanel caption="支払い">
         <SwitchField label="支払い済み" checked={paid} onChange={setPaid} />
         {payerOptions.length > 0 && (
-          <Select label="支払った人" optional value={paidBy} onChange={(e) => setPaidBy(e.target.value)}>
-            <option value="">決めていない</option>
-            {payerOptions.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </Select>
+          <SegmentedField
+            label="支払った人"
+            optional
+            value={paidBy}
+            options={[{ value: "", label: "決めていない" }, ...payerOptions.map((name) => ({ value: name, label: name }))]}
+            onChange={setPaidBy}
+            columns={3}
+            separate
+          />
         )}
         <DateField label="支払日" optional value={paidDate} onChange={setPaidDate} placeholder="まだ決めていない" />
         <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />

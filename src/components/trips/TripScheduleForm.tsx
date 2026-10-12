@@ -11,7 +11,6 @@ import { detailsForSave, hasScheduleDetails, type ScheduleDetailField } from "..
 import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
 import { PhotoField } from "../attachments/PhotoField";
 import { AmountInput, Input, Textarea } from "../ui/Input";
-import { Select } from "../ui/Select";
 import { DateRangeField } from "../ui/DateField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
@@ -198,13 +197,9 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
           required
           autoFocus
         />
-        <Select label="種類" value={type} onChange={(e) => setType(e.target.value as TripScheduleType)}>
-          {TRIP_SCHEDULE_TYPES.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </Select>
+        {/* iPhone では、入力画面(シート)の中のプルダウンは、キーボードを出したあとに押すと選択肢が欄から
+            離れて出て、押した所がずれる(2026-10-11 の持ち物と同じ)。選択肢が少ないので、分けたボタンにする(2026-10-12)。 */}
+        <SegmentedField label="種類" value={type} options={TRIP_SCHEDULE_TYPES} onChange={setType} columns={3} separate />
         {type === "transport" && (
           <SegmentedField
             label="移動手段"
@@ -288,14 +283,15 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
       <FormPanel caption="費用">
         <AmountInput label="金額" optional value={amount} onChange={(e) => setAmount(e.target.value)} min={0} placeholder="0" />
         {payerOptions.length > 0 ? (
-          <Select label="支払った人" optional value={paidBy} onChange={(e) => setPaidBy(e.target.value)}>
-            <option value="">決めていない</option>
-            {payerOptions.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </Select>
+          <SegmentedField
+            label="支払った人"
+            optional
+            value={paidBy}
+            options={[{ value: "", label: "決めていない" }, ...payerOptions.map((name) => ({ value: name, label: name }))]}
+            onChange={setPaidBy}
+            columns={3}
+            separate
+          />
         ) : (
           <p className="px-[0.9rem] py-2.5 text-xs text-slate-400">旅行の編集で参加者を入れると、誰が払ったかも選べます。</p>
         )}

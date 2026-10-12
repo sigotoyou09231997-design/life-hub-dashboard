@@ -9,9 +9,13 @@ import { Field } from "../ui/Field";
 import { FormActions } from "../ui/FormActions";
 import { FormPanel } from "../ui/FormPanel";
 import { Input, Textarea } from "../ui/Input";
-import { Select } from "../ui/Select";
+import { SegmentedField } from "../ui/SegmentedField";
 import { SwitchField } from "../ui/SwitchField";
 import { useToast } from "../ui/ToastProvider";
+
+/** 段階のボタン。並びは JOB_STAGES のまま(上から順に進む)で、左上から右へ読めば選考の順になる。
+ * 3列にするのは、4列だとスマホ幅(390px)で「応募済み」などの4文字が2行に折れるため(2026-10-12に確認)。 */
+const STAGE_OPTIONS = JOB_STAGES.map((stage) => ({ value: stage.value, label: stage.label }));
 
 interface Props {
   initial?: JobApplication;
@@ -125,13 +129,16 @@ export function JobApplicationForm({ initial, onSaved, onCancel }: Props) {
           onChange={(e) => setRole(e.target.value)}
           placeholder="例: Webエンジニア"
         />
-        <Select label="今の段階" value={stage} onChange={(e) => setStage(e.target.value as JobApplicationStage)}>
-          {JOB_STAGES.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
+        {/* プルダウンにしない。iPhone ではシートの中のプルダウンを押すとキーボードが閉じてシートが動き、
+            選択肢が欄から離れた所に出て、押したつもりが外れる(2026-10-12。2026-10-11の持ち物と同じ直し方)。 */}
+        <SegmentedField<JobApplicationStage>
+          label="今の段階"
+          value={stage}
+          options={STAGE_OPTIONS}
+          onChange={setStage}
+          columns={3}
+          separate
+        />
       </FormPanel>
 
       <FormPanel caption="次の予定" icon={CalendarClock}>

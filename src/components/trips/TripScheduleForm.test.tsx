@@ -79,7 +79,7 @@ describe("旅行の予定の入力: 移動手段", () => {
     const user = userEvent.setup();
     renderForm();
     expect(screen.queryByText("移動手段")).toBeNull();
-    await user.selectOptions(screen.getByRole("combobox"), "transport");
+    await user.click(screen.getByRole("button", { name: "移動" }));
     expect(screen.getByText("移動手段")).toBeTruthy();
     expect(screen.getByRole("button", { name: "新幹線" })).toBeTruthy();
   });
@@ -88,7 +88,7 @@ describe("旅行の予定の入力: 移動手段", () => {
     const user = userEvent.setup();
     renderForm();
     await user.type(screen.getByPlaceholderText("例: 五稜郭"), "東京→岡山");
-    await user.selectOptions(screen.getByRole("combobox"), "transport");
+    await user.click(screen.getByRole("button", { name: "移動" }));
     await user.click(screen.getByRole("button", { name: "新幹線" }));
     await user.click(screen.getByRole("button", { name: "予定を追加" }));
     expect(mocks.added).toEqual([expect.objectContaining({ title: "東京→岡山", type: "transport", transportMode: "shinkansen" })]);
@@ -98,7 +98,7 @@ describe("旅行の予定の入力: 移動手段", () => {
     const user = userEvent.setup();
     renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "高松→鳴門", type: "transport", transportMode: "car", createdAt: 1 });
     expect(screen.getByRole("button", { name: "車" }).getAttribute("aria-pressed")).toBe("true");
-    await user.selectOptions(screen.getByRole("combobox"), "sightseeing");
+    await user.click(screen.getByRole("button", { name: "観光" }));
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
     expect(mocks.updated[0][1]).toMatchObject({ type: "sightseeing", transportMode: undefined });
   });
@@ -150,7 +150,7 @@ describe("旅行の予定の入力: 詳細", () => {
     const user = userEvent.setup();
     renderForm();
     await user.type(screen.getByPlaceholderText("例: 五稜郭"), "ダイワロイネットホテル");
-    await user.selectOptions(screen.getByRole("combobox"), "lodging");
+    await user.click(screen.getByRole("button", { name: "宿泊" }));
     await user.click(screen.getByRole("button", { name: /チェックイン\/アウト/ }));
     expect(screen.queryByPlaceholderText(/水曜休み/)).toBeNull();
     expect(screen.getByText("チェックイン")).toBeTruthy();
@@ -169,7 +169,7 @@ describe("旅行の予定の入力: 費用と支払った人", () => {
     renderForm(undefined, ["ふなだ", "えっくん"]);
     await user.type(screen.getByPlaceholderText("例: 五稜郭"), "うずしお観潮船");
     await user.type(screen.getByLabelText(/^金額/), "2500");
-    await user.selectOptions(screen.getByRole("combobox", { name: /支払った人/ }), "えっくん");
+    await user.click(screen.getByRole("button", { name: "えっくん" }));
     await user.click(screen.getByRole("button", { name: "予定を追加" }));
     expect(mocks.expenseAdded).toEqual([
       expect.objectContaining({ tripId: "t1", title: "うずしお観潮船", amount: 2500, paidBy: "えっくん", scheduleId: "new-schedule-id", category: "sightseeing" }),
@@ -178,7 +178,7 @@ describe("旅行の予定の入力: 費用と支払った人", () => {
 
   it("参加者がいなければ、支払った人の代わりに案内を出す(金額だけは入れられる)", () => {
     renderForm();
-    expect(screen.queryByRole("combobox", { name: /支払った人/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "決めていない" })).toBeNull();
     expect(screen.getByText(/参加者を入れると、誰が払ったかも選べます/)).toBeTruthy();
   });
 

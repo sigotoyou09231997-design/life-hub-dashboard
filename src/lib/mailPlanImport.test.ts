@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "../types";
-import { PLAN_GROUPS, findSimilarPlan, normalizePlanTitle, describeCounts, describePlanImportError, describeSaved, otherDestinations, sortDestinations, toDestination, isRouteAlreadyRegistered, needsTrip, nextRouteSortOrder, routeKey, toRouteImportRows, toTripRoutePlaceRecord, isAlreadyRegistered, isOutsideTrip, mergeDuplicateItems, pickDefaultTripId, planKey, toExpenseCategory, toTripExpenseRecord, sortTripsForPicker, toCalendarEventRecord, toImportRows, toTaskRecord, toTripScheduleRecord, sameSpot } from "./mailPlanImport";
+import { PLAN_GROUPS, findSimilarPlan, normalizePlanTitle, describeCounts, describePlanImportError, describeSaved, otherDestinations, sortDestinations, toDestination, isRouteAlreadyRegistered, needsTrip, nextRouteSortOrder, routeKey, toRouteImportRows, toTripRoutePlaceRecord, isAlreadyRegistered, isOutsideTrip, mergeDuplicateItems, pickDefaultTripId, planKey, toExpenseCategory, toTripExpenseRecord, sortTripsForPicker, visibleTripsForPicker, toCalendarEventRecord, toImportRows, toTaskRecord, toTripScheduleRecord, sameSpot } from "./mailPlanImport";
 
 const trip = (id: string, startDate: string, endDate: string): Trip => ({
   id,
@@ -173,6 +173,29 @@ describe("sortTripsForPicker", () => {
     const trips = [trip("a", "2026-01-01", "2026-01-03"), trip("b", "2026-09-11", "2026-09-15")];
     sortTripsForPicker(trips);
     expect(trips.map((t) => t.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("visibleTripsForPicker", () => {
+  // 新しい順に並んだ旅行(sortTripsForPicker の後)。
+  const trips = ["f", "e", "d", "c", "b", "a"].map((id, i) => trip(id, `2026-0${9 - i}-01`, `2026-0${9 - i}-03`));
+
+  it("旅行が多い時は、新しい順の先頭から4件だけボタンにする", () => {
+    expect(visibleTripsForPicker(trips, "f").map((t) => t.id)).toEqual(["f", "e", "d", "c"]);
+  });
+
+  it("選んでいる旅行が後ろの方でも、並びの位置のまま出す", () => {
+    // 日付から当たりを付けると、古い旅行が選ばれていることがある。隠すと何が選ばれているか分からない。
+    expect(visibleTripsForPicker(trips, "a").map((t) => t.id)).toEqual(["f", "e", "d", "c", "a"]);
+  });
+
+  it("隠すのが1件だけなら全部出す", () => {
+    const five = trips.slice(0, 5);
+    expect(visibleTripsForPicker(five, "f")).toEqual(five);
+  });
+
+  it("まだ選んでいない時も先頭の4件", () => {
+    expect(visibleTripsForPicker(trips, undefined).map((t) => t.id)).toEqual(["f", "e", "d", "c"]);
   });
 });
 

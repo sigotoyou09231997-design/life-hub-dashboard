@@ -3,7 +3,12 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction, TransactionType } from "../../types";
 import { todayStr } from "../../lib/date";
-import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "../../lib/categories";
+import {
+  EXPENSE_CATEGORIES,
+  INCOME_CATEGORIES,
+  PAYMENT_METHODS,
+  PAYMENT_METHOD_BUTTON_LABELS,
+} from "../../lib/categories";
 import { orderCategoriesByUsage } from "../../lib/categoryUsage";
 import { collectStoreSamples, guessCategoryFromStore } from "../../lib/storeCategory";
 import { knownProjectTags, loadProjectTag, saveProjectTag } from "../../lib/projectTags";
@@ -25,10 +30,6 @@ interface Props {
   onSaved: () => void;
   onCancel: () => void;
 }
-
-/** 支払い方法のボタンに出す名前。保存する値(PAYMENT_METHODS)はそのままで、
- * 「クレジットカード」だけは3列のボタンに収まらず2行に折れるので短くして見せる。 */
-const METHOD_LABELS: Record<string, string> = { クレジットカード: "クレカ" };
 
 /** 一覧に無い値(取り込みで入った独自のカテゴリ・支払い方法)を開いたときは、末尾に1つ足して
  * 選んだ状態で見せる。足さないと、どれも選ばれていないように見えるのに保存すると元の値が残る。 */
@@ -213,7 +214,7 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
           <SegmentedField
             label="支払い方法"
             value={method}
-            options={methodOptions.map((m) => ({ value: m, label: METHOD_LABELS[m] ?? m }))}
+            options={methodOptions.map((m) => ({ value: m, label: PAYMENT_METHOD_BUTTON_LABELS[m] ?? m }))}
             onChange={setMethod}
             columns={3}
             separate
