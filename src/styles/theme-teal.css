@@ -76,7 +76,9 @@
   --hub-r-sm: var(--r-control);
   --warm-ink: #141618;
   --warm-ink-2: #5d6468;
-  --warm-ink-3: #9aa2a6;
+  /* 補足の文字の色。2026-10-13(第5弾 C-1)に #9aa2a6 → #656c70。前は白地で約2.6:1・灰色の箱の上で約2.2:1と薄すぎ、
+     読みやすさの目安 4.5:1 に届かなかった。#656c70 は、白地で約5.3:1・ページの地(#f3f6f6)で約4.9:1・灰色の箱(#eceff0)の上でも約4.6:1(調査メモの案 #6b7276 だと、灰色の箱の上で4.2:1で届かないため、少しだけ濃くした)。 */
+  --warm-ink-3: #656c70;
 
   --color-accent: var(--teal-500);
   /* 旧グラス時代の「UIの青」。旅行・入力フォーム・hub.css が選択中の印やボタンに使っている。 */
@@ -707,3 +709,9 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 .spatial-page .planning-empty-footer button { color: var(--teal-700); }
 .spatial-page .spatial-calendar__cell.is-selected { box-shadow: inset 0 0 0 1px var(--teal-500); }
 .spatial-page .spatial-calendar__cell.is-today:not(.is-selected)::after { background: var(--teal-500); }
+
+/* Tailwind の text-slate-400(#94a3b8)も、同じ濃さにそろえる(第5弾 C-1)。TSX に約97か所あり、白地で約2.6:1と薄い。
+   :root を前に付けて、Tailwind の同名の指定(と index.css の .micro-contrast .text-slate-400)より強くする。 */
+:root .text-slate-400 {
+  color: var(--warm-ink-3);
+}
