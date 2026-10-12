@@ -49,9 +49,31 @@ describe("入力シートのタップ時のフォーカス", () => {
     expect(document.activeElement).not.toBe(input);
   });
 
-  it("フォーカス中の欄そのものに指が触れても、区別せずフォーカスを外す", () => {
+  // 入力欄・ボタンの上に触れた瞬間に外すと、キーボードが閉じてシートが下がり、指の下が別の物に
+  // 入れ替わる — URL を貼ろうともう一度押すと違う場所が選ばれる、押すと入力した文が見えなくなる
+  // (2026-10-12)。その上では、置いてすぐ動かした(スクロールの)時だけ外す。
+  function touchAt(x: number, y: number) {
+    return { touches: [{ clientX: x, clientY: y }] };
+  }
+
+  it("フォーカス中の欄そのものを押しただけ(貼り付け・カーソル移動)では、フォーカスを外さない", () => {
+    const { getByTestId } = render(
+      <Sheet open onClose={() => {}} title="予定を編集">
+        <input data-testid="url-input" />
+      </Sheet>,
+    );
+    const input = getByTestId("url-input") as HTMLInputElement;
+    input.focus();
+
+    fireEvent.touchStart(input, touchAt(100, 100));
+    fireEvent.touchEnd(input);
+
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("フォーカス中の欄の上から指を置いてすぐ動かしたら(スクロール)、フォーカスを外す", () => {
     // キーボードが出て見えている範囲が狭い時は、フォーカス中の欄がほぼ画面いっぱいを
-    // 占め、指を置く先が結局その欄の上になることがほとんど。そこへの接触も区別なく
+    // 占め、指を置く先が結局その欄の上になることがほとんど。そこからのスクロールでも
     // 外さないと、次の項目まで指が届かない(2026-09-20の複数回の再報告)。
     const { getByTestId } = render(
       <Sheet open onClose={() => {}} title="予定を追加">
@@ -61,9 +83,44 @@ describe("入力シートのタップ時のフォーカス", () => {
     const input = getByTestId("title-input") as HTMLInputElement;
     input.focus();
 
-    fireEvent.touchStart(input);
+    fireEvent.touchStart(input, touchAt(100, 300));
+    fireEvent.touchMove(input, touchAt(100, 250));
 
     expect(document.activeElement).not.toBe(input);
+  });
+
+  it("長押ししてから動かした(カーソルの移動)時は、フォーカスを外さない", () => {
+    const { getByTestId } = render(
+      <Sheet open onClose={() => {}} title="予定を編集">
+        <input data-testid="title-input" defaultValue="MASTER key 面接" />
+      </Sheet>,
+    );
+    const input = getByTestId("title-input") as HTMLInputElement;
+    input.focus();
+
+    const now = vi.spyOn(Date, "now");
+    now.mockReturnValue(1000);
+    fireEvent.touchStart(input, touchAt(100, 100));
+    now.mockReturnValue(1600);
+    fireEvent.touchMove(input, touchAt(140, 100));
+    now.mockRestore();
+
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("ボタンを押した時も、触れた瞬間にはフォーカスを外さない(押した物が指の下から逃げないように)", () => {
+    const { getByTestId } = render(
+      <Sheet open onClose={() => {}} title="写真・文章から追加・更新">
+        <textarea data-testid="text" />
+        <button type="button" data-testid="read">読み取る</button>
+      </Sheet>,
+    );
+    const text = getByTestId("text") as HTMLTextAreaElement;
+    text.focus();
+
+    fireEvent.touchStart(getByTestId("read"), touchAt(100, 400));
+
+    expect(document.activeElement).toBe(text);
   });
 
   it("文字を選択中の欄に指が触れても、フォーカスを外さない(コピーできなくなるため)", () => {
@@ -84,7 +141,7 @@ describe("入力シートのタップ時のフォーカス", () => {
     expect(input.selectionEnd).toBe(6);
   });
 
-  it("選択が無い(ただのカーソル)欄なら、これまでどおりフォーカスを外す", () => {
+  it("選択が無い(ただのカーソル)欄なら、スクロールの時はこれまでどおりフォーカスを外す", () => {
     const { getByTestId } = render(
       <Sheet open onClose={() => {}} title="予定を編集">
         <input data-testid="title-input" defaultValue="MASTER key 面接" />
@@ -94,7 +151,8 @@ describe("入力シートのタップ時のフォーカス", () => {
     input.focus();
     input.setSelectionRange(3, 3); // 選択なし、カーソルだけ
 
-    fireEvent.touchStart(input);
+    fireEvent.touchStart(input, { touches: [{ clientX: 100, clientY: 300 }] });
+    fireEvent.touchMove(input, { touches: [{ clientX: 100, clientY: 240 }] });
 
     expect(document.activeElement).not.toBe(input);
   });
