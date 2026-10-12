@@ -28,5 +28,7 @@ AGENTS.md
 
 # 要望の受信箱を Mac から読むコード(scripts/feedback-inbox.mjs)。秘密なので入れない。
 .feedback-code
+# 修正依頼に付いていた画像を、見るために Mac へ保存する場所(scripts/feedbackImages.mjs)。ほかの人が送ったものなので入れない。
+.feedback-images
 # 見張り(scripts/feedback-watch.mjs)が、どの依頼を会話へ流したかを覚えるファイル。
 .feedback-seen

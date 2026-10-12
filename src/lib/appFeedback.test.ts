@@ -57,6 +57,22 @@ describe("sendFeedback", () => {
     expect(JSON.parse(init.body).p_share_token).toBe("tok");
   });
 
+  it("画像つきの時だけ新しい窓口(033)で送り、画像なしは今までの窓口のまま(033 を流す前でも送れる)", async () => {
+    reply({ ok: true });
+    await sendFeedback({ message: "この画面", images: ["data:image/jpeg;base64,AAAA"] });
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.supabase.co/rest/v1/rpc/send_app_feedback_v2");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).p_images).toEqual(["data:image/jpeg;base64,AAAA"]);
+    reply({ ok: true });
+    await sendFeedback({ message: "文字だけ", images: [] });
+    expect(fetchMock.mock.calls[1][0]).toBe("https://example.supabase.co/rest/v1/rpc/send_app_feedback");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).not.toHaveProperty("p_images");
+  });
+
+  it("画像をサーバーが断った時は、画像のことだと分かる文言にする", async () => {
+    reply({ ok: false, reason: "invalid_images" });
+    await expect(sendFeedback({ message: "x", images: ["data:image/jpeg;base64,AAAA"] })).rejects.toMatchObject({ reason: "invalid_images" });
+  });
+
   it("空・長すぎる要望は、送る前に断る", async () => {
     await expect(sendFeedback({ message: "   " })).rejects.toMatchObject({ reason: "invalid_message" });
     await expect(sendFeedback({ message: "あ".repeat(2001) })).rejects.toMatchObject({ reason: "invalid_message" });
@@ -95,5 +111,30 @@ describe("loadIsFeedbackOwner", () => {
     mocks.session = { access_token: "t", user: { id: "owner" } };
     mocks.ownerError = { code: "PGRST205", message: "missing" };
     expect(await loadIsFeedbackOwner()).toBe(false);
+  });
+});
+
+describe("canAttachImages(033 を流した後だけ「画像を付ける」を出す)", () => {
+  async function fresh() {
+    vi.resetModules();
+    return (await import("./appFeedback")).canAttachImages;
+  }
+
+  it("確かめる窓口が true を返せば true。確かめるのは1回だけ", async () => {
+    const canAttach = await fresh();
+    reply(true);
+    expect(await canAttach()).toBe(true);
+    expect(await canAttach()).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("https://example.supabase.co/rest/v1/rpc/app_feedback_images_enabled");
+  });
+
+  it("窓口が無い(SQL を流していない)・通信できない時は false", async () => {
+    let canAttach = await fresh();
+    reply({ code: "PGRST202", message: "Could not find the function" }, 404);
+    expect(await canAttach()).toBe(false);
+    canAttach = await fresh();
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    expect(await canAttach()).toBe(false);
   });
 });

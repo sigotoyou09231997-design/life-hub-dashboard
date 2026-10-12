@@ -5,6 +5,7 @@
 //   node scripts/feedback-inbox.mjs --all        対応済み・見送りも並べる
 //   node scripts/feedback-inbox.mjs --json       そのまま JSON で出す
 //   node scripts/feedback-inbox.mjs --done <id>  対応済みにする(--dismiss で見送り、--reopen で未対応に戻す)
+//   node scripts/feedback-inbox.mjs --images <id>  付いている画像を todoアプリ/.feedback-images/ に保存して、パスを出す(画像を開いて見る)
 //
 // 読み取りコードは todoアプリ/.feedback-code に置く(git には入れない。.gitignore 済み)。
 // Supabase の場所と公開鍵は .env(VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY)から読む。
@@ -14,6 +15,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { saveFeedbackImages } from "./feedbackImages.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -71,6 +73,14 @@ async function main() {
   const code = readCode();
   if (!code) throw new Error("読み取りコードがありません(todoアプリ/.feedback-code)");
 
+  if (args.includes("--images")) {
+    const id = args[args.indexOf("--images") + 1];
+    if (!id) throw new Error("--images のあとに要望の id を付けてください");
+    const paths = await saveFeedbackImages({ env, code, id, root: ROOT });
+    console.log(paths.length ? paths.join("\n") : "この依頼に付いている画像はありません(または、対応済みにして消えました)");
+    return;
+  }
+
   const statusFlag = { "--done": "done", "--dismiss": "dismissed", "--reopen": "new" };
   const flag = args.find((arg) => arg in statusFlag);
   if (flag) {
@@ -100,6 +110,7 @@ async function main() {
     console.log(`■ ${when(item.createdAt)}  ${from}  [${item.status}]`);
     console.log(`  画面: ${item.page ?? "-"}  版: ${item.appVersion ?? "-"}  id: ${item.id}`);
     for (const line of String(item.message).split(/\r?\n/)) console.log(`  │ ${line}`);
+    if (item.imageCount > 0) console.log(`  画像 ${item.imageCount}枚(node scripts/feedback-inbox.mjs --images ${item.id} で保存して開く)`);
     console.log("");
   }
 }

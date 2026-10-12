@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   owner: false,
   items: [] as FeedbackItem[],
   changed: [] as [string, string][],
+  images: {} as Record<string, string[]>,
+  imageLoads: [] as string[],
 }));
 
 vi.mock("../../lib/appFeedback", async () => {
@@ -17,6 +19,10 @@ vi.mock("../../lib/appFeedback", async () => {
     ...actual,
     loadIsFeedbackOwner: async () => mocks.owner,
     loadFeedback: async () => mocks.items,
+    loadFeedbackImages: async (id: string) => {
+      mocks.imageLoads.push(id);
+      return mocks.images[id] ?? [];
+    },
     setFeedbackStatus: async (id: string, status: string) => void mocks.changed.push([id, status]),
   };
 });
@@ -39,6 +45,8 @@ beforeEach(() => {
   mocks.owner = false;
   mocks.items = [];
   mocks.changed = [];
+  mocks.images = {};
+  mocks.imageLoads = [];
 });
 afterEach(cleanup);
 
@@ -77,5 +85,25 @@ describe("届いた要望", () => {
     expect(screen.getByText("並び順が戻らない")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "未対応に戻す" }));
     expect(mocks.changed).toEqual([["a", "done"], ["a", "new"]]);
+  });
+
+  it("画像が付いている要望は、枚数だけ出して、押した時に読み込んで見せる(一覧では読み込まない)", async () => {
+    mocks.owner = true;
+    mocks.items = [item({ id: "a", message: "この画面です", imageCount: 2 }), item({ id: "b", message: "文字だけ" })];
+    mocks.images = { a: ["data:image/jpeg;base64,AAAA", "data:image/jpeg;base64,BBBB"] };
+    const user = userEvent.setup();
+    renderInbox();
+    await screen.findByText("この画面です");
+    expect(mocks.imageLoads).toEqual([]);
+    expect(screen.getAllByRole("button", { name: /画像を見る/ })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "画像を見る(2枚)" }));
+    expect((await screen.findByAltText("付いている画像1")).getAttribute("src")).toBe("data:image/jpeg;base64,AAAA");
+    expect(screen.getByAltText("付いている画像2")).toBeTruthy();
+    expect(mocks.imageLoads).toEqual(["a"]);
+    // 押すと大きくなり、もう一度で戻る。「画像を閉じる」で畳める。
+    await user.click(screen.getByRole("button", { name: "画像1を大きくする" }));
+    expect(screen.getByRole("button", { name: "画像1を小さくする" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "画像を閉じる" }));
+    expect(screen.queryByAltText("付いている画像1")).toBeNull();
   });
 });

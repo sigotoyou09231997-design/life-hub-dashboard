@@ -16,6 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * - 027: 送信コードの受信箱(置ける・断る・20件まで・権限)。
  * - 029: 要望の受信箱(ログインして・共有リンクから送れる・持ち主だけ読める・読み取りコード・連投の上限)。
  * - 030: 要望から足した欄(移動手段・予定の詳細・持ち物の並び順・参加者・支払った人)と、共有したしおりへの反映。
+ * - 033: 修正依頼に付ける画像(JPEG だけ・3枚まで・大きさの上限・画像つきは1時間3件まで・対応済みで消える・読み取りコードで1件ずつ読む)。
  */
 
 const SQL_DIR = new URL("../sql/", import.meta.url);
@@ -384,3 +385,109 @@ describe("030: 要望から足した欄", () => {
   });
 });
 
+describe("033: 修正依頼の画像", () => {
+  const OWNER = USER;
+  const SENDER = "88888888-2222-4333-8444-555555555555";
+  const readCode = "FBIMAGECODE1234567890";
+  const jpeg = (chars = 1000) => `data:image/jpeg;base64,${"A".repeat(chars)}`;
+  const sendWith = async (message: string, images: unknown, shareToken: string | null = null) =>
+    (await db.query<{ r: { ok: boolean; reason?: string } }>(
+      "select public.send_app_feedback_v2($1, $2, $3, $4, $5, $6::jsonb) as r",
+      [message, "/trips/x", null, "abc1234", shareToken, images === null ? null : JSON.stringify(images)],
+    )).rows[0].r;
+  const asSender = <T,>(fn: () => Promise<T>) => as("authenticated", { sub: SENDER, role: "authenticated" }, fn);
+  const inbox = async (all = false) =>
+    (await db.query<{ r: { ok: boolean; items: { id: string; message: string; imageCount: number; status: string }[] } }>(
+      "select public.app_feedback_inbox($1, $2) as r", [readCode, all],
+    )).rows[0].r;
+
+  beforeAll(async () => {
+    // 029 のテストが持ち主と読み取りコードを残していない(1件ごとに取り消す)ので、ここで置く。
+    await db.exec("delete from public.app_feedback_owner; delete from public.app_feedback_read_codes;");
+    await db.query("insert into public.app_feedback_owner (id, user_id) values ('owner', $1)", [OWNER]);
+    await db.query("insert into public.app_feedback_read_codes (id, code_hash) values ('owner', $1)", [createHash("sha256").update(readCode).digest("hex")]);
+  });
+
+  it("「画像を付ける」を出してよいかは、誰でも確かめられる(流した後だけ true)", async () => {
+    expect((await as("anon", null, async () => (await db.query<{ e: boolean }>("select public.app_feedback_images_enabled() as e")).rows[0].e))).toBe(true);
+  });
+
+  it("画像つきで送れて、枚数が一覧に出る。画像そのものは読み取りコードで1件ずつ読む", async () => {
+    await asSender(async () => {
+      expect(await sendWith("この画面です", [jpeg(), jpeg(2000)])).toEqual({ ok: true });
+      await db.exec("reset role");
+      const listed = await inbox();
+      expect(listed.items.map((item) => [item.message, item.imageCount])).toEqual([["この画面です", 2]]);
+      const got = (await db.query<{ r: { ok: boolean; images?: string[]; reason?: string } }>("select public.app_feedback_images($1, $2) as r", [readCode, listed.items[0].id])).rows[0].r;
+      expect(got.images?.map((image) => image.length)).toEqual([jpeg().length, jpeg(2000).length]);
+      expect((await db.query<{ r: { reason?: string } }>("select public.app_feedback_images($1, $2) as r", ["WRONGCODE", listed.items[0].id])).rows[0].r.reason).toBe("invalid_code");
+    });
+  });
+
+  it("JPEG のデータ URL 以外・4枚以上・大きすぎるものは断る(中身も保存しない)", async () => {
+    await asSender(async () => {
+      expect((await sendWith("png", [`data:image/png;base64,AAAA`])).reason).toBe("invalid_images");
+      expect((await sendWith("スクリプト", [`data:text/html;base64,PHNjcmlwdD4=`])).reason).toBe("invalid_images");
+      expect((await sendWith("文字列ではない", [123])).reason).toBe("invalid_images");
+      expect((await sendWith("配列ではない", { a: 1 })).reason).toBe("invalid_images");
+      expect((await sendWith("4枚", [jpeg(), jpeg(), jpeg(), jpeg()])).reason).toBe("invalid_images");
+      expect((await sendWith("1枚が大きい", [jpeg(450_001)])).reason).toBe("invalid_images");
+      expect((await sendWith("合計が大きい", [jpeg(440_000), jpeg(440_000), jpeg(440_000)])).reason).toBe("invalid_images");
+      expect((await sendWith("上限ちょうど", [jpeg(400_000 - 23), jpeg(400_000 - 23), jpeg(400_000 - 23)])).ok).toBe(true);
+      await db.exec("reset role");
+      expect(await count("select count(*)::int as n from public.app_feedback")).toBe(1);
+    });
+  });
+
+  it("画像なし(空の配列・null)でも、文字の依頼として送れる。これまでの send_app_feedback も同じ", async () => {
+    await asSender(async () => {
+      expect((await sendWith("空の配列", [])).ok).toBe(true);
+      expect((await sendWith("null", null)).ok).toBe(true);
+      expect((await db.query<{ r: { ok: boolean } }>("select public.send_app_feedback($1, $2, $3, $4, $5) as r", ["これまでの呼び方", "/x", null, "abc", null])).rows[0].r.ok).toBe(true);
+      await db.exec("reset role");
+      expect(await count("select count(*)::int as n from public.app_feedback where image_count = 0")).toBe(3);
+    });
+  });
+
+  it("画像つきは、同じ人で1時間に3件まで(文字だけは10件まで)", async () => {
+    await asSender(async () => {
+      for (let i = 0; i < 3; i++) expect((await sendWith(`画像${i}`, [jpeg()])).ok, String(i)).toBe(true);
+      expect((await sendWith("4件目の画像", [jpeg()])).reason).toBe("too_many");
+      expect((await sendWith("文字だけならまだ送れる", null)).ok).toBe(true);
+    });
+  });
+
+  it("共有リンクから(ログインなし)でも、合鍵があれば画像つきで送れる。合鍵が違えば断る", async () => {
+    // 共有リンクは、1つの旅行に1つだけ。030 のテストが合鍵を share-token-030 に差し替えている。
+    await as("anon", null, async () => {
+      expect((await sendWith("画像つき", [jpeg()], "wrong")).reason).toBe("invalid_share");
+      expect(await sendWith("画像つき", [jpeg()], "share-token-030")).toEqual({ ok: true });
+    });
+  });
+
+  it("OAuth で接続したアプリからは、画像つきでも送れない", async () => {
+    expect((await as("authenticated", { sub: SENDER, role: "authenticated", client_id: "chatgpt" }, () => sendWith("なりすまし", [jpeg()]))).reason).toBe("not_allowed");
+  });
+
+  it("対応済み・見送りにすると画像は消える(文字の依頼は残る)。Mac の印からでも、アプリの更新からでも", async () => {
+    await asSender(async () => {
+      expect((await sendWith("消えるはず", [jpeg()])).ok).toBe(true);
+      await db.exec("reset role");
+      const id = (await inbox()).items.find((item) => item.message === "消えるはず")!.id;
+      await db.query("select public.app_feedback_set_status($1, $2, 'done')", [readCode, id]);
+      expect(await count(`select image_count as n from public.app_feedback where id = '${id}'`)).toBe(0);
+      expect(await count(`select count(*)::int as n from public.app_feedback where id = '${id}' and images is null`)).toBe(1);
+      // 未対応に戻しても、画像は戻らない。
+      await db.query("select public.app_feedback_set_status($1, $2, 'new')", [readCode, id]);
+      expect(await count(`select image_count as n from public.app_feedback where id = '${id}'`)).toBe(0);
+    });
+    // 持ち主がアプリの設定から見送る(表への更新)。送ったものと同じ取引の中で、持ち主に切り替える。
+    await asSender(async () => {
+      expect((await sendWith("アプリから見送る", [jpeg()])).ok).toBe(true);
+      await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: OWNER, role: "authenticated" })]);
+      expect(await count("select image_count as n from public.app_feedback where message = 'アプリから見送る'")).toBe(1);
+      await db.exec("update public.app_feedback set status = 'dismissed' where message = 'アプリから見送る'");
+      expect(await count("select image_count as n from public.app_feedback where message = 'アプリから見送る'")).toBe(0);
+    });
+  });
+});
