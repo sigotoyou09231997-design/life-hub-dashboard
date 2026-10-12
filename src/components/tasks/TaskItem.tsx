@@ -4,7 +4,6 @@ import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { isRepeating, repeatLabel } from "../../lib/repeatRule";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
-import { useConfirm } from "../ui/ConfirmProvider";
 import { CalendarArrowDown, Check, Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -23,7 +22,6 @@ const PRIORITY_TONE = { high: "danger", medium: "warning", low: "neutral" } as c
 const PRIORITY_LABEL = { high: "高", medium: "中", low: "低" } as const;
 
 export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubtask, onPostpone, indent }: Props) {
-  const confirm = useConfirm();
   const subtasks = allTasks.filter((t) => t.parentTaskId === task.id);
   const overdue = !task.completed && isOverdue(task.dueDate, task.dueTime);
   const category = getScheduleCategory(task.category);
@@ -31,15 +29,10 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
   // 先の日付のタスクに出しても押す理由が無く、行のボタンが増えるだけになる。
   const canPostpone = Boolean(onPostpone) && !task.completed && isDueTodayOrEarlier(task.dueDate);
 
-  async function handleDeleteClick() {
-    if (!task.id) return;
-    const title = task.parentTaskId && subtasks.length === 0
-      ? `サブタスク「${task.title}」を削除しますか?`
-      : `「${task.title}」を削除しますか?`;
-    const message = subtasks.length > 0
-      ? `配下のサブタスク(${subtasks.length}件)もすべて削除されます。`
-      : undefined;
-    if (await confirm({ title, message })) onDelete(task.id);
+  // 確認は聞かない。消したあと5秒間「元に戻す」が出て、サブタスクごと戻せる
+  // (UI/UX 調査メモ 第4弾 A-2。お知らせは TaskList.tsx の deleteTaskWithUndo が出す)。
+  function handleDeleteClick() {
+    if (task.id) onDelete(task.id);
   }
 
   return (

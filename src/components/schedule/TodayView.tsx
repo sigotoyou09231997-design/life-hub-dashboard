@@ -7,7 +7,7 @@ import { todayStr, isOverdue } from "../../lib/date";
 import { occurringOn } from "../../lib/eventSpan";
 import { EventList } from "../calendar/EventList";
 import { TaskItem } from "../tasks/TaskItem";
-import { toggleTaskCompletion, deleteTaskCascade, postponeTaskToTomorrow } from "../tasks/TaskList";
+import { toggleTaskCompletion, deleteTaskWithUndo, postponeTaskToTomorrow } from "../tasks/TaskList";
 import { Card } from "../ui/Card";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
 import { WeekAheadPanel } from "./WeekAheadPanel";
@@ -90,7 +90,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
             ) : (
               <div className="space-y-2">
                 {dueTodayTasks.map((task) => (
-                  <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskCascade} onAddSubtask={onAddSubtask} onPostpone={postponeTaskToTomorrow} />
+                  <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskWithUndo} onAddSubtask={onAddSubtask} onPostpone={postponeTaskToTomorrow} />
                 ))}
               </div>
             )}
@@ -105,7 +105,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
       {overdueTasks.length > 0 && (
         <section className="planning-secondary-module planning-secondary-module--danger">
           <p>期限切れのタスク</p>
-          <div className="space-y-2">{overdueTasks.map((task) => <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskCascade} onAddSubtask={onAddSubtask} onPostpone={postponeTaskToTomorrow} />)}</div>
+          <div className="space-y-2">{overdueTasks.map((task) => <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskWithUndo} onAddSubtask={onAddSubtask} onPostpone={postponeTaskToTomorrow} />)}</div>
         </section>
       )}
     </div>

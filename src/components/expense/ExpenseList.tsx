@@ -3,7 +3,6 @@ import { formatDisplayDate } from "../../lib/date";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
-import { useConfirm } from "../ui/ConfirmProvider";
 import { Receipt, Trash2 } from "lucide-react";
 
 interface Props {
@@ -13,8 +12,6 @@ interface Props {
 }
 
 export function ExpenseList({ transactions, onEdit, onDelete }: Props) {
-  const confirm = useConfirm();
-
   if (transactions.length === 0) {
     return (
       <EmptyState icon={Receipt} title="今月の記録がまだありません" description="下のボタンから収支を追加できます。" />
@@ -61,11 +58,10 @@ export function ExpenseList({ transactions, onEdit, onDelete }: Props) {
                     </span>
                     <button
                       type="button"
-                      onClick={async () => {
-                        const ok = await confirm({
-                          title: `「${t.category}」(¥${t.amount.toLocaleString()})を削除しますか?`,
-                        });
-                        if (t.id && ok) onDelete(t.id);
+                      // 確認は聞かない。消したあと5秒間「元に戻す」が出る(UI/UX 調査メモ 第4弾 A-2。
+                      // お知らせは ExpensePage が出す)。
+                      onClick={() => {
+                        if (t.id) onDelete(t.id);
                       }}
                       aria-label="削除"
                       className="pointer-events-auto rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"

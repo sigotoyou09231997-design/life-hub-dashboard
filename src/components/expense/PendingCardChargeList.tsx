@@ -10,7 +10,8 @@ import { Card } from "../ui/Card";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
 import { useToast } from "../ui/ToastProvider";
-import { useConfirm } from "../ui/ConfirmProvider";
+import { deleteRowWithUndo, quoted } from "../ui/undoToast";
+import { useWithoutPendingDeletes } from "../../hooks/usePendingDeletes";
 
 interface Props {
   onImport: () => void;
@@ -29,8 +30,9 @@ function yen(n: number): string {
  */
 export function PendingCardChargeList({ onImport }: Props) {
   const showToast = useToast();
-  const confirm = useConfirm();
-  const charges = useLiveQuery(() => db.pendingCardCharges.toArray(), []);
+  // 「削除しました・元に戻す」の間は、まだ DB にある利用を隠す(UI/UX 調査メモ 第4弾 A-2)。
+  // 隠した分は上の合計からも外れる(戻せば合計にも戻る)。
+  const charges = useWithoutPendingDeletes("pendingCardCharges", useLiveQuery(() => db.pendingCardCharges.toArray(), []));
   const transactions = useLiveQuery(() => db.transactions.toArray(), []);
 
   const all = charges ?? [];
@@ -56,15 +58,15 @@ export function PendingCardChargeList({ onImport }: Props) {
     showToast("支出に記録しました");
   }
 
-  async function handleDelete(charge: PendingCardCharge) {
+  /** 確認は聞かずに一覧から消し、5秒間「元に戻す」を出す(UI/UX 調査メモ 第4弾 A-2)。
+   * 取り込んだ1行だけの削除で、ほかに連れて消えるものは無い。本当に消すのはお知らせが閉じた時。 */
+  function handleDelete(charge: PendingCardCharge) {
     if (!charge.id) return;
-    const ok = await confirm({
-      title: `「${charge.store || "カード利用"}」(${yen(charge.amount)})を一覧から消しますか?`,
-      confirmLabel: "一覧から消す",
-    });
-    if (!ok) return;
-    await db.pendingCardCharges.delete(charge.id);
-    showToast("削除しました");
+    deleteRowWithUndo(
+      "pendingCardCharge",
+      charge.id,
+      `${quoted(charge.store || "カード利用")}(${yen(charge.amount)})を一覧から消しました`,
+    );
   }
 
   return (
