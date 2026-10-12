@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ArrowRight, CalendarDays, CheckSquare, Check, Mail, Plane } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckSquare, Check, ChevronRight, Mail, Plane } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent } from "../types";
 import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
@@ -47,10 +47,11 @@ function heroFor(hour: number) {
   return HERO_PHOTO.find((entry) => hour < entry.until) ?? HERO_PHOTO[0];
 }
 
-function CardHead({ title, to, trailing }: { title: string; to?: string; trailing?: ReactNode }) {
+/** 区切りの見出し。2026-10-12 の並べ替えで、見出しはカードの外（参考にしたアプリの形）に出した。 */
+function SectionHead({ title, to, trailing }: { title: string; to?: string; trailing?: ReactNode }) {
   return (
-    <div className="warm-card__head">
-      <h2 className="warm-card__title">{title}</h2>
+    <div className="lh-section__head">
+      <h2 className="lh-section__title">{title}</h2>
       {trailing}
       {to && (
         <Link to={to} className="warm-card__go">
@@ -204,15 +205,55 @@ export default function TopPage() {
   const hour = now.getHours();
   const hero = heroFor(hour);
 
+  // 2026-10-12: 並べ方を変えた（参考: サブスクBOX）。中身・リンク・ボタンの働きは前と同じ。
+  //  - いちばん上は写真の表紙（日付・時刻・ひとこと）に、黒い「今月のお金」が重なる形
+  //  - 見出しはカードの外に出し、カードの中は区切り線つきの行の一覧にする
+  //  - DOM の順番はスマホの並び順。PC の並びは home-teal.css のグリッドが決める
   return (
-    <div className="warm-home" ref={motionRef}>
-      {/* 2026-08-31: あいさつ（「こんばんは、◯◯さん」とその下の一文）はやめて、
-          日付だけにした。 */}
-      <header className="warm-greet">
-        <h1 className="warm-greet__date">
-          <time dateTime={today}>{formatDisplayDate(today)}</time>
-        </h1>
+    <div className="warm-home lh-home" ref={motionRef}>
+      <header className="lh-cover" data-reveal="0">
+        <div className="lh-cover__photo" style={{ backgroundImage: `url('${hero.src}')` }} aria-hidden="true" />
+        <div className="lh-cover__veil" aria-hidden="true" />
+        <div className="lh-cover__copy">
+          <h1 className="lh-cover__date">
+            <time dateTime={today}>{formatDisplayDate(today)}</time>
+          </h1>
+          <p className="lh-cover__quote">{hero.quote}</p>
+        </div>
+        <p className="lh-cover__clock">
+          <time dateTime={format(now, "yyyy-MM-dd'T'HH:mm")}>{format(now, "h:mm")}</time>
+          <small>{hour < 12 ? "AM" : "PM"}</small>
+        </p>
       </header>
+
+      <Link to="/records/expense" className="warm-card lh-money" data-reveal="1">
+        <span className="lh-money__label">今月のお金</span>
+        <p className={`warm-amount ${budget && budget.remaining < 0 ? "is-negative" : ""}`}>
+          <small>¥</small>
+          {budget ? budget.remaining.toLocaleString() : "—"}
+        </p>
+        {budget ? (
+          <dl className="lh-money__stats">
+            <div>
+              <dt>1日あたり使える</dt>
+              <dd>¥{Math.round(Math.max(0, budget.perDayUsable)).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>使った額</dt>
+              <dd>¥{budget.actualSpending.toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>給料日まで</dt>
+              <dd>{budget.period.daysUntilNextPayday}日</dd>
+            </div>
+          </dl>
+        ) : (
+          <p className="warm-amount__note">給与を登録すると自動計算します</p>
+        )}
+        <span className="warm-card__foot">
+          詳細をチェック <ArrowRight size={14} />
+        </span>
+      </Link>
 
       {/* 今日のまとめ(2026-09-16)。予定・重要な未読・返信待ちを、画面を回らずに1枚で。 */}
       <BriefingCard
@@ -222,23 +263,104 @@ export default function TopPage() {
         waiting={replyWaiting}
       />
 
-      <div className="warm-top">
-        <section className="warm-hero" data-reveal="0">
-          <div className="warm-hero__photo" style={{ backgroundImage: `url('${hero.src}')` }} aria-hidden="true" />
-          <div className="warm-hero__veil" aria-hidden="true" />
-          <div className="warm-hero__copy">
-            <time className="warm-hero__date" dateTime={format(now, "yyyy-MM-dd")}>
-              {format(now, "yyyy.M.d (EEE)", { locale: ja })}
-            </time>
-            <p className="warm-hero__clock">
-              {format(now, "h:mm")}
-              <small>{hour < 12 ? "AM" : "PM"}</small>
-            </p>
-            <p className="warm-hero__quote">{hero.quote}</p>
-          </div>
-        </section>
+      <UsageAlertCard alerts={usageAlerts.alerts} onDismiss={usageAlerts.dismiss} />
 
-        <Link to="/trips" className="warm-trip" data-reveal="2">
+      <section className="lh-section lh-section--events" data-reveal="3">
+        <SectionHead title="次の予定" to="/schedule?view=calendar" />
+        <div className="warm-card lh-group">
+          {previewEvents.length > 0 ? (
+            previewEvents.map((event) => {
+              const category = getScheduleCategory(event.category);
+              const time = timeToday(event);
+              const past = !event.allDay && Boolean(time) && minutesUntil(time, now) === null;
+              const countdown =
+                event.id === nextEvent?.id && nextEventMinutes !== null ? formatCountdown(nextEventMinutes) : null;
+              return (
+                <Link key={event.id} to="/schedule?view=calendar" className={`lh-row ${past ? "is-past" : ""}`}>
+                  <span className={`lh-row__icon lh-tone--${category.tone}`} aria-hidden="true">
+                    <CalendarDays size={18} strokeWidth={2} />
+                  </span>
+                  <span className="lh-row__copy">
+                    <strong>{event.title}</strong>
+                    <small>
+                      <span className="lh-row__time">{spanTimeText(event, today)}</span>
+                      {event.location || category.label}
+                    </small>
+                    <PersonTags event={event} people={eventPeople} compact />
+                  </span>
+                  {countdown ? (
+                    <span className="warm-list__meta">{countdown}</span>
+                  ) : (
+                    <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+                  )}
+                </Link>
+              );
+            })
+          ) : (
+            <div className="warm-empty">
+              <span className="warm-empty__icon">
+                <CalendarDays size={18} />
+              </span>
+              <div className="min-w-0">
+                <strong>予定はありません</strong>
+                <p>カレンダーから追加できます</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="lh-section lh-section--tasks" data-reveal="4">
+        <SectionHead
+          title="今日のタスク"
+          trailing={
+            todayTasks.length > 0 ? (
+              <span className="warm-card__badge">{doneCount}/{todayTasks.length} 完了</span>
+            ) : undefined
+          }
+        />
+        <div className="warm-card lh-group">
+          {previewTasks.length > 0 ? (
+            previewTasks.map((task) => (
+              <div key={task.id} className={`lh-row ${task.completed ? "is-done" : ""}`}>
+                <button
+                  type="button"
+                  className="warm-check"
+                  onClick={() => toggleTaskCompletion(task)}
+                  aria-label={`${task.title}の完了を切り替え`}
+                  aria-pressed={task.completed}
+                >
+                  <Check size={12} strokeWidth={3.2} />
+                </button>
+                <Link to="/schedule?view=list" className="lh-row__copy">
+                  <strong>{task.title}</strong>
+                </Link>
+                {task.dueTime && <span className="warm-list__meta">{task.dueTime}</span>}
+              </div>
+            ))
+          ) : (
+            <div className="warm-empty">
+              <span className="warm-empty__icon">
+                <CheckSquare size={18} />
+              </span>
+              <div className="min-w-0">
+                <strong>今日のタスクはありません</strong>
+                <p>一覧から追加できます</p>
+              </div>
+            </div>
+          )}
+          <Link to="/schedule?view=list" className="lh-row lh-row--foot">
+            <span className="lh-row__copy">
+              <strong>{openCount > 0 ? `すべてのタスクを見る（あと ${openCount} 件）` : "すべてのタスクを見る"}</strong>
+            </span>
+            <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+          </Link>
+        </div>
+      </section>
+
+      <section className="lh-section lh-section--trip" data-reveal="2">
+        <SectionHead title="旅行" />
+        <Link to="/trips" className="warm-trip">
           <div
             className="warm-trip__photo"
             style={featuredTrip ? { backgroundImage: `url('${tripCover.url}')` } : undefined}
@@ -258,139 +380,31 @@ export default function TopPage() {
               : "旅の計画を立てましょう"}
           </p>
         </Link>
-      </div>
+      </section>
 
-      <UsageAlertCard alerts={usageAlerts.alerts} onDismiss={usageAlerts.dismiss} />
-
-      <div className="warm-lists">
-        <article className="warm-card" data-reveal="4">
-          <CardHead title="次の予定" to="/schedule?view=calendar" />
-          {previewEvents.length > 0 ? (
-            <div className="warm-list">
-              {previewEvents.map((event) => {
-                const category = getScheduleCategory(event.category);
-                const time = timeToday(event);
-                const past = !event.allDay && Boolean(time) && minutesUntil(time, now) === null;
-                const countdown =
-                  event.id === nextEvent?.id && nextEventMinutes !== null ? formatCountdown(nextEventMinutes) : null;
-                return (
-                  <Link
-                    key={event.id}
-                    to="/schedule?view=calendar"
-                    className={`warm-list__row ${past ? "is-past" : ""}`}
-                  >
-                    <i className={`warm-dot warm-dot--${category.tone}`} aria-hidden="true" style={{ marginTop: ".4rem" }} />
-                    <span className="warm-list__time">{spanTimeText(event, today)}</span>
-                    <span className="warm-list__copy">
-                      <strong>{event.title}</strong>
-                      <small>{event.location || category.label}</small>
-                      <PersonTags event={event} people={eventPeople} compact />
-                    </span>
-                    {countdown && <span className="warm-list__meta">{countdown}</span>}
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="warm-empty">
-              <span className="warm-empty__icon">
-                <CalendarDays size={18} />
-              </span>
-              <div className="min-w-0">
-                <strong>予定はありません</strong>
-                <p>カレンダーから追加できます</p>
-              </div>
-            </div>
-          )}
-        </article>
-
-        <article className="warm-card" data-reveal="5">
-          {/* 「◯/◯ 完了」を出す時は「すべて見る」を横に並べず、下のリンクにまとめる
-              （4分割の狭い列では見出しが2行に折れてしまうため）。 */}
-          <CardHead
-            title="今日のタスク"
-            trailing={
-              todayTasks.length > 0 ? (
-                <span className="warm-card__badge">{doneCount}/{todayTasks.length} 完了</span>
-              ) : undefined
-            }
-          />
-          {previewTasks.length > 0 ? (
-            <div className="warm-list">
-              {previewTasks.map((task) => (
-                <div key={task.id} className={`warm-list__row ${task.completed ? "is-done" : ""}`}>
-                  <button
-                    type="button"
-                    className="warm-check"
-                    onClick={() => toggleTaskCompletion(task)}
-                    aria-label={`${task.title}の完了を切り替え`}
-                    aria-pressed={task.completed}
-                    style={{ marginTop: ".08rem" }}
-                  >
-                    <Check size={12} strokeWidth={3.2} />
-                  </button>
-                  <Link to="/schedule?view=list" className="warm-list__copy">
-                    <strong>{task.title}</strong>
-                  </Link>
-                  {task.dueTime && <span className="warm-list__meta">{task.dueTime}</span>}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="warm-empty">
-              <span className="warm-empty__icon">
-                <CheckSquare size={18} />
-              </span>
-              <div className="min-w-0">
-                <strong>今日のタスクはありません</strong>
-                <p>一覧から追加できます</p>
-              </div>
-            </div>
-          )}
-          <Link to="/schedule?view=list" className="warm-card__foot">
-            {openCount > 0 ? `すべてのタスクを見る（あと ${openCount} 件）` : "すべてのタスクを見る"}
-            <ArrowRight size={14} />
-          </Link>
-        </article>
-
-        <Link to="/records/expense" className="warm-card" data-reveal="6">
-          <CardHead title="今月のお金" />
-          <p className={`warm-amount ${budget && budget.remaining < 0 ? "is-negative" : ""}`}>
-            <small>¥</small>
-            {budget ? budget.remaining.toLocaleString() : "—"}
-          </p>
-          <p className="warm-amount__note">
-            {budget ? `1日あたり ¥${Math.round(Math.max(0, budget.perDayUsable)).toLocaleString()} 使えます` : "給与を登録すると自動計算します"}
-          </p>
-          <span className="warm-card__foot">
-            詳細をチェック <ArrowRight size={14} />
-          </span>
-        </Link>
-
-        <article className="warm-card" data-reveal="7">
-          <CardHead
-            title="Gmail"
-            to={gmailPreview?.total ? undefined : "/gmail"}
-            trailing={
-              gmailPreview?.total ? <span className="warm-card__badge">{gmailPreview.total}件の未処理</span> : undefined
-            }
-          />
+      <section className="lh-section lh-section--gmail" data-reveal="5">
+        <SectionHead
+          title="Gmail"
+          to={gmailPreview?.total ? undefined : "/gmail"}
+          trailing={
+            gmailPreview?.total ? <span className="warm-card__badge">{gmailPreview.total}件の未処理</span> : undefined
+          }
+        />
+        <div className="warm-card lh-group">
           {gmailPreview?.emails.length ? (
-            <div className="warm-list">
-              {gmailPreview.emails.map((email) => {
-                const sender = parseSender(email.from);
-                return (
-                  <Link key={email.id} to={`/gmail/mail/${email.id}`} className="warm-list__row">
-                    <span className={`warm-avatar ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</span>
-                    <span className="warm-list__copy">
-                      <strong>{sender.name}</strong>
-                      <small>{email.subject}</small>
-                    </span>
-                    <span className="warm-list__meta">{formatGmailTimestamp(email.receivedAt)}</span>
-                  </Link>
-                );
-              })}
-            </div>
+            gmailPreview.emails.map((email) => {
+              const sender = parseSender(email.from);
+              return (
+                <Link key={email.id} to={`/gmail/mail/${email.id}`} className="lh-row">
+                  <span className={`warm-avatar lh-row__icon ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</span>
+                  <span className="lh-row__copy">
+                    <strong>{sender.name}</strong>
+                    <small>{email.subject}</small>
+                  </span>
+                  <span className="lh-row__aside">{formatGmailTimestamp(email.receivedAt)}</span>
+                </Link>
+              );
+            })
           ) : (
             <div className="warm-empty">
               <span className="warm-empty__icon">
@@ -402,57 +416,62 @@ export default function TopPage() {
               </div>
             </div>
           )}
-          <Link to="/gmail" className="warm-card__foot">
-            {gmailPreview?.connected ? "すべてのメールを見る" : "接続画面を開く"} <ArrowRight size={14} />
+          <Link to="/gmail" className="lh-row lh-row--foot">
+            <span className="lh-row__copy">
+              <strong>{gmailPreview?.connected ? "すべてのメールを見る" : "接続画面を開く"}</strong>
+            </span>
+            <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
           </Link>
-        </article>
-      </div>
+        </div>
+      </section>
 
       {/* 今週これから(PC幅だけ)。上の「次の予定」は今日ぶんしか出さないので、
           ここが明日から先を受け持つ。1件も無い週はカードごと出さない — 空の枠が
           7列並ぶだけになり、かえって画面が寂しくなるため。 */}
       {isDesktop && hasWeekAheadItems(weekDays) && (
-        <article className="warm-card warm-week" data-reveal="8">
-          <CardHead title="今週これから" to="/schedule?view=calendar" />
-          <div className="warm-week__grid">
-            {weekDays.map((day) => {
-              const dayDate = parseISO(day.date);
-              const weekday = dayDate.getDay();
-              const holiday = weekHolidays.get(day.date);
-              const shown = day.items.slice(0, WEEK_AHEAD_PER_DAY);
-              const rest = day.items.length - shown.length;
-              const tone = holiday || weekday === 0 ? "is-sun" : weekday === 6 ? "is-sat" : "";
-              return (
-                <div key={day.date} className={`warm-week__day ${shown.length === 0 ? "is-quiet" : ""}`}>
-                  <p className={`warm-week__date ${tone}`}>
-                    <b>{format(dayDate, "M/d")}</b>
-                    <span>{format(dayDate, "EEE", { locale: ja })}</span>
-                  </p>
-                  {holiday && <p className="warm-week__holiday">{holiday}</p>}
-                  {shown.length > 0 ? (
-                    <ul className="warm-week__items">
-                      {shown.map((event) => (
-                        <li key={`${event.id}-${day.date}`} className="warm-week__item">
-                          <i
-                            className={`warm-dot warm-dot--${getScheduleCategory(event.category).tone}`}
-                            aria-hidden="true"
-                          />
-                          <span className="warm-week__copy">
-                            <strong>{event.title}</strong>
-                            <small>{spanTimeText(event, day.date)}</small>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="warm-week__none">予定なし</p>
-                  )}
-                  {rest > 0 && <p className="warm-week__more">ほか {rest} 件</p>}
-                </div>
-              );
-            })}
+        <section className="lh-section lh-section--week" data-reveal="6">
+          <SectionHead title="今週これから" to="/schedule?view=calendar" />
+          <div className="warm-card warm-week">
+            <div className="warm-week__grid">
+              {weekDays.map((day) => {
+                const dayDate = parseISO(day.date);
+                const weekday = dayDate.getDay();
+                const holiday = weekHolidays.get(day.date);
+                const shown = day.items.slice(0, WEEK_AHEAD_PER_DAY);
+                const rest = day.items.length - shown.length;
+                const tone = holiday || weekday === 0 ? "is-sun" : weekday === 6 ? "is-sat" : "";
+                return (
+                  <div key={day.date} className={`warm-week__day ${shown.length === 0 ? "is-quiet" : ""}`}>
+                    <p className={`warm-week__date ${tone}`}>
+                      <b>{format(dayDate, "M/d")}</b>
+                      <span>{format(dayDate, "EEE", { locale: ja })}</span>
+                    </p>
+                    {holiday && <p className="warm-week__holiday">{holiday}</p>}
+                    {shown.length > 0 ? (
+                      <ul className="warm-week__items">
+                        {shown.map((event) => (
+                          <li key={`${event.id}-${day.date}`} className="warm-week__item">
+                            <i
+                              className={`warm-dot warm-dot--${getScheduleCategory(event.category).tone}`}
+                              aria-hidden="true"
+                            />
+                            <span className="warm-week__copy">
+                              <strong>{event.title}</strong>
+                              <small>{spanTimeText(event, day.date)}</small>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="warm-week__none">予定なし</p>
+                    )}
+                    {rest > 0 && <p className="warm-week__more">ほか {rest} 件</p>}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </article>
+        </section>
       )}
     </div>
   );

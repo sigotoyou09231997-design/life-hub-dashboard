@@ -1,0 +1,565 @@
+/* ============================================================================
+   ホームとお金管理の並び（2026-10-12）— 参考: サブスクBOX
+
+   本人「レイアウトも変えてほしい」。中身・リンク・ボタンの働きは TopPage.tsx で前と
+   同じまま、並び方だけをここで決める。
+
+   スマホ: 写真の表紙 → それに重なる黒い「今月のお金」 → 今日のまとめ（3枚のタイル）
+           → 次の予定 → 今日のタスク → 旅行 → Gmail。見出しはカードの外。
+   PC   : 3列のグリッド。表紙（全幅）/ お金（2列）＋旅行 / まとめ（全幅）/
+           予定・タスク・Gmail の3列 / 今週これから（全幅）。
+
+   DOM の順番がスマホの並び。PC は grid-column / grid-row で置き直す。
+   後半はお金管理（サマリー）。並べ方は ExpenseSummary.tsx 側。
+   theme-teal.css の後に読み込む（main.tsx）。
+   ========================================================================= */
+
+.lh-home {
+  --lh-pad: 1rem;
+  gap: 1.35rem;
+  padding: 0.75rem var(--lh-pad) 2rem;
+}
+
+/* ---------------------------------------------------------------------------
+   表紙（写真＋日付・時刻・ひとこと）
+   ------------------------------------------------------------------------ */
+.lh-cover {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 13.5rem;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: 1.25rem 1.25rem 3.6rem;
+  color: #fff;
+  isolation: isolate;
+}
+.lh-cover__photo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background-position: center;
+  background-size: cover;
+  transform: scale(1.06);
+  animation: lh-cover-drift 18s ease-in-out infinite alternate;
+}
+@keyframes lh-cover-drift {
+  from { transform: scale(1.06) translate3d(0, 0, 0); }
+  to { transform: scale(1.12) translate3d(-1.5%, -1%, 0); }
+}
+.lh-cover__veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, rgba(10, 14, 16, 0.05) 0%, rgba(10, 14, 16, 0.18) 45%, rgba(10, 14, 16, 0.62) 100%),
+    linear-gradient(90deg, rgba(10, 14, 16, 0.35), transparent 70%);
+}
+.lh-cover__copy { min-width: 0; }
+.app-shell .lh-cover__date {
+  margin: 0;
+  color: #fff;
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.25);
+}
+.lh-cover__quote {
+  margin: 0.35rem 0 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-family: var(--font-serif);
+  font-size: 0.86rem;
+  letter-spacing: 0.08em;
+}
+.lh-cover__clock {
+  display: flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  margin: 0;
+  color: #fff;
+  font-family: var(--font-rounded);
+  font-size: 2.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.25);
+}
+.lh-cover__clock small {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+/* ---------------------------------------------------------------------------
+   黒い「今月のお金」— スマホでは表紙の下端に重ねる
+   ------------------------------------------------------------------------ */
+.lh-money {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: -3.9rem;
+  z-index: 1;
+  padding: 1.2rem 1.25rem 1rem;
+  border-radius: 24px !important;
+}
+.lh-money__label {
+  color: rgba(244, 247, 247, 0.7);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.lh-money .warm-amount {
+  margin: 0.15rem 0 0;
+  font-size: 2.5rem;
+  line-height: 1.1;
+}
+.lh-money__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0.85rem 0 0;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.lh-money__stats div { min-width: 0; }
+.lh-money__stats dt {
+  overflow: hidden;
+  color: rgba(244, 247, 247, 0.55);
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lh-money__stats dd {
+  margin: 0.15rem 0 0;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.lh-money .warm-card__foot {
+  justify-content: flex-start;
+  margin-top: 0.6rem;
+  padding: 0;
+  border: 0;
+}
+
+/* ---------------------------------------------------------------------------
+   区切り（見出しはカードの外）
+   ------------------------------------------------------------------------ */
+.lh-section {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.lh-section__head,
+.lh-home .warm-brief > .warm-card__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.6rem;
+  padding: 0 0.2rem;
+}
+.app-shell .lh-section__title,
+.app-shell .lh-home .warm-brief .warm-card__title {
+  margin: 0;
+  color: var(--warm-ink);
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.lh-section__head .warm-card__go { margin-left: auto; }
+.lh-section__head .warm-card__badge { margin-left: auto; }
+.lh-section__head .warm-card__badge + .warm-card__go { margin-left: 0.4rem; }
+
+/* カードの中は区切り線つきの行の一覧（参考の「契約中のサービス」） */
+.lh-group {
+  overflow: hidden;
+  padding: 0.3rem 0;
+}
+.lh-group > .warm-empty { margin: 0.6rem 0.85rem; }
+
+.lh-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 3.6rem;
+  padding: 0.6rem 1rem;
+  color: var(--warm-ink);
+  transition: background-color 200ms ease;
+}
+/* 区切り線はアイコンの右から引く（参考と同じ、iOS の一覧の作法） */
+.lh-row + .lh-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 3.95rem;
+  height: 1px;
+  background: var(--warm-line);
+}
+.lh-row--foot + .lh-row::before,
+.lh-row + .lh-row--foot::before { left: 1rem; }
+@media (hover: hover) and (pointer: fine) {
+  a.lh-row:hover,
+  .lh-row:has(> a.lh-row__copy:hover) { background: var(--warm-surface-soft); }
+}
+a.lh-row:active { background: var(--warm-surface-sunk); }
+
+.lh-row__icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 2.35rem;
+  height: 2.35rem;
+  place-items: center;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+.lh-tone--accent { background: color-mix(in srgb, var(--tone-schedule) 14%, white); color: var(--tone-schedule); }
+.lh-tone--success { background: color-mix(in srgb, var(--tone-task) 14%, white); color: var(--tone-task); }
+.lh-tone--danger { background: color-mix(in srgb, var(--tone-gmail) 13%, white); color: var(--tone-gmail); }
+.lh-tone--neutral { background: var(--warm-surface-sunk); color: var(--warm-ink-2); }
+
+.lh-row__copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.12rem;
+  color: inherit;
+}
+.lh-row__copy strong {
+  overflow: hidden;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lh-row__copy small {
+  overflow: hidden;
+  color: var(--warm-ink-3);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lh-row__time {
+  margin-right: 0.4rem;
+  color: var(--teal-700);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.lh-row__aside {
+  flex: 0 0 auto;
+  color: var(--warm-ink-3);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+.lh-row__chev {
+  flex: 0 0 auto;
+  color: var(--warm-ink-3);
+  transition: transform 300ms var(--spring);
+}
+a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
+
+.lh-row.is-past { opacity: 0.5; }
+.lh-row .warm-check { flex: 0 0 auto; margin: 0 0.6rem 0 0.55rem; }
+.lh-row.is-done .lh-row__copy strong {
+  color: var(--warm-ink-3);
+  text-decoration: line-through;
+}
+.lh-row .warm-list__meta { flex: 0 0 auto; }
+
+.lh-row--foot { min-height: 3rem; }
+.lh-row--foot .lh-row__copy strong {
+  color: var(--teal-700);
+  font-size: 0.84rem;
+}
+
+/* ---------------------------------------------------------------------------
+   今日のまとめ — カードの枠を外して、色付きのタイルを横に並べる
+   （参考の「使ってない／まあまあ／よく使った」の3枚）
+   ------------------------------------------------------------------------ */
+.lh-home .warm-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0 !important;
+  background: none;
+  box-shadow: none;
+}
+.lh-home .warm-brief:hover { box-shadow: none; transform: none; }
+.lh-home .warm-brief__grid {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 0.6rem;
+}
+.lh-home .warm-brief__item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  min-width: 0;
+  border-radius: 20px;
+  padding: 0.85rem 0.9rem 0.9rem;
+  background: linear-gradient(160deg, #ffffff, var(--teal-50));
+  box-shadow: var(--warm-shadow);
+}
+.lh-home .warm-brief__label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.74rem;
+}
+.lh-home .warm-brief__label svg {
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0.5rem;
+  border-radius: 50%;
+  background: var(--teal-500);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(23, 161, 153, 0.3);
+}
+.lh-home .warm-brief__item.is-alert .warm-brief__label svg {
+  background: #dc6355;
+  box-shadow: 0 6px 14px rgba(220, 99, 85, 0.3);
+}
+.lh-home .warm-brief__count {
+  font-size: 1.75rem;
+  line-height: 1.1;
+}
+.lh-home .warm-brief__note {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* タイルが1枚だけ（Gmail 未連携）の時は、縦長の箱が間延びしないよう横に寝かせる。 */
+.lh-home .warm-brief__grid > .warm-brief__item:only-child {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.75rem;
+}
+.lh-home .warm-brief__grid > .warm-brief__item:only-child .warm-brief__label { flex-direction: row; align-items: center; }
+.lh-home .warm-brief__grid > .warm-brief__item:only-child .warm-brief__count { margin-left: auto; }
+.lh-home .warm-brief__grid > .warm-brief__item:only-child .warm-brief__note { flex-basis: 100%; }
+
+/* ---------------------------------------------------------------------------
+   旅行（写真のカードはそのまま、高さだけ）
+   ------------------------------------------------------------------------ */
+.lh-section--trip .warm-trip { min-height: 12rem; }
+.lh-section--week .warm-week { padding: 0.9rem; }
+.lh-section--week .warm-week__grid { margin-top: 0; }
+
+/* ---------------------------------------------------------------------------
+   PC — 3列のグリッドに置き直す
+   ------------------------------------------------------------------------ */
+@media (min-width: 1024px) {
+  .lh-home {
+    --lh-pad: 2rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.4rem 1.25rem;
+    padding: 0.75rem var(--lh-pad) 2.5rem;
+  }
+  .lh-home > * { grid-column: 1 / -1; }
+
+  .lh-cover {
+    grid-row: 1;
+    min-height: 11.5rem;
+    align-items: flex-end;
+    padding: 1.6rem 1.9rem;
+  }
+  .app-shell .lh-cover__date { font-size: 2.1rem; }
+  .lh-cover__quote { font-size: 0.95rem; }
+  .lh-cover__clock { font-size: 4rem; }
+  .lh-cover__clock small { font-size: 1rem; }
+
+  .lh-money {
+    grid-row: 2;
+    grid-column: 1 / span 2;
+    margin-top: 0;
+    padding: 1.6rem 1.8rem 1.3rem;
+    min-height: 15rem;
+  }
+  .lh-money .warm-amount { font-size: 3.6rem; }
+  .lh-money__stats { margin-top: auto; gap: 1rem; }
+  .lh-money__stats dd { font-size: 1.25rem; }
+  .lh-money__stats dt { font-size: 0.74rem; }
+
+  .lh-section--trip {
+    grid-row: 2;
+    grid-column: 3;
+  }
+  .lh-section--trip .warm-trip { flex: 1; min-height: 0; }
+
+  .lh-section--events { grid-column: 1; }
+  .lh-section--tasks { grid-column: 2; }
+  .lh-section--gmail { grid-column: 3; }
+  .lh-section--events,
+  .lh-section--tasks,
+  .lh-section--gmail { align-self: stretch; }
+  .lh-section--events .lh-group,
+  .lh-section--tasks .lh-group,
+  .lh-section--gmail .lh-group { flex: 1; }
+
+  .lh-home .warm-brief__item {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 0.9rem;
+    padding: 1rem 1.15rem;
+  }
+  .lh-home .warm-brief__label { flex-direction: row; align-items: center; gap: 0.6rem; font-size: 0.82rem; }
+  .lh-home .warm-brief__count { margin-left: auto; font-size: 1.9rem; }
+  .lh-home .warm-brief__note { flex-basis: 100%; font-size: 0.74rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lh-cover__photo { animation: none; transform: none; }
+}
+
+/* ============================================================================
+   お金管理（サマリー）— 参考の「分析」画面の並び
+   ========================================================================= */
+/* 区切りの見出しがカードの外に出たので、区切り同士の間は広めにとる
+   （index.css / pages-warm.css が .finance-control-center の隙間を詰めているのを上書き）。 */
+.spatial-page .lh-finance,
+.lh-finance { row-gap: 1.5rem !important; }
+.lh-finance > .lh-section { gap: 0.55rem; }
+
+/* 黒いカードの中の4つの数字（前は4枚の小さなカード） */
+.lh-finance__stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  row-gap: 0.85rem;
+  margin-top: 1rem;
+}
+.lh-finance__stats dd { font-size: 1.05rem; }
+/* 「利用ペース（1支出あたりの平均）」のような長い名前は省略せずに折り返し、
+   数字の方を下にそろえる（名前が1行の項目と数字の高さが揃うように）。 */
+.lh-finance__stats > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.lh-finance__stats dt {
+  overflow: visible;
+  white-space: normal;
+  line-height: 1.35;
+}
+@media (min-width: 1024px) {
+  .lh-finance__stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lh-finance__stats dd { font-size: 1.2rem; }
+}
+
+/* 一覧の箱。Card が持つ余白と、index.css の画面ごとの余白・色を上書きする。 */
+.spatial-page .lh-finance .lh-group,
+.lh-finance .lh-group {
+  padding: 0.3rem 0 !important;
+  border-radius: 22px !important;
+}
+.lh-finance .lh-section .lh-group { display: flex; flex-direction: column; }
+/* PC では「今期のまとめ」が隣の黒いカードと同じ高さに伸びるので、行を上に
+   詰めずに均等に配る（上に寄せると下半分が空いた箱に見える）。 */
+@media (min-width: 1024px) {
+  .lh-finance .finance-summary-module { justify-content: space-evenly; }
+}
+
+.lh-row--plain { min-height: 3.1rem; }
+.lh-row--plain + .lh-row--plain::before { left: 1rem; }
+.lh-row__label {
+  color: var(--warm-ink-2);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.lh-row__value {
+  flex: 0 0 auto;
+  color: var(--warm-ink);
+  font-size: 0.95rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+.lh-row--bar { align-items: flex-start; padding-block: 0.8rem; }
+.lh-row--bar .lh-row__copy { gap: 0.4rem; }
+.lh-row--bar .lh-row__label { color: var(--warm-ink); font-size: 0.86rem; font-weight: 700; }
+.lh-row--bar .task-progress { background: var(--warm-surface-sunk); }
+
+.lh-row__icon--initial {
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-weight: 800;
+}
+.lh-row__icon--initial.is-income {
+  background: var(--teal-500);
+  color: #fff;
+}
+
+.lh-group__notes {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.7rem 1rem 0.2rem;
+}
+.lh-group__divider {
+  margin: 0.3rem 0 0;
+  padding: 0.75rem 1rem 0.1rem;
+  border-top: 1px solid var(--warm-line);
+  color: var(--warm-ink-3);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.lh-group__divider + .lh-row::before { display: none; }
+
+.lh-section__note {
+  margin-left: auto;
+  color: var(--warm-ink-3);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+/* 貯金目標 — 参考の「節約実績」。青緑の薄い面に、大きな青緑の金額 */
+.spatial-page .lh-savings,
+.lh-savings {
+  border: 1px solid rgba(23, 161, 153, 0.18) !important;
+  background:
+    radial-gradient(420px circle at 100% 0%, rgba(60, 186, 178, 0.16), transparent 60%),
+    linear-gradient(160deg, #ffffff, var(--teal-50)) !important;
+}
+.lh-savings__kicker {
+  margin: 0;
+  color: var(--teal-700);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.lh-savings__amount {
+  margin-top: 0.2rem;
+  color: var(--teal-600);
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+@media (min-width: 1024px) {
+  .lh-savings__amount { font-size: 2.6rem; }
+}
+
+/* 財布の現金（別の部品）は、上下の区切りと同じ角丸にそろえる */
+.lh-finance .finance-cash-module { border-radius: 22px !important; }

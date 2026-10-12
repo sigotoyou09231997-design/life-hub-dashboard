@@ -148,7 +148,7 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
       参考の「今月のサブスク合計支払い」。そこに、指の位置で動く光と
       ゆっくり流れる光沢を足す（傾きは useDesignMotion.ts）。
    ------------------------------------------------------------------------ */
-.warm-lists > a.warm-card[href$="/records/expense"],
+.lh-home > a.lh-money,
 .finance-control-center > .finance-balance-module {
   position: relative;
   overflow: hidden;
@@ -166,7 +166,7 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
    position:fixed のままその場に描かれる（Sheet.tsx はポータルを使っていない）。
    transform を持つ箱の中では fixed の基準がその箱になり、シートがカードの中に
    閉じ込められてしまうので、お金管理のカードには transform を一切付けない。 */
-.warm-lists > a.warm-card[href$="/records/expense"] {
+.lh-home > a.lh-money {
   transform:
     perspective(900px)
     rotateX(var(--tilt-x, 0deg))
@@ -178,7 +178,7 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 }
 
 /* 光沢の帯。カードが現れたあと一度だけ斜めに流れ、PCで乗せると流れ直す。 */
-.warm-lists > a.warm-card[href$="/records/expense"]::after,
+.lh-home > a.lh-money::after,
 .finance-control-center > .finance-balance-module::after {
   content: "";
   position: absolute;
@@ -195,7 +195,7 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
   to { transform: translateX(60%); }
 }
 
-.warm-lists > a.warm-card[href$="/records/expense"]:hover {
+.lh-home > a.lh-money:hover {
   --lift: -3px;
   /* 出現の順番待ち（useHubMotion が付ける transition-delay）が残っていると、
      傾きがマウスから0.3秒遅れてついてくるので、乗っている間は待たない。 */
@@ -204,12 +204,12 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
   box-shadow: 0 2px 4px rgba(10, 16, 18, 0.12), 0 28px 56px rgba(10, 16, 18, 0.28);
 }
 
-.warm-lists > a.warm-card[href$="/records/expense"] .warm-card__title { color: rgba(244, 247, 247, 0.72); font-weight: 700; }
-.warm-lists > a.warm-card[href$="/records/expense"] .warm-amount { color: #fff; font-weight: 800; letter-spacing: -0.03em; }
-.warm-lists > a.warm-card[href$="/records/expense"] .warm-amount small { color: rgba(255, 255, 255, 0.6); }
-.warm-lists > a.warm-card[href$="/records/expense"] .warm-amount.is-negative { color: #ff8f80; }
-.warm-lists > a.warm-card[href$="/records/expense"] .warm-amount__note { color: rgba(244, 247, 247, 0.62); }
-.warm-lists > a.warm-card[href$="/records/expense"] .warm-card__foot { color: var(--teal-400); }
+.lh-home > a.lh-money .warm-card__title { color: rgba(244, 247, 247, 0.72); font-weight: 700; }
+.lh-home > a.lh-money .warm-amount { color: #fff; font-weight: 800; letter-spacing: -0.03em; }
+.lh-home > a.lh-money .warm-amount small { color: rgba(255, 255, 255, 0.6); }
+.lh-home > a.lh-money .warm-amount.is-negative { color: #ff8f80; }
+.lh-home > a.lh-money .warm-amount__note { color: rgba(244, 247, 247, 0.62); }
+.lh-home > a.lh-money .warm-card__foot { color: var(--teal-400); }
 
 /* お金管理の「使えるお金」。中は Tailwind の文字色クラスなので、カードの中だけ白へ。 */
 .finance-control-center > .finance-balance-module {
@@ -431,7 +431,7 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
   .spatial-tabs button,
   #page-fab-root > button,
   .glass-nav nav::before,
-  .warm-lists > a.warm-card[href$="/records/expense"] {
+  .lh-home > a.lh-money {
     transition: none !important;
     animation: none !important;
     transform: none !important;
