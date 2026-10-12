@@ -11,7 +11,7 @@ import {
   fileToAttachment,
   formatCandidateLabel,
   generateDraftForEmail,
-  getMessageBody,
+  getMessageContent,
   parseSender,
   sendReply,
   threadHasSentReplyAfter,
@@ -35,8 +35,11 @@ import { MailExpenseImport } from "./MailExpenseImport";
 import { detectJobStageSuggestion } from "../../lib/jobMailSuggestion";
 import { getJobStage } from "../../lib/jobApplications";
 import { AttachmentPicker } from "./AttachmentPicker";
+import { MailBody } from "./MailBody";
+import { isNoReplySender } from "../../lib/noReplySender";
 
 const EMPTY_DATE_SET = new Set<string>();
+const NO_INLINE_IMAGES: Record<string, string> = {};
 
 /** How long "送信する" holds off actually calling the Gmail API, showing a cancel
  * button in the meantime — mirrors Gmail's own "送信取り消し" UX. There's no Gmail
@@ -162,6 +165,10 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   const [originalBody, setOriginalBody] = useState<string | null>(null);
   const [loadingOriginal, setLoadingOriginal] = useState(true);
   const [bodyIsFallback, setBodyIsFallback] = useState(false);
+  // HTMLの部分と同封画像。この画面を開いている間だけ持ち、保存はしない(MailBody.tsx)。
+  const [originalHtml, setOriginalHtml] = useState("");
+  const [preferHtml, setPreferHtml] = useState(false);
+  const [inlineImages, setInlineImages] = useState<Record<string, string>>(NO_INLINE_IMAGES);
   const [keyPoints, setKeyPoints] = useState<string[]>([]);
   const [candidateDates, setCandidateDates] = useState<CandidateDate[]>([]);
   const [earliestDate, setEarliestDate] = useState("");
@@ -174,6 +181,12 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   // variant="sheet"のみで使う折りたたみ状態(初期表示をコンパクトに保つため)。
   const [originalExpanded, setOriginalExpanded] = useState(false);
   const [replyExpanded, setReplyExpanded] = useState(false);
+  // 送信専用アドレス・自動のお知らせは、返信しても読まれないので AI返信案の欄を閉じておく
+  // (押せば開く)。ただし本人がもう手を付けた(直した・送った)メールは開いたまま出す —
+  // 次に開いた時に、書きかけの返信が隠れていると見失うため。
+  const replyCollapsible = isNoReplySender(sender.email);
+  const replyStartsOpen = !replyCollapsible || email.status === "edited" || email.status === "sent";
+  const [replyOpen, setReplyOpen] = useState(replyStartsOpen);
   // このメールから旅行計画(日程・ルート)・予定・タスクを作る画面(MailPlanImport)を開いているか。
   const [planImportOpen, setPlanImportOpen] = useState(false);
   // このメールから支出を1件作る画面(MailExpenseImport)を開いているか。
@@ -218,6 +231,9 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   useEffect(() => {
     setOriginalExpanded(false);
     setReplyExpanded(false);
+    setReplyOpen(replyStartsOpen);
+    // 開き閉じの初期値はメールを切り替えた時だけ決め直す(状態が変わるたびに閉じない)。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email.id]);
 
   useEffect(() => {
@@ -250,17 +266,25 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
 
   // Fetch the original message body for reading context (separate from AI draft generation,
   // which is only triggered by the button below so opening an email never spends API credit).
+  // HTMLの部分も同じ1回の取得で受け取る(元の見た目で見るため)。HTMLはここで持つだけで、
+  // Dexie にも同期にも載せない。
   useEffect(() => {
     let cancelled = false;
     setLoadingOriginal(true);
     setBodyIsFallback(false);
+    setOriginalHtml("");
+    setPreferHtml(false);
+    setInlineImages(NO_INLINE_IMAGES);
     (async () => {
       try {
         const fresh = await ensureFreshAccessToken(account);
-        const text = await getMessageBody(fresh.accessToken, email.gmailMessageId);
+        const content = await getMessageContent(fresh.accessToken, email.gmailMessageId);
         if (!cancelled) {
-          setOriginalBody(text || email.snippet);
-          setBodyIsFallback(!text);
+          setOriginalBody(content.text || email.snippet);
+          setBodyIsFallback(!content.text);
+          setOriginalHtml(content.html);
+          setPreferHtml(content.preferHtml);
+          setInlineImages(content.inlineImages);
         }
       } catch {
         if (!cancelled) {
@@ -549,12 +573,6 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     </div>
   );
 
-  const originalBodyText = loadingOriginal ? "本文を読み込み中..." : originalBody;
-
-  const originalBodyNote = bodyIsFallback && !loadingOriginal && (
-    <p className="mb-2 text-xs text-slate-400">本文は保存済みの抜粋を表示しています</p>
-  );
-
   const replyFormFields = (
     <>
       <Input
@@ -835,54 +853,18 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     // ページ全体が自然にスクロールする通常のページとして表示する(固定高さ+内部
     // overflow-y-autoにはしない) — 長い本文/AI返信文が小さな内部スクロール領域に
     // 閉じ込められ、全文を見るのにスクロールが必要になっていたのを解消するため。
-    <div className="grid grid-cols-1 gap-6 lg:items-start lg:gap-5 lg:grid-cols-[minmax(320px,0.95fr)_minmax(360px,1.15fr)]">
-      {/* 返信: AI下書きの作成・プレビュー・編集・送信。モバイルでは元メール本文より
-          先(上)に表示する — スクロールなしですぐ返信内容が見えるように。
+    // 並びは「読む → 返信」。以前はスマホで返信欄を本文より上に置いていたが、メルマガや
+    // 送信専用のお知らせでも本文の前に入力欄が来て、読みたいものが下へ押し出されていた
+    // (2026-10-12 の見直し A-7)。PCでも本文を左の広い列、返信を右に置く。本文の列を広めに
+    // 取るのは、幅600px前後で組まれたHTMLメールを縮めずにそのまま見せたいため。
+    <div className="grid grid-cols-1 gap-6 lg:items-start lg:gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)]">
+      {/* 読む: 件名→送信者→区切り線→元メール本文。
           両カラムとも面(Card)で包む。以前はページのpx-5に直接乗せていたが、背景が
           写真になった今、面の無い列は濃いインクが夜空に沈んで読めなくなる。横方向の
           paddingが重なるのを避けるため、本文は面の中でさらに.glass-rowにはせず、
           カードの地の上に直接置く(インセットは面の中のくぼみなので、面が一枚あれば
           もう一段沈める必要はない)。 */}
-      <Card className="flex flex-col">
-        <div className="flex shrink-0 items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-slate-700">AI返信案</p>
-          {hasDraft && <Badge tone="success">準備完了</Badge>}
-        </div>
-
-        {!hasDraft && !generating ? (
-          <div className="mt-3 flex flex-col gap-3">
-            {!alreadySent && (
-              <Textarea
-                label="AIに伝えたいこと（任意）"
-                value={userNotes}
-                onChange={(e) => setUserNotes(e.target.value)}
-                rows={4}
-                placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
-              />
-            )}
-            <Button type="button" className="w-full" onClick={handleGenerate}>
-              AI下書きを作成
-            </Button>
-          </div>
-        ) : alreadySent ? (
-          <div className="mt-3 flex flex-col">{replyPreviewBlock}</div>
-        ) : (
-          <div className="mt-3 flex flex-col gap-3">
-            <Textarea
-              label="AIに伝えたいこと（任意）"
-              value={userNotes}
-              onChange={(e) => setUserNotes(e.target.value)}
-              rows={3}
-              placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
-              disabled={generating}
-            />
-            {replyFormFields}
-          </div>
-        )}
-      </Card>
-
-      {/* 読む: 件名→送信者→区切り線→元メール本文 */}
-      <Card className="flex flex-col">
+      <Card className="flex min-w-0 flex-col">
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold leading-snug text-slate-900">{email.subject}</h2>
           {hasDraft && <Badge tone="accent">AI下書き</Badge>}
@@ -892,9 +874,79 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         {expenseSuggestionBanner && <div className="mt-3 shrink-0">{expenseSuggestionBanner}</div>}
         {jobStageSuggestionBanner && <div className="mt-3 shrink-0">{jobStageSuggestionBanner}</div>}
         <div className="my-4 shrink-0 border-t border-white/40" />
-        {originalBodyNote}
-        <div className="whitespace-pre-wrap break-words text-sm text-slate-700">{originalBodyText}</div>
+        <MailBody
+          key={email.id}
+          loading={loadingOriginal}
+          text={originalBody ?? ""}
+          isFallback={bodyIsFallback}
+          html={originalHtml}
+          preferHtml={preferHtml}
+          inlineImages={inlineImages}
+        />
       </Card>
+
+      {/* 返信: AI下書きの作成・プレビュー・編集・送信。 */}
+      {replyOpen ? (
+        <Card className="flex flex-col">
+          <div className="flex shrink-0 items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-slate-700">AI返信案</p>
+            <div className="flex items-center gap-2">
+              {hasDraft && <Badge tone="success">準備完了</Badge>}
+              {replyCollapsible && !undoActive && (
+                <button
+                  type="button"
+                  onClick={() => setReplyOpen(false)}
+                  className="rounded-full px-2.5 py-1 text-xs font-medium text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                >
+                  閉じる
+                </button>
+              )}
+            </div>
+          </div>
+
+          {!hasDraft && !generating ? (
+            <div className="mt-3 flex flex-col gap-3">
+              {!alreadySent && (
+                <Textarea
+                  label="AIに伝えたいこと（任意）"
+                  value={userNotes}
+                  onChange={(e) => setUserNotes(e.target.value)}
+                  rows={4}
+                  placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
+                />
+              )}
+              <Button type="button" className="w-full" onClick={handleGenerate}>
+                AI下書きを作成
+              </Button>
+            </div>
+          ) : alreadySent ? (
+            <div className="mt-3 flex flex-col">{replyPreviewBlock}</div>
+          ) : (
+            <div className="mt-3 flex flex-col gap-3">
+              <Textarea
+                label="AIに伝えたいこと（任意）"
+                value={userNotes}
+                onChange={(e) => setUserNotes(e.target.value)}
+                rows={3}
+                placeholder="例：来週火曜以外なら対応可能、金額について触れたい、丁重にお断りしたい　など"
+                disabled={generating}
+              />
+              {replyFormFields}
+            </div>
+          )}
+        </Card>
+      ) : (
+        // 送信専用アドレス・自動のお知らせ: 返信欄は閉じておき、押した時だけ開く。
+        <Card className="flex flex-col gap-3">
+          <p className="text-sm font-semibold text-slate-700">返信</p>
+          <p className="text-xs leading-relaxed text-slate-500">
+            送信専用のアドレスから届いたお知らせのようです。返信しても相手に読まれないことが多いので、返信の欄は閉じています。
+          </p>
+          <Button type="button" variant="secondary" className="w-full" onClick={() => setReplyOpen(true)}>
+            {hasDraft ? "返信案を見る" : "返信案を作る"}
+          </Button>
+        </Card>
+      )}
 
       {candidateSheet}
       {planImportSheet}
