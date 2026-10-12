@@ -22,6 +22,7 @@ import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { splitTrips } from "../lib/tripListSections";
+import { useTripsStatus } from "../hooks/usePageStatus";
 
 export async function deleteTripCascade(tripId: string) {
   // 日記は旅行の中でしか読めない(単独の画面は無い)ので、紐づけを外すと
@@ -74,6 +75,7 @@ export async function deleteTripCascade(tripId: string) {
 }
 
 export default function TripsPage() {
+  const tripsStatus = useTripsStatus();
   const navigate = useNavigate();
   const showToast = useToast();
   const [creating, setCreating] = useState(false);
@@ -90,7 +92,7 @@ export default function TripsPage() {
 
   return (
     <div className="spatial-page trips-page micro-contrast mx-auto max-w-[1480px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
-      <PageHeader title="旅行計画" backTo="/" />
+      <PageHeader title="旅行計画" subtitle={tripsStatus ?? ""} backTo="/" />
 
       {/* 追加ボタンは他のページと同じ画面右下(src/components/ui/PageFab.tsx)。 */}
       <PageFab onClick={() => setCreating(true)} label="旅行を追加">
