@@ -14,6 +14,7 @@ import {
   getMessageContent,
   parseSender,
   sendReply,
+  snippetText,
   threadHasSentReplyAfter,
   type CandidateDate,
 } from "../../lib/gmail";
@@ -78,6 +79,9 @@ interface Props {
    * compact mobile bottom-sheet layout where the original body and AI返信案
    * sections start collapsed so the mail list stays visible behind it. */
   variant?: "pane" | "sheet";
+  /** PCの一覧の右側(GmailPage の左右分割)に出す時 true。本文と返信を左右に並べるだけの
+   * 幅が無いので、PCでもスマホと同じく「本文 → 返信」の縦1列にする。 */
+  stacked?: boolean;
 }
 
 interface SuggestionBannerProps {
@@ -99,7 +103,8 @@ interface SuggestionBannerProps {
  * 2か所で同じ形を別々に書いていたので、崩れも直しも片方だけにならないよう1つにまとめた。 */
 function SuggestionBanner({ icon, children, onDismiss, actionLabel, onAction }: SuggestionBannerProps) {
   return (
-    <div className="glass-row flex flex-col gap-2 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:gap-x-3">
+    // mail-suggestion: PCの一覧の右側(細い枠)では、画面が広くても縦に積む(pages-warm.css)。
+    <div className="mail-suggestion glass-row flex flex-col gap-2 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:gap-x-3">
       <span className="flex min-w-0 flex-1 items-start gap-2 text-sm text-slate-700">
         {icon}
         <span className="min-w-0">{children}</span>
@@ -124,7 +129,7 @@ function SuggestionBanner({ icon, children, onDismiss, actionLabel, onAction }: 
   );
 }
 
-export function DraftReview({ email, account, onSent, variant = "pane" }: Props) {
+export function DraftReview({ email, account, onSent, variant = "pane", stacked = false }: Props) {
   const showToast = useToast();
   const confirm = useConfirm();
 
@@ -280,7 +285,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         const fresh = await ensureFreshAccessToken(account);
         const content = await getMessageContent(fresh.accessToken, email.gmailMessageId);
         if (!cancelled) {
-          setOriginalBody(content.text || email.snippet);
+          setOriginalBody(content.text || snippetText(email.snippet));
           setBodyIsFallback(!content.text);
           setOriginalHtml(content.html);
           setPreferHtml(content.preferHtml);
@@ -288,7 +293,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         }
       } catch {
         if (!cancelled) {
-          setOriginalBody(email.snippet);
+          setOriginalBody(snippetText(email.snippet));
           setBodyIsFallback(true);
         }
       } finally {
@@ -508,6 +513,11 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
 
   const alreadySent = email.status === "sent";
   const hasDraft = !!draft;
+  // 「予定を追加しますか?」の帯が出るメールでは、上の「予定に追加する」ボタンは出さない。
+  // どちらも同じ画面(MailPlanImport)を開くので、すぐ上下に同じ操作が2つ並んでいた
+  // (2026-10-12 の見直し P-6)。帯の方が「何が読み取れたか」まで分かるので帯を残す。
+  // 「あとで」で帯を消した後や、帯の出ないメールでは、ボタンからいつでも開ける。
+  const showPlanSuggestion = isPlanSuggestion(email);
   const undoActive = undoSecondsLeft !== null;
 
   const senderRow = (
@@ -548,16 +558,18 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
         {/* 既読/ブロックはこのメール自体の状態を切り替えるもの、こちらは別の場所に予定を
             作るもの。同じ見た目のアイコンで並べると押し分けにくいので、塗りのボタンにして
             はっきり別物に見せる。 */}
-        <button
-          type="button"
-          onClick={() => setPlanImportOpen(true)}
-          aria-label="予定に追加する"
-          title="このメールの内容から、旅行計画(日程・ルート)・予定・タスクを作る"
-          className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
-        >
-          <CalendarPlus size={14} />
-          <span className="hidden sm:inline">予定に追加する</span>
-        </button>
+        {!showPlanSuggestion && (
+          <button
+            type="button"
+            onClick={() => setPlanImportOpen(true)}
+            aria-label="予定に追加する"
+            title="このメールの内容から、旅行計画(日程・ルート)・予定・タスクを作る"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
+          >
+            <CalendarPlus size={14} />
+            <span className="hidden sm:inline">予定に追加する</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={handleToggleBlock}
@@ -708,7 +720,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
   /** 日時が書かれていそうなメールに出す提案。読み取り(AI)はここでは走らせず、
    * 「予定を追加」を押して初めて MailPlanImport が1通ぶんだけ読む。
    * 「あとで」を押すと、このメールにはもう出さない。 */
-  const planSuggestionBanner = isPlanSuggestion(email) && (
+  const planSuggestionBanner = showPlanSuggestion && (
     <SuggestionBanner
       icon={<CalendarPlus size={16} className="mt-0.5 shrink-0 text-accent" />}
       onDismiss={handleDismissPlanSuggestion}
@@ -793,7 +805,7 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
               {loadingOriginal ? "本文を読み込み中..." : originalBody}
             </div>
           ) : (
-            <p className="glass-row line-clamp-2 rounded-xl px-4 py-3 text-sm text-slate-600">{email.snippet}</p>
+            <p className="glass-row line-clamp-2 rounded-xl px-4 py-3 text-sm text-slate-600">{snippetText(email.snippet)}</p>
           )}
         </div>
 
@@ -857,7 +869,14 @@ export function DraftReview({ email, account, onSent, variant = "pane" }: Props)
     // 送信専用のお知らせでも本文の前に入力欄が来て、読みたいものが下へ押し出されていた
     // (2026-10-12 の見直し A-7)。PCでも本文を左の広い列、返信を右に置く。本文の列を広めに
     // 取るのは、幅600px前後で組まれたHTMLメールを縮めずにそのまま見せたいため。
-    <div className="grid grid-cols-1 gap-6 lg:items-start lg:gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)]">
+    // stacked(PCの左右分割の右側)は、PCでも縦1列のまま。
+    <div
+      className={
+        stacked
+          ? "grid grid-cols-1 gap-4"
+          : "grid grid-cols-1 gap-6 lg:items-start lg:gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(340px,1fr)]"
+      }
+    >
       {/* 読む: 件名→送信者→区切り線→元メール本文。
           両カラムとも面(Card)で包む。以前はページのpx-5に直接乗せていたが、背景が
           写真になった今、面の無い列は濃いインクが夜空に沈んで読めなくなる。横方向の

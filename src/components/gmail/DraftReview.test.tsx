@@ -90,14 +90,20 @@ function email(extra: Partial<SyncedEmail> = {}): SyncedEmail {
   };
 }
 
-function renderMail(target: SyncedEmail) {
+function renderMail(target: SyncedEmail, props: { stacked?: boolean } = {}) {
   return render(
     <ToastProvider>
       <ConfirmProvider>
-        <DraftReview email={target} account={account} />
+        <DraftReview email={target} account={account} {...props} />
       </ConfirmProvider>
     </ToastProvider>,
   );
+}
+
+/** 「予定を追加しますか?」が出る日時(過ぎた日付の案内には出ないので、いつ走らせても先の日にする)。 */
+function upcomingDateText(): string {
+  const d = new Date(Date.now() + 20 * 24 * 60 * 60 * 1000);
+  return `${d.getMonth() + 1}月${d.getDate()}日 14:00`;
 }
 
 function frame(): HTMLIFrameElement | null {
@@ -189,5 +195,42 @@ describe("メール1通の画面", () => {
     expect(frame()!.getAttribute("srcdoc")).toContain("HTMLの本文");
     // 外の画像が無いメールには「画像を表示する」を出さない。
     expect(screen.queryByRole("button", { name: "画像を表示する" })).toBeNull();
+  });
+
+  it("「予定を追加しますか?」が出るメールでは、上の「予定に追加する」ボタンを重ねて出さない", async () => {
+    mocks.content = { text: "面接のご案内です。", html: "", preferHtml: false, inlineImages: {} };
+    renderMail(email({ snippet: `${upcomingDateText()} より一次面接を行います`, receivedAt: Date.now() }));
+
+    expect(await screen.findByRole("button", { name: "予定を追加" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "予定に追加する" })).toBeNull();
+  });
+
+  it("提案の出ないメールでは、上の「予定に追加する」ボタンから予定を作れる", async () => {
+    mocks.content = { text: "いつもありがとうございます。", html: "", preferHtml: false, inlineImages: {} };
+    renderMail(email({ subject: "近況のご報告", snippet: "いつもありがとうございます。" }));
+
+    expect(await screen.findByRole("button", { name: "予定に追加する" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "予定を追加" })).toBeNull();
+  });
+
+  it("本文が取れない時に出す抜粋は、&amp; などを元の字に戻して出す", async () => {
+    // getMessageContent が文章を返さない(画像だけのメールなど)と、保存してある抜粋を出す。
+    renderMail(email({ snippet: "ホテル &amp; 一軒家 &lt;予約番号 123&gt;" }));
+    expect(await screen.findByText("ホテル & 一軒家 <予約番号 123>")).toBeTruthy();
+  });
+
+  it("stacked(PCの一覧の右側)では、本文と返信を左右に並べず縦1列にする", async () => {
+    mocks.content = { text: "本文です", html: "", preferHtml: false, inlineImages: {} };
+    const layout = (container: HTMLElement) => container.querySelector<HTMLElement>(".grid.grid-cols-1")?.className ?? "";
+
+    const page = renderMail(email());
+    await screen.findByText("本文です");
+    expect(layout(page.container)).toContain("lg:grid-cols-");
+    page.unmount();
+
+    const pane = renderMail(email(), { stacked: true });
+    await screen.findByText("本文です");
+    expect(layout(pane.container)).not.toBe("");
+    expect(layout(pane.container)).not.toContain("lg:grid-cols-");
   });
 });

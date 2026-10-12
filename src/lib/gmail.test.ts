@@ -6,6 +6,7 @@ import {
   base64UrlDecode,
   base64UrlEncode,
   buildRawMessage,
+  decodeHtmlEntities,
   encodeHeaderWord,
   extractMessageContent,
   extractPlainText,
@@ -14,6 +15,7 @@ import {
   isHtmlOnlyNotice,
   isUnhandledEmail,
   mapWithConcurrency,
+  snippetText,
 } from "./gmail";
 
 describe("base64UrlEncode/base64UrlDecode", () => {
@@ -252,6 +254,27 @@ describe("htmlToText", () => {
 
   it("範囲外の文字参照はそのまま残す(落とさない)", () => {
     expect(htmlToText("<p>&#99999999;面接</p>")).toBe("&#99999999;面接");
+  });
+});
+
+describe("snippetText / decodeHtmlEntities", () => {
+  it("一覧の抜粋の &amp; などを元の字に戻す(Gmail API の抜粋は文字参照のまま届く)", () => {
+    expect(snippetText("Agoda.com ホテル &amp; 一軒家")).toBe("Agoda.com ホテル & 一軒家");
+    expect(snippetText("&lt;予約番号&gt; &quot;特集&quot; It&#39;s")).toBe("<予約番号> \"特集\" It's");
+  });
+
+  it("数字の文字参照(10進・16進)も戻す", () => {
+    expect(snippetText("&#12304;特集&#12305; &#x1F4DA; &#X30D3;ル")).toBe("【特集】 📚 ビル");
+  });
+
+  it("1回だけ戻す — 「&amp;lt;」は「&lt;」で止まり、「<」まで戻さない", () => {
+    // メールに「&lt;」という文字そのものが書いてある時、Gmail は「&amp;lt;」で返す。
+    expect(snippetText("HTMLでは &amp;lt; と書く")).toBe("HTMLでは &lt; と書く");
+    expect(decodeHtmlEntities("&amp;amp;")).toBe("&amp;");
+  });
+
+  it("知らない名前・範囲外の数字・文字参照でない & はそのまま残す", () => {
+    expect(decodeHtmlEntities("&copy; &#99999999; AT&T Q&A & と")).toBe("&copy; &#99999999; AT&T Q&A & と");
   });
 });
 

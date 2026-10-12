@@ -548,6 +548,182 @@
   background: var(--warm-surface-sunk);
 }
 
+/* 絞り込みのチップ(GmailInbox の「すべて・予定候補・…・既読」)。
+   1段のまま横に流す(2026-10-12 の見直し S-7。前は狭い画面で2段に折り返していた)。
+   スクロールバーは出さず、入りきらない時は隠れている側の端を薄くする(ページのタブ
+   ui/Tabs.tsx の .spatial-tabs--scroll と同じ見せ方)。内側の少しの余白は、選んだチップの
+   フォーカスの輪が箱の縁で切れないため(同じだけ外へ負の余白で返して、位置は変えない)。 */
+.mail-filter-chips {
+  margin: -0.2rem;
+  padding: 0.2rem;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+.mail-filter-chips::-webkit-scrollbar { display: none; }
+.mail-filter-chips[data-more-right="true"] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent);
+}
+.mail-filter-chips[data-more-left="true"] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 1.75rem), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 1.75rem), transparent);
+}
+.mail-filter-chips[data-more-left="true"][data-more-right="true"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 1.75rem, #000 calc(100% - 1.75rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 1.75rem, #000 calc(100% - 1.75rem), transparent);
+}
+
+/* PCの一覧の行(GmailInbox の compact)。スマホのカード(アバター＋3〜4段)のままだと
+   1画面に6通ほどしか入らなかったので、1通を1行に詰める(2026-10-12 の見直し P-3)。
+   一覧が細い時(右にメールを開いている時)は2段にする — 1段のままだと差出人と時刻に
+   押されて件名が数文字しか見えない。窓の幅ではなく一覧そのものの幅で切り替えるので、
+   @container を使う。 */
+.mail-list--compact { container-type: inline-size; }
+/* 指を乗せた時に行がわずかに寄る動き(index.css の「行に触れる」)は、行の左の余白を
+   --row-pad から少し増やして作っている。1行の行は中身の側に余白を持つので 0 から始め、
+   寄る量をカードと同じ「わずか」にする(既定の 0.75rem からだと1文字ぶん跳ねて見える)。 */
+.mail-row--compact { --row-pad: 0rem; }
+
+.mail-compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "from marks time"
+    "text text text";
+  align-items: center;
+  column-gap: 0.5rem;
+  row-gap: 0.1rem;
+  padding: 0.5rem 0.25rem 0.5rem 0.8rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+.mail-compact:active { background: rgba(255, 255, 255, 0.6); }
+.mail-compact__from { grid-area: from; min-width: 0; }
+.mail-compact__text { grid-area: text; min-width: 0; }
+/* 件名と抜粋の間の区切り。抜粋が無いメールでは出さない(抜粋の側に付けてあるため)。 */
+.mail-compact__snippet::before {
+  content: "—";
+  margin: 0 0.45em;
+  color: var(--warm-ink-3);
+}
+.mail-compact__marks { grid-area: marks; display: inline-flex; align-items: center; gap: 0.25rem; }
+.mail-compact__time { grid-area: time; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+@container (min-width: 40rem) {
+  .mail-compact {
+    grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr) auto 4.5rem;
+    grid-template-areas: "from text marks time";
+    padding-block: 0.6rem;
+  }
+  .mail-compact__time { text-align: right; }
+}
+
+/* 行の中の小さな印(重要・返信待ち・予定候補・支出候補)。色は JSX 側の bg-/text- で
+   カードの印と同じものを使い、ここでは大きさだけ揃える。 */
+.mail-mark {
+  display: inline-flex;
+  height: 1.3rem;
+  min-width: 1.3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mail-mark--icon { padding: 0; }
+.mail-mark__badge { padding-block: 0; line-height: 1.3rem; font-size: 0.6875rem; white-space: nowrap; }
+
+/* 右に開いているメールの行。未読の印(左の縁)より後に書いて、選んでいる方を優先する。 */
+.spatial-page .mail-row.is-selected {
+  background-color: var(--teal-50);
+  box-shadow: inset 0 0 0 1px var(--teal-400);
+}
+
+/* PC: 一覧の右にメールを開く(GmailPage の .mail-split と MailReadingPane)。
+   開いていない間は一覧を幅いっぱいに、開いたら左に一覧・右にメールの2列。
+   右の方を広く取るのは、600px前後で組まれたHTMLメールをなるべく縮めずに見せたいため
+   (一覧は2段の行になるので細くても読める)。 */
+@media (min-width: 1024px) {
+  .mail-split {
+    display: grid;
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 1rem;
+  }
+  .mail-split.is-open {
+    grid-template-columns: minmax(19rem, 0.8fr) minmax(0, 1.2fr);
+  }
+}
+
+.mail-reading-pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--warm-line);
+  border-radius: var(--warm-r-xl);
+  background: var(--warm-surface-soft);
+  box-shadow: var(--warm-shadow);
+  animation: mail-pane-in 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes mail-pane-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: none; }
+}
+.mail-reading-pane__bar {
+  display: flex;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  padding: 0.6rem 0.8rem 0.1rem;
+}
+/* 「閉じる」は文字付きの独立したボタン(×だけだと、何が閉じるのか分かりにくい)。 */
+.mail-reading-pane__close {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid var(--warm-line-strong);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--warm-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+.mail-reading-pane__close:hover,
+.mail-reading-pane__close:active {
+  border-color: var(--teal-400);
+  background: var(--teal-50);
+}
+/* 末尾の余白は、右下の新規作成ボタンに「送信する」が隠れないための逃げ(一覧の lg:pb-14 と同じ)。 */
+.mail-reading-pane__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.5rem 0.8rem 4.5rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mail-reading-pane { animation: none; }
+}
+/* 提案の帯(「予定を追加しますか?」など、DraftReview の SuggestionBanner)は、画面の幅で
+   文章とボタンを横に並べる。右側の枠は画面が広くても細いことがあり(1024〜1280pxの窓)、
+   並べると文章が3〜4行の細い柱になるので、枠そのものが狭い時は縦に積む。 */
+.mail-reading-pane__scroll { container-type: inline-size; }
+@container (max-width: 34rem) {
+  .mail-reading-pane__scroll .mail-suggestion {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* メール1通の画面の本文(src/components/gmail/MailBody.tsx)。
    「元の見た目で見る」「画像を表示する」は1つずつ別のボタンにする(溝に詰めない — 本人の好み)。
    HTMLメールは白い紙のまま見せる。メール側が自分の背景色を決めている前提で作られているので、
