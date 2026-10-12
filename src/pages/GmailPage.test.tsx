@@ -255,3 +255,27 @@ describe("Gmail の画面(PC は一覧の右に開く)", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Gmail" })).toBeTruthy();
   });
 });
+
+describe("Gmail の画面 — 読み出し中に「未接続」を一瞬出さない", () => {
+  beforeEach(() => {
+    mocks.desktop = false;
+    mocks.accounts = [account("acc1", "me@example.com")];
+    mocks.emails = [mail("m1", "acc1", "一次面接のご案内")];
+    localStorage.clear();
+  });
+  afterEach(() => cleanup());
+
+  it("つながっている人に、読み出しが終わるまで「Gmail未接続」を見せない", async () => {
+    renderAt("/gmail");
+    // 最初の描画(読み出し前)に、未接続のカードは出ない。
+    expect(screen.queryByText("Gmail未接続")).toBeNull();
+    expect(await screen.findByText("一覧: me@example.com")).toBeTruthy();
+    expect(screen.queryByText("Gmail未接続")).toBeNull();
+  });
+
+  it("本当に未接続の人には、読み出しのあとで「Gmail未接続」を出す", async () => {
+    mocks.accounts = [];
+    renderAt("/gmail");
+    expect(await screen.findByText("Gmail未接続")).toBeTruthy();
+  });
+});

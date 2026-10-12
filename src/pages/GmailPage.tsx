@@ -22,6 +22,7 @@ import {
   resolveSelectedGmailAccountId,
 } from "../lib/gmailAccounts";
 import { summarizeGmailSync, syncGmailAccount, type AccountSyncOutcome } from "../lib/gmailSync";
+import type { GmailAccount } from "../types";
 import { ComposeMail } from "../components/gmail/ComposeMail";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
@@ -38,6 +39,10 @@ const BACK_BUTTON_CLASS =
 interface SplitHistoryState {
   gmailMailFromList?: boolean;
 }
+
+/** 前に読んだ連携アカウント。画面を開き直した時の、端末から読み出し終わるまでの一瞬を空白・誤表示にしないための控え
+ * (読み出しが終われば本物に置き換わる)。 */
+let rememberedAccounts: GmailAccount[] | undefined;
 
 /** PC(lg以上)で、一覧の右側に出すメール1通(本文と返信)。
  *
@@ -93,7 +98,13 @@ export default function GmailPage() {
   const [searchParams] = useSearchParams();
   const isDesktop = useIsDesktop();
   const showToast = useToast();
-  const accounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
+  // 画面を開き直した時に、端末から読み出し終わるまでの一瞬を空白・誤表示にしないよう、前に読んだ
+  // 連携アカウントを控えておき、読み出しが終わるまではそれを使う(2026-10-13、本人「一瞬真っ白になる」)。
+  const liveAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
+  const accounts = liveAccounts ?? rememberedAccounts;
+  useEffect(() => {
+    if (liveAccounts) rememberedAccounts = liveAccounts;
+  }, [liveAccounts]);
   const showSkeleton = useDelayedFlag(accounts === undefined);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(() => readSelectedGmailAccountId());
   const [syncing, setSyncing] = useState(false);
@@ -323,7 +334,8 @@ export default function GmailPage() {
       <div className="mail-workspace px-5 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:px-8 lg:pb-7">
         {showSkeleton ? (
           <ListSkeleton />
-        ) : !accounts || accounts.length === 0 ? (
+        ) : accounts === undefined ? null : accounts.length === 0 ? (
+          // 読み出し中(accounts が未定)は何も出さない。「未接続」を一瞬出すと、つながっている人にも誤って見える。
           // 未接続のときはこのカード1枚しか出ず、下に背景写真だけの帯が
           // 画面の6割ほど残っていた(1440x900で534px)。空状態を画面の残りの高さまで
           // 伸ばす共通クラス(index.css)で、他の画面と同じ扱いにする。タブが無い

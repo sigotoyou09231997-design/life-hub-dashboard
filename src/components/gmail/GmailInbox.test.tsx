@@ -350,3 +350,28 @@ describe("メール一覧の件数の区切り(iPhone で一覧ごと消える�
     expect(screen.queryByRole("button", { name: /さらに表示/ })).toBeNull();
   });
 });
+
+describe("メール一覧 — 開き直した時に空白・誤表示を出さない", () => {
+  afterEach(cleanup);
+  beforeEach(() => {
+    mocks.emails = [email("r1", "一次面接のご案内"), email("r2", "説明会の御礼")];
+    mocks.syncCalls = 0;
+    mocks.replyWaiting = [];
+  });
+
+  it("開き直した最初の描画から、前に読んだ一覧が出る(読み出しを待たない)", async () => {
+    const first = renderInbox({ id: "reopen" });
+    await screen.findByRole("link", { name: /一次面接のご案内/ });
+    first.unmount();
+
+    renderInbox({ id: "reopen" });
+    // 端末からの読み出しはまだ終わっていない(次のタスクで解決する)のに、もう並んでいる。
+    expect(screen.getAllByRole("link", { name: /一次面接のご案内|説明会の御礼/ })).toHaveLength(2);
+  });
+
+  it("読み出し中に「受信メールはまだありません」を一瞬出さない(初めて開く時も)", async () => {
+    renderInbox({ id: "first-open" });
+    expect(screen.queryByText("受信メールはまだありません")).toBeNull();
+    await screen.findByRole("link", { name: /一次面接のご案内/ });
+  });
+});
