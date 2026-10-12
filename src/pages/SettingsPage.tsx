@@ -9,6 +9,7 @@ import { sortSavingsGoals } from "../lib/savingsGoal";
 import { EventPeopleManager } from "../components/settings/EventPeopleManager";
 import { FeedbackInbox } from "../components/feedback/FeedbackInbox";
 import { GoogleCalendarSyncControl } from "../components/settings/GoogleCalendarSyncControl";
+import { HomeAddressSetting } from "../components/settings/HomeAddressSetting";
 import { SettingsSection, SettingsToc, type SettingsTocItem } from "../components/settings/SettingsToc";
 import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
@@ -320,7 +321,9 @@ export default function SettingsPage() {
                 <div className="system-status is-online"><i />{session ? "端末内 + 同期" : "端末内"}</div>
               </div>
               <p className="system-section__description text-xs text-slate-500">
-                すべてのデータは端末内にのみ保存されています。バックアップを取っておくと安心です。
+                {session
+                  ? "データはこの端末に保存し、ログインしている間はほかの端末と同期しています。念のためバックアップを取っておくと安心です。"
+                  : "データはこの端末の中にだけ保存されています。バックアップを取っておくと安心です。"}
               </p>
               <div className="system-state-control">
                 <div><span>保存先</span><strong>{session ? "この端末 + 同期" : "この端末"}</strong></div>
@@ -394,6 +397,8 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </Card>
+
+            <HomeAddressSetting />
           </SettingsSection>
 
           <SettingsSection id="settings-money" label="お金">

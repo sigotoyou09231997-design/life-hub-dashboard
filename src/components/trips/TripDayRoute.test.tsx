@@ -1,8 +1,10 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import type { TripScheduleItem } from "../../types";
 import { stopKeys } from "../../lib/tripDayRoute";
+import { saveHomeAddress } from "../../lib/homePlace";
 import { TripDayRoute } from "./TripDayRoute";
 
 const DAY = "2026-12-27";
@@ -157,5 +159,30 @@ describe("TripDayRoute", () => {
     render(<TripDayRoute items={[item(undefined, "09:00")]} date={DAY} />);
     expect(screen.queryByRole("button")).toBeNull();
     expect(screen.getByText(/この日は場所の入った予定がありません/)).toBeTruthy();
+  });
+
+  // 「自宅」をそのまま Google マップに渡すと、名前の似たお店(「お家サロン」)に当たっていた(2026-10-12)。
+  it("leaves 自宅 out of the map and says how to add it when no home address is set", () => {
+    render(
+      <MemoryRouter>
+        <TripDayRoute items={[item("自宅", "05:00"), ...DAY1.slice(1, 3)]} date={DAY} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "この日の経路を地図で見る" }));
+    expect(mapStops()).toEqual(["東京駅 東京都千代田区", "高松駅 香川県高松市"]);
+    expect(screen.queryByRole("checkbox", { name: "自宅" })).toBeNull();
+    expect(screen.getByRole("link", { name: "設定の「自宅の住所」" }).getAttribute("href")).toBe("/settings");
+  });
+
+  it("uses the home address from the settings in place of 自宅", () => {
+    saveHomeAddress("栃木県下野市1-2-3");
+    render(
+      <MemoryRouter>
+        <TripDayRoute items={[item("自宅", "05:00"), ...DAY1.slice(1, 3)]} date={DAY} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "この日の経路を地図で見る" }));
+    expect(mapStops()).toEqual(["栃木県下野市1-2-3", "東京駅 東京都千代田区", "高松駅 香川県高松市"]);
+    expect(screen.queryByRole("link", { name: "設定の「自宅の住所」" })).toBeNull();
   });
 });

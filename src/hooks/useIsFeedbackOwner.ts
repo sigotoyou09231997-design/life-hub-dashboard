@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { loadIsFeedbackOwner } from "../lib/appFeedback";
+import { auth } from "../lib/supabase";
 
 /** 前回確かめた結果。アプリを開くたびに問い合わせが返るまでボタンが出たり消えたり
  * しないように、この端末で覚えておく(本当の答えは毎回問い合わせて上書きする)。 */
@@ -30,15 +31,30 @@ export function useIsFeedbackOwner(): boolean | undefined {
   const [isOwner, setIsOwner] = useState<boolean | undefined>(readCache);
   useEffect(() => {
     let active = true;
-    void loadIsFeedbackOwner()
-      .catch(() => false)
-      .then((result) => {
-        if (!active) return;
-        writeCache(result);
-        setIsOwner(result);
-      });
+    function check() {
+      void loadIsFeedbackOwner()
+        .catch(() => false)
+        .then((result) => {
+          if (!active) return;
+          writeCache(result);
+          setIsOwner(result);
+        });
+    }
+    check();
+    // ログインし直した・アカウントを切り替えた時も確かめ直す。開いた時の1回だけだと、
+    // 開いたあとに持ち主として登録した(029 の SQL を流した)のに「修正」が出たままになる。
+    const { data: listener } = auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") check();
+    });
+    // ほかのアプリから戻ってきた時にも確かめ直す(開きっぱなしのタブでも、登録が反映されるように)。
+    function onVisible() {
+      if (document.visibilityState === "visible") check();
+    }
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       active = false;
+      listener.subscription.unsubscribe();
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
   return isOwner;

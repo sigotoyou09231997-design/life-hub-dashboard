@@ -17,6 +17,8 @@ interface Props {
   onDeleteEvent: (id: string) => void;
   onEditTask: (t: Task) => void;
   onAddSubtask: (parentId: string) => void;
+  /** タスクが1件も無い時に、空の表示から直接タスクを追加する。 */
+  onAddTask?: () => void;
 }
 
 type TypeFilter = "all" | "event" | "task";
@@ -39,7 +41,7 @@ function isUpcomingOrOngoing(event: CalendarEvent, today: string, nowHM: string)
   return endRef >= nowHM;
 }
 
-export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent, onEditTask, onAddSubtask }: Props) {
+export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent, onEditTask, onAddSubtask, onAddTask }: Props) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [query, setQuery] = useState("");
@@ -123,7 +125,7 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
         {(typeFilter === "all" || typeFilter === "task") && (
           <div className={`planning-list-module ${typeFilter === "task" ? "lg:col-span-2" : ""}`}>
             <p className="mb-2 text-sm font-medium text-slate-600">タスク</p>
-            <TaskList tasks={filteredTasks} onEdit={onEditTask} onAddSubtask={onAddSubtask} emptyMessage={taskEmptyMessage} />
+            <TaskList tasks={filteredTasks} onEdit={onEditTask} onAddSubtask={onAddSubtask} emptyMessage={taskEmptyMessage} onAdd={onAddTask} />
           </div>
         )}
       </div>

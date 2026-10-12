@@ -792,3 +792,10 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   background: var(--ink-black);
 }
 
+
+/* 設定のカードは中身の高さに合わせる。共通の .system-section は PC で最低 17rem あり、
+   中身が2〜3行の「更新履歴」などは下が大きく空いていた(UI/UX 調査メモ 第3弾 N-4)。
+   2列に並ぶカードは、グリッドの行の高さで今までどおりそろう。 */
+.settings-page .system-section {
+  min-height: auto;
+}

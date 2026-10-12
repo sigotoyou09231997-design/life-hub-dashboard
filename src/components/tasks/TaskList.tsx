@@ -12,6 +12,8 @@ interface Props {
   onEdit: (task: Task) => void;
   onAddSubtask: (parentId: string) => void;
   emptyMessage?: string;
+  /** 1件も無い時の「タスクを追加」。渡さなければボタンは出さない。 */
+  onAdd?: () => void;
 }
 
 export async function toggleTaskCompletion(task: Task) {
@@ -56,7 +58,7 @@ export async function deleteTaskCascade(id: string) {
   await Promise.all([...children.map((c) => deletePlaceRemindersFor("task", c.id!)), deletePlaceRemindersFor("task", id)]);
 }
 
-export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage }: Props) {
+export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage, onAdd }: Props) {
   const showToast = useToast();
 
   async function handleDelete(id: string) {
@@ -79,7 +81,13 @@ export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage }: Props) {
     return emptyMessage ? (
       <EmptyState title={emptyMessage} />
     ) : (
-      <EmptyState icon={CheckSquare} title="タスクがまだありません" description="右上の「+」から追加できます。" />
+      // 「＋」の場所は書かない — スマホは右下・PCは上の帯で、どちらかと必ず食い違う(UI/UX 調査メモ 第3弾 N-1)。
+      <EmptyState
+        icon={CheckSquare}
+        title="タスクがまだありません"
+        description="終わらせたいことを書いておくと、期日の近い順に並びます。"
+        action={onAdd ? { label: "タスクを追加", onClick: onAdd } : undefined}
+      />
     );
   }
 

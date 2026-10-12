@@ -215,6 +215,7 @@ export default function SchedulePage() {
             onDeleteEvent={handleDeleteEvent}
             onEditTask={handleEditTask}
             onAddSubtask={handleAddSubtask}
+            onAddTask={() => setEditingTask({ mode: "new" })}
           />
         )}
 

@@ -113,6 +113,7 @@ export default function NotePage() {
               notes={notes ?? []}
               onEdit={(note) => setEditing({ mode: "edit", note })}
               onDelete={handleDelete}
+              onAdd={() => setAddTypeOpen(true)}
             />
           ))}
 

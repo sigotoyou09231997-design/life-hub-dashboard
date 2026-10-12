@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Route } from "lucide-react";
 import type { TripScheduleItem } from "../../types";
 import { dayRouteStops, LEG_MODE_LABEL, maxWaypointsForDevice, stopKeys, type LegMode } from "../../lib/tripDayRoute";
 import { buildRouteEmbedUrl, buildRouteSearchUrl } from "../../lib/googleMaps";
+import { resolveHomeStops, useHomeAddress } from "../../lib/homePlace";
 import { formatDisplayDate } from "../../lib/date";
 import { Button } from "../ui/Button";
 import { Sheet } from "../ui/Sheet";
@@ -85,7 +87,9 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
   /** 経路に出す場所を選ぶシートを開いているか。 */
   const [open, setOpen] = useState(false);
 
-  const stops = dayRouteStops(items, date);
+  // 「自宅」は設定の住所に置き換える(無ければ外す)。そのまま渡すと名前の似たお店に当たる(src/lib/homePlace.ts)。
+  const homeAddress = useHomeAddress();
+  const { stops, homeSkipped } = resolveHomeStops(dayRouteStops(items, date), homeAddress);
   const keys = stopKeys(date, stops);
   const excluded = new Set(excludedKeys);
   const chosen = stops.filter((_, index) => !excluded.has(keys[index]));
@@ -107,11 +111,24 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
     store(CHOICES_KEY, JSON.stringify({ excluded: next }));
   }
 
+  const homeNote = homeSkipped && (
+    <p className="px-1 text-xs text-slate-500">
+      「自宅」は地図に入れていません。
+      <Link to="/settings" className="underline">
+        設定の「自宅の住所」
+      </Link>
+      を入れると、経路の出発・到着に入ります。
+    </p>
+  );
+
   if (stops.length === 0) {
     return (
-      <p className="px-1 text-xs text-slate-500">
-        この日は場所の入った予定がありません。日程の「場所」を入れると、経路を地図で見られます。
-      </p>
+      <>
+        <p className="px-1 text-xs text-slate-500">
+          この日は場所の入った予定がありません。日程の「場所」を入れると、経路を地図で見られます。
+        </p>
+        {homeNote}
+      </>
     );
   }
 
@@ -132,6 +149,7 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
           ) : (
             <p className="px-1 text-xs text-slate-500">地図に出す場所が1つも選ばれていません。</p>
           )}
+          {homeNote}
           <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>
             <Route size={17} />
             場所と移動手段を選ぶ
@@ -166,6 +184,7 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
             ) : (
               <p className="text-xs text-slate-500">地図に出す場所が1つも選ばれていません。</p>
             )}
+            {homeNote}
             {mode === "transit" && chosen.length > 2 && (
               <p className="text-xs text-slate-500">
                 電車・バスは、Googleマップが3か所以上を1本の線でつなげないので、地図には場所だけが出ます。線で見たい時は「車」か「徒歩」にしてください。
