@@ -18,6 +18,8 @@ import "./styles/pages-warm.css";
 import "./styles/event-people.css";
 // 白＋青緑の上塗り（2026-10-12）。必ず最後に読む。外すと元の見た目に戻る。
 import "./styles/theme-teal.css";
+// ホームとお金管理の並び（2026-10-12）。theme-teal.css の後に読む。
+import "./styles/layout-teal.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()

@@ -130,9 +130,23 @@ export function ExpenseSummary({ onAddSalary }: Props) {
 
   const recentTransactions = [...(periodTransactions ?? [])].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
+  // 2026-10-12: 並べ方を変えた（参考: サブスクBOX の「分析」）。出している数字・リンクは前と同じ。
+  //  - 黒い「使えるお金」の中に、1日あたり・給料日まで・次の給料日・利用ペースをまとめた
+  //    （前は4枚の小さなカードに分かれていた）
+  //  - 見出しはカードの外に出し、まとめ・カテゴリ・履歴は区切り線つきの行の一覧にした
+  const paceText = period.daysUntilNextPayday > 0 ? yen(actualSpending / Math.max(1, expenses.length)) : yen(0);
+  const summaryRows: [string, string][] = [
+    ["今回の給与", period.hasSalaryForPeriod ? yen(period.salaryAmount) : "未入力"],
+    // 賞与は給与と同じく使えるお金に足しているので、0円のときは行ごと出さない。
+    ...(bonusAmount > 0 ? ([["今期の賞与", yen(bonusAmount)]] as [string, string][]) : []),
+    ["固定費合計", yen(totalFixedCosts)],
+    ["記録した収入", yen(totalIncome)],
+    ["記録した支出", yen(totalExpense)],
+  ];
+
   return (
-    <div className="finance-control-center grid grid-cols-2 gap-3 lg:grid-cols-12">
-      <Card className="finance-balance-module col-span-2 flex flex-col p-5 lg:col-span-7 lg:min-h-[280px] lg:p-7">
+    <div className="finance-control-center lh-finance grid grid-cols-2 gap-x-3 gap-y-6 lg:grid-cols-12 lg:gap-x-5">
+      <Card className="finance-balance-module col-span-2 flex flex-col p-5 lg:col-span-8 lg:p-7">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             {/* 見出しは折り返させない — 2行に割れると、右のバッジと視覚的に絡まって
@@ -156,173 +170,193 @@ export function ExpenseSummary({ onAddSalary }: Props) {
             うち、引き落とし前のカード利用 {yen(pendingCardSpending)} を含みます
           </p>
         )}
+        <dl className="lh-money__stats lh-finance__stats">
+          <div>
+            <dt>1日あたり使える金額</dt>
+            <dd key={perDayUsable} className="value-change">{yen(perDayUsable)}</dd>
+          </div>
+          <div>
+            <dt>給料日まで</dt>
+            <dd>{period.daysUntilNextPayday}日</dd>
+          </div>
+          <div>
+            <dt>次の給料日</dt>
+            <dd>{formatDisplayDate(toDateStr(period.nextPayday))}</dd>
+          </div>
+          <div>
+            <dt>利用ペース（1支出あたりの平均）</dt>
+            <dd>{paceText}</dd>
+          </div>
+        </dl>
       </Card>
 
-      <Card className="finance-summary-module col-span-2 p-5 lg:col-span-5 lg:p-7">
-        <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">今期のまとめ</p>
-        <div className="mt-5 divide-y divide-white/35">
-          {[
-            ["今回の給与", period.hasSalaryForPeriod ? yen(period.salaryAmount) : "未入力"],
-            // 賞与は給与と同じく使えるお金に足しているので、0円のときは行ごと出さない。
-            ...(bonusAmount > 0 ? [["今期の賞与", yen(bonusAmount)]] : []),
-            ["固定費合計", yen(totalFixedCosts)],
-            ["記録した収入", yen(totalIncome)],
-            ["記録した支出", yen(totalExpense)],
-          ].map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between py-3 text-sm"><span className="text-slate-500">{label}</span><span key={value} className="value-change font-semibold tabular-nums text-slate-800">{value}</span></div>
-          ))}
+      <section className="lh-section col-span-2 lg:col-span-4" data-page-block>
+        <div className="lh-section__head">
+          <h2 className="lh-section__title">今期のまとめ</h2>
         </div>
-      </Card>
+        <Card className="finance-summary-module lh-group flex-1">
+          {summaryRows.map(([label, value]) => (
+            <div key={label} className="lh-row lh-row--plain">
+              <span className="lh-row__copy"><strong className="lh-row__label">{label}</strong></span>
+              <span key={value} className="value-change lh-row__value">{value}</span>
+            </div>
+          ))}
+        </Card>
+      </section>
 
       {savingsPlan && (
-        <Card className="finance-savings-module col-span-2 p-5 lg:col-span-12 lg:p-6">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">貯金目標</p>
-            <span className="text-xs text-slate-500">
+        <section className="lh-section col-span-2 lg:col-span-12" data-page-block>
+          <div className="lh-section__head">
+            <h2 className="lh-section__title">貯金目標</h2>
+            <span className="lh-section__note">
               {savingsPlan.allocations.length > 1 && `${savingsPlan.allocations.length}件 · `}
               目標 {yen(savingsPlan.totalTarget)} / 月
             </span>
           </div>
-          <p className="mt-3 mb-3 text-2xl font-medium tabular-nums tracking-[-0.03em] text-slate-800 lg:text-3xl">
-            {yen(savingsPlan.overall.projected)}
-          </p>
-          <ProgressBar value={savingsPlan.overall.ratio} colorClass={savingsPlan.overall.onTrack ? "bg-success" : "bg-accent"} />
-          <p className="mt-2 text-xs text-slate-500">
-            {savingsPlan.overall.onTrack
-              ? `このままなら目標より ${yen(savingsPlan.overall.surplus)} 多く残せそうです`
-              : `目標まであと ${yen(savingsPlan.overall.shortfall)}`}
-          </p>
+          <Card className="finance-savings-module lh-savings p-5 lg:p-6">
+            <p className="lh-savings__kicker">このままいけば残せる額</p>
+            <p className="lh-savings__amount mb-3 tabular-nums">
+              {yen(savingsPlan.overall.projected)}
+            </p>
+            <ProgressBar value={savingsPlan.overall.ratio} colorClass={savingsPlan.overall.onTrack ? "bg-success" : "bg-accent"} />
+            <p className="mt-2 text-xs text-slate-500">
+              {savingsPlan.overall.onTrack
+                ? `このままなら目標より ${yen(savingsPlan.overall.surplus)} 多く残せそうです`
+                : `目標まであと ${yen(savingsPlan.overall.shortfall)}`}
+            </p>
 
-          {/* 目標が2つ以上あるときだけ内訳を出す。1つのときは上の合計と同じ内容なので、
-              同じ棒が2本並ぶことになってかえって読みにくい。 */}
-          {savingsPlan.allocations.length > 1 && (
-            <div className="mt-4 space-y-3 border-t border-white/35 pt-4">
-              {savingsPlan.allocations.map(({ goal, allocated, ratio, shortfall, covered }) => (
-                <div key={goal.id}>
-                  <div className="mb-1.5 flex items-baseline justify-between gap-3 text-xs">
-                    <span className="min-w-0 truncate text-slate-600">{goal.name}</span>
-                    <span className="shrink-0 tabular-nums text-slate-500">
-                      <span className="font-semibold text-slate-800">{yen(allocated)}</span> / {yen(goal.monthlyAmount)}
-                    </span>
+            {/* 目標が2つ以上あるときだけ内訳を出す。1つのときは上の合計と同じ内容なので、
+                同じ棒が2本並ぶことになってかえって読みにくい。 */}
+            {savingsPlan.allocations.length > 1 && (
+              <div className="mt-4 space-y-3 border-t border-white/35 pt-4">
+                {savingsPlan.allocations.map(({ goal, allocated, ratio, shortfall, covered }) => (
+                  <div key={goal.id}>
+                    <div className="mb-1.5 flex items-baseline justify-between gap-3 text-xs">
+                      <span className="min-w-0 truncate text-slate-600">{goal.name}</span>
+                      <span className="shrink-0 tabular-nums text-slate-500">
+                        <span className="font-semibold text-slate-800">{yen(allocated)}</span> / {yen(goal.monthlyAmount)}
+                      </span>
+                    </div>
+                    <ProgressBar value={ratio} colorClass={covered ? "bg-success" : "bg-accent"} />
+                    {!covered && <p className="mt-1 text-[11px] text-slate-400">あと {yen(shortfall)}</p>}
                   </div>
-                  <ProgressBar value={ratio} colorClass={covered ? "bg-success" : "bg-accent"} />
-                  {!covered && <p className="mt-1 text-[11px] text-slate-400">あと {yen(shortfall)}</p>}
-                </div>
-              ))}
-              <p className="text-[11px] text-slate-400">
-                {savingsPlan.leftover > 0
-                  ? `すべて満たしたうえで ${yen(savingsPlan.leftover)} 余りそうです`
-                  : "上の目標から順に埋めた場合の内訳です"}
-              </p>
-            </div>
-          )}
-        </Card>
+                ))}
+                <p className="text-[11px] text-slate-400">
+                  {savingsPlan.leftover > 0
+                    ? `すべて満たしたうえで ${yen(savingsPlan.leftover)} 余りそうです`
+                    : "上の目標から順に埋めた場合の内訳です"}
+                </p>
+              </div>
+            )}
+          </Card>
+        </section>
       )}
 
       <CashBalanceCard />
 
-      {[
-        ["1日あたり使える金額", yen(perDayUsable)],
-        ["給料日まで", `${period.daysUntilNextPayday}日`],
-        ["次の給料日", formatDisplayDate(toDateStr(period.nextPayday))],
-      ].map(([label, value]) => (
-        <Card key={label} className="finance-metric-module p-4 lg:col-span-3 lg:p-5">
-          <p className="truncate text-xs text-slate-500">{label}</p>
-          <p key={value} className="value-change mt-2 text-xl font-semibold tabular-nums text-slate-800">{value}</p>
-        </Card>
-      ))}
-
-      <Card className="finance-metric-module finance-metric-module--pace p-4 lg:col-span-3 lg:p-5">
-        <p className="text-xs text-slate-500">利用ペース</p>
-        <p className="mt-2 text-xl font-semibold tabular-nums text-slate-800">{period.daysUntilNextPayday > 0 ? yen(actualSpending / Math.max(1, expenses.length)) : yen(0)}</p>
-        <p className="mt-1 text-[11px] text-slate-400">1支出あたりの平均</p>
-      </Card>
-
-      <Card className="finance-breakdown-module col-span-2 p-5 lg:col-span-6 lg:p-6">
-        <div className="mb-4 flex items-baseline justify-between gap-3">
-          <p className="text-sm font-semibold text-slate-700">カテゴリ別支出</p>
-          <Link to="/settings" className="shrink-0 text-xs font-medium text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+      <section className="lh-section col-span-2 lg:col-span-6" data-page-block>
+        <div className="lh-section__head">
+          <h2 className="lh-section__title">カテゴリ別支出</h2>
+          <Link to="/settings" className="warm-card__go focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
             予算を設定
           </Link>
         </div>
-
-        {overBudget.length > 0 && (
-          <p className="mb-3 text-xs font-medium text-danger">
-            {overBudget.map((s) => s.category).join("・")} が予算を超えています
-          </p>
-        )}
-
-        {forecasts.length > 0 && (
-          <p className="mb-3 text-xs font-medium text-warning">
-            このペースだと {forecasts.map((f) => f.category).join("・")} が給料日までに超えそうです
-          </p>
-        )}
-
-        {categoryBreakdown.length === 0 && budgetStatuses.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-500">今期の支出記録はありません</p>
-        ) : (
-          <div className="space-y-3">
-            {/* 予算を決めたカテゴリは、全体に占める割合ではなく上限に対する使い具合で見せる。
-                どれくらい使ったかより「あと何円使えるか」が知りたい行なので、棒の意味を変える。 */}
-            {budgetStatuses.map((status) => (
-              <div key={status.category}>
-                <div className="mb-1.5 flex items-baseline justify-between gap-3 text-xs">
-                  <span className="min-w-0 truncate text-slate-600">{status.category}</span>
-                  <span className="shrink-0 tabular-nums text-slate-500">
-                    <span className={`font-semibold ${status.over ? "text-danger" : "text-slate-800"}`}>{yen(status.spent)}</span> / {yen(status.budget)}
-                  </span>
-                </div>
-                <ProgressBar
-                  value={status.ratio}
-                  colorClass={
-                    status.over
-                      ? "bg-danger"
-                      : status.nearLimit || forecastByCategory.has(status.category)
-                        ? "bg-warning"
-                        : "bg-success"
-                  }
-                />
-                <p className={`mt-1 text-[11px] ${status.over ? "text-danger" : "text-slate-400"}`}>
-                  {status.over ? `${yen(-status.remaining)} 超過` : `あと ${yen(status.remaining)}`}
-                  {forecastByCategory.has(status.category) && (
-                    <span className="text-warning">
-                      {" "}
-                      ・このペースだと {yen(forecastByCategory.get(status.category)!.projected)} の見込み
-                    </span>
-                  )}
+        <Card className="finance-breakdown-module lh-group flex-1">
+          {(overBudget.length > 0 || forecasts.length > 0) && (
+            <div className="lh-group__notes">
+              {overBudget.length > 0 && (
+                <p className="text-xs font-medium text-danger">
+                  {overBudget.map((s) => s.category).join("・")} が予算を超えています
                 </p>
-              </div>
-            ))}
+              )}
+              {forecasts.length > 0 && (
+                <p className="text-xs font-medium text-warning">
+                  このペースだと {forecasts.map((f) => f.category).join("・")} が給料日までに超えそうです
+                </p>
+              )}
+            </div>
+          )}
 
-            {budgetStatuses.length > 0 && unbudgetedBreakdown.length > 0 && (
-              <p className="border-t border-white/35 pt-3 text-[11px] text-slate-400">予算を決めていないカテゴリ</p>
-            )}
+          {categoryBreakdown.length === 0 && budgetStatuses.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-500">今期の支出記録はありません</p>
+          ) : (
+            <>
+              {/* 予算を決めたカテゴリは、全体に占める割合ではなく上限に対する使い具合で見せる。
+                  どれくらい使ったかより「あと何円使えるか」が知りたい行なので、棒の意味を変える。 */}
+              {budgetStatuses.map((status) => (
+                <div key={status.category} className="lh-row lh-row--bar">
+                  <span className="lh-row__icon lh-row__icon--initial" aria-hidden="true">{status.category.slice(0, 1)}</span>
+                  <div className="lh-row__copy">
+                    <div className="flex items-baseline justify-between gap-3 text-xs">
+                      <strong className="lh-row__label">{status.category}</strong>
+                      <span className="shrink-0 tabular-nums text-slate-500">
+                        <span className={`font-semibold ${status.over ? "text-danger" : "text-slate-800"}`}>{yen(status.spent)}</span> / {yen(status.budget)}
+                      </span>
+                    </div>
+                    <ProgressBar
+                      value={status.ratio}
+                      colorClass={
+                        status.over
+                          ? "bg-danger"
+                          : status.nearLimit || forecastByCategory.has(status.category)
+                            ? "bg-warning"
+                            : "bg-success"
+                      }
+                    />
+                    <p className={`text-[11px] ${status.over ? "text-danger" : "text-slate-400"}`}>
+                      {status.over ? `${yen(-status.remaining)} 超過` : `あと ${yen(status.remaining)}`}
+                      {forecastByCategory.has(status.category) && (
+                        <span className="text-warning">
+                          {" "}
+                          ・このペースだと {yen(forecastByCategory.get(status.category)!.projected)} の見込み
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ))}
 
-            {unbudgetedBreakdown.map(([category, amount]) => (
-              <div key={category}>
-                <div className="mb-1.5 flex justify-between text-xs"><span className="text-slate-600">{category}</span><span className="font-semibold tabular-nums text-slate-800">{yen(amount)}</span></div>
-                <ProgressBar value={totalExpense > 0 ? (amount / totalExpense) * 100 : 0} />
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
+              {budgetStatuses.length > 0 && unbudgetedBreakdown.length > 0 && (
+                <p className="lh-group__divider">予算を決めていないカテゴリ</p>
+              )}
 
-      <Card className="finance-history-module col-span-2 p-5 lg:col-span-6 lg:p-6">
-        <p className="mb-4 text-sm font-semibold text-slate-700">最近の履歴</p>
-        {recentTransactions.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-500">履歴はありません</p>
-        ) : (
-          <div className="divide-y divide-white/35">
-            {recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between gap-4 py-2.5 text-sm">
-                <div className="min-w-0"><p className="truncate font-medium text-slate-700">{transaction.category}</p><p className="text-[11px] text-slate-500">{formatDisplayDate(transaction.date)}</p></div>
-                <span className={`shrink-0 font-semibold tabular-nums ${transaction.type === "income" ? "text-success" : "text-slate-800"}`}>{transaction.type === "income" ? "+" : "−"}{yen(transaction.amount)}</span>
+              {unbudgetedBreakdown.map(([category, amount]) => (
+                <div key={category} className="lh-row lh-row--bar">
+                  <span className="lh-row__icon lh-row__icon--initial" aria-hidden="true">{category.slice(0, 1)}</span>
+                  <div className="lh-row__copy">
+                    <div className="flex justify-between text-xs"><strong className="lh-row__label">{category}</strong><span className="font-semibold tabular-nums text-slate-800">{yen(amount)}</span></div>
+                    <ProgressBar value={totalExpense > 0 ? (amount / totalExpense) * 100 : 0} />
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+        </Card>
+      </section>
+
+      <section className="lh-section col-span-2 lg:col-span-6" data-page-block>
+        <div className="lh-section__head">
+          <h2 className="lh-section__title">最近の履歴</h2>
+        </div>
+        <Card className="finance-history-module lh-group flex-1">
+          {recentTransactions.length === 0 ? (
+            <p className="py-8 text-center text-sm text-slate-500">履歴はありません</p>
+          ) : (
+            recentTransactions.map((transaction) => (
+              <div key={transaction.id} className="lh-row">
+                <span
+                  className={`lh-row__icon lh-row__icon--initial ${transaction.type === "income" ? "is-income" : ""}`}
+                  aria-hidden="true"
+                >
+                  {transaction.category.slice(0, 1)}
+                </span>
+                <div className="lh-row__copy"><strong>{transaction.category}</strong><small>{formatDisplayDate(transaction.date)}</small></div>
+                <span className={`lh-row__value ${transaction.type === "income" ? "text-success" : ""}`}>{transaction.type === "income" ? "+" : "−"}{yen(transaction.amount)}</span>
               </div>
-            ))}
-          </div>
-        )}
-      </Card>
+            ))
+          )}
+        </Card>
+      </section>
     </div>
   );
 }

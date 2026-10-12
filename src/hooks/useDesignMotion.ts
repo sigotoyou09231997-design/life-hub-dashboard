@@ -22,10 +22,11 @@ const COUNT_SELECTOR = [
   ".warm-amount",
   ".warm-brief__count",
   ".finance-control-center > .finance-balance-module p.tabular-nums",
-  ".finance-metric-module p.tabular-nums",
+  ".lh-money__stats dd",
+  ".lh-savings__amount",
 ].join(",");
 
-const TILT_SELECTOR = '.warm-lists > a.warm-card[href$="/records/expense"]';
+const TILT_SELECTOR = ".lh-home > a.lh-money";
 const SHEEN_SELECTOR = `${TILT_SELECTOR}, .finance-control-center > .finance-balance-module`;
 const GLOW_SELECTOR = `.warm-card, .glass-card, ${SHEEN_SELECTOR}`;
 
