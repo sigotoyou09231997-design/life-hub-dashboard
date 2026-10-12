@@ -25,7 +25,7 @@ export function PageHeader({ title, subtitle, right, backTo }: Props) {
         )}
         <div className="min-w-0">
           <h1 className="spatial-page-header__title text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">{title}</h1>
-          {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+          {subtitle !== undefined && <p className="mt-0.5 min-h-5 text-sm text-slate-500">{subtitle || "\u00A0"}</p>}
         </div>
       </div>
       {right && <div className="shrink-0">{right}</div>}

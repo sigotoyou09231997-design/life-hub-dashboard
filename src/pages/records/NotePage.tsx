@@ -27,6 +27,7 @@ import { deleteRowWithUndo, quoted } from "../../components/ui/undoToast";
 import { useWithoutPendingDeletes } from "../../hooks/usePendingDeletes";
 import { ListSkeleton } from "../../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
+import { useNotesStatus } from "../../hooks/usePageStatus";
 
 type Editing = { mode: "new"; type: NoteType } | { mode: "edit"; note: Note } | null;
 type Tab = "notes" | "diary";
@@ -38,6 +39,7 @@ const FORM_TITLE: Record<NoteType, { new: string; edit: string }> = {
 };
 
 export default function NotePage() {
+  const notesStatus = useNotesStatus();
   const showToast = useToast();
   const [tab, setTab] = useState<Tab>("notes");
   const [addTypeOpen, setAddTypeOpen] = useState(false);
@@ -96,7 +98,7 @@ export default function NotePage() {
 
   return (
     <div className="spatial-page notes-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.notes}>
-      <PageHeader title="メモ・リスト" backTo="/" />
+      <PageHeader title="メモ・リスト" subtitle={notesStatus ?? ""} backTo="/" />
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[420px]">
         <Tabs

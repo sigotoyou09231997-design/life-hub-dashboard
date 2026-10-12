@@ -32,6 +32,7 @@ import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "../components/ui/PullToRefreshIndicator";
 import { refreshScheduleSources } from "../lib/scheduleRefresh";
+import { useScheduleStatus } from "../hooks/usePageStatus";
 
 type Tab = "today" | "calendar" | "list" | "jobs";
 type EditingEvent = CalendarEvent | "new" | null;
@@ -50,6 +51,7 @@ function tabFromView(view: string | null): Tab {
 }
 
 export default function SchedulePage() {
+  const scheduleStatus = useScheduleStatus();
   const showToast = useToast();
   const confirm = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -164,7 +166,7 @@ export default function SchedulePage() {
   return (
     <div ref={pull.containerRef} className="spatial-page planning-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.schedule}>
       <PullToRefreshIndicator ref={pull.indicatorRef} phase={pull.phase} />
-      <PageHeader title="予定・タスク管理" backTo="/" />
+      <PageHeader title="予定・タスク管理" subtitle={scheduleStatus ?? ""} backTo="/" />
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[620px]">
         <Tabs

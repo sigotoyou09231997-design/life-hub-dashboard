@@ -35,6 +35,7 @@ import { useWithoutPendingDeletes } from "../../hooks/usePendingDeletes";
 import { ListSkeleton } from "../../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 import { PageFab } from "../../components/ui/PageFab";
+import { useExpenseStatus } from "../../hooks/usePageStatus";
 
 /** レシート読み取り結果を、支出フォームへの下書きにする。idを持たせないので、
  * ExpenseFormは「新規追加」として保存する(既存の編集判定はinitial?.idを見ている)。 */
@@ -62,6 +63,7 @@ const TABS: Tab[] = ["subs", "summary", "salary", "history"];
 type HistoryView = "list" | "card" | "paypay";
 
 export default function ExpensePage() {
+  const expenseStatus = useExpenseStatus();
   const showToast = useToast();
   const [tab, setTab] = useState<Tab>("subs");
   const [editingTransaction, setEditingTransaction] = useState<Transaction | "new" | null>(null);
@@ -128,7 +130,7 @@ export default function ExpensePage() {
 
   return (
     <div className="spatial-page finance-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.money}>
-      <PageHeader title="お金管理" subtitle="サブスクと収支を管理" backTo="/" />
+      <PageHeader title="お金管理" subtitle={expenseStatus ?? ""} backTo="/" />
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[840px]">
         <Tabs
