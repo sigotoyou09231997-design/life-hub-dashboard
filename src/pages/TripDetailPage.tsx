@@ -14,7 +14,7 @@ import type {
 } from "../types";
 import { formatDisplayDate, tripDayList, tripDurationLabel, todayStr } from "../lib/date";
 import { deleteAttachmentsFor, groupByOwner } from "../lib/attachments";
-import { currenciesByExpenseId, deleteCurrencyFor } from "../lib/currency";
+import { currenciesByExpenseId } from "../lib/currency";
 import { moveItem } from "../lib/noteTypes";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
@@ -47,6 +47,8 @@ import { DiaryForm } from "../components/diary/DiaryForm";
 import { EmptyState } from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
 import { useConfirm } from "../components/ui/ConfirmProvider";
+import { deleteRowWithUndo, quoted } from "../components/ui/undoToast";
+import { useWithoutPendingDeletes } from "../hooks/usePendingDeletes";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { useTripCover } from "../hooks/useTripCover";
@@ -118,22 +120,36 @@ export default function TripDetailPage() {
   const schedule = useLiveQuery(() => db.tripSchedule.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
   // 予定に貼った写真(端末の中だけ。src/lib/attachments.ts)。予定の id ごとにまとめて一覧へ渡す。
   const schedulePhotos = useLiveQuery(() => db.attachments.where("ownerType").equals("tripSchedule").toArray(), []);
-  const expenses = useLiveQuery(() => db.tripExpenses.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
+  // 費用・持ち物・ルートは、ゴミ箱を押すと確認なしで消え、5秒間「元に戻す」が出る
+  // (UI/UX 調査メモ 第4弾 A-2)。その間はまだ DB にあるので、ここで隠す(src/lib/deferredDelete.ts)。
+  // 費用の合計・持ち物の件数も同じ一覧から数えるので、一緒に消えて見える。
+  const expenses =
+    useWithoutPendingDeletes(
+      "tripExpenses",
+      useLiveQuery(() => db.tripExpenses.where("tripId").equals(tripId).toArray(), [tripId]),
+    ) ?? [];
   // 現地通貨で入れた支出の内訳。件数が少ないので全件読んで表にする(src/lib/currency.ts)。
   const expenseCurrencies = useLiveQuery(
     () => db.tripExpenseCurrencies.toArray().then(currenciesByExpenseId),
     [],
   );
-  const packing = useLiveQuery(() => db.tripPackingItems.where("tripId").equals(tripId).toArray(), [tripId]) ?? [];
+  const packing =
+    useWithoutPendingDeletes(
+      "tripPackingItems",
+      useLiveQuery(() => db.tripPackingItems.where("tripId").equals(tripId).toArray(), [tripId]),
+    ) ?? [];
   const routePlaces =
-    useLiveQuery(
-      () =>
-        db.tripRoutePlaces
-          .where("tripId")
-          .equals(tripId)
-          .toArray()
-          .then((rows) => rows.sort((a, b) => a.sortOrder - b.sortOrder)),
-      [tripId],
+    useWithoutPendingDeletes(
+      "tripRoutePlaces",
+      useLiveQuery(
+        () =>
+          db.tripRoutePlaces
+            .where("tripId")
+            .equals(tripId)
+            .toArray()
+            .then((rows) => rows.sort((a, b) => a.sortOrder - b.sortOrder)),
+        [tripId],
+      ),
     ) ?? [];
 
   const documents =
@@ -440,10 +456,13 @@ export default function TripDetailPage() {
               currencies={expenseCurrencies}
               onEdit={(expense) => setEditingExpense(expense)}
               onDelete={(id) => {
-                // 現地通貨の内訳は別のテーブルにあるので、一緒に落とす
-                // (src/lib/currency.ts)。
-                void Promise.all([db.tripExpenses.delete(id), deleteCurrencyFor(id)]);
-                showToast("削除しました");
+                // 確認なしで隠し、お知らせが閉じた時に本当に消す(UI/UX 調査メモ 第4弾 A-2)。
+                // 現地通貨の内訳もその時に一緒に落とす(src/lib/undoableDeletes.ts)。
+                deleteRowWithUndo(
+                  "tripExpense",
+                  id,
+                  `${quoted(expenses.find((e) => e.id === id)?.title) || "費用"}を削除しました`,
+                );
               }}
             />
             <Button className="mt-4 w-full" onClick={() => setEditingExpense("new")}>
@@ -458,8 +477,12 @@ export default function TripDetailPage() {
               items={packing}
               onEdit={(item) => setEditingPacking(item)}
               onDelete={(id) => {
-                db.tripPackingItems.delete(id);
-                showToast("削除しました");
+                // 確認なしで隠し、お知らせが閉じた時に本当に消す(UI/UX 調査メモ 第4弾 A-2)。
+                deleteRowWithUndo(
+                  "tripPackingItem",
+                  id,
+                  `${quoted(packing.find((p) => p.id === id)?.title) || "持ち物"}を削除しました`,
+                );
               }}
             />
             <Button className="mt-4 w-full" onClick={() => setEditingPacking("new")}>
@@ -488,8 +511,12 @@ export default function TripDetailPage() {
               setEditingRoute(place);
             }}
             onDelete={(id) => {
-              db.tripRoutePlaces.delete(id);
-              showToast("削除しました");
+              // 確認なしで隠し、お知らせが閉じた時に本当に消す(UI/UX 調査メモ 第4弾 A-2)。
+              deleteRowWithUndo(
+                "tripRoutePlace",
+                id,
+                `${quoted(routePlaces.find((p) => p.id === id)?.name) || "場所"}をルートから削除しました`,
+              );
             }}
           />
         )}

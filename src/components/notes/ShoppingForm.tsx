@@ -21,6 +21,8 @@ import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Field } from "../ui/Field";
 import { CategorySelect } from "./CategorySelect";
+import { quoted } from "../ui/undoToast";
+import { useRemoveWithUndo } from "../../hooks/useRemoveWithUndo";
 import { Check, ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -40,6 +42,7 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
   const [category, setCategory] = useState(initial?.category ?? NOTE_CATEGORIES[0]);
   const [pinned, setPinned] = useState(initial?.pinned ?? false);
   const [items, setItems] = useState<ShoppingItem[]>(initial?.shoppingItems ?? []);
+  const removeItemWithUndo = useRemoveWithUndo(setItems);
   const [newItemName, setNewItemName] = useState("");
   const [placeReminder, setPlaceReminder] = useState<PlaceReminderDraft>(EMPTY_PLACE_REMINDER_DRAFT);
   const [saving, setSaving] = useState(false);
@@ -93,8 +96,11 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
     setItems(items.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   }
 
+  // 消したら5秒間「元に戻す」を出す(UI/UX 調査メモ 第4弾 A-2)。保存前のフォームの中だけの変更なので、
+  // 戻すのは元の位置へ差し戻すだけ(src/hooks/useRemoveWithUndo.ts)。
   function deleteItem(id: string) {
-    setItems(items.filter((it) => it.id !== id));
+    const item = items.find((it) => it.id === id);
+    removeItemWithUndo(items, id, `${quoted(item?.name) || "商品"}を消しました`);
   }
 
   function reorderItem(index: number, direction: -1 | 1) {

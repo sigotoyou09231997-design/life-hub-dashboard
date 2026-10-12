@@ -1,0 +1,89 @@
+/* ============================================================================
+   「元に戻す」付きのお知らせ（UI/UX 調査メモ 第4弾 A-2、2026-10-12）
+
+   完了・先送り・削除のあと、5秒だけ「元に戻す」を出す（src/components/ui/ToastProvider.tsx）。
+   残り時間は、お知らせの下の細い線が縮んで見せる。色は白＋青緑＋黒（theme-teal.css）。
+   ========================================================================= */
+
+.undo-toast {
+  /* ボタンの分だけ横に長くなるので、PC でも広がりすぎないように。 */
+  max-width: min(100%, 30rem);
+  padding-right: 0.5rem;
+}
+
+.undo-toast__message {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  /* 2行になる時は文節で折り、行の長さをそろえる(「消しまし／た」のように1文字だけ落ちないように)。
+     auto-phrase は対応していない端末では無視され、今までどおりの折り方になる。 */
+  word-break: auto-phrase;
+  text-wrap: balance;
+}
+
+/* 押せるボタン。お知らせの高さ(約40px)より上下に広げて、指で押せる大きさ(44px)にする。 */
+.undo-toast__action {
+  flex: none;
+  margin: -0.5rem 0 -0.5rem 0.25rem;
+  min-height: 2.75rem;
+  border-radius: 0.6rem;
+  padding: 0 0.75rem;
+  color: var(--teal-400, #3cbab2);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 160ms ease;
+}
+
+.undo-toast__action:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.undo-toast__action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--teal-400, #3cbab2);
+}
+
+/* 残り時間の線。右から左へ縮み、なくなった時にお知らせが閉じる(時間は toastStore が数える)。 */
+.undo-toast__bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: var(--teal-400, #3cbab2);
+  transform-origin: left center;
+  animation: undo-toast-countdown var(--undo-toast-duration, 5000ms) linear forwards;
+}
+
+/* 指が乗っている・ボタンに焦点がある間は、時間と一緒に線も止める。 */
+.undo-toast__bar.is-paused {
+  animation-play-state: paused;
+}
+
+@keyframes undo-toast-countdown {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+/* 動きを減らす設定では線を動かさない(出さない)。閉じるまでの時間は同じ。 */
+@media (prefers-reduced-motion: reduce) {
+  .undo-toast__bar {
+    display: none;
+  }
+}
+
+/* スマホで右下の「＋」(src/components/ui/PageFab.tsx。lg 未満だけ出る)がある時は、
+   「元に戻す」付きのお知らせをその左に収める。お知らせ(z-60)の方が上なので隠れはしないが、
+   5秒間「＋」に被さって押せなくなるのを避ける。＋は right-5(1.25rem)・幅3.5rem。
+   シート(role="dialog")が開いている間は「＋」がその下に隠れているので、横いっぱいに使う
+   (買い物リストの1行を消した時など。狭いままだと文が細切れに折れていた)。 */
+@media (max-width: 1023.98px) {
+  body:has(#page-fab-root > button):not(:has([role="dialog"][aria-modal="true"])) .undo-toast-region--action {
+    padding-right: calc(1.25rem + 3.5rem + 0.75rem);
+  }
+}

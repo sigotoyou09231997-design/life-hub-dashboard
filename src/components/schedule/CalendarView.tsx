@@ -24,7 +24,7 @@ import { weekDatesOf } from "../../lib/weekLayout";
 import { useIsDesktop } from "../../hooks/useIsDesktop";
 import { EventList } from "../calendar/EventList";
 import { TaskItem } from "../tasks/TaskItem";
-import { toggleTaskCompletion, deleteTaskCascade, postponeTaskToTomorrow } from "../tasks/TaskList";
+import { toggleTaskCompletion, deleteTaskWithUndo, postponeTaskToTomorrow } from "../tasks/TaskList";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
 import { PersonFilter } from "./PersonFilter";
 import { Card } from "../ui/Card";
@@ -284,7 +284,7 @@ export function CalendarView({
                     allTasks={tasks}
                     onToggle={toggleTaskCompletion}
                     onEdit={onEditTask}
-                    onDelete={deleteTaskCascade}
+                    onDelete={deleteTaskWithUndo}
                     onAddSubtask={onAddSubtask}
                     onPostpone={postponeTaskToTomorrow}
                   />

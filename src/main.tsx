@@ -29,6 +29,8 @@ import "./styles/touch-tokens.css";
 import "./styles/numbers-empty.css";
 // 指の操作(スワイプ・完了の演出・引っ張って更新。UI/UX 調査メモ 第4弾 A-3・A-4・A-7)。
 import "./styles/gestures.css";
+// 「元に戻す」付きのお知らせ(UI/UX 調査メモ 第4弾 A-2)。
+import "./styles/undo-toast.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()

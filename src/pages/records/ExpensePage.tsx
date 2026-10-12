@@ -30,6 +30,8 @@ import { PendingCardChargeList } from "../../components/expense/PendingCardCharg
 import { GenericCsvImport } from "../../components/expense/GenericCsvImport";
 import { TransactionCsvExport } from "../../components/expense/TransactionCsvExport";
 import { useToast } from "../../components/ui/ToastProvider";
+import { deleteRowWithUndo, quoted } from "../../components/ui/undoToast";
+import { useWithoutPendingDeletes } from "../../hooks/usePendingDeletes";
 import { ListSkeleton } from "../../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 import { PageFab } from "../../components/ui/PageFab";
@@ -105,13 +107,17 @@ export default function ExpensePage() {
   const isTransactionDraft = typeof editingTransaction === "object" && editingTransaction !== null && !editingTransaction.id;
 
   const { start, end } = monthRange();
-  const transactions = useLiveQuery(
+  // 「削除しました・元に戻す」の間は、まだ DB にある収支を隠す(UI/UX 調査メモ 第4弾 A-2、
+  // src/lib/deferredDelete.ts)。賞与も収支の1件なので、同じ印で隠す。
+  const transactionsResult = useLiveQuery(
     () => db.transactions.where("date").between(start, end, true, true).toArray(),
     [start, end],
   );
+  const transactions = useWithoutPendingDeletes("transactions", transactionsResult);
   const salaries = useLiveQuery(() => db.salaries.toArray(), []);
   // 賞与は日付で絞らず全件から拾う。月をまたいで見返すもので、件数も年に数件しかない。
-  const bonuses = useLiveQuery(() => db.transactions.toArray().then(selectBonuses), []);
+  const bonusesResult = useLiveQuery(() => db.transactions.toArray().then(selectBonuses), []);
+  const bonuses = useWithoutPendingDeletes("transactions", bonusesResult);
   const showSalarySkeleton = useDelayedFlag(salaries === undefined);
   const showHistorySkeleton = useDelayedFlag(transactions === undefined);
 
@@ -197,10 +203,15 @@ export default function ExpensePage() {
                 transactions={transactions ?? []}
                 onEdit={(t) => setEditingTransaction(t)}
                 onDelete={(id) => {
-                  // 案件タグは別のテーブルにあるので、一緒に落とす
-                  // (src/lib/projectTags.ts)。残すと年間集計に幽霊の行が出る。
-                  void Promise.all([db.transactions.delete(id), deleteProjectTagFor(id)]);
-                  showToast("削除しました");
+                  // 確認は聞かずに一覧から消し、5秒間「元に戻す」を出す(UI/UX 調査メモ 第4弾 A-2)。
+                  // 本当に消すのはお知らせが閉じた時。案件タグもその時に一緒に落とす
+                  // (src/lib/undoableDeletes.ts)。残すと年間集計に幽霊の行が出る。
+                  const t = transactions?.find((row) => row.id === id);
+                  deleteRowWithUndo(
+                    "transaction",
+                    id,
+                    t ? `${quoted(t.store || t.category)}(¥${t.amount.toLocaleString()})を削除しました` : "削除しました",
+                  );
                 }}
               />
             )}

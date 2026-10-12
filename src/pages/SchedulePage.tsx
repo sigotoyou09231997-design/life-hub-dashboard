@@ -5,7 +5,6 @@ import { Plus, Calendar as CalendarIcon, CheckSquare, Sparkles } from "lucide-re
 import { db } from "../db/schema";
 import type { CalendarEvent, JobApplication, Task } from "../types";
 import { parseDate, todayStr } from "../lib/date";
-import { deleteEventMailLinks } from "../lib/eventMailLink";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
@@ -24,6 +23,8 @@ import { JobApplicationForm } from "../components/jobs/JobApplicationForm";
 import type { TripAgendaEntry } from "../components/schedule/TripAgendaList";
 import { useToast } from "../components/ui/ToastProvider";
 import { useConfirm } from "../components/ui/ConfirmProvider";
+import { deleteRowWithUndo, quoted } from "../components/ui/undoToast";
+import { useWithoutPendingDeletes } from "../hooks/usePendingDeletes";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
@@ -108,8 +109,10 @@ export default function SchedulePage() {
   const tasksResult = useLiveQuery(() => db.tasks.toArray(), []);
   const tripScheduleResult = useLiveQuery(() => db.tripSchedule.toArray(), []);
   const tripsResult = useLiveQuery(() => db.trips.toArray(), []);
-  const events = eventsResult ?? [];
-  const tasks = tasksResult ?? [];
+  // 「削除しました・元に戻す」の間は、まだ DB にある行を隠す(UI/UX 調査メモ 第4弾 A-2、
+  // src/lib/deferredDelete.ts)。ここで除くと、今日・カレンダーの印・一覧のどれからも一緒に消える。
+  const events = useWithoutPendingDeletes("calendarEvents", eventsResult) ?? [];
+  const tasks = useWithoutPendingDeletes("tasks", tasksResult) ?? [];
   const showSkeleton = useDelayedFlag(eventsResult === undefined || tasksResult === undefined);
 
   const tripNameById = new Map((tripsResult ?? []).map((t) => [t.id, t.name]));
@@ -143,10 +146,11 @@ export default function SchedulePage() {
   function handleAddSubtask(parentId: string) {
     setEditingTask({ mode: "subtask", parentId });
   }
+  // 予定は確認を聞かずに消し、5秒間「元に戻す」を出す(UI/UX 調査メモ 第4弾 A-2)。
+  // 本当に消す(元メールのリンクも一緒に。src/lib/undoableDeletes.ts)のは、お知らせが閉じた時。
   function handleDeleteEvent(id: string) {
-    db.calendarEvents.delete(id);
-    void deleteEventMailLinks(id);
-    showToast("削除しました");
+    const title = events.find((e) => e.id === id)?.title;
+    deleteRowWithUndo("calendarEvent", id, `${quoted(title) || "予定"}を削除しました`);
   }
   async function handleDeleteJob(application: JobApplication) {
     if (!application.id) return;

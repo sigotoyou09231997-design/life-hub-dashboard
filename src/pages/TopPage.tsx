@@ -24,6 +24,7 @@ import { UsageAlertCard } from "../components/review/UsageAlertCard";
 import { useUsageAlerts } from "../hooks/useFeatureUsage";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
 import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
+import { useWithoutPendingDeletes } from "../hooks/usePendingDeletes";
 import { BriefingCard } from "../components/home/BriefingCard";
 import { PageFab } from "../components/ui/PageFab";
 import { CountingAmount } from "../components/ui/CountingAmount";
@@ -96,9 +97,11 @@ export default function TopPage() {
   const today = todayStr();
   // 何日かにまたがる予定(宿泊など)は初日の date しか索引に載らないので、date の索引で
   // 今日ぶんだけを引くと2日目以降がTOPから消える。全部見てから絞る(src/lib/eventSpan.ts)。
-  const eventsResult = useLiveQuery(
-    () => db.calendarEvents.filter((event) => occursOn(event, today)).toArray(),
-    [today],
+  // 「削除しました・元に戻す」の5秒間は、まだ本当には消していない(src/lib/deferredDelete.ts)。
+  // ほかの画面で消してすぐホームへ来ても出ないよう、ホームでも除く(UI/UX 調査メモ 第4弾 A-2)。
+  const eventsResult = useWithoutPendingDeletes(
+    "calendarEvents",
+    useLiveQuery(() => db.calendarEvents.filter((event) => occursOn(event, today)).toArray(), [today]),
   );
   // 何日かにまたがる予定の開始時刻は、初日にしか意味がない。2日目以降も同じ時刻で
   // 扱うと、泊まっている最中の宿泊が「10:00に始まる次の予定」として毎朝出てくる。
@@ -115,7 +118,10 @@ export default function TopPage() {
   // 「誰の予定か」の名前と色。付けた印はホームの「次の予定」にも出す
   // (付けたのに一覧に出ないと、付いているのか分からないため)。
   const eventPeople = useLiveQuery(() => db.eventPeople.toArray(), []) ?? [];
-  const tasksResult = useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]);
+  const tasksResult = useWithoutPendingDeletes(
+    "tasks",
+    useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]),
+  );
   const todayTasks = (tasksResult ?? []).filter((task) => !task.parentTaskId);
   const doneCount = todayTasks.filter((task) => task.completed).length;
   const openCount = todayTasks.length - doneCount;

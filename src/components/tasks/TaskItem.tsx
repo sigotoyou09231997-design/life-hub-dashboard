@@ -8,7 +8,6 @@ import { prefersReducedMotion } from "../../lib/reducedMotion";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { SwipeRow, type SwipeAction } from "../ui/SwipeRow";
-import { useConfirm } from "../ui/ConfirmProvider";
 import { CalendarArrowDown, Check, Plus, Trash2 } from "lucide-react";
 
 interface Props {
@@ -46,7 +45,6 @@ const COLLAPSE_MS = 260;
 const COMPLETION_FALLBACK_MS = 2000;
 
 export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubtask, onPostpone, indent, collapseOnComplete }: Props) {
-  const confirm = useConfirm();
   // 完了の演出の段階。strike = チェックと取り消し線、collapse = 行をたたんでいる。
   const [completion, setCompletion] = useState<"strike" | "collapse" | null>(null);
   const outerRef = useRef<HTMLDivElement>(null);
@@ -129,15 +127,10 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
       ? { label: "明日へ", icon: CalendarArrowDown, tone: "later", after: "leave", onCommit: () => onPostpone!(task) }
       : undefined;
 
-  async function handleDeleteClick() {
-    if (!task.id) return;
-    const title = task.parentTaskId && subtasks.length === 0
-      ? `サブタスク「${task.title}」を削除しますか?`
-      : `「${task.title}」を削除しますか?`;
-    const message = subtasks.length > 0
-      ? `配下のサブタスク(${subtasks.length}件)もすべて削除されます。`
-      : undefined;
-    if (await confirm({ title, message })) onDelete(task.id);
+  // 確認は聞かない。消したあと5秒間「元に戻す」が出て、サブタスクごと戻せる
+  // (UI/UX 調査メモ 第4弾 A-2。お知らせは TaskList.tsx の deleteTaskWithUndo が出す)。
+  function handleDeleteClick() {
+    if (task.id) onDelete(task.id);
   }
 
   return (
