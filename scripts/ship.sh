@@ -54,8 +54,13 @@ TSC_OK=0; TEST_OK=0
 wait "$TSC_PID" || TSC_OK=1
 wait "$TEST_PID" || TEST_OK=1
 grep -E "^ +(Test Files|Tests) |^ FAIL" "$LOG_DIR/test.log" || true
-if [ "$TSC_OK" -ne 0 ]; then head -30 "$LOG_DIR/tsc.log"; die "型チェックが落ちました。main には入れていません"; fi
-if [ "$TEST_OK" -ne 0 ]; then grep -E "FAIL|×|AssertionError" "$LOG_DIR/test.log" | head -20; die "テストが落ちました(全文: $LOG_DIR/test.log)。main には入れていません"; fi
+if [ "$TSC_OK" -ne 0 ]; then head -30 "$LOG_DIR/tsc.log" || true; die "型チェックが落ちました。main には入れていません"; fi
+# テストが全部通っても、描き終わった後に起きた未処理のエラー(Errors N errors)で終了コードが 1 になることがある。
+# それも「落ちた」として止める(1 になった理由が見えるよう、該当の行を出す)。
+if [ "$TEST_OK" -ne 0 ]; then
+  grep -E "FAIL|×|AssertionError|Errors |Uncaught|This error originated" "$LOG_DIR/test.log" | head -20 || true
+  die "テストの終了コードが 0 ではありません(全文: $LOG_DIR/test.log)。main には入れていません"
+fi
 rm -rf "$LOG_DIR"
 [ "$DRY" -eq 0 ] || { echo "(--dry-run) 型チェックとテストが通ったので、ここで止めます。main には入れていません"; exit 0; }
 
