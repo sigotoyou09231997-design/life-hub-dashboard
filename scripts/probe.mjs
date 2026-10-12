@@ -4,6 +4,7 @@
 //
 //   node scripts/probe.mjs <画面> [指定…]            作業場所(git worktree)の中で。画面は /gmail のような道のり(既定 /)
 //
+//   --seed demo              予定・タスク・家計・サブスク・メモ・日記・旅行・就活など、全画面ぶんのお手本データを入れる(scripts/probeDemoSeed.mjs)
 //   --seed gmail=1000        Gmail の連携1件と、メールを1000通入れてから測る(planText 付き。予定候補・支出候補も混ぜる)
 //   --cpu 4                  CPU を4倍遅くする(iPhone に近い。既定 4。1で遅くしない)
 //   --time                   押してから、はっきり見えるまで・一番長く止まった間を測る(--visits 回、既定 4)
@@ -12,6 +13,7 @@
 //   --film                   押した直後をコマ送りで撮り、1枚に並べる(/tmp/probe/film-*.png。並べるには python3 + PIL)
 //   --profile                押した直後の重い関数を、自分の時間・呼び出し先を含む時間で洗い出す
 //   --contrast               主な7画面(スマホ幅・PC幅)の文字を機械で測り、読みやすさの目安 4.5:1 に届かない文字の数と色の内訳を出す
+//   --corners                主な画面(スマホ幅・PC幅)で、丸い角から中身がはみ出している所と、枠から飛び出している所を、実際の描かれた位置から測って出す
 //   --shot                   スマホ幅とPC幅のスクリーンショット(/tmp/probe/shot-*.png。PC幅は --pc-width 1980 --pc-height 1050 で変えられる)
 //   --port 5175              開発サーバーの番号(既定 5175。動いていなければ、空の Supabase 設定で自動で立てて、終わったら落とす)
 //   --width 390 --height 800 画面の大きさ
@@ -25,6 +27,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { chromium } from "playwright";
+import { DEMO_TRIP2_ID, DEMO_TRIP_ID, seed as seedDemo } from "./probeDemoSeed.mjs";
 
 const argv = process.argv.slice(2);
 const route = argv[0] && !argv[0].startsWith("--") ? argv[0] : "/";
@@ -72,6 +75,10 @@ async function seed(page) {
   if (!SEED) return;
   const [kind, countText] = SEED.split("=");
   const count = Number(countText) || 100;
+  if (kind === "demo") {
+    await seedDemo(page, { TRIP_ID: DEMO_TRIP_ID, TRIP2_ID: DEMO_TRIP2_ID });
+    return;
+  }
   if (kind !== "gmail") throw new Error(`知らないお手本です: ${kind}(いまは gmail=<通数> だけ)`);
   await page.evaluate(async (count) => {
     const { db } = await import("/src/db/schema.ts");
@@ -298,11 +305,118 @@ async function contrastMode(browser) {
   [...kinds.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).forEach(([k, v]) => console.log(`  ${k.padEnd(34)} ${v}`));
 }
 
+
+/** 角丸の外へ、中身がはみ出していないか(2026-10-13、本人「角丸にしすぎて、ボタンが飛び出たりしてる」)。
+ * 丸い角のある箱ごとに、中身の四角の、角にいちばん近い点が、丸い角の円の外にあるかを測る(中身自身の角丸も考慮)。
+ * あわせて、中身が箱の枠そのものから出ている所も測る(固定・絶対位置のもの、はみ出しを隠している箱は除く)。 */
+async function cornersMode(browser) {
+  // 画面と、入力の画面(シート)。?new= は、各画面が受けている「入力を開く」印(?new=event など)。
+  const routes = (opt("routes", [
+    "/", "/schedule", "/schedule?view=calendar", "/schedule?view=list", "/schedule?new=event", "/schedule?new=task",
+    "/records/expense", "/records/expense?tab=history", "/records/expense?tab=summary", "/records/expense?new=expense", "/records/expense?new=salary",
+    "/records/notes", "/records/notes?new=note", "/trips", `/trips/${DEMO_TRIP_ID}`, `/trips/${DEMO_TRIP_ID}?tab=route`,
+    "/settings", "/gmail", "/review", "/account", "/changelog",
+  ].join(","))).split(",");
+  const found = new Map();
+  for (const [label, vp] of [["スマホ", { width: 390, height: 800 }], ["PC", { width: 1440, height: 900 }]]) {
+    const ctx = await browser.newContext({ viewport: vp, locale: "ja-JP", hasTouch: label === "スマホ", isMobile: label === "スマホ" });
+    const page = await ctx.newPage();
+    await page.goto(BASE + "/", { waitUntil: "networkidle" });
+    await seed(page);
+    for (const r of routes) {
+      await page.goto(BASE + r, { waitUntil: "networkidle" });
+      await page.waitForTimeout(1200);
+      const res = await page.evaluate(() => {
+        const px = (v) => parseFloat(v) || 0;
+        const name = (el) => `${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? "." + el.className.trim().split(/\s+/).slice(0, 3).join(".") : ""}`;
+        const visibleBox = (cs) => {
+          const m = cs.backgroundColor.match(/rgba?\(([^)]+)\)/);
+          const a = m ? (m[1].split(/[ ,\/]+/).filter(Boolean).map(Number)[3] ?? 1) : 0;
+          return a > 0.08 || (px(cs.borderTopWidth) > 0 && cs.borderTopStyle !== "none") || cs.boxShadow !== "none";
+        };
+        const out = [];
+        const all = [...document.body.querySelectorAll("*")];
+        const rectOf = (el) => el.getBoundingClientRect();
+        for (const E of all) {
+          const cs = getComputedStyle(E);
+          if (cs.display === "none" || cs.visibility === "hidden" || cs.position === "fixed") continue;
+          if (cs.overflowX !== "visible" || cs.overflowY !== "visible") continue; // はみ出しを隠している箱は対象外
+          const eRect = rectOf(E);
+          if (eRect.width < 40 || eRect.height < 30 || !visibleBox(cs)) continue;
+          const radii = {
+            tl: Math.min(px(cs.borderTopLeftRadius), eRect.width / 2, eRect.height / 2),
+            tr: Math.min(px(cs.borderTopRightRadius), eRect.width / 2, eRect.height / 2),
+            br: Math.min(px(cs.borderBottomRightRadius), eRect.width / 2, eRect.height / 2),
+            bl: Math.min(px(cs.borderBottomLeftRadius), eRect.width / 2, eRect.height / 2),
+          };
+          for (const D of E.querySelectorAll("*")) {
+            const dcs = getComputedStyle(D);
+            if (dcs.display === "none" || dcs.visibility === "hidden" || dcs.position === "fixed" || dcs.position === "absolute") continue;
+            const dRect = rectOf(D);
+            if (dRect.width < 6 || dRect.height < 6) continue;
+            const isContent = /^(BUTTON|A|INPUT|TEXTAREA|SELECT|IMG|SVG|LABEL)$/i.test(D.tagName) || visibleBox(dcs) || [...D.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+            if (!isContent) continue;
+            // (1) 箱の枠から出ている
+            const over = Math.max(eRect.left - dRect.left, dRect.right - eRect.right, eRect.top - dRect.top, dRect.bottom - eRect.bottom);
+            if (over > 2) { out.push({ kind: "枠から飛び出し", e: name(E), d: name(D), over: Math.round(over), text: (D.textContent || "").trim().slice(0, 14) }); continue; }
+            // (2) 丸い角の外へ出ている
+            const corners = [
+              ["tl", eRect.left, eRect.top, 1, 1, dRect.left, dRect.top, px(dcs.borderTopLeftRadius)],
+              ["tr", eRect.right, eRect.top, -1, 1, dRect.right, dRect.top, px(dcs.borderTopRightRadius)],
+              ["br", eRect.right, eRect.bottom, -1, -1, dRect.right, dRect.bottom, px(dcs.borderBottomRightRadius)],
+              ["bl", eRect.left, eRect.bottom, 1, -1, dRect.left, dRect.bottom, px(dcs.borderBottomLeftRadius)],
+            ];
+            for (const [c, ex, ey, sx, sy, dx, dy, dr] of corners) {
+              const r = radii[c];
+              if (r < 10) continue;
+              const cx = ex + sx * r, cy = ey + sy * r;
+              // 中身の、この角にいちばん近い点(中身自身の角丸の分だけ内側へ)
+              const inset = Math.min(dr, dRect.width / 2, dRect.height / 2) * 0.293;
+              const pxp = dx - sx * inset * -1, pyp = dy - sy * inset * -1;
+              // 角の四角の中にあるか(箱の角から見て、円の手前側)
+              const inX = sx > 0 ? pxp < cx : pxp > cx, inY = sy > 0 ? pyp < cy : pyp > cy;
+              if (!(inX && inY)) continue;
+              const dist = Math.hypot(pxp - cx, pyp - cy);
+              if (dist > r + 1) out.push({ kind: "丸い角から飛び出し", e: name(E), d: name(D), over: Math.round(dist - r), radius: Math.round(r), text: (D.textContent || "").trim().slice(0, 14) });
+            }
+          }
+        }
+        // (3) 画面の外へ出ている(横にはみ出して、横スクロールの原因になる)。横に隠す・スクロールする入れ物の中は除く。
+        for (const el of all) {
+          const cs = getComputedStyle(el);
+          if (cs.display === "none" || cs.visibility === "hidden" || cs.position === "fixed") continue;
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 6 || rect.height < 6) continue;
+          if (rect.right <= window.innerWidth + 1 && rect.left >= -1) continue;
+          let clipped = false;
+          for (let n = el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+            const ncs = getComputedStyle(n);
+            if (ncs.position === "fixed" || ncs.overflowX !== "visible") { clipped = true; break; }
+          }
+          if (clipped) continue;
+          out.push({ kind: "画面の外へ飛び出し", e: "画面", d: name(el), over: Math.round(Math.max(rect.right - window.innerWidth, -rect.left)), text: (el.textContent || "").trim().slice(0, 14) });
+        }
+        return out;
+      });
+      for (const f of res) {
+        const key = `${f.kind} | ${f.e} ← ${f.d}`;
+        if (!found.has(key)) found.set(key, { over: f.over, radius: f.radius, text: f.text, where: new Set() });
+        const x = found.get(key); x.over = Math.max(x.over, f.over); x.where.add(`${label}${r}`);
+      }
+    }
+    await ctx.close();
+  }
+  console.log(`\n== 角丸・枠からのはみ出し(${found.size}種類)`);
+  [...found.entries()].sort((a, b) => b[1].over - a[1].over).slice(0, 40).forEach(([k, v]) =>
+    console.log(`${String(v.over).padStart(3)}px  ${k.slice(0, 120)}  「${v.text}」 ${v.radius ? "角丸" + v.radius + "px " : ""}${[...v.where].slice(0, 3).join(",")}`));
+}
+
 const server = await ensureServer();
 const browser = await chromium.launch();
 try {
   if (flag("shot")) await shotMode(browser);
   if (flag("contrast")) await contrastMode(browser);
+  if (flag("corners")) await cornersMode(browser);
   if (flag("time") || flag("film") || flag("profile")) {
     const ctx = await browser.newContext({ viewport: { width: WIDTH, height: HEIGHT }, locale: "ja-JP", hasTouch: true, isMobile: true });
     const page = await ctx.newPage();
@@ -318,8 +432,8 @@ try {
     if (flag("profile")) await profileMode(page, cdp);
     await ctx.close();
   }
-  if (!flag("shot") && !flag("time") && !flag("film") && !flag("profile") && !flag("contrast")) {
-    console.log("何を測るか指定してください: --time / --film / --profile / --shot / --contrast(詳しくはこのファイルの先頭)");
+  if (!flag("shot") && !flag("time") && !flag("film") && !flag("profile") && !flag("contrast") && !flag("corners")) {
+    console.log("何を測るか指定してください: --time / --film / --profile / --shot / --contrast / --corners(詳しくはこのファイルの先頭)");
   }
 } finally {
   await browser.close();

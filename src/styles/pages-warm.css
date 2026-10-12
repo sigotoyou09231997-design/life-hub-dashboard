@@ -1126,9 +1126,9 @@ button.week-view__bar:hover {
   color: var(--warm-ink-3);
 }
 
-.spatial-page .notes-toolbar {
-  border-radius: var(--r-pill) !important;
-}
+/* .spatial-page .notes-toolbar の角丸を「丸いボタン(--r-pill)」にしていたのをやめた(2026-10-13、本人「角丸にしすぎて、
+   ボタンが飛び出たりしてる」)。検索欄と絞り込みのボタンが入った高さ約110pxの箱が半円の角になり、中身が角からはみ出していた。
+   ほかのカードと同じ角丸(上の .spatial-page .notes-toolbar のまとまりの --warm-r-lg)に戻す。 */
 
 /* ---------------------------------------------------------------------------
    9. Gmail
