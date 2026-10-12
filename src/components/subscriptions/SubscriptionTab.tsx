@@ -218,8 +218,9 @@ export function SubscriptionTab() {
           {items.length === 0 ? (
             <EmptyState
               icon={CreditCard}
-              title="サブスク・固定費がまだありません"
-              description="Netflix や家賃など、毎月・毎年払っているものを登録すると、合計と次の請求日が分かります。"
+              illustration="subscription"
+              title="サブスク・固定費はまだありません"
+              description="Netflix や家賃など、毎月・毎年払っているものを入れると、合計と次の請求日がひと目で分かります。"
               action={{ label: "サブスクを追加", onClick: openAdd }}
               card
             />

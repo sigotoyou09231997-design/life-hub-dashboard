@@ -6,7 +6,6 @@ import { useLongPressReorder } from "../../hooks/useLongPressReorder";
 import { Card } from "../ui/Card";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
-import { useConfirm } from "../ui/ConfirmProvider";
 import { Check, GripVertical, Package, Trash2 } from "lucide-react";
 
 interface Props {
@@ -21,7 +20,6 @@ interface Props {
  * 長押しの手触りは日程の並べ替えと共通(src/hooks/useLongPressReorder.ts)。
  */
 export function TripPackingList({ items, onEdit, onDelete }: Props) {
-  const confirm = useConfirm();
   const checkedCount = items.filter((i) => i.checked).length;
   const uncheckedCount = items.length - checkedCount;
 
@@ -91,10 +89,10 @@ export function TripPackingList({ items, onEdit, onDelete }: Props) {
                         </button>
                         <GripVertical size={16} className="shrink-0 text-slate-300" aria-hidden="true" />
                         <button
-                          onClick={async () => {
-                            if (item.id && (await confirm({ title: `「${item.title}」を削除しますか?` }))) {
-                              onDelete(item.id);
-                            }
+                          // 確認は聞かない。消したあと5秒間「元に戻す」が出る(UI/UX 調査メモ 第4弾 A-2。
+                          // お知らせは TripDetailPage が出す)。
+                          onClick={() => {
+                            if (item.id) onDelete(item.id);
                           }}
                           aria-label="削除"
                           className="shrink-0 rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"

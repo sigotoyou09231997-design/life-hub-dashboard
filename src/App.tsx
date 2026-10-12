@@ -11,6 +11,8 @@ import { IS_ADDING_ACCOUNT } from "./lib/accounts";
 import { isOAuthConsentPath, rememberPendingConsent } from "./lib/oauthConsent";
 import { refreshViewportGap } from "./lib/viewport";
 import { finishAddAccount, isRestarting, rememberSignedInAccount } from "./lib/accountSwitch";
+import { hasInterruptedDeletes } from "./lib/deferredDelete";
+import { replayInterruptedDeletes } from "./lib/undoableDeletes";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { ConfirmProvider } from "./components/ui/ConfirmProvider";
 import { InAppFeedbackButton } from "./components/feedback/FeedbackButton";
@@ -215,6 +217,15 @@ export default function App() {
     } else {
       window.setTimeout(prefetch, 1000);
     }
+  }, [isSharedTripRoute, isSupabaseConfigured, session, syncReady]);
+
+  // 「削除しました・元に戻す」を待っている間にアプリが閉じられた削除を、ここで消し切る
+  // (UI/UX 調査メモ 第4弾 A-2、src/lib/deferredDelete.ts の控え)。同期の準備ができてから —
+  // 先に消すと syncQueue に積まれず、サーバーに残った行がまた降りてくる。
+  useEffect(() => {
+    if (isSharedTripRoute) return;
+    if (isSupabaseConfigured && !(session && syncReady)) return;
+    if (hasInterruptedDeletes()) void replayInterruptedDeletes();
   }, [isSharedTripRoute, isSupabaseConfigured, session, syncReady]);
 
   // 共有リンク。アプリの外枠(ヘッダー・サイドバー・追従ナビ)も、ログインの確認も

@@ -8,7 +8,6 @@ import { NOTE_TYPE_DEFS, getNoteType } from "../../lib/noteTypes";
 import { selectOnThisDay, selectStandaloneDiaries } from "../../lib/diaryEntries";
 import { todayStr } from "../../lib/date";
 import { deleteAttachmentsFor } from "../../lib/attachments";
-import { deletePlaceRemindersFor } from "../../lib/placeReminders";
 import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { PageFab } from "../../components/ui/PageFab";
@@ -24,6 +23,8 @@ import { DiaryList } from "../../components/diary/DiaryList";
 import { OnThisDay } from "../../components/diary/OnThisDay";
 import { DiaryForm } from "../../components/diary/DiaryForm";
 import { useToast } from "../../components/ui/ToastProvider";
+import { deleteRowWithUndo, quoted } from "../../components/ui/undoToast";
+import { useWithoutPendingDeletes } from "../../hooks/usePendingDeletes";
 import { ListSkeleton } from "../../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
 
@@ -57,8 +58,11 @@ export default function NotePage() {
     setSearchParams(rest, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const notes = useLiveQuery(() => db.notes.toArray(), []);
-  const showSkeleton = useDelayedFlag(notes === undefined);
+  const notesResult = useLiveQuery(() => db.notes.toArray(), []);
+  const showSkeleton = useDelayedFlag(notesResult === undefined);
+  // 「削除しました・元に戻す」の間は、まだ DB にあるメモを隠す(UI/UX 調査メモ 第4弾 A-2、
+  // src/lib/deferredDelete.ts)。
+  const notes = useWithoutPendingDeletes("notes", notesResult);
 
   const diaryEntries = useLiveQuery(() => db.diaryEntries.toArray().then(selectStandaloneDiaries), []);
   const showDiarySkeleton = useDelayedFlag(diaryEntries === undefined);
@@ -83,10 +87,11 @@ export default function NotePage() {
   }
 
   function handleDelete(id: string) {
-    // 貼った写真と場所リマインドは別のテーブルにあるので、一緒に落とす
-    // (src/lib/attachments.ts / src/lib/placeReminders.ts)。
-    void Promise.all([db.notes.delete(id), deleteAttachmentsFor("note", id), deletePlaceRemindersFor("note", id)]);
-    showToast("削除しました");
+    // 確認は聞かずに一覧から消し、5秒間「元に戻す」を出す(UI/UX 調査メモ 第4弾 A-2)。
+    // 本当に消すのはお知らせが閉じた時(src/lib/deferredDelete.ts)。貼った写真と場所リマインドも
+    // その時に一緒に落とす(src/lib/undoableDeletes.ts)。
+    const title = notes?.find((n) => n.id === id)?.title;
+    deleteRowWithUndo("note", id, `${quoted(title) || "メモ"}を削除しました`);
   }
 
   return (
@@ -130,8 +135,9 @@ export default function NotePage() {
             <div className="is-empty-fill">
               <EmptyState
                 icon={NotebookPen}
-                title="日記はまだありません"
-                description="旅行に関係なく、その日のことを残せます。"
+                illustration="diary"
+                title="まだ白いページです"
+                description="旅行に関係なく、その日のことを一行から残せます。"
                 action={{ label: "日記を書く", onClick: () => setEditingDiary("new") }}
                 card
               />

@@ -48,6 +48,31 @@ export default defineConfig({
         // precache/update-banner machinery above is untouched, no need to switch
         // to injectManifest mode just for background push notifications.
         importScripts: ["push-sw.js"],
+        // 数字用の文字(UI/UX 調査メモ 第4弾 B-1、index.html で Google Fonts から読む)を、
+        // 一度読んだら端末に取り置く。このアプリは電波の無い所でも開く PWA なので、
+        // 外の配信に毎回取りに行くと、地下や機内で数字だけ端末の文字に戻ってしまう。
+        // CSS の URL は text= の中身で決まった固定の文字列、フォントの URL も版ごとに変わるので、
+        // どちらも「取り置きが先」(CacheFirst)でよい。CSS は no-cors で読む(opaque = 0)ので 0 も取り置く。
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-stylesheets",
+              expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-webfonts",
+              expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       manifest: {
         name: "LIFE HUB",

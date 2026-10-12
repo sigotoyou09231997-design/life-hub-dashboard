@@ -1,9 +1,13 @@
 import type { LucideIcon } from "lucide-react";
 import { Button } from "./Button";
 import { Card } from "./Card";
+import { EmptyIllustration, type EmptyIllustrationKind } from "./EmptyIllustration";
 
 interface Props {
   icon?: LucideIcon;
+  /** 機能ごとの小さな線画(UI/UX 調査メモ 第4弾 B-6)。指定すると icon の代わりに出す。
+   *  「まだ1件も無い」時に使う。検索で見つからない・通知が無いのような一時的な空には付けない。 */
+  illustration?: EmptyIllustrationKind;
   title: string;
   description?: string;
   action?: { label: string; onClick: () => void };
@@ -12,13 +16,21 @@ interface Props {
   card?: boolean;
 }
 
-export function EmptyState({ icon: Icon, title, description, action, card = false }: Props) {
+export function EmptyState({ icon: Icon, illustration, title, description, action, card = false }: Props) {
   const content = (
-    <div className="empty-state spatial-empty flex flex-col items-center gap-2.5 py-5 text-center sm:py-6">
-      {Icon && (
-        <div className="empty-state-icon flex h-11 w-11 items-center justify-center rounded-full bg-accent-light text-accent shadow-[inset_0_1px_rgba(255,255,255,.5)]">
-          <Icon size={21} />
-        </div>
+    <div
+      className={`empty-state spatial-empty flex flex-col items-center gap-2.5 py-5 text-center sm:py-6 ${
+        illustration ? "has-illustration" : ""
+      }`}
+    >
+      {illustration ? (
+        <EmptyIllustration kind={illustration} />
+      ) : (
+        Icon && (
+          <div className="empty-state-icon flex h-11 w-11 items-center justify-center rounded-full bg-accent-light text-accent shadow-[inset_0_1px_rgba(255,255,255,.5)]">
+            <Icon size={21} />
+          </div>
+        )
       )}
       <div>
         <p className="font-semibold text-slate-900">{title}</p>

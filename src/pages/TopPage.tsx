@@ -6,7 +6,7 @@ import { ja } from "date-fns/locale";
 import { ArrowRight, CalendarDays, CheckSquare, Check, ChevronRight, Mail, Plane, Plus } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent } from "../types";
-import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
+import { formatDisplayDate, formatGmailTimestamp, toDateStr, todayStr } from "../lib/date";
 import { occursOn, spanDayIndex, spanTimeText } from "../lib/eventSpan";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
 import { pullBlockedSenders } from "../lib/blockedSenders";
@@ -19,12 +19,15 @@ import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { useHubMotion } from "../hooks/useHubMotion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { toggleTaskCompletion } from "../components/tasks/TaskList";
+import { haptic } from "../lib/haptics";
 import { UsageAlertCard } from "../components/review/UsageAlertCard";
 import { useUsageAlerts } from "../hooks/useFeatureUsage";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
 import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
+import { useWithoutPendingDeletes } from "../hooks/usePendingDeletes";
 import { BriefingCard } from "../components/home/BriefingCard";
 import { PageFab } from "../components/ui/PageFab";
+import { CountingAmount } from "../components/ui/CountingAmount";
 import { openAddChooser } from "../components/layout/AddChooser";
 
 const EVENT_PREVIEW_LIMIT = 3;
@@ -94,9 +97,11 @@ export default function TopPage() {
   const today = todayStr();
   // 何日かにまたがる予定(宿泊など)は初日の date しか索引に載らないので、date の索引で
   // 今日ぶんだけを引くと2日目以降がTOPから消える。全部見てから絞る(src/lib/eventSpan.ts)。
-  const eventsResult = useLiveQuery(
-    () => db.calendarEvents.filter((event) => occursOn(event, today)).toArray(),
-    [today],
+  // 「削除しました・元に戻す」の5秒間は、まだ本当には消していない(src/lib/deferredDelete.ts)。
+  // ほかの画面で消してすぐホームへ来ても出ないよう、ホームでも除く(UI/UX 調査メモ 第4弾 A-2)。
+  const eventsResult = useWithoutPendingDeletes(
+    "calendarEvents",
+    useLiveQuery(() => db.calendarEvents.filter((event) => occursOn(event, today)).toArray(), [today]),
   );
   // 何日かにまたがる予定の開始時刻は、初日にしか意味がない。2日目以降も同じ時刻で
   // 扱うと、泊まっている最中の宿泊が「10:00に始まる次の予定」として毎朝出てくる。
@@ -113,7 +118,10 @@ export default function TopPage() {
   // 「誰の予定か」の名前と色。付けた印はホームの「次の予定」にも出す
   // (付けたのに一覧に出ないと、付いているのか分からないため)。
   const eventPeople = useLiveQuery(() => db.eventPeople.toArray(), []) ?? [];
-  const tasksResult = useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]);
+  const tasksResult = useWithoutPendingDeletes(
+    "tasks",
+    useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]),
+  );
   const todayTasks = (tasksResult ?? []).filter((task) => !task.parentTaskId);
   const doneCount = todayTasks.filter((task) => task.completed).length;
   const openCount = todayTasks.length - doneCount;
@@ -247,7 +255,9 @@ export default function TopPage() {
           <span className="lh-money__label">今月のお金</span>
           <p className={`warm-amount ${budget.remaining < 0 ? "is-negative" : ""}`}>
             <small>¥</small>
-            {budget.remaining.toLocaleString()}
+            {/* 支出を記録すると、減った額が「−¥1,280」と浮かんでから、前の残りから数え下がる
+                (UI/UX 調査メモ 第4弾 A-5)。給料日で期間が替わった時は動かさない。 */}
+            <CountingAmount value={budget.remaining} resetKey={toDateStr(budget.period.periodStart)} showDelta />
           </p>
           <dl className="lh-money__stats">
             <div>
@@ -256,7 +266,9 @@ export default function TopPage() {
             </div>
             <div>
               <dt>使った額</dt>
-              <dd>¥{budget.actualSpending.toLocaleString()}</dd>
+              <dd>
+                ¥<CountingAmount value={budget.actualSpending} resetKey={toDateStr(budget.period.periodStart)} />
+              </dd>
             </div>
             <div>
               <dt>給料日まで</dt>
@@ -273,7 +285,9 @@ export default function TopPage() {
           <span className="lh-money__label">今月の支出</span>
           <p className="warm-amount">
             <small>¥</small>
-            {monthSpending ? monthSpending.total.toLocaleString() : "—"}
+            {/* ホームの「＋」で支出を入れると、足した額が「+¥1,280」と浮かんでから合計に入り、
+                合計は前の値から数え上がる(UI/UX 調査メモ 第4弾 A-5)。月が替わった時は動かさない。 */}
+            <CountingAmount value={monthSpending?.total} resetKey={monthStart} showDelta />
           </p>
           <dl className="lh-money__stats">
             <div>
@@ -370,7 +384,11 @@ export default function TopPage() {
                 <button
                   type="button"
                   className="warm-check"
-                  onClick={() => toggleTaskCompletion(task)}
+                  onClick={() => {
+                    // 完了にした時だけ、Android では短く振動させる(UI/UX 調査メモ 第4弾 A-6)。
+                    if (!task.completed) haptic("success");
+                    void toggleTaskCompletion(task);
+                  }}
                   aria-label={`${task.title}の完了を切り替え`}
                   aria-pressed={task.completed}
                 >

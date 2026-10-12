@@ -111,7 +111,15 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
           <div className="planning-list-module space-y-5">
             <div>
               <p className="mb-2 text-sm font-medium text-slate-600">今後の予定</p>
-              <EventList events={upcomingEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} emptyMessage="今後の予定はありません" />
+              {/* 予定がまだ無い時だけ線画と一言(UI/UX 調査メモ 第4弾 B-6)。検索して見つからない時は出さない。 */}
+              <EventList
+                events={upcomingEvents}
+                onEdit={onEditEvent}
+                onDelete={onDeleteEvent}
+                emptyMessage={q ? "該当する予定はありません" : "この先の予定はまだありません"}
+                emptyDescription={q ? undefined : "入れておくと、近い順にここへ並びます。"}
+                emptyIllustration={q ? undefined : "calendar"}
+              />
             </div>
             {upcomingTripAgenda.length > 0 && (
               <div>

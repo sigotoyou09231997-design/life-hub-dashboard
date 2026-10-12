@@ -6,7 +6,6 @@ import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
-import { useConfirm } from "../ui/ConfirmProvider";
 import { Receipt, Trash2 } from "lucide-react";
 
 interface Props {
@@ -25,7 +24,6 @@ function yen(n: number): string {
 }
 
 export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies, members }: Props) {
-  const confirm = useConfirm();
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);
   const paidTotal = expenses.filter((e) => e.paid).reduce((sum, e) => sum + e.amount, 0);
   const remaining = budget != null ? budget - total : undefined;
@@ -34,7 +32,8 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies
   return (
     <div className="space-y-4">
       <Card>
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        {/* 金額は数字用の文字で(UI/UX 調査メモ 第4弾 B-1)。見出しの日本語はいつもの文字のまま。 */}
+        <div className="num grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-slate-400">予算</p>
             <p className="mt-0.5 font-semibold text-slate-900">{budget != null ? yen(budget) : "未設定"}</p>
@@ -133,8 +132,10 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies
                     </span>
                     <button
                       type="button"
-                      onClick={async () => {
-                        if (e.id && (await confirm({ title: `「${e.title}」を削除しますか?` }))) onDelete(e.id);
+                      // 確認は聞かない。消したあと5秒間「元に戻す」が出る(UI/UX 調査メモ 第4弾 A-2。
+                      // お知らせは TripDetailPage が出す)。
+                      onClick={() => {
+                        if (e.id) onDelete(e.id);
                       }}
                       aria-label="削除"
                       className="pointer-events-auto rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
