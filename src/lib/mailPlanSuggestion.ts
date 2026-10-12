@@ -17,8 +17,10 @@ import { toDateStr, todayStr } from "./date";
  * それをしないと日付として数えられず、過ぎた候補を片付けることもできないため。
  */
 
-/** 全角で書かれた数字や記号を半角に揃える。「１４時」「９／３」を取りこぼさないため。 */
-function normalizeText(text: string): string {
+/** 全角で書かれた数字や記号を半角に揃える。「１４時」「９／３」を取りこぼさないため。
+ * 1文字を1文字に置き換えるだけなので、文字の位置は変わらない(予定のタイトルから日時を
+ * 読む src/lib/titleDateTime.ts は、この位置を頼りに元の文から日時の言葉を取り除く)。 */
+export function normalizeText(text: string): string {
   return text
     .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
     .replace(/[：]/g, ":")
@@ -46,7 +48,7 @@ function shiftDays(base: Date, days: number): string {
  *
  * 12月に届く「1月5日」は翌年、1月に届く「12月20日」は前年。単純に受信年を当てると、
  * 年をまたぐ案内が11か月先/前の日付になってしまう。 */
-function withNearestYear(base: Date, month: number, day: number): string | undefined {
+export function withNearestYear(base: Date, month: number, day: number): string | undefined {
   if (month < 1 || month > 12 || day < 1 || day > 31) return undefined;
   const baseDay = atMidnight(base);
   for (const year of [base.getFullYear(), base.getFullYear() + 1, base.getFullYear() - 1]) {
@@ -77,7 +79,7 @@ function withNearestMonth(base: Date, day: number): string | undefined {
  * 「今週」と書かれていない時は、基準日以降で最初に来るその曜日。「来週」「再来週」は
  * 週(月曜はじまり)を数えてから曜日を当てる — 基準日から数えて7日足す作りだと、
  * 水曜に届いた「来週の火曜」が2週間後になってしまう(最初に来る火曜がもう翌週のため)。 */
-function withWeekday(base: Date, weekday: number, weeksAhead: number): string {
+export function withWeekday(base: Date, weekday: number, weeksAhead: number): string {
   if (weeksAhead === 0) return shiftDays(base, (weekday - base.getDay() + 7) % 7);
   // 月曜を週のはじまりとして、その週の頭からの日数で数える。
   const fromMonday = (base.getDay() + 6) % 7;

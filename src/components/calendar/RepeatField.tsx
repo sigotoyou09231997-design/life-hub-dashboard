@@ -52,7 +52,8 @@ export function RepeatField({ value, onChange }: Props) {
 
   return (
     <>
-      <SegmentedField label="繰り返し" value={mode} options={MODE_OPTIONS} onChange={handleMode} columns={3} />
+      {/* 5つを3列に並べると2段に折り返すので、溝に詰めず1つずつ分ける(SegmentedField の separate)。 */}
+      <SegmentedField label="繰り返し" value={mode} options={MODE_OPTIONS} onChange={handleMode} columns={3} separate />
       {showWeekdays && (
         <div>
           <div className="flex flex-wrap gap-1.5">
