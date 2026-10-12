@@ -26,6 +26,8 @@ import { ComposeMail } from "../components/gmail/ComposeMail";
 import { useToast } from "../components/ui/ToastProvider";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { useIsDesktop } from "../hooks/useIsDesktop";
+import { usePullToRefresh } from "../hooks/usePullToRefresh";
+import { PullToRefreshIndicator } from "../components/ui/PullToRefreshIndicator";
 import { recordRecent } from "../lib/recentItems";
 
 const BACK_BUTTON_CLASS =
@@ -223,6 +225,10 @@ export default function GmailPage() {
     }
   }
 
+  // 一覧を下へ引っ張ると「今すぐ同期」と同じ同期を走らせる(UI/UX 調査メモ 第4弾 A-7)。指で触った時だけ。
+  // つないだアカウントが無い時は、同期するものが無いので引っ張れない。
+  const pull = usePullToRefresh(handleSyncClick, { disabled: !accounts || accounts.length === 0 });
+
   const autoDraftToggle = (
     <button
       type="button"
@@ -242,7 +248,8 @@ export default function GmailPage() {
   );
 
   return (
-    <div className="spatial-page mail-page micro-contrast mx-auto pb-10 lg:flex lg:h-full lg:min-h-0 lg:max-w-[1480px] lg:flex-col lg:pb-0" style={AREA_ACCENT_STYLE.gmail}>
+    <div ref={pull.containerRef} className="spatial-page mail-page micro-contrast mx-auto pb-10 lg:flex lg:h-full lg:min-h-0 lg:max-w-[1480px] lg:flex-col lg:pb-0" style={AREA_ACCENT_STYLE.gmail}>
+      <PullToRefreshIndicator ref={pull.indicatorRef} phase={pull.phase} />
       <div className="mail-page-header flex items-center justify-between gap-2 px-5 pb-4 pt-6 lg:shrink-0 lg:px-8 lg:pb-5 lg:pt-7">
         <div className="flex min-w-0 items-center gap-2">
           <button type="button" onClick={() => navigate("/")} aria-label="戻る" className={`${BACK_BUTTON_CLASS} lg:hidden`}>

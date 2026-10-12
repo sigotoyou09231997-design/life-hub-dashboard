@@ -27,6 +27,8 @@ import "./styles/subscriptions.css";
 import "./styles/touch-tokens.css";
 // 数字用の文字・数字が動く・空の表示の線画(UI/UX 調査メモ 第4弾 B-1・A-5・B-6)。上の各画面の上に足す。
 import "./styles/numbers-empty.css";
+// 指の操作(スワイプ・完了の演出・引っ張って更新。UI/UX 調査メモ 第4弾 A-3・A-4・A-7)。
+import "./styles/gestures.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()

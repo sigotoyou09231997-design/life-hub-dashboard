@@ -1,0 +1,181 @@
+/* ============================================================================
+   指の操作の見た目（UI/UX 調査メモ 第4弾、2026-10-12）
+
+   - A-3 スワイプ: 一覧の行を横へ払う（src/components/ui/SwipeRow.tsx・src/hooks/useSwipeAction.ts）
+   - A-4 完了の気持ちよさ: 取り消し線を左から引く・行をたたむ・今日の輪が一周して光る
+     （src/components/tasks/TaskItem.tsx・src/hooks/useTaskRingCelebration.ts）
+   - A-7 引っ張って更新: 画面の上から下りてくる丸（src/components/ui/PullToRefreshIndicator.tsx）
+
+   指の位置（行のずれ・引っ張りの量）は JS が style の変数（--swipe-x・--pull など）へ直接書く。
+   ここでは、その変数の受け皿と、段階ごとの見た目だけを書く。
+   色は白＋青緑＋黒（theme-teal.css）の中から: 完了＝青緑、明日へ＝黒、削除＝赤（--hub-red ＝ danger と同じ値）。
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   A-3 スワイプ
+   ------------------------------------------------------------------------ */
+/* 縦のスクロールはブラウザに任せ、横の動きだけを pointer の出来事として受け取る。
+   払える向きがある行だけに付ける（払えない行の触り心地は今までどおり）。 */
+.swipe-row--enabled { touch-action: pan-y; }
+
+/* 払っている間だけ、下の色を敷く台にして、行の外へはみ出した分を隠す。ふだん（idle）は何も付けない —
+   行の影やフォーカスの輪を切らず、重なり順（z-index）も包む前と同じにしておくため。 */
+.swipe-row:not([data-swipe-state="idle"]) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--swipe-radius, 14px);
+}
+.swipe-row:not([data-swipe-state="idle"]) > .swipe-row__surface {
+  position: relative;
+  z-index: 1;
+}
+.swipe-row[data-swipe-state="dragging"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+.swipe-row[data-swipe-state="dragging"] > .swipe-row__surface { will-change: transform; }
+
+/* 行の下の色。行が動いた分（--swipe-x）だけ広がる。行の地が半透明の所でも色が透けないよう、
+   行の下いっぱいには敷かず、空いた所＋角の丸みの分だけにする。 */
+.swipe-row__under {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: calc(var(--swipe-x, 0px) + var(--swipe-radius, 14px));
+  padding: 0 1.1rem;
+  overflow: hidden;
+  border-radius: var(--swipe-radius, 14px);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  opacity: 0.78;
+  transition: var(--swipe-transition, width 0s), opacity 160ms ease-out;
+}
+.swipe-row__under--right { left: 0; justify-content: flex-start; }
+.swipe-row__under--left { right: 0; justify-content: flex-end; }
+.swipe-row__under--complete { background: var(--teal-600, #128a84); }
+.swipe-row__under--later { background: var(--ink-black-2, #1d2124); }
+.swipe-row__under--danger { background: var(--hub-red, #dc6355); }
+
+/* 「離せば決まる」所を越えたら、色を濃くしてアイコンを少し大きくする。 */
+.swipe-row[data-swipe-armed] .swipe-row__under { opacity: 1; }
+.swipe-row__icon {
+  flex-shrink: 0;
+  transition: transform 220ms var(--spring, cubic-bezier(0.34, 1.56, 0.64, 1));
+}
+.swipe-row[data-swipe-armed] .swipe-row__icon { transform: scale(1.18); }
+
+/* ---------------------------------------------------------------------------
+   A-4 完了の気持ちよさ
+   ------------------------------------------------------------------------ */
+
+/* 取り消し線を左から引く。線は背景の1本の帯で描き、帯の幅を 0 → 100% に伸ばす。
+   文字の行（span）が2行に折り返していても、slice なので1行目の端まで引いてから2行目へ続く。 */
+.task-strike {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 55%;
+  background-size: 0 1.5px;
+  -webkit-box-decoration-break: slice;
+  box-decoration-break: slice;
+}
+.task-strike.is-striking {
+  animation: task-strike-draw 280ms cubic-bezier(0.4, 0, 0.2, 1) 120ms forwards;
+}
+@keyframes task-strike-draw {
+  to { background-size: 100% 1.5px; }
+}
+
+/* 線を引き終わったら、行をたたむ（高さは JS が測って --task-row-h に入れる）。たたみ終わってから完了を
+   書き込むので、行は「完了済み」の組へ移る・今日の一覧から抜ける。 */
+.task-row--collapsing {
+  overflow: hidden;
+  animation: task-row-collapse 260ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes task-row-collapse {
+  from { height: var(--task-row-h, auto); opacity: 1; }
+  to { height: 0; margin-top: 0; opacity: 0; }
+}
+
+/* 今日の輪（予定・タスクの「今日」）。進み具合が変わる時は、輪がその位置まで回る。
+   角度を動かせるよう、変数を「角度」として登録する（登録できないブラウザでは、今までどおり跳ぶだけ）。 */
+@property --planning-progress {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.planning-progress-ring {
+  transition: --planning-progress 560ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* 今日の最後の1件を終えた時だけ（1日1回）、一周した輪を小さく光らせる。 */
+.planning-progress-ring.is-celebrating {
+  animation: task-ring-glow 1400ms ease-out 200ms both;
+}
+@keyframes task-ring-glow {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(23, 161, 153, 0.45); }
+  28% { transform: scale(1.07); box-shadow: 0 0 0 8px rgba(23, 161, 153, 0.18), 0 0 24px 6px rgba(23, 161, 153, 0.32); }
+  100% { transform: scale(1); box-shadow: 0 0 0 18px rgba(23, 161, 153, 0), 0 0 24px 6px rgba(23, 161, 153, 0); }
+}
+
+/* ---------------------------------------------------------------------------
+   A-7 引っ張って更新
+   ------------------------------------------------------------------------ */
+
+/* 画面（.spatial-page。もともと position: relative）の一番上から、引いた分（--pull）だけ下りてくる丸。
+   引き始めは画面の上に隠れていて、引くほど濃くなる（--pull-progress は 0〜1）。上の帯（.app-header）の下をくぐる。 */
+.pull-indicator {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-left: -1.25rem;
+  border-radius: 999px;
+  background: var(--warm-surface, #fff);
+  color: var(--warm-ink-3, #9aa2a6);
+  box-shadow: 0 1px 2px rgba(16, 32, 34, 0.06), 0 8px 20px rgba(16, 32, 34, 0.12);
+  opacity: var(--pull-progress, 0);
+  transform: translate3d(0, calc(var(--pull, 0px) - 2.75rem), 0);
+  pointer-events: none;
+}
+/* 指に付いて動いている間は動きを付けない。離した後（戻る・同期の位置で止まる）だけ、なめらかに動かす。 */
+.pull-indicator[data-phase="idle"],
+.pull-indicator[data-phase="refreshing"] {
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease-out;
+}
+.pull-indicator svg { transition: transform 200ms ease-out; }
+.pull-indicator[data-phase="armed"],
+.pull-indicator[data-phase="refreshing"] { color: var(--teal-600, #128a84); }
+/* 「離せば同期する」所を越えたら、矢印が上を向く。 */
+.pull-indicator[data-phase="armed"] svg { transform: rotate(180deg); }
+.pull-indicator[data-phase="refreshing"] svg { animation: pull-spin 800ms linear infinite; }
+@keyframes pull-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------------------------------------------------------------------------
+   端末の「視差効果を減らす」がオンの時: 動きは付けない（操作そのものは同じように効く）。
+   JS の側でも、待ってから進める所は待たずに進める（src/lib/reducedMotion.ts）。
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .swipe-row__surface,
+  .swipe-row__under,
+  .swipe-row__icon,
+  .pull-indicator,
+  .pull-indicator svg,
+  .planning-progress-ring { transition: none !important; }
+  .task-strike.is-striking { animation: none; background-size: 100% 1.5px; }
+  .task-row--collapsing,
+  .planning-progress-ring.is-celebrating,
+  .pull-indicator[data-phase="refreshing"] svg { animation: none; }
+}

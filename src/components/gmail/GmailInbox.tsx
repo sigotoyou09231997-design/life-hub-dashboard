@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router-dom";
-import { Ban, CalendarPlus, Check, Hourglass, Mail, Receipt, Search, Star } from "lucide-react";
+import { Ban, CalendarPlus, Check, Hourglass, Mail, MailCheck, Receipt, Search, Star } from "lucide-react";
 import { db } from "../../db/schema";
 import type { EmailStatus, GmailAccount } from "../../types";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender, snippetText } from "../../lib/gmail";
@@ -15,6 +15,7 @@ import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
 import { ListSkeleton } from "../ui/ListSkeleton";
+import { SwipeRow, type SwipeAction } from "../ui/SwipeRow";
 import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
@@ -383,6 +384,13 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
             const waiting = waitingDays.get(email.id ?? "");
             const isPlan = planSuggestionIds.has(email.id);
             const isExpense = expenseSuggestionIds.has(email.id);
+            // 左へ払うと「処理済み」(UI/UX 調査メモ 第4弾 A-3)。この一覧で「片付いた」に当たる操作は
+            // 既読にすること — 「すべて」は手を付けていないメール(isUnhandledEmail)で、既読にするとそこから抜けて
+            // 「既読」へ移る。行の右のチェック(既読にする)と同じ操作で、ボタンが出ている行(まだ既読でない行)だけ払える。
+            // アーカイブや「スキップ」は、この画面には無い(Gmail 側のラベルも変えない)。
+            const swipeRead: SwipeAction | undefined = email.readAt
+              ? undefined
+              : { label: "既読", icon: MailCheck, tone: "complete", after: "leave", onCommit: () => email.id && handleMarkRead(email.id) };
             const markRead = email.readAt ? (
               // 既読の行にもボタンと同じ幅の空きを置く — PCの1行表示で、時刻の列が行ごとに
               // ずれないように。
@@ -408,6 +416,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
               // 予定候補などの印は、文字を出すと1行に収まらないので小さな絵にし、中身は
               // 指を乗せた時の説明と読み上げに回す(開けばメール画面の帯に全部出る)。
               return (
+                <SwipeRow key={email.id} left={swipeRead}>
                 <div
                   key={email.id}
                   data-mail-id={email.id}
@@ -467,12 +476,14 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
                   </Link>
                   {markRead}
                 </div>
+                </SwipeRow>
               );
             }
 
             return (
               // 「既読にする」ボタンをリンクの外(兄弟要素)に置くため、行全体を囲むdivとリンクに
               // 分けている(button要素をa要素の中にネストするのはHTML的に不正で、挙動が環境依存になる)。
+              <SwipeRow key={email.id} left={swipeRead}>
               <div
                 key={email.id}
                 data-mail-id={email.id}
@@ -532,6 +543,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
                 </Link>
                 {markRead}
               </div>
+              </SwipeRow>
             );
           })}
         </div>
