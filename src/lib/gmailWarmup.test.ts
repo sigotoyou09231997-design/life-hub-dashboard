@@ -2,6 +2,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BlockedSender, GmailAccount, SyncedEmail } from "../types";
 
+// 1つ目のテストは、動的 import で重い部品(判定の処理など)を読み込む。Mac が混み合っている時(別の作業やほかの反映と同時の時)は、
+// 既定の5秒を超えて時間切れになることがあった(2026-10-13)。内容は変えず、上限だけ30秒に伸ばす。
+vi.setConfig({ testTimeout: 30_000 });
+
 const mocks = vi.hoisted(() => ({
   accounts: [] as GmailAccount[],
   emails: [] as SyncedEmail[],

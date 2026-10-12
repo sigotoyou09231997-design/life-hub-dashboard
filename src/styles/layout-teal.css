@@ -663,6 +663,17 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 .lh-chip[aria-pressed="true"] { border-color: var(--ink-black); background: var(--ink-black); color: #fff; }
 .lh-chip:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; }
 
+/* C-3(第5弾) PC のページ上のタブは、小さく・文字に合わせた幅にする(2026-10-13)。
+   PC が横幅いっぱいになって、タブ1つが幅190〜230px・高さ50pxの大きな黒い丸になり、中身より操作の部品の方が
+   目立っていた。PC(1024px〜)だけ、高さ40px・幅は文字に合わせる(伸びない)。スマホは押しやすさ優先で今のまま。 */
+@media (min-width: 1024px) {
+  .spatial-page-tabs .spatial-tabs .spatial-tabs__tab {
+    flex-grow: 0;
+    min-height: 2.5rem;
+    padding: 0.4rem 1.25rem;
+  }
+}
+
 /* P-4 タブの階層: ページのいちばん上のタブ(.spatial-page-tabs の中)は黒い丸、
    中身の中のタブ(サブスクの「一覧・カレンダー・分析」、シートの中の切り替えなど)は
    下線の小さい形にして、どちらが上の階層か分かるようにする。ログイン画面の切り替えは
