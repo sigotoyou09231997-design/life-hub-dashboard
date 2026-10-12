@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TripScheduleItem } from "../types";
-import { canMove, moveInDay, orderSchedule, orderScheduleDay } from "./scheduleOrder";
+import { moveInDay, orderSchedule, orderScheduleDay } from "./scheduleOrder";
 
 function item(id: string, startTime: string | undefined, createdAt: number, sortOrder?: number | null, date = "2026-12-29"): TripScheduleItem {
   return { id, tripId: "t", date, startTime, title: id, type: "other", createdAt, sortOrder };
@@ -34,23 +34,43 @@ describe("予定の並び(1日ぶん)", () => {
   });
 });
 
-describe("上下の入れ替え", () => {
-  it("どの予定も、端でなければ上にも下にも動かせる(時刻がちがっても)", () => {
+describe("並べ替え(長押しで動かす)", () => {
+  it("動かさない・並びの外へ動かす時は、何も書き直さない", () => {
     const day = [item("a", "03:27", 1), item("b", "04:15", 2), item("c", "04:30", 3)];
-    expect(canMove(day, 0, -1)).toBe(false);
-    expect(canMove(day, 0, 1)).toBe(true);
-    expect(canMove(day, 2, 1)).toBe(false);
-    expect(moveInDay(day, 2, 1)).toEqual([]);
+    expect(moveInDay(day, 1, 1)).toEqual([]);
+    expect(moveInDay(day, 2, 3)).toEqual([]);
+    expect(moveInDay(day, 0, -1)).toEqual([]);
   });
 
-  it("動かすと、その日の全部に 1, 2… を振り直し、変わる予定だけ返す", () => {
+  it("1つ上へ動かすと、その日の全部に 1, 2… を振り直し、変わる予定だけ返す(以前の「↑」と同じ番号)", () => {
     const day = [item("a", "03:27", 1), item("b", "04:15", 2), item("c", "04:30", 3)];
-    expect(moveInDay(day, 2, -1)).toEqual([
+    expect(moveInDay(day, 2, 1)).toEqual([
       { id: "a", sortOrder: 1 },
       { id: "c", sortOrder: 2 },
       { id: "b", sortOrder: 3 },
     ]);
     const after = orderScheduleDay(day.map((i) => ({ ...i, sortOrder: { a: 1, c: 2, b: 3 }[i.id!] })));
     expect(ids(after)).toEqual(["a", "c", "b"]);
+  });
+
+  it("離れた位置へも一度で動かせる(時刻がちがっても)。間の予定は1つずつずれる", () => {
+    const day = [item("a", "03:27", 1), item("b", "04:15", 2), item("c", "04:30", 3), item("d", "09:00", 4)];
+    const changes = moveInDay(day, 3, 0);
+    expect(changes).toEqual([
+      { id: "d", sortOrder: 1 },
+      { id: "a", sortOrder: 2 },
+      { id: "b", sortOrder: 3 },
+      { id: "c", sortOrder: 4 },
+    ]);
+    const numbers = Object.fromEntries(changes.map((c) => [c.id, c.sortOrder]));
+    expect(ids(orderScheduleDay(day.map((i) => ({ ...i, sortOrder: numbers[i.id!] }))))).toEqual(["d", "a", "b", "c"]);
+  });
+
+  it("番号の変わらない予定は書き直さない", () => {
+    const day = [item("a", "06:00", 1, 1), item("b", "07:00", 2, 2), item("c", "08:00", 3, 3)];
+    expect(moveInDay(day, 2, 1)).toEqual([
+      { id: "c", sortOrder: 2 },
+      { id: "b", sortOrder: 3 },
+    ]);
   });
 });
