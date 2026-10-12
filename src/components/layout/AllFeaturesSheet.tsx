@@ -35,7 +35,7 @@ const FEATURES: FeatureLink[] = [
   { to: "/records/expense", label: "お金管理", icon: Wallet, ...FEATURE_TONE },
   { to: "/records/notes", label: "メモ・リスト", icon: StickyNote, ...FEATURE_TONE },
   { to: "/trips", label: "旅行計画", icon: Plane, ...FEATURE_TONE },
-  { to: "/gmail", label: "Gmail自動返信", icon: Mail, ...FEATURE_TONE },
+  { to: "/gmail", label: "Gmail", icon: Mail, ...FEATURE_TONE },
   { to: "/review", label: "ふりかえり", icon: LineChart, ...FEATURE_TONE },
   { to: "/settings", label: "設定", icon: SettingsIcon, ...FEATURE_TONE },
 ];
