@@ -157,6 +157,15 @@ describe("旅行の予定の入力: 詳細", () => {
     expect(screen.getByText("チェックアウト")).toBeTruthy();
   });
 
+  it("電話番号は数字だけ打てば、欄を離れた時にハイフンが入る(電話用テンキーにハイフンが無いため)", async () => {
+    const user = userEvent.setup();
+    renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "うずしお観潮船", type: "sightseeing", phone: "", address: "徳島県鳴門市", createdAt: 1 });
+    const phone = screen.getByPlaceholderText("例: 088-687-0613") as HTMLInputElement;
+    await user.type(phone, "0886870613");
+    await user.tab();
+    expect(phone.value).toBe("088-687-0613");
+  });
+
   it("詳細が入っている予定を開くと、詳細を開いた状態で出す", () => {
     renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "桂浜", type: "sightseeing", phone: "088-000-0000", createdAt: 1 });
     expect((screen.getByPlaceholderText("例: 088-687-0613") as HTMLInputElement).value).toBe("088-000-0000");
