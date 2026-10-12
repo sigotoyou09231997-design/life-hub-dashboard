@@ -141,6 +141,17 @@ export function collabErrorText(error: unknown): string {
   return describeCollabFailure(error instanceof CollabError ? error.failure : classifyCollabError(error));
 }
 
+/** 画面に出すメールアドレス。全部は出さず、頭の2文字と @ のあとだけ見せる(2026-10-13、本人「招待してるアカウントは
+ * 非表示にして」)。人の名前を持っていないので、誰か見分けられる程度に隠す。招待の案内文(inviteMessage)や、
+ * 相手に送る入力欄では、本物のアドレスのまま使う。 */
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return "***";
+  const local = email.slice(0, at);
+  const keep = local.length >= 3 ? 2 : 1;
+  return `${local.slice(0, keep)}***${email.slice(at)}`;
+}
+
 /** 招待先のメールアドレスの形。サーバー(invite_trip_member)と同じ決まり。 */
 export function normalizeInviteEmail(input: string): string {
   return input.trim().toLowerCase();

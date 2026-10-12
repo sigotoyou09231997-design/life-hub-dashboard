@@ -74,8 +74,11 @@ describe("TripCollabSheet", () => {
     it("参加中の人と承認待ちの人が並ぶ。まだ誰もいなければ、その旨が出る", async () => {
       mocks.list = [member({ id: "a" }), member({ id: "b", invitedEmail: "wait@example.com", memberId: null, status: "pending" })];
       renderSheet("owner");
-      expect(await screen.findByText("friend@example.com")).toBeTruthy();
-      expect(screen.getByText("wait@example.com")).toBeTruthy();
+      expect(await screen.findByText("fr***@example.com")).toBeTruthy();
+      expect(screen.getByText("wa***@example.com")).toBeTruthy();
+      // 全部のアドレスは、画面のどこにも出さない
+      expect(document.body.textContent).not.toContain("friend@example.com");
+      expect(document.body.textContent).not.toContain("wait@example.com");
       expect(screen.getByText("参加中")).toBeTruthy();
       expect(screen.getByText("承認待ち")).toBeTruthy();
       expect(screen.getByRole("button", { name: "外す" })).toBeTruthy();
@@ -137,9 +140,10 @@ describe("TripCollabSheet", () => {
     it("持ち主と参加者が見える。招待・外すは出ない", async () => {
       mocks.list = [member({ id: "a" }), member({ id: "c", invitedEmail: "third@example.com", memberId: "third" })];
       renderSheet("member");
-      expect(await screen.findByText(/owner@example.com さんの旅行に参加しています/)).toBeTruthy();
+      expect(await screen.findByText(/ow\*\*\*@example.com さんの旅行に参加しています/)).toBeTruthy();
+      expect(document.body.textContent).not.toContain("owner@example.com");
       expect(screen.getByText("持ち主")).toBeTruthy();
-      expect(screen.getByText("friend@example.com")).toBeTruthy();
+      expect(screen.getByText("fr***@example.com")).toBeTruthy();
       expect(screen.queryByLabelText(/招待するメールアドレス/)).toBeNull();
       expect(screen.queryByRole("button", { name: "外す" })).toBeNull();
     });
