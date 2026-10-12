@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ArrowRight, CalendarDays, CheckSquare, Check, ChevronRight, Mail, Plane, Plus } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, ChevronRight, Mail, Plane, Plus } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent } from "../types";
 import { formatDisplayDate, formatGmailTimestamp, toDateStr, todayStr } from "../lib/date";
@@ -28,7 +28,8 @@ import { useWithoutPendingDeletes } from "../hooks/usePendingDeletes";
 import { BriefingCard } from "../components/home/BriefingCard";
 import { PageFab } from "../components/ui/PageFab";
 import { CountingAmount } from "../components/ui/CountingAmount";
-import { openAddChooser } from "../components/layout/AddChooser";
+import { openAddChooser, openQuickAdd } from "../components/layout/AddChooser";
+import { EmptyIllustration } from "../components/ui/EmptyIllustration";
 
 const EVENT_PREVIEW_LIMIT = 3;
 const TASK_PREVIEW_LIMIT = 3;
@@ -119,6 +120,10 @@ export default function TopPage() {
       a.createdAt - b.createdAt,
   );
   const previewTasks = sortedTasks.slice(0, TASK_PREVIEW_LIMIT);
+  // 予定もタスクも無い日は、中身の無いカード2枚ではなく、1枚にまとめる(第5弾 A-2)。読み込み中は、まとめない
+  // (読み込みの一瞬に「ありません」と出さない)。
+  const todayIsEmpty =
+    eventsResult !== undefined && tasksResult !== undefined && previewEvents.length === 0 && previewTasks.length === 0;
 
   const { data: budget } = usePayPeriodBudget();
   // 給与がまだ無い時の「今月のお金」。前は「¥—」と案内の1行だけで、ホームでいちばん大きな
@@ -295,6 +300,29 @@ export default function TopPage() {
         waiting={replyWaiting}
       />
 
+      {todayIsEmpty ? (
+        <section className="lh-section lh-section--today-empty" data-reveal="3">
+          <SectionHead title="今日の予定・タスク" />
+          <div className="warm-card lh-today-empty">
+            <EmptyIllustration kind="calendar" size={64} />
+            <div className="min-w-0">
+              <strong>今日は予定もタスクもありません</strong>
+              <p>何か1つ入れておきますか？</p>
+              <div className="lh-today-empty__actions">
+                <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("event")}>
+                  <Plus size={14} aria-hidden="true" />
+                  予定
+                </button>
+                <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("task")}>
+                  <Plus size={14} aria-hidden="true" />
+                  タスク
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <>
       <section className="lh-section lh-section--events" data-reveal="3">
         <SectionHead title="次の予定" to="/schedule?view=calendar" />
         <div className="warm-card lh-group">
@@ -327,13 +355,14 @@ export default function TopPage() {
               );
             })
           ) : (
-            <div className="warm-empty">
-              <span className="warm-empty__icon">
-                <CalendarDays size={18} />
-              </span>
+            <div className="warm-empty lh-empty-line">
+              <EmptyIllustration kind="calendar" size={48} />
               <div className="min-w-0">
-                <strong>予定はありません</strong>
-                <p>カレンダーから追加できます</p>
+                <strong>今日の予定はありません</strong>
+                <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("event")}>
+                  <Plus size={14} aria-hidden="true" />
+                  予定
+                </button>
               </div>
             </div>
           )}
@@ -373,13 +402,14 @@ export default function TopPage() {
               </div>
             ))
           ) : (
-            <div className="warm-empty">
-              <span className="warm-empty__icon">
-                <CheckSquare size={18} />
-              </span>
+            <div className="warm-empty lh-empty-line">
+              <EmptyIllustration kind="tasks" size={48} />
               <div className="min-w-0">
                 <strong>今日のタスクはありません</strong>
-                <p>一覧から追加できます</p>
+                <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("task")}>
+                  <Plus size={14} aria-hidden="true" />
+                  タスク
+                </button>
               </div>
             </div>
           )}
@@ -391,6 +421,8 @@ export default function TopPage() {
           </Link>
         </div>
       </section>
+        </>
+      )}
 
       <section className="lh-section lh-section--trip" data-reveal="2">
         <SectionHead title="旅行" />

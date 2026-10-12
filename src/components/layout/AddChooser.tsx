@@ -13,6 +13,13 @@ export function openAddChooser() {
   window.dispatchEvent(new Event(OPEN_EVENT));
 }
 
+/** 「何を追加しますか?」を飛ばして、種類を決めた入力を直接開く合図(ホームの空の表示の「＋予定」「＋タスク」)。 */
+const OPEN_KIND_EVENT = "lifehub:open-quick-add";
+
+export function openQuickAdd(kind: QuickAddKind) {
+  window.dispatchEvent(new CustomEvent<QuickAddKind>(OPEN_KIND_EVENT, { detail: kind }));
+}
+
 interface Choice {
   label: string;
   note: string;
@@ -45,8 +52,17 @@ export function AddChooserHost() {
 
   useEffect(() => {
     const handleOpen = () => setOpen(true);
+    const handleOpenKind = (event: Event) => {
+      setOpen(false);
+      setFormsLoaded(true);
+      setKind((event as CustomEvent<QuickAddKind>).detail);
+    };
     window.addEventListener(OPEN_EVENT, handleOpen);
-    return () => window.removeEventListener(OPEN_EVENT, handleOpen);
+    window.addEventListener(OPEN_KIND_EVENT, handleOpenKind);
+    return () => {
+      window.removeEventListener(OPEN_EVENT, handleOpen);
+      window.removeEventListener(OPEN_KIND_EVENT, handleOpenKind);
+    };
   }, []);
 
   return (
