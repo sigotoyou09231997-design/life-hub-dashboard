@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { GmailAccount, SyncedEmail } from "../../types";
@@ -396,8 +396,31 @@ describe("メール一覧 — 出現の動き(ほかの画面と同じ)", () => 
   });
 });
 
+/** 「最初の12行」から「残りを足す」への切り替えのタイマー(0.35秒)を、手で止めておく。実際の時間に頼ると、Mac が混み合った時に
+ * 確かめる前に時間が過ぎてしまい、落ちた(2026-10-13)。返り値の settle() を呼ぶと、残りが足される。 */
+function holdSettleTimer() {
+  const realSetTimeout = window.setTimeout.bind(window);
+  let held: (() => void) | null = null;
+  vi.spyOn(window, "setTimeout").mockImplementation(((handler: TimerHandler, ms?: number, ...args: unknown[]) => {
+    if (ms === 350 && typeof handler === "function") {
+      held = handler as () => void;
+      return 0 as unknown as number;
+    }
+    return realSetTimeout(handler, ms, ...args);
+  }) as typeof window.setTimeout);
+  return {
+    settle: () =>
+      act(() => {
+        held?.();
+      }),
+  };
+}
+
 describe("メール一覧 — 開いた最初の描画は先頭の数行だけ", () => {
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
   beforeEach(() => {
     mocks.emails = Array.from({ length: 40 }, (_, i) => email(`f${i}`, `件名-${i}`));
     mocks.syncCalls = 0;
@@ -405,18 +428,22 @@ describe("メール一覧 — 開いた最初の描画は先頭の数行だけ",
   });
 
   it("最初は12行だけ並べ、そのあと残りが足される(50通までなら全部)", async () => {
+    const timer = holdSettleTimer();
     renderInbox({ id: "first-paint" });
     await screen.findByRole("link", { name: /件名-0\b/ });
     expect(screen.getAllByRole("link", { name: /件名-/ })).toHaveLength(12);
+    timer.settle();
     await waitFor(() => expect(screen.getAllByRole("link", { name: /件名-/ })).toHaveLength(40));
     expect(screen.queryByRole("button", { name: /さらに表示/ })).toBeNull();
   });
 
   it("最初の12行のあいだは「さらに表示」を出さない(まだ全部並べていないため)", async () => {
     mocks.emails = Array.from({ length: 120 }, (_, i) => email(`g${i}`, `件名-${i}`));
+    const timer = holdSettleTimer();
     renderInbox({ id: "first-paint-more" });
     await screen.findByRole("link", { name: /件名-0\b/ });
     expect(screen.queryByRole("button", { name: /さらに表示/ })).toBeNull();
+    timer.settle();
     expect(await screen.findByRole("button", { name: "さらに表示（残り70件）" })).toBeTruthy();
   });
 });
