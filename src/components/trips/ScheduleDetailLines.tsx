@@ -1,6 +1,6 @@
 import { BedDouble, Clock, Globe, MapPinHouse, Phone } from "lucide-react";
 import { buildMapSearchUrl } from "../../lib/googleMaps";
-import { telHref, urlLabel } from "../../lib/scheduleDetails";
+import { phoneLabel, telHref, urlLabel } from "../../lib/scheduleDetails";
 
 interface Details {
   type: string;
@@ -36,12 +36,12 @@ export function ScheduleDetailLines({ item }: { item: Details }) {
         (tel ? (
           <a className={LINK} href={tel}>
             <Phone size={12} className="shrink-0" aria-hidden="true" />
-            {item.phone}
+            {phoneLabel(item.phone)}
           </a>
         ) : (
           <span className={TEXT}>
             <Phone size={12} className="shrink-0" aria-hidden="true" />
-            {item.phone}
+            {phoneLabel(item.phone)}
           </span>
         ))}
       {url && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detailsForSave, formatPhone, hasScheduleDetails, normalizeUrl, telHref, urlLabel } from "./scheduleDetails";
+import { detailsForSave, formatPhone, formatPhoneTyping, hasScheduleDetails, normalizeUrl, phoneLabel, telHref, urlLabel } from "./scheduleDetails";
 
 const empty = { address: "", phone: "", url: "", openingHours: "", checkInTime: "", checkOutTime: "" };
 
@@ -63,5 +63,39 @@ describe("formatPhone(電話用のテンキーにはハイフンが無いので�
     expect(detailsForSave("sightseeing", { address: "", phone: "0886870613", url: "", openingHours: "", checkInTime: "", checkOutTime: "" }).phone).toBe(
       "088-687-0613",
     );
+  });
+});
+
+describe("formatPhoneTyping(打っている間にハイフンを入れる)", () => {
+  it("数字を足すたびに、局番に合わせて区切っていく", () => {
+    let value = "";
+    const typed: string[] = [];
+    for (const digit of "0886870613") {
+      value = formatPhoneTyping(value + digit, value);
+      typed.push(value);
+    }
+    expect(typed).toEqual(["0", "08", "088", "088-6", "088-68", "088-687", "088-687-0", "088-687-06", "088-687-061", "088-687-0613"]);
+  });
+
+  it("消している時は触らない(消したハイフンが戻って消せなくならないように)", () => {
+    expect(formatPhoneTyping("088-", "088-6")).toBe("088-");
+    expect(formatPhoneTyping("088-68", "088-687")).toBe("088-68");
+  });
+
+  it("内線などの言葉が混ざっていたら、打ったまま(言葉を落とさない)", () => {
+    expect(formatPhoneTyping("088-687-0613 内線1", "088-687-0613 内線")).toBe("088-687-0613 内線1");
+    expect(formatPhoneTyping("0886870613(代", "0886870613(")).toBe("0886870613(代");
+  });
+});
+
+describe("phoneLabel(一覧に出す電話番号)", () => {
+  it("ハイフン無しで保存してある番号も、ハイフン付きで見せる", () => {
+    expect(phoneLabel("0886870613")).toBe("088-687-0613");
+    expect(phoneLabel("088-687-0613")).toBe("088-687-0613");
+  });
+
+  it("番号として読めなければ、保存してあるまま", () => {
+    expect(phoneLabel("088-687-0613(代表)")).toBe("088-687-0613(代表)");
+    expect(phoneLabel("088687")).toBe("088687");
   });
 });
