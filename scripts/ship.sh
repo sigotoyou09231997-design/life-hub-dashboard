@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # 修正を本番に出すまでを1コマンドで行う(作業場所の中で、変更をコミットしたあとに)。
 #
-#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--shots] [--keep] [--dry-run]
+#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--shots] [--keep] [--dry-run] [--push-branch]
 #
 # やること(todoアプリ/CLAUDE.md の「本番反映」と同じ条件。1つでも落ちたら main に入れずに止まる):
 #   1. 手元の main が公開の main と同じか確かめる(違えば止まる)。ブランチが main に追いついていなければ main を取り込む
 #   2. 型チェックと全テストを**同時に**走らせる
-#   3. 作業ブランチをプッシュ → main へ統合 → main をプッシュ(強制プッシュはしない)
+#   3. main へ統合 → main をプッシュ(強制プッシュはしない)。作業ブランチは**プッシュしない**(--push-branch で送る):
+#      プッシュするたびに Vercel の待ち行列に1件入り、本番のビルドを待たせるため(2026-10-13 の夜、27分待った)。
+#      作業の履歴は main への統合でそのまま入るので、失われない
 #   4. 手元の main を進める
 #   5. Vercel が公開するのを待つ(/version.json)。「Git information retrieval failed」で落ちていたら、1回だけ作り直す
 #   6. Netlify の状態を見る
@@ -15,12 +17,13 @@ set -euo pipefail
 
 MSG="${1:?何を直したか(統合のメッセージ)を渡してください}"
 shift || true
-DONE_ID=""; SHOTS=0; KEEP=0; DRY=0
+DONE_ID=""; SHOTS=0; KEEP=0; DRY=0; PUSH_BRANCH=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --done) DONE_ID="${2:?--done の後に要望のid}"; shift 2 ;;
     --shots) SHOTS=1; shift ;;
     --keep) KEEP=1; shift ;;
+    --push-branch) PUSH_BRANCH=1; shift ;;
     --dry-run) DRY=1; shift ;;
     *) echo "知らない指定です: $1" >&2; exit 2 ;;
   esac
@@ -64,8 +67,8 @@ fi
 rm -rf "$LOG_DIR"
 [ "$DRY" -eq 0 ] || { echo "(--dry-run) 型チェックとテストが通ったので、ここで止めます。main には入れていません"; exit 0; }
 
-step "3/6 プッシュして main へ統合"
-git push -q origin "$BRANCH" 2>&1 | grep -v '^remote:' || true
+step "3/6 main へ統合してプッシュ"
+if [ "$PUSH_BRANCH" -eq 1 ]; then git push -q origin "$BRANCH" 2>&1 | grep -v '^remote:' || true; fi
 git checkout -q --detach main
 git merge -q --no-ff "$BRANCH" -m "Merge branch '$BRANCH': $MSG
 
@@ -76,7 +79,7 @@ step "4/6 手元の main を進める"
 git -C "$MAIN_DIR" merge -q --ff-only "$SHA" || die "手元の main を進められませんでした(公開はされています: ${SHA:0:7})"
 
 step "5/6 Vercel が公開するのを待つ"
-LIVE=0; REDEPLOYED=0; NEXT_CHECK=$((SECONDS + 75)); DEADLINE=$((SECONDS + 600))
+LIVE=0; REDEPLOYED=0; NEXT_CHECK=$((SECONDS + 75)); DEADLINE=$((SECONDS + 1200))
 while [ "$SECONDS" -lt "$DEADLINE" ]; do
   V="$(curl -fsS "$SITE_URL/version.json?t=$RANDOM" 2>/dev/null || true)"
   case "$V" in *"${SHA:0:7}"*) LIVE=1; break ;; esac
@@ -92,7 +95,7 @@ while [ "$SECONDS" -lt "$DEADLINE" ]; do
   fi
   sleep 8
 done
-[ "$LIVE" -eq 1 ] && echo "✓ Vercel に出ました: ${SHA:0:7}" || echo "✗ Vercel がまだ ${SHA:0:7} になっていません(10分待ちました)。Vercel の画面を見てください"
+[ "$LIVE" -eq 1 ] && echo "✓ Vercel に出ました: ${SHA:0:7}" || echo "✗ Vercel がまだ ${SHA:0:7} になっていません(20分待ちました)。Vercel の画面を見てください"
 
 step "6/6 Netlify を見る"
 NETLIFY="待っている"
