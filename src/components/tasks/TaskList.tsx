@@ -82,10 +82,12 @@ export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage, onAdd }: P
       <EmptyState title={emptyMessage} />
     ) : (
       // 「＋」の場所は書かない — スマホは右下・PCは上の帯で、どちらかと必ず食い違う(UI/UX 調査メモ 第3弾 N-1)。
+      // 線画と、始めたくなる一言(第4弾 B-6)。
       <EmptyState
         icon={CheckSquare}
-        title="タスクがまだありません"
-        description="終わらせたいことを書いておくと、期日の近い順に並びます。"
+        illustration="tasks"
+        title="すっきり、やることはありません"
+        description="何か1つ足しますか？ 期日を入れると、近い順に並びます。"
         action={onAdd ? { label: "タスクを追加", onClick: onAdd } : undefined}
       />
     );

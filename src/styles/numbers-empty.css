@@ -1,0 +1,207 @@
+/* ============================================================================
+   数字と、空の表示（UI/UX 調査メモ 第4弾 B-1・A-5・B-6、2026-10-12）
+
+   - B-1 数字用の文字 … 金額・時刻・件数の大きな数字だけを Manrope にする
+   - A-5 数字が動く   … 支出を記録した直後、足した額が「+¥1,280」と浮かんでから合計に入る
+   - B-6 空の表示に表情 … 機能ごとの小さな線画（src/components/ui/EmptyIllustration.tsx）
+
+   既存の CSS の規則は書き換えず、このファイルで上から足すだけにしてある（外せば元に戻る）。
+   main.tsx で最後の方に読む。
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   B-1 数字用の文字
+
+   これまで Web フォントは読まず、端末の文字だけで組んでいた（theme-warm.css の --font-rounded の注記）。
+   今回は「数字だけ」を例外にする。Manrope は数字の形が整っていて、金額が並んだ時に読みやすい。
+   - 読むのは数字と ¥ , . : + - − % / — だけ（index.html の text=）。日本語の字は入っていないので、
+     「件」「日」などは下の並びの次の書体（ヒラギノ）に自然に落ちる。
+   - 一度読めば Service Worker が取り置く（vite.config.ts）。読めない時も端末の文字で出るだけ。
+   - 桁の幅をそろえる（tabular-nums）。数え上げの途中で数字の幅がぶれない。
+   - 端末の文字に戻る時の並びは、本文（index.css の body）と同じ系統。:root で書くのは、
+     --font-display のような上書きされうる変数に頼らないため。
+   ------------------------------------------------------------------------ */
+:root {
+  --font-num: "Manrope", -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+    "Yu Gothic", "Noto Sans JP", sans-serif;
+}
+
+/* 当てる所。JSX に .num を足すより、すでにある数字のクラスへ当てる方を優先した。
+   :root を前に付けて、各画面の font-family（時刻の丸ゴシック・.tabular-nums の inherit）より強くする。 */
+:root .num,
+/* ホーム: 時刻・お金のカード・今日のまとめの件数 */
+:root .lh-cover__clock,
+:root .warm-amount,
+:root .lh-money__stats dd,
+:root .warm-brief__count,
+/* お金管理: まとめ・履歴の金額、貯金目標 */
+:root .lh-row__value,
+:root .lh-savings__amount,
+/* サブスク: 合計・内訳・一覧の金額 */
+:root .subs-total__amount,
+:root .subs-total__stats dd,
+:root .subs-total__value,
+:root .subs-row__amount,
+:root .subs-legend__amount,
+/* 旅行: 先頭のカードの数字・日ごとの費用 */
+:root .trip-lead__countdown,
+:root .trip-lead__stat strong,
+:root .trip-day-panel__expense-amount,
+/* 予定: 今日のタスクの進み具合 */
+:root .planning-progress-ring span,
+/* 空の表示の「0件」 */
+:root .notes-empty-control__heading > strong,
+:root .notes-empty-control__types strong,
+:root .destination-empty-control__copy > div b {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   A-5 数字が動く（src/components/ui/CountingAmount.tsx）
+
+   浮かぶ差額は、合計の数字の右肩に出て、少し上がってから左へ流れ込むように消える。
+   その間に合計が前の値から数え上がる（数え始めは useAmountTransition.ts の COUNT_DELAY_MS）。
+   ------------------------------------------------------------------------ */
+.num-count {
+  position: relative;
+  display: inline-block;
+}
+
+.num-delta {
+  position: absolute;
+  top: 0.15em;
+  left: calc(100% + 0.45rem);
+  padding: 0.18rem 0.5rem;
+  border-radius: 999px;
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-family: var(--font-num);
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.25;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: num-delta-float 1300ms var(--ease-out-expo, ease-out) both;
+}
+
+/* ホームの黒いカードの上では、白に寄せた青緑で。 */
+.lh-money .num-delta {
+  background: rgba(60, 186, 178, 0.22);
+  color: #9be6df;
+  box-shadow: 0 0 0 1px rgba(60, 186, 178, 0.28);
+}
+
+@keyframes num-delta-float {
+  0% { opacity: 0; transform: translate(0, 0.6rem) scale(0.9); }
+  16% { opacity: 1; transform: translate(0, 0) scale(1); }
+  40% { opacity: 1; transform: translate(0, -0.15rem) scale(1); }
+  100% { opacity: 0; transform: translate(-1.2rem, 0) scale(0.7); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 部品の側でも出さないが、念のため。値はその場で替わるだけにする。 */
+  .num-delta { display: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   B-6 空の表示の線画（src/components/ui/EmptyIllustration.tsx）
+
+   青緑1色。線は --teal-600、下敷きの丸は薄い青緑、差し色の面は --teal-100、紙は白。
+   色は svg 自身に持たせる — 置き場所（予定の「今日」など）の文字色を引き継ぐと灰色になるため。
+   ------------------------------------------------------------------------ */
+.empty-illust {
+  flex: 0 0 auto;
+  overflow: visible;
+  color: var(--teal-600);
+}
+/* 下敷きは透ける青緑。白い面でも、お金管理の履歴のような灰色の面でも、同じくらい見える。 */
+.empty-illust .ei-blob { fill: rgba(23, 161, 153, 0.1); stroke: none; }
+.empty-illust .ei-paper { fill: var(--warm-surface, #fff); }
+.empty-illust .ei-accent { fill: var(--teal-100); }
+.empty-illust .ei-soft { stroke: var(--teal-400); }
+.empty-illust .ei-dots { stroke: var(--teal-400); stroke-width: 3.2; }
+.empty-illust .ei-trail { stroke: var(--teal-400); stroke-dasharray: 0.1 4.6; }
+.empty-illust .ei-sparkle { stroke: var(--teal-500); }
+.empty-illust .ei-dot { fill: var(--teal-500); stroke: none; }
+
+/* 現れる時に、下敷きの丸がふわっと広がり、きらめきが2回だけ瞬く。ずっと動かし続けはしない。 */
+@media (prefers-reduced-motion: no-preference) {
+  .empty-illust .ei-blob {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ei-blob-in 640ms var(--spring, ease-out) both;
+  }
+  .empty-illust .ei-sparkle {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: ei-twinkle 2400ms ease-in-out 600ms 2 both;
+  }
+}
+
+@keyframes ei-blob-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ei-twinkle {
+  0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  50% { opacity: 0.5; transform: scale(0.55) rotate(45deg); }
+}
+
+/* 共通の空の表示（EmptyState）。線画は四角いアイコンより背が高いので、上の余白を少し詰める。 */
+.empty-state.has-illustration {
+  gap: 0.55rem;
+  padding-top: 1.1rem;
+}
+.empty-state.has-illustration p + p {
+  max-width: 22rem;
+  margin-inline: auto;
+}
+/* 一言は言葉の切れ目で折る（「見えて／きます」のように語の途中で割れない。対応していない端末は今までどおり）。 */
+.empty-state.has-illustration p,
+.notes-empty-control__action.has-illustration p span {
+  text-wrap: pretty;
+  word-break: auto-phrase;
+}
+
+/* 予定の「今日」タブの、タスクが無い時の横並び。線画で箱が縦に伸びすぎないよう、少しはみ出させる。 */
+.planning-compact-empty > .empty-illust {
+  width: 3.5rem;
+  height: 3.5rem;
+  margin-block: -0.4rem;
+}
+
+/* メモ・リストの空の表示。「最初のメモを書いてみましょう」の行の左に線画。
+   狭い画面では「メモを書く」が次の行の右端へ回る。スマホで隠していた一言も、ここは出す。 */
+.notes-empty-control__action.has-illustration {
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-start;
+  column-gap: 0.85rem;
+  row-gap: 0.55rem;
+}
+.notes-empty-control__action.has-illustration > .empty-illust {
+  width: 3.75rem;
+  height: 3.75rem;
+}
+.notes-empty-control__action.has-illustration > p {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+.notes-empty-control__action.has-illustration > button { margin-left: auto; }
+.notes-empty-control__action.has-illustration p span {
+  display: block;
+  line-height: 1.55;
+}
+
+/* 旅行が0件の時。輪の飾りは線画の下敷きの丸と重なるので消し、線画を枠いっぱいに。 */
+.destination-empty-control__visual.has-illustration { border-color: transparent; }
+.destination-empty-control__visual.has-illustration::before,
+.destination-empty-control__visual.has-illustration::after { display: none; }
+.destination-empty-control__visual.has-illustration > .empty-illust {
+  width: 100%;
+  height: 100%;
+}

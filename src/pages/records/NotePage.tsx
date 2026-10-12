@@ -130,8 +130,9 @@ export default function NotePage() {
             <div className="is-empty-fill">
               <EmptyState
                 icon={NotebookPen}
-                title="日記はまだありません"
-                description="旅行に関係なく、その日のことを残せます。"
+                illustration="diary"
+                title="まだ白いページです"
+                description="旅行に関係なく、その日のことを一行から残せます。"
                 action={{ label: "日記を書く", onClick: () => setEditingDiary("new") }}
                 card
               />

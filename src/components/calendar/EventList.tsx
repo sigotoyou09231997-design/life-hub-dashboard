@@ -7,6 +7,7 @@ import { spanLabel, spanTimeText } from "../../lib/eventSpan";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
+import type { EmptyIllustrationKind } from "../ui/EmptyIllustration";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { isRepeating, repeatLabel } from "../../lib/repeatRule";
@@ -16,20 +17,24 @@ interface Props {
   onEdit: (e: CalendarEvent) => void;
   onDelete: (id: string) => void;
   emptyMessage?: string;
+  /** 空の時の一言と線画(UI/UX 調査メモ 第4弾 B-6)。「まだ1件も無い」一覧でだけ渡す —
+   *  カレンダーで選んだ日が空いているだけの時にまで絵を出すと、うるさくなるため。 */
+  emptyDescription?: string;
+  emptyIllustration?: EmptyIllustrationKind;
   /** 「その日」を見ている一覧(今日・カレンダーの選んだ日)ではその日付を渡す。
    * またがる予定に「2日目/3日」と出せる。日をまたいで並べる一覧では渡さない
    * (代わりに「9/27(日)〜9/29(火)」が出る)。 */
   onDate?: string;
 }
 
-export function EventList({ events, onEdit, onDelete, emptyMessage = "予定はありません", onDate }: Props) {
+export function EventList({ events, onEdit, onDelete, emptyMessage = "予定はありません", emptyDescription, emptyIllustration, onDate }: Props) {
   // 「誰の予定か」の名前と色。1件ずつ引くとリストの行数だけ購読が増えるので、
   // ここで1回だけ引いて各行へ配る。空の早期returnより前に置くこと(フックの規則)。
   const people = useLiveQuery(() => db.eventPeople.toArray(), []) ?? [];
   const confirm = useConfirm();
 
   if (events.length === 0) {
-    return <EmptyState icon={CalendarClock} title={emptyMessage} />;
+    return <EmptyState icon={CalendarClock} illustration={emptyIllustration} title={emptyMessage} description={emptyDescription} />;
   }
 
   const sorted = [...events].sort((a, b) => {

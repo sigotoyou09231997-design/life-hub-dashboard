@@ -19,6 +19,7 @@ import { ProgressBar } from "../ui/ProgressBar";
 import { Button } from "../ui/Button";
 import { ListSkeleton } from "../ui/ListSkeleton";
 import { CashBalanceCard } from "./CashBalanceCard";
+import { CountingAmount } from "../ui/CountingAmount";
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
@@ -114,7 +115,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
       <div className="finance-empty mx-auto max-w-4xl space-y-3">
         <Card className="finance-balance-module p-6 lg:p-8">
           <p className="text-[11px] font-semibold tracking-[0.08em] text-slate-500">使えるお金</p>
-          <p className="mt-4 text-4xl font-medium tabular-nums tracking-[-0.05em] text-navy lg:text-6xl">¥ ---</p>
+          <p className="num mt-4 text-4xl font-medium tabular-nums tracking-[-0.05em] text-navy lg:text-6xl">¥ ---</p>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-slate-600">給与を登録すると、今月使える金額を自動計算します。</p>
           <Button className="mt-6 w-fit" onClick={onAddSalary}>給与を登録する</Button>
         </Card>
@@ -153,7 +154,12 @@ export function ExpenseSummary({ onAddSalary }: Props) {
             {/* 見出しは折り返させない — 2行に割れると、右のバッジと視覚的に絡まって
                 どちらが何の情報か読み取れなくなる(スマホ幅で発生していた)。 */}
             <p className="whitespace-nowrap text-[11px] font-semibold tracking-[0.08em] text-slate-500">使えるお金</p>
-            <p key={remaining} className={`value-change mt-3 text-4xl font-medium tabular-nums tracking-[-0.05em] lg:text-6xl ${remaining < 0 ? "text-danger" : "text-navy"}`}>{yen(remaining)}</p>
+            {/* 支出を記録すると、前の残りから新しい残りへ数え下がる(UI/UX 調査メモ 第4弾 A-5)。
+                前は key={remaining} で描き直して薄く出し直していたが、描き直すと前の値を
+                覚えておけないので、数え上げに置き換えた。数字は数字用の文字(B-1 の .num)。 */}
+            <p className={`num mt-3 text-4xl font-medium tabular-nums tracking-[-0.05em] lg:text-6xl ${remaining < 0 ? "text-danger" : "text-navy"}`}>
+              <CountingAmount value={remaining} format={yen} resetKey={periodStartStr ?? undefined} />
+            </p>
           </div>
           {!period.hasSalaryForPeriod && (
             <span className="shrink-0"><Badge tone="warning">給与が未入力</Badge></span>

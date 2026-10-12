@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CalendarDays, CheckSquare, Plus } from "lucide-react";
+import { CalendarDays, Plus } from "lucide-react";
 import type { CalendarEvent, Task } from "../../types";
 import { todayStr, isOverdue } from "../../lib/date";
 import { occurringOn } from "../../lib/eventSpan";
@@ -9,6 +9,7 @@ import { EventList } from "../calendar/EventList";
 import { TaskItem } from "../tasks/TaskItem";
 import { toggleTaskCompletion, deleteTaskCascade, postponeTaskToTomorrow } from "../tasks/TaskList";
 import { Card } from "../ui/Card";
+import { EmptyIllustration } from "../ui/EmptyIllustration";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
 import { WeekAheadPanel } from "./WeekAheadPanel";
 import { useIsDesktop } from "../../hooks/useIsDesktop";
@@ -84,7 +85,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
           <div className="planning-task-list">
             {dueTodayTasks.length === 0 ? (
               <div className="planning-empty-control planning-empty-control--tasks">
-                <div className="planning-compact-empty"><CheckSquare size={18} /><div><strong>今日のタスクはありません</strong><p>やることは片づいています</p></div></div>
+                <div className="planning-compact-empty"><EmptyIllustration kind="tasks" size={56} /><div><strong>今日はすっきり。</strong><p>何か1つ足しますか？</p></div></div>
                 <div className="planning-empty-footer"><span>未完了 0件</span><button type="button" onClick={onAddTask}><Plus size={13} />タスクを追加</button></div>
               </div>
             ) : (

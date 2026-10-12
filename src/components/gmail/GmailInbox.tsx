@@ -540,7 +540,8 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
       ) : (
         <EmptyState
           icon={Mail}
-          title="メールがありません"
+          illustration="mail"
+          title="受信メールはまだありません"
           description="「今すぐ同期」を押すと直近30日分の受信メールを取得します"
         />
       )}
