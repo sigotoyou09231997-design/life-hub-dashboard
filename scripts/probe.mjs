@@ -11,6 +11,7 @@
 //   --marker "<css>"         「見えた」と数える部品(既定: Gmail は最初のメール、ほかは見出し)
 //   --film                   押した直後をコマ送りで撮り、1枚に並べる(/tmp/probe/film-*.png。並べるには python3 + PIL)
 //   --profile                押した直後の重い関数を、自分の時間・呼び出し先を含む時間で洗い出す
+//   --contrast               主な7画面(スマホ幅・PC幅)の文字を機械で測り、読みやすさの目安 4.5:1 に届かない文字の数と色の内訳を出す
 //   --shot                   スマホ幅とPC幅のスクリーンショット(/tmp/probe/shot-*.png。PC幅は --pc-width 1980 --pc-height 1050 で変えられる)
 //   --port 5175              開発サーバーの番号(既定 5175。動いていなければ、空の Supabase 設定で自動で立てて、終わったら落とす)
 //   --width 390 --height 800 画面の大きさ
@@ -255,10 +256,53 @@ async function shotMode(browser) {
   console.log(`\n== スクリーンショット: ${OUT}/shot-mobile.png / ${OUT}/shot-pc.png`);
 }
 
+
+/** 主な画面の文字の読みやすさ(WCAG の 4.5:1)を、実際に描かれた色から測る。第5弾 C-1 で、「薄い文字」が直ったかを数字で確かめるために作った。 */
+async function contrastMode(browser) {
+  const routes = ["/", "/schedule", "/records/expense", "/records/notes", "/trips", "/settings", "/gmail"];
+  let total = 0, failed = 0;
+  const kinds = new Map();
+  for (const [label, vp] of [["スマホ", { width: 390, height: 800 }], ["PC", { width: 1440, height: 900 }]]) {
+    const ctx = await browser.newContext({ viewport: vp, locale: "ja-JP", hasTouch: label === "スマホ", isMobile: label === "スマホ" });
+    const page = await ctx.newPage();
+    await page.goto(BASE + "/", { waitUntil: "networkidle" });
+    await seed(page);
+    for (const r of routes) {
+      await page.goto(BASE + r, { waitUntil: "networkidle" });
+      await page.waitForTimeout(1000);
+      const res = await page.evaluate(() => {
+        const parse = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(/[ ,\/]+/).filter(Boolean).map(Number); return { r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1 }; };
+        const lum = ({ r, g, b }) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+        const bgOf = (el) => { let o = { r: 255, g: 255, b: 255 }; const stack = []; for (let n = el; n; n = n.parentElement) { const cs = getComputedStyle(n); if (cs.backgroundImage !== "none" && /gradient/.test(cs.backgroundImage)) return null; const c = parse(cs.backgroundColor); if (c && c.a > 0) { stack.push(c); if (c.a >= 0.99) break; } } for (const c of stack.reverse()) o = { r: c.r * c.a + o.r * (1 - c.a), g: c.g * c.a + o.g * (1 - c.a), b: c.b * c.a + o.b * (1 - c.a) }; return o; };
+        const fails = []; let n = 0; const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); const seen = new Set();
+        while (walker.nextNode()) {
+          const t = walker.currentNode; if (!t.textContent.trim()) continue;
+          const el = t.parentElement; if (!el || seen.has(el)) continue; seen.add(el);
+          const cs = getComputedStyle(el); if (cs.visibility === "hidden" || cs.display === "none" || parseFloat(cs.opacity) === 0) continue;
+          const rect = el.getBoundingClientRect(); if (!rect.width || !rect.height) continue;
+          const fg = parse(cs.color); const bg = bgOf(el); if (!fg || !bg) continue;
+          const L1 = lum({ r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a) }), L2 = lum(bg);
+          const ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05); n++;
+          const size = parseFloat(cs.fontSize), bold = parseInt(cs.fontWeight) >= 700; const need = size >= 24 || (size >= 18.66 && bold) ? 3 : 4.5;
+          if (ratio < need) fails.push({ ratio: ratio.toFixed(1), color: cs.color, text: t.textContent.trim().slice(0, 14) });
+        }
+        return { n, fails };
+      });
+      total += res.n; failed += res.fails.length;
+      res.fails.forEach((f) => kinds.set(`${f.color} ${f.ratio}:1`, (kinds.get(`${f.color} ${f.ratio}:1`) ?? 0) + 1));
+    }
+    await ctx.close();
+  }
+  console.log(`\n== 文字の読みやすさ(主な7画面・スマホ幅とPC幅): 文字 ${total} / 4.5:1に届かない ${failed}`);
+  console.log("届かない文字の色の内訳(色 読みやすさ: 件数)");
+  [...kinds.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).forEach(([k, v]) => console.log(`  ${k.padEnd(34)} ${v}`));
+}
+
 const server = await ensureServer();
 const browser = await chromium.launch();
 try {
   if (flag("shot")) await shotMode(browser);
+  if (flag("contrast")) await contrastMode(browser);
   if (flag("time") || flag("film") || flag("profile")) {
     const ctx = await browser.newContext({ viewport: { width: WIDTH, height: HEIGHT }, locale: "ja-JP", hasTouch: true, isMobile: true });
     const page = await ctx.newPage();
@@ -274,8 +318,8 @@ try {
     if (flag("profile")) await profileMode(page, cdp);
     await ctx.close();
   }
-  if (!flag("shot") && !flag("time") && !flag("film") && !flag("profile")) {
-    console.log("何を測るか指定してください: --time / --film / --profile / --shot(詳しくはこのファイルの先頭)");
+  if (!flag("shot") && !flag("time") && !flag("film") && !flag("profile") && !flag("contrast")) {
+    console.log("何を測るか指定してください: --time / --film / --profile / --shot / --contrast(詳しくはこのファイルの先頭)");
   }
 } finally {
   await browser.close();

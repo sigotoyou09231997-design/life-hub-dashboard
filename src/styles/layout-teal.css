@@ -769,3 +769,16 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 .lh-today-empty__actions .lh-add-pill { margin-top: 0; }
 .lh-add-pill:hover { background: var(--teal-50); }
 .lh-add-pill:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; }
+
+/* C-2(第5弾) 箱の中の箱をやめる(2026-10-13)。白いカードの中に、さらに灰色の箱(空の表示・設定の「いま使っている版」・メモの件数)が
+   あり、灰色が重なって、いちばん読みにくい「薄い文字が灰色の箱の上」(約4:1)が出ていた。中の箱は、灰色の塗りをやめて、
+   細い線で区切るだけにする(白地の上なら、補足の文字は約5.3:1)。大きさ・余白は変えない。
+   入力欄(.field-shell)は、押す所・打つ所だと分かるように、灰色のまま残す。 */
+.warm-empty,
+.spatial-page .planning-empty-control--timeline,
+.spatial-page .planning-empty-control--tasks,
+.spatial-page .system-state-control,
+.spatial-page .notes-empty-control__types > div {
+  background: transparent !important;
+  border: 1px solid var(--warm-line-strong);
+}
