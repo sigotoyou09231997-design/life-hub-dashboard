@@ -24,9 +24,18 @@ export interface FeedbackItem {
   appVersion?: string;
   status: FeedbackStatus;
   createdAt: string;
+  /** 付いている画像の枚数(033 を流す前は無い)。画像そのものは loadFeedbackImages で1件ずつ読む。 */
+  imageCount?: number;
 }
 
-export type FeedbackFailure = "invalid_message" | "too_many" | "not_allowed" | "invalid_share" | "unavailable" | "failed";
+export type FeedbackFailure =
+  | "invalid_message"
+  | "invalid_images"
+  | "too_many"
+  | "not_allowed"
+  | "invalid_share"
+  | "unavailable"
+  | "failed";
 
 export class FeedbackError extends Error {
   constructor(public readonly reason: FeedbackFailure) {
@@ -37,6 +46,7 @@ export class FeedbackError extends Error {
 
 export const FEEDBACK_FAILURE_MESSAGE: Record<FeedbackFailure, string> = {
   invalid_message: "内容を入れてください(2000字まで)",
+  invalid_images: "画像を送れませんでした。外すか、別の画像でお試しください",
   too_many: "続けて送りすぎています。1時間ほどあけて、もう一度お試しください",
   not_allowed: "ログインしてから送ってください",
   invalid_share: "この共有リンクは終わっているため、送れません",
@@ -58,6 +68,8 @@ interface SendInput {
   senderName?: string;
   /** 共有した「しおり」のページから送る時の合鍵。ログインしていなくても送れる。 */
   shareToken?: string;
+  /** 付ける画像(JPEG のデータ URL。src/lib/feedbackImages.ts で縮めたもの)。画像つきの送り方は 033 を流した後だけ使える。 */
+  images?: string[];
 }
 
 function knownFailure(reason: unknown): FeedbackFailure {
@@ -79,7 +91,9 @@ export async function sendFeedback(input: SendInput): Promise<void> {
   const accessToken = (await auth.getSession()).data.session?.access_token;
   let response: Response;
   try {
-    response = await fetch(`${url}/rest/v1/rpc/send_app_feedback`, {
+    // 画像つきの時だけ新しい窓口(033)。画像なしは今までの窓口のまま — 033 を流す前でも送れるように。
+    const withImages = Boolean(input.images?.length);
+    response = await fetch(`${url}/rest/v1/rpc/${withImages ? "send_app_feedback_v2" : "send_app_feedback"}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey: anonKey, Authorization: `Bearer ${accessToken ?? anonKey}` },
       body: JSON.stringify({
@@ -88,6 +102,7 @@ export async function sendFeedback(input: SendInput): Promise<void> {
         p_sender_name: input.senderName?.trim() || null,
         p_app_version: currentAppVersion() || null,
         p_share_token: input.shareToken ?? null,
+        ...(withImages ? { p_images: input.images } : null),
       }),
     });
   } catch {
@@ -99,6 +114,30 @@ export async function sendFeedback(input: SendInput): Promise<void> {
   }
   const result = (await response.json().catch(() => null)) as { ok?: boolean; reason?: string } | null;
   if (!result?.ok) throw new FeedbackError(knownFailure(result?.reason));
+}
+
+let imagesEnabled: Promise<boolean> | undefined;
+
+/**
+ * 「画像を付ける」を出してよいか(033 を流した後だけ true)。流す前に出すと、送った時に失敗するので出さない。
+ * 確かめるのは1回だけ(開いている間は覚える)。確かめられなければ false。
+ */
+export function canAttachImages(): Promise<boolean> {
+  if (!isSupabaseConfigured) return Promise.resolve(false);
+  imagesEnabled ??= (async () => {
+    try {
+      const { url, anonKey } = getSupabaseConfig();
+      const response = await fetch(`${url}/rest/v1/rpc/app_feedback_images_enabled`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+        body: "{}",
+      });
+      return response.ok && (await response.json().catch(() => null)) === true;
+    } catch {
+      return false;
+    }
+  })();
+  return imagesEnabled;
 }
 
 /** ログインしているのがアプリの持ち主か(届いた要望を出すかどうか)。表が無い・確かめられない時は false。 */
@@ -125,6 +164,7 @@ interface FeedbackRow {
   app_version: string | null;
   status: FeedbackStatus;
   created_at: string;
+  image_count?: number | null;
 }
 
 export function rowToFeedback(row: FeedbackRow): FeedbackItem {
@@ -138,19 +178,38 @@ export function rowToFeedback(row: FeedbackRow): FeedbackItem {
     appVersion: row.app_version ?? undefined,
     status: row.status,
     createdAt: row.created_at,
+    imageCount: row.image_count ?? undefined,
   };
 }
 
 /** 届いた要望(持ち主だけが読める)。新しい順。 */
 export async function loadFeedback(): Promise<FeedbackItem[]> {
   const client = await getSupabaseDataClient();
-  const { data, error } = await client
+  const columns = "id, via, sender_name, trip_name, page, message, app_version, status, created_at";
+  // 画像の枚数の列(033)は、流す前は無い。無ければ、今までの列だけで読む(受信箱が読めなくならないように)。
+  const withCount = await client
     .from("app_feedback")
-    .select("id, via, sender_name, trip_name, page, message, app_version, status, created_at")
+    .select(`${columns}, image_count`)
     .order("created_at", { ascending: false })
     .limit(200);
+  let rows: unknown = withCount.data;
+  let error = withCount.error;
+  if (error && (error.code === "42703" || /image_count/.test(error.message ?? ""))) {
+    const without = await client.from("app_feedback").select(columns).order("created_at", { ascending: false }).limit(200);
+    rows = without.data;
+    error = without.error;
+  }
   if (error) throw error;
-  return ((data ?? []) as FeedbackRow[]).map(rowToFeedback);
+  return ((rows ?? []) as FeedbackRow[]).map(rowToFeedback);
+}
+
+/** 1件の依頼に付いている画像(JPEG のデータ URL)。持ち主だけが読める。 */
+export async function loadFeedbackImages(id: string): Promise<string[]> {
+  const client = await getSupabaseDataClient();
+  const { data, error } = await client.from("app_feedback").select("images").eq("id", id).maybeSingle();
+  if (error) throw error;
+  const images = (data as { images?: unknown } | null)?.images;
+  return Array.isArray(images) ? images.filter((image): image is string => typeof image === "string" && image.startsWith("data:image/jpeg;base64,")) : [];
 }
 
 export async function setFeedbackStatus(id: string, status: FeedbackStatus): Promise<void> {

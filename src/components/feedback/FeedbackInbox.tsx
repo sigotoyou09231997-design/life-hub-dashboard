@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Inbox } from "lucide-react";
 import {
   loadFeedback,
+  loadFeedbackImages,
   loadIsFeedbackOwner,
   setFeedbackStatus,
   type FeedbackItem,
@@ -36,6 +37,10 @@ export function FeedbackInbox() {
   const [failed, setFailed] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
   const [busyId, setBusyId] = useState<string>();
+  /** 開いて読み込んだ画像(依頼のid → データ URL)。重いので、押した時だけ読む。 */
+  const [images, setImages] = useState<Record<string, string[]>>({});
+  /** 大きく出している画像(「依頼のid:番号」)。 */
+  const [zoomed, setZoomed] = useState<string>();
 
   useEffect(() => {
     let active = true;
@@ -67,6 +72,26 @@ export function FeedbackInbox() {
     } catch (error) {
       console.error("[feedback] failed to change the status:", error);
       showToast("変えられませんでした");
+    } finally {
+      setBusyId(undefined);
+    }
+  }
+
+  async function showImages(item: FeedbackItem) {
+    if (images[item.id]) {
+      setImages((current) => {
+        const { [item.id]: _closed, ...rest } = current;
+        return rest;
+      });
+      return;
+    }
+    setBusyId(item.id);
+    try {
+      const loaded = await loadFeedbackImages(item.id);
+      setImages((current) => ({ ...current, [item.id]: loaded }));
+    } catch (error) {
+      console.error("[feedback] failed to load the images:", error);
+      showToast("画像を読み込めませんでした");
     } finally {
       setBusyId(undefined);
     }
@@ -106,6 +131,31 @@ export function FeedbackInbox() {
                 {item.page ? ` ・ ${item.page}` : ""}
               </p>
               <p className="mt-1 whitespace-pre-wrap">{item.message}</p>
+              {(item.imageCount ?? 0) > 0 && (
+                <div className="mt-2">
+                  <Button variant="ghost" disabled={busyId === item.id} onClick={() => void showImages(item)}>
+                    {images[item.id] ? "画像を閉じる" : `画像を見る(${item.imageCount}枚)`}
+                  </Button>
+                  {images[item.id] && (
+                    <ul className="mt-2 flex flex-wrap gap-2" aria-label="付いている画像">
+                      {images[item.id].map((image, index) => {
+                        const key = `${item.id}:${index}`;
+                        return (
+                          <li key={key} className={zoomed === key ? "w-full" : ""}>
+                            <button type="button" aria-label={`画像${index + 1}を${zoomed === key ? "小さく" : "大きく"}する`} onClick={() => setZoomed(zoomed === key ? undefined : key)}>
+                              <img
+                                src={image}
+                                alt={`付いている画像${index + 1}`}
+                                className={`rounded-lg border border-slate-200 object-contain ${zoomed === key ? "w-full" : "h-28 w-auto"}`}
+                              />
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
               <div className="mt-2 flex flex-wrap gap-2">
                 {item.status === "new" ? (
                   <>
