@@ -1,0 +1,77 @@
+/* ============================================================================
+   触りたくなる操作感と見た目の仕上げ（2026-10-12、UI/UX 調査メモ 第4弾）
+
+   A-1 押すと沈んで、ばねで戻る … 動きは src/lib/pressFeedback.ts。ここは押している間の影だけ。
+   B-4 影は2段 …………………… 値は theme-teal.css の --shadow-rest / --shadow-float / --shadow-press
+   B-5 アイコンの線をそろえる … このファイル
+   B-2 太さ・B-3 角丸の値は theme-teal.css（--r-*）と tailwind.config.js にある。
+
+   main.tsx で一番最後に読む（どの画面のアイコン・影にも上から効かせるため）。
+   ========================================================================= */
+
+/* ---------------------------------------------------------------------------
+   B-2 文字の太さは 400 / 600 / 700 の3段
+   <b> と <strong> はブラウザの決まりで「親より一段太く（bolder）」なり、600 の中に置くと
+   900 になって3段から外れる（旅行の詳細で見つかった）。クラスで太さを決めていない時は 700 にする。
+   ------------------------------------------------------------------------ */
+b,
+strong {
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+   A-1 / B-4 押している間は、置いてある物の影を少し縮める
+   pressFeedback.ts が押している間だけ data-pressed を付ける。沈んだぶん、紙が台に近づいて
+   影が短くなる。影を持っている部品だけを並べてある（影の無いチップやナビの項目に、
+   押した時だけ影が出ないように）。カードの影には !important 付きのものがあるので、
+   こちらも付ける（押している間だけの、ごく短い状態）。
+   ------------------------------------------------------------------------ */
+:is(
+  .app-button,
+  .card-interactive,
+  .note-widget,
+  .hub-tap,
+  a.warm-card,
+  a.warm-trip,
+  .warm-brief__item,
+  .subs-tile,
+  .trip-new,
+  .choice-grid__option,
+  #page-fab-root > button,
+  .feedback-button,
+  .spatial-page-header button[aria-label$="を追加"],
+  .mail-page-header button[aria-label$="を追加"]
+)[data-pressed] {
+  box-shadow: var(--shadow-press) !important;
+}
+
+/* このアプリで一番よく押す「＋」だけは、ほかより深く沈ませる（前の :active の scale(0.9) の意図を残す）。
+   pressFeedback.ts が要素の --press-scale を読む。 */
+#page-fab-root > button,
+.app-header__add,
+.spatial-page-header button[aria-label$="を追加"],
+.mail-page-header button[aria-label$="を追加"] {
+  --press-scale: 0.92;
+}
+
+/* ---------------------------------------------------------------------------
+   B-5 アイコンの線の太さを1.75にそろえる。選んでいる時だけ2.25に太くする
+   lucide のアイコンは stroke-width を属性で持つ（既定の2、部品ごとに1.6〜2.2と
+   ばらばらだった）。CSS は属性より強いので、ここで一度にそろう。
+   線の太さの属性が「3」で始まるもの（チェックの丸の中の ✓、strokeWidth 3 / 3.2）は除く。
+   12〜14px の小さな印で、細くすると塗った丸の中で見えなくなるため。
+   ------------------------------------------------------------------------ */
+svg.lucide:not([stroke-width^="3"]) {
+  stroke-width: 1.75;
+}
+
+:is(
+  [aria-current="page"],
+  [aria-pressed="true"],
+  [aria-selected="true"],
+  .is-active,
+  .is-selected,
+  .sidebar-link--active
+) svg.lucide:not([stroke-width^="3"]) {
+  stroke-width: 2.25;
+}

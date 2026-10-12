@@ -93,7 +93,7 @@
   margin: 0.35rem 0 0;
   color: var(--hub-on-photo);
   font-size: 2.6rem;
-  font-weight: 300;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.045em;
   line-height: 1;
@@ -128,7 +128,7 @@
   background:
     radial-gradient(120% 140% at 88% 4%, rgba(93, 132, 255, 0.34), transparent 52%),
     linear-gradient(154deg, #1a2c4b 0%, #101e35 54%, #0c1728 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 30px 70px rgba(8, 20, 40, 0.42);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), var(--shadow-rest);
   color: #fff;
   text-decoration: none;
 }
@@ -154,7 +154,7 @@
 .hub-focus__countdown {
   flex: 0 0 auto;
   padding: 0.34rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
   font-size: 0.88rem;
@@ -183,7 +183,7 @@
 
 .hub-focus__date strong {
   font-size: 1.95rem;
-  font-weight: 500;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.04em;
   line-height: 1;
@@ -240,7 +240,7 @@
   border: 1px solid var(--hub-edge);
   border-radius: var(--hub-r-lg);
   background: var(--hub-surface);
-  box-shadow: var(--hub-shadow-inset), var(--hub-shadow);
+  box-shadow: var(--hub-shadow-inset), var(--shadow-rest);
   color: var(--hub-ink);
   text-decoration: none;
   backdrop-filter: var(--hub-blur);
@@ -269,10 +269,6 @@
     transform 260ms var(--hub-ease),
     box-shadow 260ms var(--hub-ease),
     border-color 220ms ease;
-}
-
-.hub-tap:active {
-  transform: scale(0.978);
 }
 
 .hub-tile:focus-visible,
@@ -352,7 +348,7 @@
 .hub-tile__badge {
   flex: 0 0 auto;
   padding: 0.26rem 0.62rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: var(--hub-ink-2);
   font-size: 0.86rem;
@@ -368,7 +364,7 @@
 .hub-metric {
   margin: auto 0 0;
   font-size: 2.3rem;
-  font-weight: 300;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.05em;
   line-height: 1;
@@ -475,7 +471,7 @@
   left: 0;
   height: 4px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset-2);
 }
 
@@ -501,7 +497,7 @@
   height: 0.8rem;
   border: 3px solid #fff;
   background: var(--hub-blue);
-  box-shadow: 0 2px 8px rgba(20, 40, 74, 0.35);
+  box-shadow: var(--shadow-rest);
   animation: hub-pop 520ms var(--hub-ease-out) 240ms both;
 }
 
@@ -668,7 +664,7 @@
 
 .hub-mails__copy strong { font-size: 1.02rem; font-weight: 600; }
 .hub-mails__copy small { margin-top: 0.12rem; color: var(--hub-ink-2); font-size: 0.92rem; }
-.hub-mails__row.is-unread .hub-mails__copy strong { font-weight: 800; }
+.hub-mails__row.is-unread .hub-mails__copy strong { font-weight: 700; }
 
 .hub-mails__meta {
   display: flex;
@@ -781,7 +777,7 @@
   border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: var(--hub-r-lg);
   background: #44576b;
-  box-shadow: var(--hub-shadow);
+  box-shadow: var(--shadow-rest);
   color: #fff;
   text-decoration: none;
 }
@@ -835,7 +831,7 @@
   align-self: flex-start;
   margin-top: 0.75rem;
   padding: 0.3rem 0.68rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(255, 255, 255, 0.22);
   font-size: 0.88rem;
   font-weight: 700;
@@ -873,10 +869,11 @@
 @media (hover: hover) and (pointer: fine) {
   .hub-tap:hover {
     transform: translateY(-5px);
-    box-shadow: var(--hub-shadow-inset), var(--hub-shadow-lift);
+    box-shadow: var(--hub-shadow-inset), var(--shadow-float);
   }
 
-  .hub-tap:active { transform: translateY(0) scale(0.99); }
+  /* 押した時は持ち上がりだけ戻す。縮むのは pressFeedback.ts（UI/UX 調査メモ 第4弾 A-1）。 */
+  .hub-tap:active { transform: translateY(0); }
   .hub-tap:hover .hub-tile__go { transform: translateX(3px); background: var(--hub-inset-2); }
   .hub-focus:hover .hub-focus__go { transform: translateX(4px); }
   .hub-sheen:hover::before { opacity: 1; transform: translate3d(40%, 0, 0); }

@@ -37,13 +37,13 @@
   overflow: hidden;
   isolation: isolate;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 26px;
+  border-radius: var(--r-card);
   padding: 1.2rem 1.25rem 1.1rem;
   background:
     radial-gradient(520px circle at var(--mx, 85%) var(--my, -10%), rgba(60, 186, 178, 0.28), transparent 46%),
     radial-gradient(380px circle at 110% 120%, rgba(23, 161, 153, 0.18), transparent 55%),
     linear-gradient(160deg, #1d2226 0%, var(--ink-black) 62%);
-  box-shadow: 0 2px 4px rgba(10, 16, 18, 0.12), 0 22px 44px rgba(10, 16, 18, 0.22);
+  box-shadow: var(--shadow-rest);
   color: #f4f7f7;
 }
 /* 光沢の帯（theme-teal.css の is-sheen と同じ動き。useDesignMotion.ts が付ける） */
@@ -79,7 +79,7 @@
 .subs-unit button {
   min-height: 2rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.2rem 0.8rem;
   background: rgba(255, 255, 255, 0.06);
   color: rgba(244, 247, 247, 0.78);
@@ -101,7 +101,7 @@
   margin: 0.45rem 0 0;
   color: #fff;
   font-size: 2.7rem;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.05;
 }
@@ -141,7 +141,7 @@
   margin: 0.2rem 0 0;
   color: #fff;
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -174,7 +174,7 @@
   display: flex;
   align-items: center;
   gap: 0.55rem;
-  border-radius: 14px;
+  border-radius: var(--r-control);
   padding: 0.5rem 0.65rem;
   background: rgba(255, 255, 255, 0.06);
   font-size: 0.82rem;
@@ -182,7 +182,7 @@
 .subs-total__rank {
   width: 1.1rem;
   color: var(--teal-400);
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
 }
 .subs-total__name {
@@ -194,7 +194,7 @@
   white-space: nowrap;
 }
 .subs-total__value {
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 .subs-total__value small { margin-left: 0.1rem; color: rgba(255, 255, 255, 0.55); font-size: 0.68rem; }
@@ -220,11 +220,11 @@
   place-items: center;
   width: 2.35rem;
   height: 2.35rem;
-  border-radius: 12px;
+  border-radius: var(--r-control);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
   font-family: var(--font-rounded, inherit);
   font-size: 0.95rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1;
 }
 .subs-icon.is-plain {
@@ -235,14 +235,14 @@
 .subs-icon--sm {
   width: 1.4rem;
   height: 1.4rem;
-  border-radius: 7px;
+  border-radius: var(--r-tag);
   font-size: 0.62rem;
 }
 .subs-icon--sm.is-long { font-size: 0.5rem; }
 .subs-icon--lg {
   width: 3rem;
   height: 3rem;
-  border-radius: 15px;
+  border-radius: var(--r-control);
   font-size: 1.2rem;
 }
 .subs-icon--lg.is-long { font-size: 0.98rem; }
@@ -283,7 +283,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   flex: 0 0 auto;
   color: var(--warm-ink);
   font-size: 0.95rem;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
@@ -306,10 +306,10 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
 
 /* 「今日」「明日」「あと N 日」 — 残りが少ないほど 青緑 → 橙 → 赤 */
 .subs-days {
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.1rem 0.45rem;
   font-size: 0.68rem;
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
 }
 .subs-days.is-calm { background: var(--teal-50); color: var(--teal-700); }
@@ -325,7 +325,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   left: 3.95rem;
   height: 3px;
   overflow: hidden;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--warm-surface-sunk);
 }
 .subs-row__fill {
@@ -340,7 +340,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
 .subs-row__fill.is-urgent { background: #e0483b; }
 
 .subs-list { display: grid; gap: 1.35rem; }
-.subs-list > .app-button { min-height: 3rem; border-radius: 999px; }
+.subs-list > .app-button { min-height: 3rem; border-radius: var(--r-pill); }
 
 .subs-section-toggle {
   width: 100%;
@@ -393,7 +393,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   flex: 0 0 auto;
   min-height: 2.1rem;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 0.3rem 0.85rem;
   background: #e9eded;
   color: var(--warm-ink-2);
@@ -416,7 +416,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 14px;
+  border-radius: var(--r-control);
   padding: 0.6rem 0.85rem;
   background: var(--warm-surface-sunk);
   color: var(--warm-ink-3);
@@ -442,21 +442,20 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   align-items: center;
   gap: 0.35rem;
   border: 1px solid var(--warm-line);
-  border-radius: 18px;
+  border-radius: var(--r-card);
   padding: 0.8rem 0.4rem 0.7rem;
   background: var(--warm-surface, #fff);
-  box-shadow: var(--warm-shadow);
+  box-shadow: var(--shadow-rest);
   text-align: center;
   transition: transform 380ms var(--spring), box-shadow 300ms ease, border-color 200ms ease;
 }
 .subs-tile:hover { border-color: rgba(23, 161, 153, 0.35); transform: translateY(-2px); }
-.subs-tile:active { transform: scale(0.96); }
 .subs-tile strong {
   display: -webkit-box;
   overflow: hidden;
   color: var(--warm-ink);
   font-size: 0.76rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.25;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -478,7 +477,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   align-items: center;
   gap: 0.75rem;
 }
-.subs-picker__plan-head strong { font-size: 1.05rem; font-weight: 800; }
+.subs-picker__plan-head strong { font-size: 1.05rem; font-weight: 700; }
 
 /* ---------------------------------------------------------------------------
    フォーム
@@ -487,17 +486,17 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  border-radius: 20px;
+  border-radius: var(--r-card);
   padding: 0.85rem 1rem;
   background: linear-gradient(160deg, #ffffff, var(--teal-50));
-  box-shadow: var(--warm-shadow);
+  box-shadow: var(--shadow-rest);
 }
 .subs-form__preview strong {
   display: block;
   overflow: hidden;
   color: var(--warm-ink);
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -543,10 +542,10 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
 .subs-calendar { display: grid; gap: 1.35rem; }
 .subs-calendar__card {
   border: 1px solid var(--warm-line);
-  border-radius: 22px;
+  border-radius: var(--r-card);
   padding: 0.9rem 0.6rem 0.7rem;
   background: var(--warm-surface, #fff);
-  box-shadow: var(--warm-shadow);
+  box-shadow: var(--shadow-rest);
 }
 .subs-calendar__head {
   display: flex;
@@ -556,7 +555,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   padding: 0 0.2rem 0.6rem;
 }
 .subs-calendar__title { display: grid; justify-items: center; gap: 0.1rem; }
-.subs-calendar__title strong { font-size: 0.98rem; font-weight: 800; }
+.subs-calendar__title strong { font-size: 0.98rem; font-weight: 700; }
 .subs-calendar__title span {
   color: var(--teal-700);
   font-size: 0.74rem;
@@ -569,7 +568,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   height: 2.2rem;
   place-items: center;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--warm-surface-sunk);
   color: var(--warm-ink-2);
 }
@@ -594,7 +593,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   align-items: center;
   gap: 0.2rem;
   border: 0;
-  border-radius: 14px;
+  border-radius: var(--r-control);
   padding: 0.3rem 0 0.25rem;
   background: none;
   color: var(--warm-ink);
@@ -610,7 +609,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   width: 1.6rem;
   height: 1.6rem;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   font-size: 0.78rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -625,7 +624,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
 .subs-calendar__more {
   color: var(--warm-ink-3);
   font-size: 0.6rem;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.4rem;
 }
 @media (min-width: 1024px) {
@@ -668,7 +667,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
 .subs-donut__center strong {
   color: var(--warm-ink);
   font-size: 1.25rem;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -682,7 +681,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   flex: 0 0 auto;
   width: 0.75rem;
   height: 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   box-shadow: 0 0 0 2px #fff;
 }
 .subs-legend__chev { flex: 0 0 auto; color: var(--warm-ink-3); transition: transform 300ms var(--spring); }

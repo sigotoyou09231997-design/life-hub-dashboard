@@ -51,7 +51,7 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.2rem 0.55rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: rgba(13, 27, 49, 0.62);
   font-size: 0.78rem;
@@ -70,7 +70,7 @@
   justify-content: center;
   width: 1.9rem;
   height: 1.9rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: rgba(13, 27, 49, 0.42);
   transition: color 0.18s var(--hub-ease), background-color 0.18s var(--hub-ease);
 }
@@ -154,7 +154,7 @@
 
 .diary-onthisday__trip {
   padding: 0.1rem 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(13, 27, 49, 0.06);
   color: rgba(13, 27, 49, 0.55);
   font-size: 0.72rem;
@@ -289,7 +289,7 @@
 
 .changelog-entry__area {
   padding: 0.12rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset);
   color: rgba(13, 27, 49, 0.6);
   font-size: 0.72rem;

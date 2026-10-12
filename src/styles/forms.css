@@ -33,7 +33,7 @@
   border: 1px solid var(--hub-edge);
   border-radius: var(--hub-r-md);
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: var(--hub-shadow-inset), 0 12px 30px rgba(10, 24, 46, 0.07);
+  box-shadow: var(--hub-shadow-inset), var(--shadow-rest);
 }
 
 .form-panel__caption {
@@ -84,7 +84,7 @@
    印として切り離す。 */
 .field__optional {
   padding: 0.06rem 0.42rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset-2);
   color: var(--hub-ink-3);
   font-size: 0.76rem;
@@ -258,7 +258,9 @@ textarea.field-shell {
   gap: 0.35rem;
   padding: 0.35rem 0.5rem;
   border: 1px solid transparent;
-  border-radius: calc(var(--hub-r-sm) - 4px);
+  /* 溝（14px）の内側に約4.5pxの余白で収まるので、一段小さい角（UI/UX 調査メモ 第4弾 B-3）。
+     1つずつ分けた形（.segmented--separate）は下で入力欄と同じ 14px に戻す。 */
+  border-radius: var(--r-tag);
   color: var(--hub-ink-2);
   font-size: 0.96rem;
   font-weight: 600;
@@ -268,8 +270,6 @@ textarea.field-shell {
     box-shadow 200ms var(--hub-ease),
     transform 200ms var(--hub-ease);
 }
-
-.segmented__option:active { transform: scale(0.965); }
 
 /* 絵を上・文字を下に積む形(SegmentedField の stacked)。1つの幅が狭くても、文字を1行のまま収める。 */
 .segmented__option--stacked {
@@ -286,7 +286,7 @@ textarea.field-shell {
   border-color: var(--hub-edge);
   background: #fff;
   color: var(--hub-blue);
-  box-shadow: 0 3px 10px rgba(10, 24, 46, 0.12);
+  box-shadow: var(--shadow-rest);
 }
 
 /* 1つずつ分けたボタン(SegmentedField の separate)。溝を無くし、選んでいない方にも面と縁を持たせる。 */
@@ -325,7 +325,7 @@ textarea.field-shell {
   border: 1px solid var(--hub-hairline);
   border-radius: var(--hub-r-md);
   background: #fff;
-  box-shadow: 0 14px 34px rgba(10, 24, 46, 0.12);
+  box-shadow: var(--shadow-float);
   animation: field-expand 260ms var(--hub-ease-out);
 }
 
@@ -344,7 +344,7 @@ textarea.field-shell {
 
 .date-popover__today {
   padding: 0.34rem 0.7rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset-2);
   color: var(--hub-ink-2);
   font-size: 0.88rem;
@@ -353,7 +353,7 @@ textarea.field-shell {
 
 .date-popover__done {
   padding: 0.34rem 0.9rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-blue);
   color: #fff;
   font-size: 0.88rem;
@@ -415,7 +415,7 @@ textarea.field-shell {
   gap: 0.3rem;
   margin-top: 0.45rem;
   padding: 0.24rem 0.6rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset-2);
   color: var(--hub-ink-2);
   font-size: 0.86rem;
@@ -454,7 +454,7 @@ textarea.field-shell {
   min-height: 2.25rem;
   padding: 0.3rem 0.8rem;
   border: 1px solid var(--warm-line-strong, rgba(18, 28, 30, 0.13));
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--warm-surface, #fff);
   color: var(--warm-ink, #141618);
   font-size: 0.875rem;
@@ -467,7 +467,6 @@ textarea.field-shell {
     transform 200ms var(--hub-ease);
 }
 
-.time-quick__chip:active:not(:disabled) { transform: scale(0.95); }
 
 /* 選んでいる物は黒く塗る(2026-10-12、UI/UX 調査メモ 第2弾 S-3 で全体を1つの見せ方にそろえた)。 */
 .time-quick__chip[aria-pressed="true"] {
@@ -504,7 +503,7 @@ textarea.field-shell {
   min-height: 2.25rem;
   padding: 0.35rem 0.9rem;
   border: 1px solid rgba(23, 161, 153, 0.3);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--teal-50, #ebf8f6);
   color: var(--teal-700, #0f736e);
   font-size: 0.875rem;
@@ -521,7 +520,6 @@ textarea.field-shell {
 
 .title-when__chip:hover { background: var(--teal-100, #d4f0ed); }
 
-.title-when__chip:active { transform: scale(0.97); }
 
 .title-when__chip:focus-visible {
   outline: 3px solid var(--teal-500, #17a199);
@@ -560,7 +558,7 @@ textarea.field-shell {
 .sheet-grip span {
   width: 2.6rem;
   height: 0.28rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(23, 46, 78, 0.18);
 }
 
@@ -577,7 +575,7 @@ textarea.field-shell {
   color: var(--hub-ink);
   font-family: var(--font-display);
   font-size: 1.32rem;
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: 0.005em;
 }
 
@@ -587,14 +585,13 @@ textarea.field-shell {
   height: 2.3rem;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: var(--hub-inset-2);
   color: var(--hub-ink-2);
   transition: background-color 200ms ease, color 200ms ease, transform 200ms var(--hub-ease);
 }
 
 .sheet-close:hover { background: rgba(18, 40, 72, 0.12); color: var(--hub-ink); }
-.sheet-close:active { transform: scale(0.92); }
 .sheet-close:focus-visible { outline: 3px solid var(--hub-blue); outline-offset: 2px; }
 
 .sheet-body {
@@ -730,7 +727,7 @@ textarea.field-shell {
   width: 3.1rem;
   height: 1.82rem;
   flex: 0 0 auto;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: rgba(23, 46, 78, 0.16);
   box-shadow: inset 0 1px 2px rgba(10, 24, 46, 0.12);
   transition: background-color 240ms var(--hub-ease);
@@ -742,7 +739,7 @@ textarea.field-shell {
   left: 0.19rem;
   width: 1.44rem;
   height: 1.44rem;
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   background: #fff;
   box-shadow: 0 2px 6px rgba(10, 24, 46, 0.28);
   transition: transform 240ms var(--hub-ease);
@@ -800,13 +797,12 @@ textarea.field-shell {
   border: 1px solid var(--hub-edge);
   border-radius: var(--hub-r-md);
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: var(--hub-shadow-inset), 0 12px 30px rgba(10, 24, 46, 0.08);
+  box-shadow: var(--hub-shadow-inset), var(--shadow-rest);
   color: var(--hub-ink);
   transition: transform 220ms var(--hub-ease), box-shadow 220ms var(--hub-ease);
 }
 
-.choice-grid__option:hover { box-shadow: var(--hub-shadow-inset), 0 16px 38px rgba(10, 24, 46, 0.14); }
-.choice-grid__option:active { transform: scale(0.97); }
+.choice-grid__option:hover { box-shadow: var(--hub-shadow-inset), var(--shadow-float); }
 .choice-grid__option:focus-visible { outline: 3px solid var(--hub-blue); outline-offset: 2px; }
 
 .choice-grid__icon {
@@ -831,7 +827,7 @@ textarea.field-shell {
   border: 1px solid var(--hub-edge);
   border-radius: var(--hub-r-md);
   background: rgba(255, 255, 255, 0.96);
-  box-shadow: var(--hub-shadow-inset), 0 12px 30px rgba(10, 24, 46, 0.07);
+  box-shadow: var(--hub-shadow-inset), var(--shadow-rest);
 }
 
 .shopping-total small {
