@@ -311,7 +311,8 @@ export function GlobalSearch({ open, onClose }: Props) {
   let runningIndex = 0;
 
   return (
-    <Sheet open={open} onClose={onClose} title="検索・操作">
+    // 検索は打つために開くので、スマホでもすぐキーボードを出す(検索欄はシートの上の端にあり隠れない)。
+    <Sheet open={open} onClose={onClose} title="検索・操作" autoFocusOnTouch>
       <div className="cmd-palette">
         <Input
           type="search"

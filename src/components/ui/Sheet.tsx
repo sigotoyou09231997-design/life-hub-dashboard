@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { keyboardInsetFrom, opensKeyboard, sheetMaxHeightPx } from "../../lib/viewport";
 
@@ -17,6 +17,10 @@ interface Props {
    * by the Gmail mobile detail sheet — every other Sheet keeps the taller
    * default, since most of them are forms that need the room). */
   compact?: boolean;
+  /** 指で操作する端末でも、開いた時に入力欄へカーソルを入れてキーボードを出す。
+   * 既定では出さない(下の isTouchDevice の説明)。いちばん上の欄に打つためだけに開く画面
+   * (検索)だけが使う — その欄はシートの上の端にあり、キーボードの裏に隠れないため。 */
+  autoFocusOnTouch?: boolean;
 }
 
 function getFocusable(container: HTMLElement): HTMLElement[] {
@@ -56,6 +60,20 @@ const SCROLL_INTENT_PX = 8;
 /** 触れてからこれより後に動き始めた指は、長押し(貼り付け・カーソル移動)とみなしてフォーカスを外さない(ms)。 */
 const LONG_PRESS_MS = 300;
 
+/**
+ * 指で操作する端末(スマホ・タブレット)か。
+ *
+ * そういう端末では、シートを開いた時に入力欄へカーソルを入れない(キーボードを自動で出さない)。
+ * シートは下からせり上がる動きの途中なので、その間にキーボードが出ると、iPhone はまだ画面の下に
+ * ある欄を見せようとして見えている範囲を大きくずらし、シートがキーボードの上に持ち上がらない。
+ * 開いた瞬間から入力欄がキーボードの裏に隠れ、説明文しか見えなかった(2026-10-12、本人の
+ * スクショ・要望の受信箱「入力する画面が見えない」)。欄を自分で押した時は、シートが止まって
+ * いるので、これまでどおりキーボードの上へ持ち上がる。
+ */
+function isTouchDevice(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+}
+
 export function revealAboveActions(body: HTMLElement, field: HTMLElement): void {
   const actions = body.querySelector<HTMLElement>(".form-actions");
   if (!actions || actions.contains(field)) return;
@@ -68,7 +86,7 @@ export function revealAboveActions(body: HTMLElement, field: HTMLElement): void 
   if (shift > 0) body.scrollTop += shift;
 }
 
-export function Sheet({ open, onClose, title, children, reserveBottomBar = false, compact = false }: Props) {
+export function Sheet({ open, onClose, title, children, reserveBottomBar = false, compact = false, autoFocusOnTouch = false }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   // キーボードで隠れている高さ。その分だけシートを持ち上げて、入力欄が最初から
   // キーボードの上に出ている状態にする(src/lib/viewport.ts)。
@@ -100,6 +118,16 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
   }
   wasOpen.current = open;
 
+  // 中身のフォームの autoFocus(React は描いた直後、押した操作の中で入れるので、iPhone でも
+  // キーボードが出る)を、指で操作する端末では打ち消す(上の isTouchDevice)。描いた直後・画面に
+  // 出る前に外すので、キーボードは出ない。カーソルの置き場はシートそのものにする(Tab で中を回れる)。
+  useLayoutEffect(() => {
+    if (!open || autoFocusOnTouch || !isTouchDevice()) return;
+    const panel = panelRef.current;
+    const active = document.activeElement as HTMLElement | null;
+    if (panel && active && panel.contains(active) && opensKeyboard(active)) panel.focus({ preventScroll: true });
+  }, [open, autoFocusOnTouch]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -115,6 +143,11 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     const raf = requestAnimationFrame(() => {
       const panel = panelRef.current;
       if (!panel) return;
+      // 指で操作する端末では、入力欄ではなくシートそのものに置く(キーボードを出さない。上の isTouchDevice)。
+      if (!autoFocusOnTouch && isTouchDevice()) {
+        if (!panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
+        return;
+      }
       const focusables = getFocusable(panel);
       const preferred = focusables.find((el) => ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
       (preferred ?? focusables[0])?.focus();
@@ -148,7 +181,7 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
       cancelAnimationFrame(raf);
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open, onClose, autoFocusOnTouch]);
 
   useEffect(() => {
     if (!open) return;
@@ -315,7 +348,9 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
       />
       <div
         ref={panelRef}
-        className={`glass-modal spatial-sheet sheet-panel relative z-10 flex w-full max-w-md flex-col animate-slide-up motion-reduce:animate-none lg:max-w-xl ${
+        // 指で操作する端末で、開いた時のカーソルの置き場(入力欄の代わり)。枠は出さない。
+        tabIndex={-1}
+        className={`glass-modal spatial-sheet sheet-panel relative z-10 flex w-full max-w-md flex-col outline-none animate-slide-up motion-reduce:animate-none lg:max-w-xl ${
           compact ? "h-[55vh] max-h-[55vh]" : "max-h-[88vh] lg:max-h-[86vh]"
         }`}
         // キーボードが出ている間は、画面の高さ(88vh等)ではなく「いま実際に見えて

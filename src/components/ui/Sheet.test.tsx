@@ -343,3 +343,88 @@ describe("外側(暗い所)を押した時に閉じる", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+/**
+ * 指で操作する端末では、開いた時にキーボードを自動で出さない(src/components/ui/Sheet.tsx の
+ * isTouchDevice)。せり上がる途中でキーボードが出ると、iPhone で入力欄がキーボードの裏に
+ * 隠れたまま、説明文しか見えなかった(2026-10-12、本人のスクショ)。
+ */
+describe("指で操作する端末で開いた時のカーソル", () => {
+  function pretendTouchDevice(coarse: boolean) {
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      matches: coarse && query.includes("coarse"),
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+    return () => {
+      window.matchMedia = original;
+    };
+  }
+
+  it("フォームの autoFocus があっても入力欄には入れず、シートそのものに置く", async () => {
+    const restore = pretendTouchDevice(true);
+    try {
+      const { getByTestId, getByRole } = render(
+        <Sheet open onClose={() => {}} title="写真・文章から追加・更新">
+          <textarea data-testid="text" autoFocus />
+        </Sheet>,
+      );
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      expect(document.activeElement).not.toBe(getByTestId("text"));
+      expect(getByRole("dialog").contains(document.activeElement)).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  it("autoFocus の無いフォームでも、開いた時に入力欄へは入れない", async () => {
+    const restore = pretendTouchDevice(true);
+    try {
+      const { getByTestId } = render(
+        <Sheet open onClose={() => {}} title="旅行を追加">
+          <input data-testid="name" />
+        </Sheet>,
+      );
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      expect(document.activeElement).not.toBe(getByTestId("name"));
+    } finally {
+      restore();
+    }
+  });
+
+  it("検索のように autoFocusOnTouch を付けたシートは、スマホでもすぐ打てる", async () => {
+    const restore = pretendTouchDevice(true);
+    try {
+      const { getByTestId } = render(
+        <Sheet open onClose={() => {}} title="検索・操作" autoFocusOnTouch>
+          <input data-testid="search" autoFocus />
+        </Sheet>,
+      );
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      expect(document.activeElement).toBe(getByTestId("search"));
+    } finally {
+      restore();
+    }
+  });
+
+  it("マウスで操作する端末(PC)では、フォームの autoFocus をそのまま生かす", async () => {
+    const restore = pretendTouchDevice(false);
+    try {
+      const { getByTestId } = render(
+        <Sheet open onClose={() => {}} title="旅行を追加">
+          <input data-testid="name" autoFocus />
+        </Sheet>,
+      );
+      await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+      expect(document.activeElement).toBe(getByTestId("name"));
+    } finally {
+      restore();
+    }
+  });
+});
