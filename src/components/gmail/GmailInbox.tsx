@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router-dom";
 import { Ban, CalendarPlus, Check, Hourglass, Mail, MailCheck, Receipt, Search, Star } from "lucide-react";
 import { db } from "../../db/schema";
-import type { EmailStatus, GmailAccount } from "../../types";
+import type { BlockedSender, EmailStatus, GmailAccount, SyncedEmail } from "../../types";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender, snippetText } from "../../lib/gmail";
 import { summarizeGmailSync, syncGmailAccount } from "../../lib/gmailSync";
 import { formatGmailTimestamp } from "../../lib/date";
@@ -71,6 +71,11 @@ const MAIL_PAGE_SIZE = 50;
  * Gmail APIの1分あたりの上限に近づく(src/lib/gmailSync.ts の絞り込みと同じ理由)。 */
 const OPEN_SYNC_COOLDOWN_MS = 60_000;
 
+/** 前に読んだ一覧(アカウントごとに1つ)。画面を開き直した時に、端末から読み出し終わるまでの一瞬を
+ * 空白・誤表示にしない控え(2026-10-13、本人「一瞬真っ白になる」)。読み出しが終われば本物に置き換わる。
+ * ブロック中の送信者も一緒に控える — 無いと、ブロックしたはずの送信者のメールが一瞬だけ並ぶ。 */
+let rememberedList: { accountId: string; emails: SyncedEmail[]; blocked: BlockedSender[] | undefined } | null = null;
+
 const STATUS_LABEL: Record<EmailStatus, string> = {
   unprocessed: "未処理",
   generating: "生成中",
@@ -113,16 +118,24 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
   // 動かすたびにここへ写しておく。
   const listScrollRef = useRef(restoredRef.current?.listScroll ?? 0);
   const scrollRestoredRef = useRef(false);
-  const emails = useLiveQuery(
+  const remembered = rememberedList?.accountId === account.id ? rememberedList : null;
+  const liveEmails = useLiveQuery(
     () => (account.id ? db.syncedEmails.where("accountId").equals(account.id).reverse().sortBy("receivedAt") : []),
     [account.id],
   );
+  const emails = liveEmails ?? remembered?.emails;
   const showSkeleton = useDelayedFlag(emails === undefined);
 
-  const blockedSenders = useLiveQuery(
+  const liveBlocked = useLiveQuery(
     () => (account.id ? db.blockedSenders.where("accountId").equals(account.id).toArray() : []),
     [account.id],
   );
+  const blockedSenders = liveBlocked ?? remembered?.blocked;
+  useEffect(() => {
+    if (!account.id || !liveEmails) return;
+    rememberedList = { accountId: account.id, emails: liveEmails, blocked: liveBlocked ?? remembered?.blocked };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account.id, liveEmails, liveBlocked]);
   const blockedSet = new Set((blockedSenders ?? []).map((b) => b.email));
 
   // blockSenderRemote() is fire-and-forget (see src/lib/blockedSenders.ts) — if that
@@ -384,7 +397,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
 
       {showSkeleton ? (
         <ListSkeleton />
-      ) : filteredEmails && filteredEmails.length > 0 ? (
+      ) : emails === undefined ? null : filteredEmails && filteredEmails.length > 0 ? (
         // 末尾の余白は、右下の新規作成ボタン(FAB)に最後の行の「既読にする」が
         // 隠れないための逃げ。一覧が画面下端まで伸びるPCでだけ必要。
         <div

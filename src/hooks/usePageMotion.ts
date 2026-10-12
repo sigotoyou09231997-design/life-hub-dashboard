@@ -53,6 +53,9 @@ const EXCLUDE_SELECTOR = [
   ".app-header",
   ".glass-nav",
   ".desktop-sidebar",
+  // メールの一覧を包む面。開くたびに薄い所から現れる動きは、Gmail を開き直すたびの「一瞬真っ白」になる
+  // (2026-10-13)。数百通を載せる縦に長い面でもあるので、動かさず、はじめから出す。
+  ".mail-inbox-workspace",
   // HOMEの根っこ。暖色刷新で .hub-home → .warm-home に変わったので、両方を挙げて
   // おく(古い方はもう出て来ないが、名前が戻ったときに黙って壊れないように)。
   ".warm-home",
