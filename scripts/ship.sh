@@ -53,7 +53,7 @@ git merge-base --is-ancestor main HEAD || { step "ブランチが main に追い
 
 step "2/6 型チェックと全テストを同時に走らせる"
 LOG_DIR="$(mktemp -d)"
-# 全テストは、いつもの2個ではなく5個で走らせる(約110秒 → 約70秒)。そのかわり、同時に走らせる ship.sh は1つだけにする —
+# 全テストは、いつもの2個ではなく4個で走らせる(約110秒 → 約75秒。5個だと混み合って時間切れで落ちるテストが出た)。そのかわり、同時に走らせる ship.sh は1つだけにする —
 # 重なると作業用プロセスが何十個にもなり、Mac 全体が止まった(2026-10-12。vitest.config.ts の説明)。順番待ちの札は、
 # 10分たったら古いものとして捨てる(落ちた実行の札が残っても詰まらないように)。
 LOCK_DIR="${TMPDIR:-/tmp}/lifehub-ship-tests.lock"
@@ -65,7 +65,7 @@ until mkdir "$LOCK_DIR" 2>/dev/null; do
 done
 trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
 npx tsc --noEmit >"$LOG_DIR/tsc.log" 2>&1 & TSC_PID=$!
-VITEST_MAX_FORKS="${SHIP_TEST_FORKS:-5}" npm test >"$LOG_DIR/test.log" 2>&1 & TEST_PID=$!
+VITEST_MAX_FORKS="${SHIP_TEST_FORKS:-4}" npm test >"$LOG_DIR/test.log" 2>&1 & TEST_PID=$!
 TSC_OK=0; TEST_OK=0
 wait "$TSC_PID" || TSC_OK=1
 wait "$TEST_PID" || TEST_OK=1
