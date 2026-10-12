@@ -762,6 +762,46 @@ describe("034: 旅行を一緒に編集", () => {
     });
   });
 
+  describe("共有していない旅行・持ち主の、今までの書き込み(変わらない)", () => {
+    it("誰とも共有していない人の旅行は、作る・直す・消す(deleted_at)・同じ行の upsert・旅行より先に届く子の行、が今までどおり通る", async () => {
+      await asUser(OTHER, async () => {
+        const tripId = "a0000000-bbbb-4ccc-8ddd-eeeeeeeeee50";
+        const upsertTrip = (name: string) =>
+          rows(`insert into public.trips (id, user_id, device_id, name, destination, start_date, end_date, status) values ('${tripId}','${OTHER}','phone','${name}','x','2027-05-01','2027-05-02','planning')
+            on conflict (id) do update set name = excluded.name, device_id = excluded.device_id returning id`);
+        // 子の行が、旅行より先に届く(同期は行ごとに届き、順番は決まっていない)
+        expect(await rows(`${newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee50", tripId, OTHER)} returning id`)).toBe(1);
+        expect(await upsertTrip("自分の旅")).toBe(1);
+        expect(await upsertTrip("自分の旅(改)")).toBe(1);
+        expect(
+          await rows(`${newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee50", tripId, OTHER)} on conflict (id) do update set title = excluded.title returning id`),
+        ).toBe(1);
+        expect(await rows(`update public.trip_schedule set deleted_at = now() where id = 'b0000000-bbbb-4ccc-8ddd-eeeeeeeeee50' returning id`)).toBe(1);
+        expect(await rows(`update public.trips set deleted_at = now() where id = '${tripId}' returning id`)).toBe(1);
+      });
+    });
+
+    it("共有している旅行でも、持ち主の upsert・追加・更新は、これまでどおり通る(持ち主の名前で)", async () => {
+      await asUser(USER, async () => {
+        const upsertSchedule = (title: string) =>
+          rows(`${newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee60", T_SHARED, USER)} on conflict (id) do update set title = '${title}' returning id`);
+        expect(await upsertSchedule("1回目")).toBe(1);
+        expect(await upsertSchedule("2回目")).toBe(1);
+        expect(await rows(`update public.trip_schedule set deleted_at = now() where id = 'b0000000-bbbb-4ccc-8ddd-eeeeeeeeee60' returning id`)).toBe(1);
+        expect(await rows(`update public.trips set name = '持ち主が直した' where id = '${T_SHARED}' returning id`)).toBe(1);
+        // 持ち主が、共有している旅行に、他人の名前の行は入れられない
+        await db.exec("savepoint s1");
+        await expect(db.exec(newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee61", T_SHARED, OTHER))).rejects.toThrow();
+      });
+    });
+
+    it("持ち主の名前(user_id)は、持ち主自身にも書き換えられない(同じ値の upsert は通る)", async () => {
+      await expect(asUser(USER, () => db.exec(`update public.trips set user_id = '${OTHER}' where id = '${T_PRIVATE}'`))).rejects.toThrow();
+      await expect(asUser(USER, () => db.exec(`update public.trip_schedule set user_id = '${OTHER}' where id = '${S_PRIVATE}'`))).rejects.toThrow();
+      expect(await asUser(USER, () => rows(`update public.trips set user_id = '${USER}', memo = 'x' where id = '${T_PRIVATE}' returning id`))).toBe(1);
+    });
+  });
+
   describe("参加者の一覧と、表への直接の書き込み", () => {
     it("参加中の人は、同じ旅行の参加中の人が見える。承認待ちの人は、持ち主だけが見える", async () => {
       const emails = (sub: string) =>

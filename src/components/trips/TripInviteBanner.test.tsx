@@ -62,7 +62,7 @@ describe("TripInviteBanner", () => {
     render(<TripInviteBanner />);
     expect(screen.getByText(/owner@example.com さんから、旅行「四国旅行」への招待/)).toBeTruthy();
     expect(screen.getByText(/高松 · 12月27日/)).toBeTruthy();
-    expect(screen.getByText(/日記は共有されません/)).toBeTruthy();
+    expect(screen.getByText(/日記・写真・書類は共有されません/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "参加する" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "断る" })).toBeTruthy();
   });

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { getSharedOwnersSnapshot, subscribeSharedOwners, subscribeTripMembersChanged } from "../lib/sharedTrips";
 import { collabErrorText, listCollaborators, listIncomingInvites, type Collaborator } from "../lib/tripCollab";
-import { isSupabaseConfigured } from "../lib/supabase";
 
 /** 他人から共有された旅行(旅行の id → 持ち主)。同期が確かめるたびに最新になる。 */
 export function useSharedTripOwners(): ReadonlyMap<string, string> {
@@ -18,7 +17,6 @@ export function useIsSharedWithMe(tripId: string | undefined): boolean {
 export function useIncomingInvites(): Collaborator[] {
   const [invites, setInvites] = useState<Collaborator[]>([]);
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
     let active = true;
     const load = () => {
       void listIncomingInvites().then((list) => {

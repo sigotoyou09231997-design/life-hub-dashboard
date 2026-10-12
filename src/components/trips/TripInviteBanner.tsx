@@ -51,7 +51,7 @@ export function TripInviteBanner({ className = "" }: { className?: string }) {
                 {[invite.tripDestination, invitePeriod(invite)].filter(Boolean).join(" · ")}
               </p>
               <p className="mt-1 text-xs text-slate-600">
-                参加すると、日程・持ち物・ルート・費用を一緒に編集できます。日記は共有されません。
+                参加すると、日程・持ち物・ルート・費用を一緒に編集できます。日記・写真・書類は共有されません。
               </p>
             </div>
           </div>

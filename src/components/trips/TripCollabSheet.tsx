@@ -11,6 +11,7 @@ import {
   type Collaborator,
 } from "../../lib/tripCollab";
 import { Button } from "../ui/Button";
+import { FormPanel } from "../ui/FormPanel";
 import { Input } from "../ui/Input";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { useToast } from "../ui/ToastProvider";
@@ -27,7 +28,7 @@ interface Props {
 
 function StatusChip({ status }: { status: Collaborator["status"] }) {
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs ${status === "accepted" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
+    <span className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-xs ${status === "accepted" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
       {status === "accepted" ? "参加中" : "承認待ち"}
     </span>
   );
@@ -146,7 +147,7 @@ export function TripCollabSheet({ tripId, tripName, role, onClose, onLeft }: Pro
       <div className="flex flex-col gap-4">
         <p className="text-sm text-slate-700">
           {ownerEmail ? `${ownerEmail} さんの旅行に参加しています。` : "招かれて参加している旅行です。"}
-          日程・持ち物・ルート・費用を、みんなで一緒に編集できます。日記は共有されません。
+          日程・持ち物・ルート・費用を、みんなで一緒に編集できます。日記・写真・書類は共有されません。
         </p>
         <ul className="flex flex-col gap-2" aria-label="参加者">
           {ownerEmail && (
@@ -172,21 +173,23 @@ export function TripCollabSheet({ tripId, tripName, role, onClose, onLeft }: Pro
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-slate-700">
-        メールアドレスで招待すると、相手が「参加する」を押したあと、「{tripName}」の日程・持ち物・ルート・費用を一緒に編集できます。日記は共有されません。
+        メールアドレスで招待すると、相手が「参加する」を押したあと、「{tripName}」の日程・持ち物・ルート・費用を一緒に編集できます。日記・貼った写真・書類は共有されません（端末の中だけのため）。
       </p>
 
-      <form className="flex flex-col gap-2" onSubmit={(event) => void handleInvite(event)}>
-        <Input
-          label="招待するメールアドレス"
-          hint="相手が LIFE HUB にログインするときのメールアドレスを入れてください。"
-          type="email"
-          inputMode="email"
-          autoComplete="off"
-          autoCapitalize="none"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="friend@example.com"
-        />
+      <form className="flex flex-col gap-3" onSubmit={(event) => void handleInvite(event)}>
+        <FormPanel>
+          <Input
+            label="招待するメールアドレス"
+            hint="相手が LIFE HUB にログインするときのメールアドレスを入れてください。"
+            type="email"
+            inputMode="email"
+            autoComplete="off"
+            autoCapitalize="none"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="friend@example.com"
+          />
+        </FormPanel>
         <Button type="submit" disabled={busy || !emailOk}>
           招待する
         </Button>

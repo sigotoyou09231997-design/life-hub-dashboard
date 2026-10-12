@@ -25,7 +25,7 @@ describe("TripRemoveButton", () => {
     expect(screen.getByRole("img", { name: /共有された旅行/ })).toBeTruthy();
   });
 
-  it("参加状況が変わったら、画面の印もその場で変わる(抜けた旅行は、また削除できる…ことはなく、旅行ごと消える)", () => {
+  it("参加状況が変わったら、画面の印もその場で変わる", () => {
     render(<TripRemoveButton trip={trip("t")} onDelete={vi.fn()} />, { wrapper: ConfirmProvider });
     expect(screen.queryByRole("img", { name: /共有された旅行/ })).toBeNull();
     act(() => writeSharedOwners(new Map([["t", "owner"]])));
