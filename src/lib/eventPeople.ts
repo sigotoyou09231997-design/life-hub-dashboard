@@ -185,6 +185,16 @@ export function collectPersonDotsInRange(
   return out;
 }
 
+/**
+ * カレンダーに描く予定の色。「その予定に付いている人のうち、一覧で先に来る人」の色1つ。
+ * 誰も付いていない予定は既定色。月表示の帯・週表示の予定の箱・今日の「この先1週間」で
+ * 同じ色にするため、ここ1か所で決める。
+ */
+export function eventChipColor(event: Pick<CalendarEvent, "personIds">, people: EventPerson[]): string {
+  const assigned = resolvePeople(event, people);
+  return assigned.length > 0 ? personColorHex(assigned[0]) : UNASSIGNED_DOT_COLOR;
+}
+
 /** 月表示のマスに出す、予定名入りの帯1本ぶん。 */
 export interface DayChip {
   /** 同じ日に同じ予定が2回出ることは無いが、繰り返しの回ごとに別の行になるので日付も混ぜる。 */
@@ -228,8 +238,7 @@ export function collectDayChipsInRange(
 
   for (const event of events) {
     if (!event.date) continue;
-    const assigned = resolvePeople(event, order);
-    const color = assigned.length > 0 ? personColorHex(assigned[0]) : UNASSIGNED_DOT_COLOR;
+    const color = eventChipColor(event, order);
     let cursor = rangeStart > event.date ? rangeStart : event.date;
     while (cursor <= rangeEnd) {
       if (occursOn(event, cursor)) {

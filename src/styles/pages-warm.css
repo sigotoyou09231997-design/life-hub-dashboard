@@ -475,6 +475,614 @@
 }
 
 /* ---------------------------------------------------------------------------
+   7b. 予定・タスク（PC幅）— 今日の「この先1週間」・月/週の切り替え・週表示
+
+   どれも PC 幅（1024px〜）でだけ描かれる部品（出し分けは useIsDesktop）。スマホの
+   画面には出てこないので、ここの寸法はスマホを気にせず PC の読みやすさで決めてある。
+   操作の色（選んでいる切り替え・今週・今の時刻の線）は青緑と黒、予定の箱の色は
+   「誰の予定か」の色（データの色）をそのまま使う。
+   ------------------------------------------------------------------------ */
+
+/* 今日タブ: 左に今日（2枚を縦に積む）、右に「この先1週間」。右の列は伸ばさない
+   （空のカードを引き伸ばさない、2026-09-07 の本人の好み）。 */
+.planning-today-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 34%, 400px);
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.planning-week {
+  display: flex;
+  flex-direction: column;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planning-week__day {
+  padding-block: 0.6rem;
+  border-top: 1px solid var(--warm-line);
+}
+
+.planning-week__day:first-child {
+  border-top: 0;
+  padding-top: 0.2rem;
+}
+
+.planning-week__date {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  margin: 0 0 0.35rem;
+  color: var(--warm-ink-2);
+}
+
+.planning-week__date b {
+  color: var(--warm-ink);
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.planning-week__date span {
+  font-size: 0.75rem;
+}
+
+.planning-week__date em {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.planning-week__date small {
+  overflow: hidden;
+  color: #d64562;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 土は青、日と祝日は赤（月表示・ホームの「今週これから」と同じ色分け）。 */
+.planning-week__date.is-sat b,
+.planning-week__date.is-sat span {
+  color: #2f6fd0;
+}
+
+.planning-week__date.is-sun b,
+.planning-week__date.is-sun span {
+  color: #d64562;
+}
+
+/* 予定の無い日は1行に畳む（日付の横に「予定なし」）。7日のうち空いた日まで
+   同じ高さを取ると、予定のある日が下へ押し出されて一目で見渡せなくなる。 */
+.planning-week__day.is-quiet {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.planning-week__day.is-quiet .planning-week__date {
+  margin: 0;
+}
+
+.planning-week__none {
+  margin: 0;
+  color: var(--warm-ink-3);
+  font-size: 0.75rem;
+}
+
+.planning-week__items {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.planning-week__item {
+  --chip-color: #5e8bbc;
+  display: grid;
+  grid-template-columns: 5.6rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border-left: 3px solid var(--chip-color);
+  border-radius: 0.45rem;
+  background: color-mix(in srgb, var(--chip-color) 9%, #fff);
+  text-align: left;
+  transition: background-color 0.15s ease;
+}
+
+.planning-week__item:hover {
+  background: color-mix(in srgb, var(--chip-color) 16%, #fff);
+}
+
+.planning-week__item:focus-visible {
+  outline: 2px solid var(--teal-500);
+  outline-offset: 2px;
+}
+
+/* タスクは予定と同じ形のまま、塗らずに点線の枠にする（月表示の点と同じ橙）。 */
+.planning-week__item.is-task {
+  --chip-color: #cf9448;
+  border: 1px dashed color-mix(in srgb, var(--chip-color) 55%, transparent);
+  border-left: 3px solid var(--chip-color);
+  background: var(--warm-surface);
+}
+
+.planning-week__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--warm-ink-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.planning-week__copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.planning-week__copy strong {
+  overflow: hidden;
+  color: var(--warm-ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.planning-week__copy small {
+  overflow: hidden;
+  color: var(--warm-ink-3);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* カレンダーの上の行: 左に「誰の」の絞り込み、右に月/週の切り替え。 */
+.calendar-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.calendar-toolbar .person-filter {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* 2つは1本の溝に詰めず、別々のボタンにする（2026-09-06 の本人の好み）。
+   選んでいる方だけ黒く塗る（白＋青緑＋黒の決まり）。 */
+.calendar-mode {
+  display: flex;
+  flex: none;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+.calendar-mode__btn {
+  min-width: 2.9rem;
+  min-height: 2.1rem;
+  padding: 0.3rem 0.9rem;
+  border: 1px solid var(--warm-line-strong);
+  border-radius: 999px;
+  background: var(--warm-surface);
+  color: var(--warm-ink-2);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.calendar-mode__btn:hover {
+  border-color: var(--teal-400);
+  color: var(--teal-700);
+}
+
+.calendar-mode__btn.is-on {
+  border-color: var(--ink-black);
+  background: var(--ink-black);
+  color: #fff;
+}
+
+.calendar-mode__btn:focus-visible,
+.week-view button:focus-visible {
+  outline: 2px solid var(--teal-500);
+  outline-offset: 2px;
+}
+
+/* ---- 週表示（src/components/calendar/WeekView.tsx） ---- */
+
+.week-view {
+  /* 時刻の軸の幅と、1時間の高さ。8〜21時（ふだんの枠）で約570px — PC の画面で
+     下まで送らなくても1日ぶんがほぼ見渡せる高さにしてある。 */
+  --week-axis: 3.4rem;
+  --week-hour: 2.75rem;
+}
+
+.week-view__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+}
+
+.week-view__title {
+  margin: 0 0.4rem;
+  color: var(--warm-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-view__nav-btn {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border: 1px solid var(--warm-line-strong);
+  border-radius: 999px;
+  background: var(--warm-surface);
+  color: var(--warm-ink-2);
+}
+
+.week-view__nav-btn:hover {
+  border-color: var(--teal-400);
+  color: var(--teal-700);
+}
+
+.week-view__this-week {
+  min-height: 2.1rem;
+  margin-left: auto;
+  padding: 0.3rem 0.95rem;
+  border: 1px solid var(--warm-line-strong);
+  border-radius: 999px;
+  background: var(--warm-surface);
+  color: var(--teal-700);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.week-view__this-week:hover:not(:disabled) {
+  border-color: var(--teal-400);
+}
+
+/* 今週を見ている間は押しても変わらないので、押せない見た目にする。 */
+.week-view__this-week:disabled {
+  color: var(--warm-ink-3);
+  cursor: default;
+}
+
+.week-view__row {
+  display: grid;
+  grid-template-columns: var(--week-axis) repeat(7, minmax(0, 1fr));
+}
+
+.week-view__row--head {
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--warm-line);
+}
+
+.week-view__day-head {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.week-view__weekday {
+  color: var(--warm-ink-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.week-view__date {
+  display: grid;
+  width: 2.1rem;
+  height: 2.1rem;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--warm-ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-view__day-head.is-sat .week-view__weekday,
+.week-view__day-head.is-sat .week-view__date {
+  color: #2f6fd0;
+}
+
+.week-view__day-head.is-sun .week-view__weekday,
+.week-view__day-head.is-sun .week-view__date {
+  color: #d64562;
+}
+
+/* 今日は月表示と同じ黒い丸。 */
+.week-view__day-head.is-today .week-view__date {
+  background: var(--ink-black);
+  color: #fff;
+}
+
+.week-view__holiday {
+  max-width: 100%;
+  overflow: hidden;
+  padding-inline: 0.25rem;
+  color: #d64562;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 旅行の日程がある日の印（月表示の橙の点と同じ色）。 */
+.week-view__trip {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.6rem;
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: #ea580c;
+}
+
+.week-view__row--strip {
+  padding-block: 0.3rem;
+  border-bottom: 1px solid var(--warm-line-strong);
+}
+
+.week-view__axis-label {
+  align-self: start;
+  padding: 0.3rem 0.55rem 0 0;
+  color: var(--warm-ink-3);
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+.week-view__strip {
+  display: grid;
+  grid-column: 2 / -1;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 2px;
+}
+
+/* 帯の後ろに敷く、日ごとの「ここを押すと追加」。帯はこの上に重ねる。 */
+.week-view__strip-add {
+  border-left: 1px solid var(--warm-line);
+  background: transparent;
+}
+
+.week-view__strip-add:hover {
+  background: rgba(23, 161, 153, 0.06);
+}
+
+.week-view__bar {
+  --chip-color: #5e8bbc;
+  position: relative;
+  z-index: 1;
+  display: block;
+  min-width: 0;
+  margin-inline: 3px;
+  overflow: hidden;
+  padding: 0.16rem 0.45rem;
+  border-left: 3px solid var(--chip-color);
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--chip-color) 14%, #fff);
+  color: color-mix(in srgb, var(--chip-color) 82%, #1f2937);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.week-view__bar:hover {
+  background: color-mix(in srgb, var(--chip-color) 22%, #fff);
+}
+
+/* 前の週から・次の週へ続く帯は、その側の角を落とし、余白も無くして端まで伸ばす。 */
+.week-view__bar.is-cont-before {
+  margin-left: 0;
+  border-left-style: dashed;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.week-view__bar.is-cont-after {
+  margin-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.week-view__bar.is-fixed-cost {
+  border-left-style: dotted;
+  font-weight: 500;
+}
+
+.week-view__bar.is-task {
+  border: 1px dashed color-mix(in srgb, var(--chip-color) 55%, transparent);
+  border-left: 3px solid var(--chip-color);
+  background: var(--warm-surface);
+}
+
+.week-view__bar svg {
+  display: inline;
+  margin-right: 0.25rem;
+  vertical-align: -1px;
+}
+
+.week-view__bar small {
+  margin-right: 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-view__axis,
+.week-view__day {
+  position: relative;
+  height: calc(var(--week-hour) * var(--week-hours));
+}
+
+.week-view__axis span {
+  position: absolute;
+  right: 0.55rem;
+  color: var(--warm-ink-3);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-50%);
+}
+
+/* いちばん上の時刻だけは、線の上にはみ出すと帯と重なるので線の下に置く。 */
+.week-view__axis span:first-child {
+  transform: none;
+}
+
+.week-view__day {
+  border-left: 1px solid var(--warm-line);
+  background-image: linear-gradient(to bottom, var(--warm-line) 1px, transparent 1px);
+  background-size: 100% var(--week-hour);
+}
+
+.week-view__day.is-today {
+  background-color: rgba(23, 161, 153, 0.04);
+}
+
+/* 空いている30分。押せる所だと分かるよう、指を乗せた時だけ「＋ 14:30」を出す。 */
+.week-view__slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  height: calc(var(--week-hour) / 2);
+  align-items: flex-start;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.3rem;
+  background: transparent;
+  color: transparent;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-view__slot:hover,
+.week-view__slot:focus-visible {
+  background: rgba(23, 161, 153, 0.08);
+  color: var(--teal-700);
+}
+
+.week-view__event {
+  --chip-color: #5e8bbc;
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  min-height: 1.4rem;
+  flex-direction: column;
+  gap: 0.05rem;
+  overflow: hidden;
+  padding: 0.2rem 0.4rem;
+  border-left: 3px solid var(--chip-color);
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--chip-color) 16%, #fff);
+  /* 重なって横に並んだ箱どうしの境目を、白い細線で分ける。 */
+  box-shadow: 0 0 0 1px var(--warm-surface);
+  color: color-mix(in srgb, var(--chip-color) 82%, #1f2937);
+  text-align: left;
+}
+
+.week-view__event:hover {
+  z-index: 2;
+  background: color-mix(in srgb, var(--chip-color) 24%, #fff);
+}
+
+/* 名前はふだん1行（切れた分は…）。1時間の箱は名前2行＋時刻が入る高さが無く、
+   2行目が時刻に食われて半端に切れていたため。1時間半以上の箱だけ2行まで出す。 */
+.week-view__event strong {
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.week-view__event.is-tall strong {
+  display: -webkit-box;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.week-view__event small {
+  overflow: hidden;
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 45分以下の予定は高さが1行ぶんしかないので、名前と時刻を横に並べる。 */
+.week-view__event.is-short {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding-block: 0.1rem;
+}
+
+/* 幅が足りない時は、時刻の方を先に縮める（名前の方が何の予定かを言うため）。 */
+.week-view__event.is-short strong {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.week-view__event.is-short small {
+  flex: 0 10 auto;
+  min-width: 0;
+}
+
+/* 今の時刻。今日の列にだけ引く。 */
+.week-view__now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 3;
+  height: 2px;
+  background: var(--teal-500);
+  pointer-events: none;
+}
+
+.week-view__now::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--teal-500);
+}
+
+/* ---------------------------------------------------------------------------
    8. メモ・リスト
 
    3種類（メモ／チェックリスト／買い物）を色の違うカードで見分けていたが、

@@ -10,6 +10,8 @@ import { TaskItem } from "../tasks/TaskItem";
 import { toggleTaskCompletion, deleteTaskCascade, postponeTaskToTomorrow } from "../tasks/TaskList";
 import { Card } from "../ui/Card";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
+import { WeekAheadPanel } from "./WeekAheadPanel";
+import { useIsDesktop } from "../../hooks/useIsDesktop";
 
 interface Props {
   events: CalendarEvent[];
@@ -42,10 +44,15 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
   const nothingToday =
     todayEvents.length === 0 && dueTodayTasks.length === 0 && todayTripAgenda.length === 0 && overdueTasks.length === 0;
 
-  return (
+  // PC幅では、今日の2枚の下が空いていた(UI/UX 調査メモ P-3)。左に今日(2枚を縦に積む)、
+  // 右に「この先1週間」の2列にする。スマホは今までどおり1列で、右の列は出さない
+  // (useIsDesktop で出し分けるので、スマホでは1週間ぶんの集計そのものを走らせない)。
+  const isDesktop = useIsDesktop();
+
+  const todayColumn = (
     <div className={`planning-today space-y-5 ${nothingToday ? "is-empty-fill" : ""}`}>
-      <div className="planning-today__grid grid gap-3 lg:grid-cols-12">
-        <Card className="planning-timeline-module flex min-h-[250px] flex-col lg:col-span-7">
+      <div className="planning-today__grid grid gap-3">
+        <Card className="planning-timeline-module flex min-h-[250px] flex-col">
           <div className="planning-module-heading">
             <div><p>{format(now, "M月d日(E)", { locale: ja })}</p></div>
             <b>予定 {todayEvents.length}件</b>
@@ -68,7 +75,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
           </div>
         </Card>
 
-        <Card className="planning-task-module flex min-h-[250px] flex-col lg:col-span-5">
+        <Card className="planning-task-module flex min-h-[250px] flex-col">
           <div className="planning-module-heading"><div><p>今日のタスク</p></div><b>{completedTodayCount} / {allDueTodayTasks.length}</b></div>
           <div className="planning-task-overview">
             <div className="planning-progress-ring" style={{ "--planning-progress": `${taskProgress * 3.6}deg` } as CSSProperties}><span>{taskProgress}<small>%</small></span></div>
@@ -101,6 +108,14 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
           <div className="space-y-2">{overdueTasks.map((task) => <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskCascade} onAddSubtask={onAddSubtask} onPostpone={postponeTaskToTomorrow} />)}</div>
         </section>
       )}
+    </div>
+  );
+
+  if (!isDesktop) return todayColumn;
+  return (
+    <div className="planning-today-split">
+      {todayColumn}
+      <WeekAheadPanel today={today} events={events} tasks={tasks} onEditEvent={onEditEvent} onEditTask={onEditTask} />
     </div>
   );
 }

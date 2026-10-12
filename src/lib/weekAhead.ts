@@ -1,5 +1,6 @@
 /**
- * ホーム（PC幅）の「今週これから」— 明日から数日ぶんの予定を、日付ごとにまとめる。
+ * ホーム（PC幅）の「今週これから」と、予定・タスクの「今日」（PC幅）の「この先1週間」—
+ * 明日から数日ぶんの予定を、日付ごとにまとめる。
  *
  * ホームの「次の予定」は今日ぶんしか出さないので、PC幅では画面の下半分が空いていた
  * （2026-09-07、本人の指示「TOPページのPC時が寂しいから、情報量多くしたい」）。
@@ -52,4 +53,28 @@ export function groupWeekAhead<T extends TimedSpan>(items: T[], dates: string[])
 /** 「今週これから」に1件でも出るものがあるか（0件ならカードごと出さない）。 */
 export function hasWeekAheadItems<T>(days: WeekAheadDay<T>[]): boolean {
   return days.some((day) => day.items.length > 0);
+}
+
+/** 期限の日ごとにまとめる時に見る、タスクの項目だけ。 */
+interface DueTaskLike {
+  dueDate?: string;
+  dueTime?: string;
+  completed: boolean;
+  parentTaskId?: string;
+}
+
+/**
+ * 終わっていないタスクを、期限の日ごとにまとめる（予定・タスクの「今日」の「この先1週間」）。
+ *
+ * サブタスクは出さない — 親のタスクと並べると同じ用事が2回出て見え、件数も膨らむため
+ * （「今日のタスク」も親だけを出している）。並びは予定と同じで、時刻の無いものが先、
+ * あとは期限の時刻順。
+ */
+export function groupDueTasks<T extends DueTaskLike>(tasks: T[], dates: string[]): WeekAheadDay<T>[] {
+  return dates.map((date) => ({
+    date,
+    items: tasks
+      .filter((task) => !task.completed && !task.parentTaskId && task.dueDate === date)
+      .sort((a, b) => (a.dueTime ?? "").localeCompare(b.dueTime ?? "")),
+  }));
 }

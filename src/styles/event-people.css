@@ -293,8 +293,33 @@
   font-weight: 500;
 }
 
+/* PC 幅。マスは大きいのに帯の字が約11pxのままで、「面談」「面接」が読みにくかった
+   （UI/UX 調査メモ P-5）。字を約12.5pxに上げ、マスの幅がある分だけ左寄せにする
+   （中央寄せは、字が切れた時にどこから読めばいいか分かりにくい）。
+   件数の上限は今までどおり設けない（本人の指示）。2件までは行の高さが変わらないよう、
+   マスの下限の高さを帯2本ぶんに合わせておく（3件目からは今までどおりマスが伸びる）。スマホの見た目（TimeTree に合わせた
+   寸法、pages-warm.css の 639px 以下）には触れない。 */
 @media (min-width: 1024px) {
   .spatial-calendar__chip {
+    padding: 0.12rem 0.35rem;
+    border-left-width: 3px;
+    border-radius: 0.25rem;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    text-align: left;
+  }
+
+  .spatial-calendar__chips {
+    gap: 2px;
+    margin-top: 2px;
+  }
+
+  .spatial-calendar__holiday {
     font-size: 0.68rem;
+  }
+
+  .calendar-workspace__month .spatial-calendar__cell--chips {
+    min-height: 6.4rem;
+    padding-inline: 0.25rem;
   }
 }
