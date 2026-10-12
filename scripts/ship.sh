@@ -105,20 +105,16 @@ while [ "$SECONDS" -lt "$DEADLINE" ]; do
       REDEPLOYED=1
     fi
   fi
-  sleep 8
+  sleep 4
 done
 [ "$LIVE" -eq 1 ] && echo "✓ Vercel に出ました: ${SHA:0:7}" || echo "✗ Vercel がまだ ${SHA:0:7} になっていません(20分待ちました)。Vercel の画面を見てください"
 
-step "6/6 Netlify を見る"
-NETLIFY="待っている"
-for _ in $(seq 1 12); do
-  OUT="$(cd "$MAIN_DIR" && npx netlify api listSiteDeploys --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"per_page\":1}" 2>/dev/null || true)"
-  if echo "$OUT" | grep -q "${SHA:0:7}"; then
-    STATE="$(echo "$OUT" | grep -m1 '"state"' | sed 's/.*"state": "\(.*\)".*/\1/')"
-    NETLIFY="$STATE"; [ "$STATE" = "ready" ] || [ "$STATE" = "error" ] && break
-  fi
-  sleep 8
-done
+step "6/6 Netlify を見る(待たない。ユーザーが使うのは Vercel の方で、Netlify は定期実行の担当)"
+NETLIFY="確認中(ビルドが終わるまで待たない)"
+OUT="$(cd "$MAIN_DIR" && npx netlify api listSiteDeploys --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"per_page\":1}" 2>/dev/null || true)"
+if echo "$OUT" | grep -q "${SHA:0:7}"; then
+  NETLIFY="$(echo "$OUT" | grep -m1 '"state"' | sed 's/.*"state": "\(.*\)".*/\1/')"
+fi
 echo "Netlify: $NETLIFY"
 
 [ -z "$DONE_ID" ] || node "$MAIN_DIR/scripts/feedback-inbox.mjs" --done "$DONE_ID"

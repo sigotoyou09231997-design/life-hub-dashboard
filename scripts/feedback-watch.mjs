@@ -19,7 +19,7 @@ import { saveFeedbackImages } from "./feedbackImages.mjs";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SEEN_FILE = process.env.FEEDBACK_SEEN_FILE ?? join(ROOT, ".feedback-seen");
 /** 受信箱を見に行く間隔。10秒ごと(2026-10-12、本人「90秒からもっと早く」。60秒ごと+90秒待ちだと最大2分半かかっていた)。 */
-const INTERVAL_MS = Number(process.env.FEEDBACK_POLL_MS ?? 10_000);
+const INTERVAL_MS = Number(process.env.FEEDBACK_POLL_MS ?? 5_000);
 /** 新しい依頼を見つけてから、続けて届く分を待つ時間(ミリ秒)。 */
 const COLLECT_MS = Number(process.env.FEEDBACK_COLLECT_MS ?? 15_000);
 /** 1件の文章を出す長さの上限。長すぎる文章で会話が埋まらないように(あふれた分は切る)。 */
