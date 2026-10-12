@@ -32,6 +32,7 @@ import { openAddChooser, openQuickAdd } from "../components/layout/AddChooser";
 import { EmptyIllustration } from "../components/ui/EmptyIllustration";
 import { InlineExpenseEntry } from "../components/home/InlineExpenseEntry";
 import { SetupChecklist } from "../components/home/SetupChecklist";
+import { TripInviteBanner } from "../components/trips/TripInviteBanner";
 
 const EVENT_PREVIEW_LIMIT = 3;
 const TASK_PREVIEW_LIMIT = 3;
@@ -299,6 +300,9 @@ export default function TopPage() {
           )}
         </div>
       )}
+
+      {/* 別のアカウントから届いた、旅行への招待(supabase/sql/034)。無い間は何も出ない。 */}
+      <TripInviteBanner />
 
       {/* 始め方のチェックリスト(第5弾 A-4)。済んだかは実データから決め、全部済むと自動で消える。 */}
       <SetupChecklist />

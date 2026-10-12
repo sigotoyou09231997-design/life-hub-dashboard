@@ -60,3 +60,9 @@ export async function syncNow(): Promise<string> {
   const module = await loadSyncModule();
   return module.syncNow();
 }
+
+/** 一緒に編集している旅行の参加状況を確かめ直す(参加した直後・抜けた直後に、すぐ反映するため)。 */
+export async function refreshSharedTrips(): Promise<void> {
+  const module = await loadSyncModule();
+  return module.refreshSharedTrips();
+}

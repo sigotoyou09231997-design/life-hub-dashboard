@@ -8,6 +8,7 @@ import { getDeviceId } from "./deviceId";
 import {
   SHARED_TRIP_TABLES,
   TRIP_CHILD_TABLES,
+  notifyTripMembersChanged,
   ownerIdForPush,
   planSharedTrips,
   readSeenSharedTrips,
@@ -327,6 +328,8 @@ export function refreshSharedTrips(): Promise<void> {
 }
 
 function scheduleSharedRefresh(): void {
+  // 招待された側の「招待が届きました」、持ち主側の「参加しました」を、画面にすぐ出す。
+  notifyTripMembersChanged();
   clearTimeout(sharedRefreshTimer);
   sharedRefreshTimer = setTimeout(() => void refreshSharedTrips(), 300);
 }

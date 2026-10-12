@@ -104,7 +104,7 @@
 /* 中身を写真とベールの上に出す。削除ボタンだけは除く — このセレクタは
    .trip-remove より詳細度が高いので、含めると position:absolute を打ち消して
    ボタンが本文の流れに落ち、「次の旅行」バッジの上に重なって出てしまう。 */
-.trip-lead > *:not(.trip-lead__photo):not(.trip-lead__veil):not(.trip-remove) {
+.trip-lead > *:not(.trip-lead__photo):not(.trip-lead__veil):not(.trip-remove):not(.trip-shared-chip) {
   position: relative;
   z-index: 1;
 }
@@ -269,7 +269,7 @@
 }
 
 /* .trip-lead 側と同じ理由で、削除ボタンは除く。 */
-.trip-plan > *:not(.trip-plan__photo):not(.trip-plan__veil):not(.trip-remove) {
+.trip-plan > *:not(.trip-plan__photo):not(.trip-plan__veil):not(.trip-remove):not(.trip-shared-chip) {
   position: relative;
   z-index: 1;
 }
@@ -423,6 +423,38 @@
 /* 触れて確かめられない端末では隠しておく意味が無いので、常時見せる。 */
 @media (hover: none) {
   .trip-remove { opacity: 1; }
+}
+
+/* --- 共有された旅行の印 ---------------------------------------------------
+   招かれて一緒に編集している旅行には、削除ボタンの代わりに(同じ場所に)出す。
+   消せない旅行なので触れない印にして、常に見せる。 */
+.trip-shared-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--r-pill);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.trip-shared-chip--overlay {
+  position: absolute;
+  top: 0.7rem;
+  right: 0.7rem;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(12, 22, 38, 0.52);
+  color: #fff;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.trip-shared-chip--inline {
+  border: 1px solid var(--warm-line, rgba(0, 0, 0, 0.12));
+  color: var(--warm-ink-2, #3d4448);
 }
 
 .trip-archive__remove {

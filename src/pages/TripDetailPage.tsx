@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ChevronLeft, MapPinned, NotebookPen, Pencil, Plus, Replace, Share2, Sparkles, Trash2 } from "lucide-react";
+import { ChevronLeft, MapPinned, NotebookPen, Pencil, Plus, Replace, Share2, Sparkles, Trash2, Users } from "lucide-react";
 import { db } from "../db/schema";
 import type {
   TripScheduleItem,
@@ -37,6 +37,8 @@ import { ADD_METHOD_OPTIONS, type AddMethod } from "../components/plan/addMethod
 import { Tabs } from "../components/ui/Tabs";
 import { TripDocumentForm } from "../components/trips/TripDocumentForm";
 import { TripShareSheet } from "../components/trips/TripShareSheet";
+import { TripCollabSheet } from "../components/trips/TripCollabSheet";
+import { useIsSharedWithMe } from "../hooks/useTripCollab";
 import { TripMyMapsSheet } from "../components/trips/TripMyMapsSheet";
 import { TripLocationRemapSheet } from "../components/trips/TripLocationRemapSheet";
 import { TripDayRoute } from "../components/trips/TripDayRoute";
@@ -86,6 +88,10 @@ export default function TripDetailPage() {
   const [editingTrip, setEditingTrip] = useState(false);
   /** 共有の設定シートを開いているか(src/components/trips/TripShareSheet.tsx)。 */
   const [sharingTrip, setSharingTrip] = useState(false);
+  /** 「一緒に編集」(ほかのアカウントを招く／招かれて参加している)のシートを開いているか(src/components/trips/TripCollabSheet.tsx)。 */
+  const [collabOpen, setCollabOpen] = useState(false);
+  /** 招かれて参加している旅行か。そうなら、削除と共有リンクは持ち主だけ(参加者は「抜ける」だけ)。 */
+  const sharedWithMe = useIsSharedWithMe(tripId);
   /** Googleマイマップ用のCSVを書き出すシートを開いているか(src/components/trips/TripMyMapsSheet.tsx)。 */
   const [myMapsOpen, setMyMapsOpen] = useState(false);
   /** 日程の場所を表でまとめて書き換えるシートを開いているか(src/components/trips/TripLocationRemapSheet.tsx)。 */
@@ -276,7 +282,7 @@ export default function TripDetailPage() {
   }
 
   async function handleDelete() {
-    if (!trip?.id) return;
+    if (!trip?.id || sharedWithMe) return;
     const ok = await confirm({
       title: `「${trip.name}」を削除しますか?`,
       message: "関連するスケジュール・費用・持ち物・行きたい場所・日記もすべて削除されます。",
@@ -300,15 +306,24 @@ export default function TripDetailPage() {
             <ChevronLeft size={21} />
           </Link>
           <div className="trip-detail-hero__actions">
-            <button type="button" onClick={() => setSharingTrip(true)} aria-label="しおりを共有" className="trip-hero-button">
-              <Share2 size={17} />
+            {/* 一緒に編集(別のアカウントを招く／参加者を見る・抜ける)。ボタンは1つずつ分ける。 */}
+            <button type="button" onClick={() => setCollabOpen(true)} aria-label="一緒に編集" className="trip-hero-button">
+              <Users size={17} />
             </button>
+            {/* しおりの共有リンクと削除は持ち主だけ(招かれて参加している旅行では出さない)。 */}
+            {!sharedWithMe && (
+              <button type="button" onClick={() => setSharingTrip(true)} aria-label="しおりを共有" className="trip-hero-button">
+                <Share2 size={17} />
+              </button>
+            )}
             <button type="button" onClick={() => setEditingTrip(true)} aria-label="旅行を編集" className="trip-hero-button">
               <Pencil size={17} />
             </button>
-            <button type="button" onClick={handleDelete} aria-label="旅行を削除" className="trip-hero-button trip-hero-button--danger">
-              <Trash2 size={17} />
-            </button>
+            {!sharedWithMe && (
+              <button type="button" onClick={handleDelete} aria-label="旅行を削除" className="trip-hero-button trip-hero-button--danger">
+                <Trash2 size={17} />
+              </button>
+            )}
           </div>
         </div>
         <div className="trip-detail-hero__content">
@@ -600,6 +615,18 @@ export default function TripDetailPage() {
 
       <Sheet open={sharingTrip} onClose={() => setSharingTrip(false)} title="しおりを共有">
         {sharingTrip && <TripShareSheet tripId={tripId} tripName={trip.name} onClose={() => setSharingTrip(false)} />}
+      </Sheet>
+
+      <Sheet open={collabOpen} onClose={() => setCollabOpen(false)} title="一緒に編集">
+        {collabOpen && (
+          <TripCollabSheet
+            tripId={tripId}
+            tripName={trip.name}
+            role={sharedWithMe ? "member" : "owner"}
+            onClose={() => setCollabOpen(false)}
+            onLeft={() => navigate("/trips")}
+          />
+        )}
       </Sheet>
 
       <Sheet open={myMapsOpen} onClose={() => setMyMapsOpen(false)} title="Googleマイマップに入れる">

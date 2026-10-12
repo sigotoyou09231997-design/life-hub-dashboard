@@ -57,6 +57,20 @@ export function readSharedOwners(): Map<string, string> {
   return out;
 }
 
+let ownersSnapshot: { raw: string | null; value: ReadonlyMap<string, string> } | null = null;
+
+/** 画面用。記録が変わっていない間は同じ Map を返す(React の useSyncExternalStore は、毎回違う値だと再描画を繰り返す)。 */
+export function getSharedOwnersSnapshot(): ReadonlyMap<string, string> {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(scopedKey(OWNERS_KEY));
+  } catch {
+    raw = null;
+  }
+  if (!ownersSnapshot || ownersSnapshot.raw !== raw) ownersSnapshot = { raw, value: readSharedOwners() };
+  return ownersSnapshot.value;
+}
+
 export function writeSharedOwners(owners: ReadonlyMap<string, string>): void {
   writeJson(OWNERS_KEY, Object.fromEntries(owners));
   for (const listener of listeners) listener();
@@ -73,6 +87,19 @@ export function writeSeenSharedTrips(seen: ReadonlySet<string>): void {
 }
 
 const listeners = new Set<() => void>();
+const memberListeners = new Set<() => void>();
+
+/** 招待・参加の状況が変わったかもしれない時(リアルタイムの通知・自分の操作のあと)に呼ばれる。画面が一覧を取り直す。 */
+export function subscribeTripMembersChanged(listener: () => void): () => void {
+  memberListeners.add(listener);
+  return () => {
+    memberListeners.delete(listener);
+  };
+}
+
+export function notifyTripMembersChanged(): void {
+  for (const listener of memberListeners) listener();
+}
 
 /** 共有された旅行の一覧が変わった時に呼ばれる(画面の「共有」の印を更新する)。 */
 export function subscribeSharedOwners(listener: () => void): () => void {
