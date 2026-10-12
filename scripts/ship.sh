@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 修正を本番に出すまでを1コマンドで行う(作業場所の中で、変更をコミットしたあとに)。
 #
-#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--shots] [--keep]
+#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--shots] [--keep] [--dry-run]
 #
 # やること(todoアプリ/CLAUDE.md の「本番反映」と同じ条件。1つでも落ちたら main に入れずに止まる):
 #   1. 手元の main が公開の main と同じか確かめる(違えば止まる)。ブランチが main に追いついていなければ main を取り込む
@@ -15,12 +15,13 @@ set -euo pipefail
 
 MSG="${1:?何を直したか(統合のメッセージ)を渡してください}"
 shift || true
-DONE_ID=""; SHOTS=0; KEEP=0
+DONE_ID=""; SHOTS=0; KEEP=0; DRY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --done) DONE_ID="${2:?--done の後に要望のid}"; shift 2 ;;
     --shots) SHOTS=1; shift ;;
     --keep) KEEP=1; shift ;;
+    --dry-run) DRY=1; shift ;;
     *) echo "知らない指定です: $1" >&2; exit 2 ;;
   esac
 done
@@ -56,6 +57,7 @@ grep -E "^ +(Test Files|Tests) |^ FAIL" "$LOG_DIR/test.log" || true
 if [ "$TSC_OK" -ne 0 ]; then head -30 "$LOG_DIR/tsc.log"; die "型チェックが落ちました。main には入れていません"; fi
 if [ "$TEST_OK" -ne 0 ]; then grep -E "FAIL|×|AssertionError" "$LOG_DIR/test.log" | head -20; die "テストが落ちました(全文: $LOG_DIR/test.log)。main には入れていません"; fi
 rm -rf "$LOG_DIR"
+[ "$DRY" -eq 0 ] || { echo "(--dry-run) 型チェックとテストが通ったので、ここで止めます。main には入れていません"; exit 0; }
 
 step "3/6 プッシュして main へ統合"
 git push -q origin "$BRANCH" 2>&1 | grep -v '^remote:' || true
