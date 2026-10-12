@@ -24,6 +24,9 @@ vi.mock("./supabaseData", () => ({
 vi.mock("../db/schema", () => ({ db: { syncQueue: mocks.syncQueue } }));
 vi.mock("./deviceId", () => ({ getDeviceId: () => "device-1" }));
 
+// 起動のたびに「一緒に編集している旅行」を問い合わせる(trip_members)。これらのテストの対象ではないので、空で返す。
+const noMemberships = vi.fn(() => ({ eq: vi.fn(async () => ({ data: [], error: null })) }));
+
 type HookCallback = (...args: unknown[]) => unknown;
 function table() {
   const hooks = new Map<string, HookCallback>();
@@ -47,39 +50,41 @@ describe("sync session lifecycle", () => {
   });
 
   it("starts PostgREST reconciliation and Realtime after login", async () => {
-    const query = { select: vi.fn(), gte: vi.fn() };
+    const query = { select: vi.fn(), gte: vi.fn(), eq: noMemberships };
     query.select.mockReturnValue(query);
     query.gte.mockResolvedValue({ data: [], error: null });
     mocks.from.mockReturnValue(query);
     const sync = await import("./sync");
     sync.registerSyncedTable(table() as never, "tasks");
     await sync.startSession("user-1", "token-1");
-    await vi.waitFor(() => expect(mocks.channel.subscribe).toHaveBeenCalledOnce());
+    // tasks の購読と、「一緒に編集している旅行」の招待・参加を受け取る購読(trip_members。034 が流れていれば)。
+    await vi.waitFor(() => expect(mocks.channel.subscribe).toHaveBeenCalledTimes(2));
     expect(mocks.from).toHaveBeenCalledWith("tasks");
     expect(mocks.channel.on).toHaveBeenCalledWith(
       "postgres_changes",
       expect.objectContaining({ table: "tasks", filter: "user_id=eq.user-1" }),
       expect.any(Function),
     );
-    expect(mocks.channel.subscribe).toHaveBeenCalledOnce();
+    expect(mocks.channel.on).toHaveBeenCalledWith("postgres_changes", expect.objectContaining({ table: "trip_members" }), expect.any(Function));
   });
 
   it("removes every Realtime subscription on logout", async () => {
-    const query = { select: vi.fn(), gte: vi.fn() };
+    const query = { select: vi.fn(), gte: vi.fn(), eq: noMemberships };
     query.select.mockReturnValue(query);
     query.gte.mockResolvedValue({ data: [], error: null });
     mocks.from.mockReturnValue(query);
     const sync = await import("./sync");
     sync.registerSyncedTable(table() as never, "tasks");
     await sync.startSession("user-1", "token-1");
-    await vi.waitFor(() => expect(mocks.channel.subscribe).toHaveBeenCalledOnce());
+    await vi.waitFor(() => expect(mocks.channel.subscribe).toHaveBeenCalledTimes(2));
 
     sync.stopSession();
+    expect(mocks.removeChannel).toHaveBeenCalledTimes(2);
     expect(mocks.removeChannel).toHaveBeenCalledWith(mocks.channel);
   });
 
   it("reports a PostgREST failure from manual sync without losing the session", async () => {
-    const query = { select: vi.fn(), gte: vi.fn() };
+    const query = { select: vi.fn(), gte: vi.fn(), eq: noMemberships };
     query.select.mockReturnValue(query);
     query.gte.mockResolvedValue({ data: null, error: { message: "network failed" } });
     mocks.from.mockReturnValue(query);
@@ -98,7 +103,7 @@ describe("sync session lifecycle", () => {
         ? { error: { code: "42703", message: "column calendar_events.repeat does not exist" } }
         : { error: null },
     );
-    const query = { select: vi.fn(), gte: vi.fn(), upsert };
+    const query = { select: vi.fn(), gte: vi.fn(), eq: noMemberships, upsert };
     query.select.mockReturnValue(query);
     query.gte.mockResolvedValue({ data: [], error: null });
     mocks.from.mockReturnValue(query);
@@ -126,7 +131,7 @@ describe("sync session lifecycle", () => {
 
   it("stops at a network failure without blaming the row", async () => {
     const upsert = vi.fn(async () => ({ error: { code: "", message: "TypeError: Failed to fetch" } }));
-    const query = { select: vi.fn(), gte: vi.fn(), upsert };
+    const query = { select: vi.fn(), gte: vi.fn(), eq: noMemberships, upsert };
     query.select.mockReturnValue(query);
     query.gte.mockResolvedValue({ data: [], error: null });
     mocks.from.mockReturnValue(query);
@@ -149,7 +154,7 @@ describe("sync session lifecycle", () => {
     // 端末の識別子(deviceId)は ensureDataOwner の空っぽ化でも消えない(src/lib/dataOwner.ts)。
     // 「自分の端末発だから、もう持っているはず」という前提が崩れる場面(2026-09-28、
     // 実際にこれでカレンダーやメモが復旧しきらなかった)。
-    const query = { select: vi.fn(), gte: vi.fn() };
+    const query = { select: vi.fn(), gte: vi.fn(), eq: noMemberships };
     query.select.mockReturnValue(query);
     query.gte.mockResolvedValue({
       data: [{ id: "row-1", title: "諸々の申し込み", device_id: "device-1", updated_at: "2026-08-30T00:00:00.000Z" }],
@@ -166,7 +171,7 @@ describe("sync session lifecycle", () => {
   });
 
   it("自分の端末発の行で、ローカルに既にあれば元通り無視する", async () => {
-    const query = { select: vi.fn(), gte: vi.fn() };
+    const query = { select: vi.fn(), gte: vi.fn(), eq: noMemberships };
     query.select.mockReturnValue(query);
     query.gte.mockResolvedValue({
       data: [{ id: "row-1", title: "サーバー側の値", device_id: "device-1", updated_at: "2026-08-30T00:00:00.000Z" }],
