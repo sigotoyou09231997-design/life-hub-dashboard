@@ -140,6 +140,51 @@ describe("メールから予定を作る画面", () => {
     expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ tripId: "trip-1", title: "羽田→福岡" })]);
   });
 
+  it("入れ先の旅行はプルダウンではなくボタンで選ぶ", async () => {
+    // iPhone ではシートの中のプルダウンの選択肢が欄から離れた所に出る(2026-10-12)ので、ボタンにしてある。
+    mocks.trips = [
+      { id: "trip-1", name: "福岡旅行", startDate: "2026-09-11", endDate: "2026-09-15" },
+      { id: "trip-2", name: "札幌旅行", startDate: "2026-11-01", endDate: "2026-11-03" },
+    ];
+    const user = userEvent.setup();
+    renderSheet();
+    // 読み取った日付(9/12)を含む旅行が、最初から選ばれている。
+    const fukuoka = await screen.findByRole("button", { name: /^福岡旅行（9\/11/ });
+    await waitFor(() => expect(fukuoka.getAttribute("aria-pressed")).toBe("true"));
+    expect(screen.queryByRole("combobox", { name: "どの旅行に入れる" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /^札幌旅行（11\/1/ }));
+    await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+    expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ tripId: "trip-2", title: "羽田→福岡" })]);
+  });
+
+  it("旅行が多い時は数件だけ出し、残りは「ほかの旅行も出す」で出す", async () => {
+    mocks.trips = [
+      { id: "trip-1", name: "福岡旅行", startDate: "2026-09-11", endDate: "2026-09-15" },
+      ...[1, 2, 3, 4, 5].map((n) => ({
+        id: `later-${n}`,
+        name: `旅行${n}`,
+        startDate: `2027-0${n}-01`,
+        endDate: `2027-0${n}-02`,
+      })),
+    ];
+    const user = userEvent.setup();
+    renderSheet();
+    // 新しい順の4件と、日付から選ばれた福岡旅行(いちばん古い)だけ出る。
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /^福岡旅行（9\/11/ }).getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(screen.getByRole("button", { name: /^旅行5（/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^旅行2（/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^旅行1（/ })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "ほかの旅行も出す（1件）" }));
+    await user.click(screen.getByRole("button", { name: /^旅行1（/ }));
+    expect(screen.queryByRole("button", { name: /ほかの旅行も出す/ })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "1件を入れる" }));
+    expect(mocks.saved.tripSchedule).toEqual([expect.objectContaining({ tripId: "later-1" })]);
+  });
+
   it("予定に入れる", async () => {
     const user = userEvent.setup();
     renderSheet();

@@ -183,6 +183,26 @@ export function sortTripsForPicker(trips: Trip[]): Trip[] {
   return [...trips].sort((a, b) => b.startDate.localeCompare(a.startDate));
 }
 
+/** 入れ先の旅行をボタンで並べる時に、最初から出しておく数(新しい順の先頭から)。 */
+export const TRIP_PICKER_VISIBLE = 4;
+
+/** 入れ先の旅行のうち、最初からボタンで出しておくもの。
+ *
+ * 2026-10-12 にプルダウンをやめてボタンにした(iPhone ではシートの中のプルダウンを押すとキーボードが閉じて
+ * シートが動き、選択肢が欄から離れた所に出て、押したつもりが外れるため)。ただ旅行は消さない限り増えていく
+ * (終わった旅行も残る)ので、全部をボタンにするとシートが旅行の一覧で埋まる。そこで新しい順の先頭から
+ * `limit` 件と、いま選んでいる旅行(日付から当たりを付けた古い旅行のことがある)だけを出し、残りは
+ * 「ほかの旅行も出す」で出す。並びは `trips` のまま(sortTripsForPicker の新しい順)で、選んでいる旅行も
+ * その位置に出す。隠すのが1件だけなら全部出す — その1件のために押させる方が手間なため。 */
+export function visibleTripsForPicker(
+  trips: Trip[],
+  selectedId: string | undefined,
+  limit: number = TRIP_PICKER_VISIBLE,
+): Trip[] {
+  if (trips.length <= limit + 1) return trips;
+  return trips.filter((trip, index) => index < limit || (selectedId !== undefined && trip.id === selectedId));
+}
+
 /** 読み取った内容をどこへ入れるか。保存の作り分けと、入れ終わった知らせの文言に使う。 */
 export type PlanDestination = "trip" | "route" | "event" | "task";
 
