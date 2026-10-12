@@ -27,6 +27,8 @@ const UNTIL_APPLY_MS = 1700;
 beforeEach(() => {
   vi.useFakeTimers();
   applyUpdate.mockClear();
+  // 更新を適用した時刻の控え(localStorage)が、前のテストから残らないように。
+  localStorage.clear();
 });
 
 afterEach(() => {
@@ -180,4 +182,50 @@ describe("UpdateBanner", () => {
     });
     expect(applyUpdate).toHaveBeenCalledTimes(1);
   });
+
+  it("更新を適用して読み込み直した直後に、もう次の版が見つかっても、帯は出さずに待つ(二重に出さない)", async () => {
+    localStorage.clear();
+    // 1回目: 開いてすぐに更新が見つかり、帯を出して切り替える(適用した時刻が残る)
+    const first = await freshBanner();
+    const view = render(<first.UpdateBanner />);
+    await act(async () => {
+      first.pwaUpdate.markUpdateAvailable();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(UNTIL_APPLY_MS);
+    });
+    expect(applyUpdate).toHaveBeenCalledTimes(1);
+    view.unmount();
+
+    // 読み込み直した直後(2分以内)。続けて出した次の版が見つかっても、帯は出さない。
+    applyUpdate.mockClear();
+    const second = await freshBanner();
+    render(<second.UpdateBanner />);
+    await act(async () => {
+      second.pwaUpdate.markUpdateAvailable();
+    });
+    expect(screen.queryByText("アップデートが来ています")).toBeNull();
+    await act(async () => {
+      vi.advanceTimersByTime(UNTIL_APPLY_MS);
+    });
+    expect(applyUpdate).not.toHaveBeenCalled();
+
+    // 画面を離れた時に、黙って切り替える。
+    await act(async () => {
+      setVisibility("hidden");
+    });
+    expect(applyUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("更新を適用してから2分以上たっていれば、開いてすぐの更新は、これまでどおりその場で帯を出す", async () => {
+    localStorage.clear();
+    localStorage.setItem("lifeHubUpdateAppliedAt", String(Date.now() - 3 * 60_000));
+    const { pwaUpdate, UpdateBanner } = await freshBanner();
+    render(<UpdateBanner />);
+    await act(async () => {
+      pwaUpdate.markUpdateAvailable();
+    });
+    expect(screen.getByText("アップデートが来ています")).toBeTruthy();
+  });
 });
+
