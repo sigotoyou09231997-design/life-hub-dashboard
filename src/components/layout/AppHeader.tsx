@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Bell, Home, Search, Settings as SettingsIcon } from "lucide-react";
+import { Bell, Home, Plus, Search, Settings as SettingsIcon } from "lucide-react";
 import type { Session } from "@supabase/auth-js";
 import { auth, isSupabaseConfigured } from "../../lib/supabase";
 import { avatarColor, avatarInitial, parseSender } from "../../lib/gmail";
@@ -13,6 +13,7 @@ import { Sheet } from "../ui/Sheet";
 import { EmptyState } from "../ui/EmptyState";
 import { AccountSwitcher } from "./AccountSwitcher";
 import { GlobalSearch, usePaletteShortcut } from "./GlobalSearch";
+import { openAddChooser } from "./AddChooser";
 
 /** Persistent, app-wide header (avatar / "LIFE HUB" / bell / settings) — shown
  * above every page's own PageHeader (back arrow + title), which keeps its
@@ -100,6 +101,12 @@ export function AppHeader() {
             <Search size={16} aria-hidden="true" />
             <span className="app-header__search-field-label">検索・操作</span>
             <kbd className="app-header__search-field-key">{shortcutLabel}</kbd>
+          </button>
+          {/* PCの「＋追加」(UI/UX 調査メモ C-5・A-3)。右下の「＋」はPCでは画面の端で遠く、
+              ホームには追加の入口が無かった。押すと「何を追加しますか?」(支出・予定・タスク・メモ)。 */}
+          <button type="button" onClick={openAddChooser} className="app-header__add">
+            <Plus size={16} aria-hidden="true" />
+            追加
           </button>
         </div>
 

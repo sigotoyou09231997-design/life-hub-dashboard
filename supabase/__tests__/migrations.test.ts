@@ -227,7 +227,13 @@ describe("027: 送信コードの受信箱", () => {
   });
 
   it("受信箱は新しい順に20件まで(古いものから消える)。他の人の受信箱は触らない", async () => {
-    for (let i = 0; i < 25; i++) await call(code, items(1), `旅${i}`); // 別々のトランザクション = 受信時刻が順に新しくなる
+    // 別々のトランザクション = 受信時刻が順に新しくなる。ただしテスト用の PGlite は時計が粗く、
+    // 同じ1ミリ秒の中で2回受けると受信時刻が同じになり、新しい順が入れ替わって3回に1回ほど
+    // 落ちていた(2026-10-12)。本番では受信の間が必ず空くので、テストでも1回ごとに少し待つ。
+    for (let i = 0; i < 25; i++) {
+      await call(code, items(1), `旅${i}`);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
     const kept = (await db.query<{ trip_name: string }>("select trip_name from public.chatgpt_trip_inbox where user_id = $1 order by received_at desc", [USER])).rows.map((row) => row.trip_name);
     expect(kept).toHaveLength(20);
     expect(kept[0]).toBe("旅24");
