@@ -6,7 +6,7 @@ import { ja } from "date-fns/locale";
 import { ArrowRight, CalendarDays, CheckSquare, Check, ChevronRight, Mail, Plane, Plus } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent } from "../types";
-import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
+import { formatDisplayDate, formatGmailTimestamp, toDateStr, todayStr } from "../lib/date";
 import { occursOn, spanDayIndex, spanTimeText } from "../lib/eventSpan";
 import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
 import { pullBlockedSenders } from "../lib/blockedSenders";
@@ -25,6 +25,7 @@ import { useReplyWaiting } from "../hooks/useReplyWaiting";
 import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
 import { BriefingCard } from "../components/home/BriefingCard";
 import { PageFab } from "../components/ui/PageFab";
+import { CountingAmount } from "../components/ui/CountingAmount";
 import { openAddChooser } from "../components/layout/AddChooser";
 
 const EVENT_PREVIEW_LIMIT = 3;
@@ -247,7 +248,9 @@ export default function TopPage() {
           <span className="lh-money__label">今月のお金</span>
           <p className={`warm-amount ${budget.remaining < 0 ? "is-negative" : ""}`}>
             <small>¥</small>
-            {budget.remaining.toLocaleString()}
+            {/* 支出を記録すると、減った額が「−¥1,280」と浮かんでから、前の残りから数え下がる
+                (UI/UX 調査メモ 第4弾 A-5)。給料日で期間が替わった時は動かさない。 */}
+            <CountingAmount value={budget.remaining} resetKey={toDateStr(budget.period.periodStart)} showDelta />
           </p>
           <dl className="lh-money__stats">
             <div>
@@ -256,7 +259,9 @@ export default function TopPage() {
             </div>
             <div>
               <dt>使った額</dt>
-              <dd>¥{budget.actualSpending.toLocaleString()}</dd>
+              <dd>
+                ¥<CountingAmount value={budget.actualSpending} resetKey={toDateStr(budget.period.periodStart)} />
+              </dd>
             </div>
             <div>
               <dt>給料日まで</dt>
@@ -273,7 +278,9 @@ export default function TopPage() {
           <span className="lh-money__label">今月の支出</span>
           <p className="warm-amount">
             <small>¥</small>
-            {monthSpending ? monthSpending.total.toLocaleString() : "—"}
+            {/* ホームの「＋」で支出を入れると、足した額が「+¥1,280」と浮かんでから合計に入り、
+                合計は前の値から数え上がる(UI/UX 調査メモ 第4弾 A-5)。月が替わった時は動かさない。 */}
+            <CountingAmount value={monthSpending?.total} resetKey={monthStart} showDelta />
           </p>
           <dl className="lh-money__stats">
             <div>

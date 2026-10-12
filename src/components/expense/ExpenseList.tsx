@@ -17,7 +17,13 @@ export function ExpenseList({ transactions, onEdit, onDelete }: Props) {
 
   if (transactions.length === 0) {
     return (
-      <EmptyState icon={Receipt} title="今月の記録がまだありません" description="下のボタンから収支を追加できます。" />
+      // 線画と、始めたくなる一言(UI/UX 調査メモ 第4弾 B-6)。
+      <EmptyState
+        icon={Receipt}
+        illustration="expense"
+        title="今月の記録はまだありません"
+        description="最初の1件を記録すると、今月のペースが見えてきます。"
+      />
     );
   }
 
@@ -53,7 +59,7 @@ export function ExpenseList({ transactions, onEdit, onDelete }: Props) {
                   </div>
                   <div className="flex shrink-0 items-center gap-3">
                     <span
-                      className={`text-sm font-semibold ${
+                      className={`num text-sm font-semibold ${
                         t.type === "income" ? "text-success" : "text-slate-900"
                       }`}
                     >

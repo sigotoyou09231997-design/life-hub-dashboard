@@ -6,6 +6,7 @@ import { NOTE_TYPE_DEFS, getNoteType } from "../../lib/noteTypes";
 import { groupByOwner } from "../../lib/attachments";
 import { NoteCard } from "./NoteCard";
 import { EmptyState } from "../ui/EmptyState";
+import { EmptyIllustration } from "../ui/EmptyIllustration";
 import { Plus, Search } from "lucide-react";
 
 interface Props {
@@ -103,8 +104,10 @@ export function NoteList({ notes, onEdit, onDelete, onAdd }: Props) {
             </div>
             {/* 「＋」の場所(スマホは右下・PCは上の帯)を文で案内すると、どちらかで必ず食い違う
                 (UI/UX 調査メモ 第3弾 N-1)。場所は書かず、空の時だけここにボタンを置く。 */}
-            <div className="notes-empty-control__action">
-              <p><strong>最初のメモを作成</strong><span>アイデアやチェックリスト、買い物リストを作れます。</span></p>
+            {/* 線画と、始めたくなる一言(UI/UX 調査メモ 第4弾 B-6)。 */}
+            <div className="notes-empty-control__action has-illustration">
+              <EmptyIllustration kind="notes" size={64} />
+              <p><strong>最初のメモを書いてみましょう</strong><span>思いついたこと、やることのチェック、買い物の一覧。書いたものは、ここに並びます。</span></p>
               {onAdd && (
                 <button type="button" onClick={onAdd}>
                   <Plus size={15} />

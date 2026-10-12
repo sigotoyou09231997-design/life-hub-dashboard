@@ -22,6 +22,8 @@ import "./styles/theme-teal.css";
 import "./styles/layout-teal.css";
 // お金管理の「サブスク」タブ(2026-10-12)。layout-teal.css の行の一覧の上に足す。
 import "./styles/subscriptions.css";
+// 数字用の文字・数字が動く・空の表示の線画(UI/UX 調査メモ 第4弾 B-1・A-5・B-6)。上の各画面の上に足す。
+import "./styles/numbers-empty.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()

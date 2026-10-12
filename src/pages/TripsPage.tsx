@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Plane, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { db } from "../db/schema";
 import { todayStr } from "../lib/date";
 import { deleteAttachmentsForAll } from "../lib/attachments";
@@ -11,6 +11,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
 import { Card } from "../components/ui/Card";
+import { EmptyIllustration } from "../components/ui/EmptyIllustration";
 import { TripForm } from "../components/trips/TripForm";
 import { TripLeadCard } from "../components/trips/TripLeadCard";
 import { TripPlanCard } from "../components/trips/TripPlanCard";
@@ -104,7 +105,8 @@ export default function TripsPage() {
           // タブが無いぶん、他より高く取れる(--plain、index.css)。中身はもともと
           // 縦中央(align-items: center)なので、伸ばすだけで収まる。
           <Card className="destination-empty-control is-empty-fill-self is-empty-fill--plain p-0">
-            <div className="destination-empty-control__visual" aria-hidden="true"><span><Plane size={22} /></span><i /><i /><i /></div>
+            {/* 飛行機のアイコン1つから、紙飛行機の線画に(UI/UX 調査メモ 第4弾 B-6)。 */}
+            <div className="destination-empty-control__visual has-illustration" aria-hidden="true"><EmptyIllustration kind="trip" size={88} /></div>
             <div className="destination-empty-control__copy">
               <span>旅行</span>
               <div><strong>登録済み</strong><b>0</b></div>

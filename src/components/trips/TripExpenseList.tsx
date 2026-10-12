@@ -34,7 +34,8 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies
   return (
     <div className="space-y-4">
       <Card>
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        {/* 金額は数字用の文字で(UI/UX 調査メモ 第4弾 B-1)。見出しの日本語はいつもの文字のまま。 */}
+        <div className="num grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-slate-400">予算</p>
             <p className="mt-0.5 font-semibold text-slate-900">{budget != null ? yen(budget) : "未設定"}</p>
