@@ -1,6 +1,8 @@
 import { Trash2 } from "lucide-react";
 import type { Trip } from "../../types";
 import { useConfirm } from "../ui/ConfirmProvider";
+import { useIsSharedWithMe } from "../../hooks/useTripCollab";
+import { TripSharedChip } from "./TripSharedChip";
 
 interface Props {
   trip: Trip;
@@ -13,6 +15,9 @@ interface Props {
  *  3種類のカードで同じことを書かないための1か所。 */
 export function TripRemoveButton({ trip, onDelete, variant = "overlay" }: Props) {
   const confirm = useConfirm();
+  const sharedWithMe = useIsSharedWithMe(trip.id);
+  // 招かれて一緒に編集している旅行は、参加している人が消すことはできない(消すのは持ち主)。同じ場所に「共有」の印を出す。
+  if (sharedWithMe) return <TripSharedChip variant={variant} />;
   return (
     <button
       type="button"

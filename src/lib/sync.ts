@@ -5,6 +5,17 @@ import { scopedKey } from "./accounts";
 import { db, type SyncQueueEntry } from "../db/schema";
 import { summarizeSyncProblems, syncTableLabel } from "./syncProblems";
 import { getDeviceId } from "./deviceId";
+import {
+  SHARED_TRIP_TABLES,
+  TRIP_CHILD_TABLES,
+  notifyTripMembersChanged,
+  ownerIdForPush,
+  planSharedTrips,
+  readSeenSharedTrips,
+  readSharedOwners,
+  writeSeenSharedTrips,
+  writeSharedOwners,
+} from "./sharedTrips";
 
 interface SyncableRow {
   id?: string;
@@ -50,6 +61,8 @@ export async function withSyncSuppressed<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 let sessionStart: Promise<void> = Promise.resolve();
+/** 他人から共有された旅行 → 持ち主(src/lib/sharedTrips.ts)。送る時に、その旅行の行を持ち主の名前で送るのに使う。 */
+let sharedOwners = new Map<string, string>();
 
 function camelToSnake(key: string): string {
   return key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
@@ -128,7 +141,8 @@ async function drainQueue(): Promise<void> {
         } else {
           const row = await reg.table.get(entry.rowId);
           if (row) {
-            const { error } = await supabase.from(entry.table).upsert(rowToSnake({ ...row, userId: currentUserId, deletedAt: null }));
+            const userId = (await sharedOwnerOf(reg, row)) ?? currentUserId;
+            const { error } = await supabase.from(entry.table).upsert(rowToSnake({ ...row, userId, deletedAt: null }));
             if (error) throw error;
           }
         }
@@ -160,6 +174,19 @@ function pushErrorText(err: unknown): string {
   const e = err as { code?: string; message?: string } | null;
   const message = e?.message ?? String(err);
   return e?.code ? `${e.code}: ${message}` : message;
+}
+
+/** 共有された旅行(他人の旅行)の行なら、その持ち主。そうでなければ null(= 自分の名前で送る)。 */
+async function sharedOwnerOf(reg: RegisteredTable, row: SyncableRow): Promise<string | null> {
+  if (sharedOwners.size === 0) return null;
+  let tripIdOfExpense: string | undefined;
+  if (reg.tableName === "trip_expense_currencies") {
+    const { expenseId } = row as { expenseId?: unknown };
+    const expenses = registered.find((r) => r.tableName === "trip_expenses");
+    const expense = expenses && typeof expenseId === "string" ? ((await expenses.table.get(expenseId)) as { tripId?: string } | undefined) : undefined;
+    tripIdOfExpense = expense?.tripId;
+  }
+  return ownerIdForPush(sharedOwners, reg.tableName, row as { id?: unknown; tripId?: unknown }, tripIdOfExpense);
 }
 
 type ApplyOutcome = "added" | "updated" | "deleted" | "skipped-echo" | "skipped-lww" | "skipped-no-id" | "error";
@@ -267,12 +294,201 @@ function subscribeRealtime(reg: RegisteredTable): void {
   realtimeChannels.push(channel);
 }
 
+// ===== 他人と一緒に編集している旅行(supabase/sql/034_trip_members.sql) =====
+// 共有された旅行の行は、持ち主の user_id のままサーバーにある。参加中の人は RLS でそれを読み書きできるので、
+// いつもの取り込み(reconcile)は、参加したあとの変更を自然に受け取る。足りないのは次の3つ。
+//   * 参加より前の行(いつもの差分の取り込みのカーソルより古い) → 初めて見る旅行は、全部取る(backfill)。
+//   * リアルタイム(いつもの購読は user_id が自分の行だけ)       → 共有がある時だけ、絞らない購読を足す。
+//   * 外された・抜けた旅行                                       → この端末から片付ける(release)。
+// 034 が流れていない・通信できない時は、何もしない。旅行も同期も今までどおり動く。
+
+let refreshingShared: Promise<void> | null = null;
+let sharedRefreshQueued = false;
+let sharedRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** いまの参加状況をサーバーに確かめ、必要なら共有の旅行を取り込む／片付ける。重なって呼ばれても1回ずつ順に走る。 */
+export function refreshSharedTrips(): Promise<void> {
+  if (refreshingShared) {
+    sharedRefreshQueued = true;
+    return refreshingShared;
+  }
+  refreshingShared = (async () => {
+    try {
+      do {
+        sharedRefreshQueued = false;
+        await doRefreshSharedTrips();
+      } while (sharedRefreshQueued);
+    } catch (err) {
+      console.error("[sync] failed to refresh the shared trips:", err);
+    } finally {
+      refreshingShared = null;
+    }
+  })();
+  return refreshingShared;
+}
+
+function scheduleSharedRefresh(): void {
+  // 招待された側の「招待が届きました」、持ち主側の「参加しました」を、画面にすぐ出す。
+  notifyTripMembersChanged();
+  clearTimeout(sharedRefreshTimer);
+  sharedRefreshTimer = setTimeout(() => void refreshSharedTrips(), 300);
+}
+
+function sameOwners(a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>): boolean {
+  if (a.size !== b.size) return false;
+  for (const [tripId, owner] of a) if (b.get(tripId) !== owner) return false;
+  return true;
+}
+
+async function doRefreshSharedTrips(): Promise<void> {
+  const me = currentUserId;
+  if (!me || !navigator.onLine) return;
+  const client = dataClient ?? (await getSupabaseDataClient());
+  const { data, error } = await client.from("trip_members").select("trip_id, owner_id").eq("member_id", me).eq("status", "accepted");
+  // 034 がまだ無い／通信できない時。「共有が無くなった」と取り違えて、端末の旅行を片付けたりしない。
+  if (error) return;
+  if (currentUserId !== me) return; // 確かめている間に、別のアカウントに替わった
+
+  const memberships = new Map<string, string>();
+  for (const row of (data ?? []) as { trip_id: string; owner_id: string }[]) memberships.set(row.trip_id, row.owner_id);
+  const changed = !sameOwners(memberships, sharedOwners);
+  sharedOwners = memberships;
+  if (changed) writeSharedOwners(memberships);
+
+  const seen = readSeenSharedTrips();
+  const plan = planSharedTrips(memberships, seen);
+  for (const tripId of plan.backfill) {
+    if (await backfillSharedTrip(client, tripId)) seen.add(tripId);
+  }
+  for (const tripId of plan.release) {
+    await releaseSharedTrip(tripId, me);
+    seen.delete(tripId);
+  }
+  if (plan.backfill.length > 0 || plan.release.length > 0) writeSeenSharedTrips(seen);
+
+  if (memberships.size > 0) subscribeSharedRealtime();
+  subscribeMembershipRealtime();
+}
+
+/** 共有の旅行を、過去ぶんまで全部取り込む。全部取れた時だけ true(途中で失敗したら、次の機会にもう一度)。 */
+async function backfillSharedTrip(client: SupabaseClient, tripId: string): Promise<boolean> {
+  const byName = new Map(registered.map((reg) => [reg.tableName, reg]));
+  const trip = await client.from("trips").select("*").eq("id", tripId);
+  if (trip.error) return false;
+  const children = await Promise.all(TRIP_CHILD_TABLES.map((name) => client.from(name).select("*").eq("trip_id", tripId)));
+  if (children.some((result) => result.error)) return false;
+  const expenseIndex = TRIP_CHILD_TABLES.indexOf("trip_expenses");
+  const expenseIds = ((children[expenseIndex].data ?? []) as { id: string }[]).map((row) => row.id);
+  const currencies = expenseIds.length > 0 ? await client.from("trip_expense_currencies").select("*").in("expense_id", expenseIds) : null;
+  if (currencies?.error) return false;
+
+  const apply = async (tableName: string, rows: unknown[] | null | undefined) => {
+    const reg = byName.get(tableName);
+    if (!reg) return;
+    for (const row of rows ?? []) await applyRemoteRow(reg, row as Record<string, unknown>);
+  };
+  await apply("trips", trip.data);
+  for (const [index, name] of TRIP_CHILD_TABLES.entries()) await apply(name, children[index].data);
+  await apply("trip_expense_currencies", currencies?.data);
+  return true;
+}
+
+/** 共有が終わった旅行を、この端末から片付ける(サーバーには何も送らない)。
+ * 自分の旅行は絶対に消さない — 持ち主が自分(または不明)の旅行は、何があっても触らない。 */
+async function releaseSharedTrip(tripId: string, me: string): Promise<void> {
+  const byName = new Map(registered.map((reg) => [reg.tableName, reg]));
+  const trips = byName.get("trips");
+  const local = trips ? ((await trips.table.get(tripId)) as SyncableRow | undefined) : undefined;
+  if (local && (!local.userId || local.userId === me)) return;
+
+  const removed: { table: string; rowId: string }[] = [];
+  await withSyncSuppressed(async () => {
+    const ids = async (reg: RegisteredTable, field: string, values: string | string[]): Promise<string[]> => {
+      const clause = reg.table.where(field);
+      const keys = Array.isArray(values) ? await clause.anyOf(values).primaryKeys() : await clause.equals(values).primaryKeys();
+      return keys as string[];
+    };
+    const drop = async (reg: RegisteredTable, keys: string[]) => {
+      if (keys.length === 0) return;
+      await reg.table.bulkDelete(keys);
+      for (const rowId of keys) removed.push({ table: reg.tableName, rowId });
+    };
+    let expenseIds: string[] = [];
+    for (const name of TRIP_CHILD_TABLES) {
+      const reg = byName.get(name);
+      if (!reg) continue;
+      const keys = await ids(reg, "tripId", tripId);
+      if (name === "trip_expenses") expenseIds = keys;
+      await drop(reg, keys);
+    }
+    const currencies = byName.get("trip_expense_currencies");
+    if (currencies && expenseIds.length > 0) await drop(currencies, await ids(currencies, "expenseId", expenseIds));
+    if (trips && local) {
+      await trips.table.delete(tripId);
+      removed.push({ table: "trips", rowId: tripId });
+    }
+  });
+
+  // 送り待ちが残っていると、権限のない書き込みを繰り返し試して「送れない変更」に見えてしまう。
+  // 抑止の旗(withSyncSuppressed)は、同時に走るリアルタイムの反映と重なると途中で戻ることがあるので、少し後にもう一度掃除する。
+  const purge = async () => {
+    for (const { table, rowId } of removed) {
+      try {
+        await db.syncQueue.where("[table+rowId]").equals([table, rowId]).delete();
+      } catch (err) {
+        console.error("[sync] failed to drop a queued change of a released trip:", err);
+      }
+    }
+  };
+  await purge();
+  setTimeout(() => void purge(), 500);
+}
+
+/** 共有の旅行の変更を、リアルタイムで受け取る。絞り込み無しの購読だが、サーバーの RLS が
+ * 「自分が見てよい行」だけを流してくる。自分の行は、いつもの購読が受け取っているので二重に反映しない。 */
+function subscribeSharedRealtime(): void {
+  if (!currentUserId || !dataClient) return;
+  for (const reg of registered) {
+    if (!(SHARED_TRIP_TABLES as readonly string[]).includes(reg.tableName)) continue;
+    const topic = `${reg.tableName}-shared-${currentUserId}`;
+    if (subscribedChannels.has(topic)) continue;
+    subscribedChannels.add(topic);
+    const channel = dataClient
+      .channel(topic)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: reg.tableName },
+        (payload: { new: Record<string, unknown> | null; old: Record<string, unknown> | null }) => {
+          const row = payload.new ?? payload.old;
+          if (row && row.user_id !== currentUserId) void applyRemoteRow(reg, row);
+        },
+      )
+      .subscribe();
+    realtimeChannels.push(channel);
+  }
+}
+
+/** 招待が届いた・参加された・外された、を受け取る。034 が無い間は購読しない(無い表を購読して再接続を繰り返さないため)。 */
+function subscribeMembershipRealtime(): void {
+  if (!currentUserId || !dataClient) return;
+  const topic = `trip_members-${currentUserId}`;
+  if (subscribedChannels.has(topic)) return;
+  subscribedChannels.add(topic);
+  const channel = dataClient
+    .channel(topic)
+    .on("postgres_changes", { event: "*", schema: "public", table: "trip_members" }, () => scheduleSharedRefresh())
+    .subscribe();
+  realtimeChannels.push(channel);
+}
+
 async function startSessionOnce(userId: string, accessToken: string): Promise<void> {
   dataClient = await getSupabaseDataClient();
   await dataClient.realtime.setAuth(accessToken);
   if (currentUserId === userId) return; // already started; token was refreshed above
   stopSession();
   currentUserId = userId;
+  // 共有された旅行の行を、最初の送信から持ち主の名前で送れるように、前回確かめた状態を先に読んでおく。
+  sharedOwners = readSharedOwners();
   // syncNow()と同じ並列パターン(Promise.all)に揃える — 以前は登録テーブルを1つずつ
   // 直列でreconcileしていたため、テーブル数ぶんのネットワーク往復が積み重なり、
   // App.tsxの起動ゲート(syncReadyになるまで画面が真っ白)を毎回大きく引き延ばしていた
@@ -280,6 +496,8 @@ async function startSessionOnce(userId: string, accessToken: string): Promise<vo
   await Promise.all(registered.map((reg) => reconcile(reg)));
   for (const reg of registered) subscribeRealtime(reg);
   await drainQueue();
+  // 起動を待たせない(画面は、この関数が終わるまで出ない)。共有の旅行は、取れ次第 Dexie に入って画面が追いつく。
+  void refreshSharedTrips();
 }
 
 export function startSession(userId: string, accessToken: string): Promise<void> {
@@ -289,6 +507,8 @@ export function startSession(userId: string, accessToken: string): Promise<void>
 
 export function stopSession(): void {
   currentUserId = null;
+  sharedOwners = new Map();
+  clearTimeout(sharedRefreshTimer);
   for (const channel of realtimeChannels) dataClient?.removeChannel(channel);
   realtimeChannels.length = 0;
   subscribedChannels.clear();
@@ -300,6 +520,7 @@ function ensureLifecycleListeners(): void {
   window.addEventListener("online", () => {
     void drainQueue();
     for (const reg of registered) void reconcile(reg);
+    void refreshSharedTrips();
   });
 
   // Mobile browsers routinely suspend background tabs, which silently drops the
@@ -363,6 +584,7 @@ export async function syncNow(): Promise<string> {
   // and it's the one guaranteed way to recover if the watermark ever gets stuck
   // ahead of data it hasn't actually seen (as happened once already).
   const results = await Promise.all(registered.map((reg) => reconcile(reg, true)));
+  await refreshSharedTrips();
   const queuedBefore = await db.syncQueue.count();
   await drainQueue();
   const remaining = await db.syncQueue.toArray();

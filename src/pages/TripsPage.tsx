@@ -7,6 +7,7 @@ import { todayStr } from "../lib/date";
 import { deleteAttachmentsForAll } from "../lib/attachments";
 import { deleteCurrencyFor } from "../lib/currency";
 import { endTripShare } from "../lib/tripShare";
+import { readSharedOwners } from "../lib/sharedTrips";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
@@ -17,6 +18,7 @@ import { TripLeadCard } from "../components/trips/TripLeadCard";
 import { TripPlanCard } from "../components/trips/TripPlanCard";
 import { TripArchiveList } from "../components/trips/TripArchiveList";
 import { TripNewCard } from "../components/trips/TripNewCard";
+import { TripInviteBanner } from "../components/trips/TripInviteBanner";
 import { useToast } from "../components/ui/ToastProvider";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
@@ -25,6 +27,9 @@ import { splitTrips } from "../lib/tripListSections";
 import { useTripsStatus } from "../hooks/usePageStatus";
 
 export async function deleteTripCascade(tripId: string) {
+  // 招かれて一緒に編集している旅行は、参加者には消せない(消すと、持ち主と、ほかの参加者の旅行まで消える)。
+  // 画面では消すボタンを出していないが、ここでも止める。抜けるのは、旅行の「一緒に編集」から。
+  if (readSharedOwners().has(tripId)) return;
   // 日記は旅行の中でしか読めない(単独の画面は無い)ので、紐づけを外すと
   // どこからも辿れない行が残ってしまう。旅行と一緒に消す — 削除の確認文でも
   // 日記が消えることを明記している。
@@ -93,6 +98,9 @@ export default function TripsPage() {
   return (
     <div className="spatial-page trips-page micro-contrast mx-auto max-w-[1480px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
       <PageHeader title="旅行計画" subtitle={tripsStatus ?? ""} backTo="/" />
+
+      {/* 別のアカウントから届いた、旅行への招待(supabase/sql/034)。無い間は何も出ない。 */}
+      <TripInviteBanner className="mx-5 mb-3 lg:mx-8" />
 
       {/* 追加ボタンは他のページと同じ画面右下(src/components/ui/PageFab.tsx)。 */}
       <PageFab onClick={() => setCreating(true)} label="旅行を追加">
