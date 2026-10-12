@@ -548,6 +548,64 @@
   background: var(--warm-surface-sunk);
 }
 
+/* メール1通の画面の本文(src/components/gmail/MailBody.tsx)。
+   「元の見た目で見る」「画像を表示する」は1つずつ別のボタンにする(溝に詰めない — 本人の好み)。
+   HTMLメールは白い紙のまま見せる。メール側が自分の背景色を決めている前提で作られているので、
+   アプリの地の色を透かすと、白地を前提にした文字や画像の縁が浮いてしまう。 */
+.mail-body-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.mail-body-tool {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--warm-line-strong);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--warm-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.mail-body-tool:active {
+  border-color: var(--teal-400);
+  background: var(--teal-50);
+}
+
+.mail-body-tool:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--teal-100);
+}
+
+.mail-body-note {
+  margin-bottom: 0.65rem;
+  color: var(--warm-ink-2);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.mail-html-frame-wrap {
+  overflow: hidden;
+  border: 1px solid var(--warm-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.mail-html-frame {
+  display: block;
+  width: 100%;
+  /* 読み込みが終わるまでの仮の高さ。終わったら中身の高さに合わせる(MailHtmlFrame の fit)。 */
+  height: 240px;
+  border: 0;
+  background: #fff;
+}
+
 /* ---------------------------------------------------------------------------
    10. 旅行
 
