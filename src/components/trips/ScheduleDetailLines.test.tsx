@@ -20,6 +20,12 @@ describe("予定の詳細の表示", () => {
     expect(screen.getByText("営業 9:00〜16:30")).toBeTruthy();
   });
 
+  it("ハイフン無しで保存してある電話番号も、ハイフン付きで出す(かける番号はそのまま)", () => {
+    render(<ScheduleDetailLines item={{ type: "sightseeing", phone: "0886870613" }} />);
+    const link = screen.getByRole("link", { name: /088-687-0613/ });
+    expect(link.getAttribute("href")).toBe("tel:0886870613");
+  });
+
   it("宿泊の予定はチェックイン・チェックアウトを出す", () => {
     render(<ScheduleDetailLines item={{ type: "lodging", checkInTime: "15:00", checkOutTime: "10:00" }} />);
     expect(screen.getByText("チェックイン 15:00 / チェックアウト 10:00")).toBeTruthy();

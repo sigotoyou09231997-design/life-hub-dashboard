@@ -162,6 +162,8 @@ describe("旅行の予定の入力: 詳細", () => {
     renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "うずしお観潮船", type: "sightseeing", phone: "", address: "徳島県鳴門市", createdAt: 1 });
     const phone = screen.getByPlaceholderText("例: 088-687-0613") as HTMLInputElement;
     await user.type(phone, "0886870613");
+    // 打っている間に入る(欄を離れるのを待たない)。
+    expect(phone.value).toBe("088-687-0613");
     await user.tab();
     expect(phone.value).toBe("088-687-0613");
   });

@@ -1,4 +1,4 @@
-import { parsePhoneNumberFromString } from "libphonenumber-js/min";
+import { AsYouType, parsePhoneNumberFromString } from "libphonenumber-js/min";
 import type { TripScheduleItem } from "../types";
 
 /**
@@ -43,6 +43,26 @@ export function formatPhone(raw: string): string {
   if (!parsed || !parsed.isPossible()) return raw.trim();
   // 日本の番号は国内の書き方(+81 で打っても 088-687-0613)。海外の番号は +1 415 … の形。
   return parsed.country === "JP" ? parsed.formatNational() : parsed.formatInternational();
+}
+
+/**
+ * 電話番号を打っている途中で、ハイフンを入れていく(「0886」→「088-6」、「0886870613」→「088-687-0613」)。
+ *
+ * 欄を離れた時だけ整える(formatPhone)と、打っている間は何も変わらず、直ったのか分からなかった
+ * (2026-10-12、「変わってないらしい」)。数字を足した時だけ整え、消している時は触らない — 消した
+ * ハイフンが勝手に戻ると、消せなくなるため。数字・ハイフン・空白・+・かっこ以外(内線などの言葉)が
+ * 混ざっている時も触らない(整える部品は、言葉の部分を落としてしまうため)。
+ */
+export function formatPhoneTyping(next: string, previous: string): string {
+  if (next.length <= previous.length) return next;
+  const value = next.normalize("NFKC");
+  if (/[^\d\s\-+()]/.test(value)) return next;
+  return new AsYouType("JP").input(value);
+}
+
+/** 一覧・共有のしおりに出す電話番号。保存してある形がハイフン無しでも、ハイフン付きで見せる(かける番号は変えない)。 */
+export function phoneLabel(phone: string): string {
+  return formatPhone(phone) || phone;
 }
 
 /** URL を一覧に出す時の短い形(「www.example.com」)。読めない URL はそのまま。 */
