@@ -840,3 +840,25 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 }
 .lh-inline-entry__more { border-style: dashed; color: rgba(255, 255, 255, 0.6); }
 .lh-money__cta:disabled { opacity: 0.4; }
+
+/* 第5弾 A-4(2026-10-13) 始め方のチェックリスト「LIFE HUB をそろえる」。 */
+.lh-setup { padding: 0.95rem 1.05rem 0.55rem; }
+.lh-setup__head { display: flex; align-items: center; gap: 0.75rem; }
+.lh-setup__ring { flex: 0 0 auto; width: 2.5rem; height: 2.5rem; }
+.lh-setup__ring-track { fill: none; stroke: var(--warm-line-strong); stroke-width: 4; }
+.lh-setup__ring-bar { fill: none; stroke: var(--teal-500); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 600ms var(--ease-out-expo); }
+.lh-setup__title { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--warm-ink); }
+.lh-setup__sub { margin: 0.1rem 0 0; font-size: 0.74rem; color: var(--warm-ink-3); }
+.lh-setup__hide { flex: 0 0 auto; border: 0; background: transparent; padding: 0.3rem 0.1rem; color: var(--warm-ink-3); font-size: 0.74rem; font-weight: 600; }
+.lh-setup__hide:hover { color: var(--warm-ink); }
+.lh-setup__list { display: flex; flex-direction: column; margin: 0.6rem 0 0; padding: 0; list-style: none; }
+.lh-setup__list > li + li { border-top: 1px solid var(--warm-line); }
+.lh-setup__row { display: flex; align-items: center; gap: 0.7rem; width: 100%; min-height: 2.9rem; border: 0; background: transparent; padding: 0.55rem 0.1rem; text-align: left; color: inherit; }
+button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
+.lh-setup__row:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; border-radius: 0.5rem; }
+.lh-setup__check { display: grid; flex: 0 0 auto; width: 1.3rem; height: 1.3rem; place-items: center; border: 1.5px solid var(--warm-line-strong); border-radius: 50%; color: #fff; }
+.lh-setup__check.is-done { border-color: var(--teal-500); background: var(--teal-500); }
+.lh-setup__copy { display: flex; min-width: 0; flex-direction: column; gap: 0.1rem; }
+.lh-setup__copy strong { font-size: 0.86rem; font-weight: 700; color: var(--warm-ink); }
+.lh-setup__copy small { font-size: 0.72rem; color: var(--warm-ink-3); }
+.lh-setup__row.is-done .lh-setup__copy strong { color: var(--warm-ink-3); text-decoration: line-through; font-weight: 600; }
