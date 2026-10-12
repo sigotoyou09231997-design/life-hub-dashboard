@@ -15,6 +15,7 @@ import { PlaceReminderField } from "../reminders/PlaceReminderField";
 import { Input, Textarea } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { ListRow } from "../ui/ListRow";
+import { SwipeRow } from "../ui/SwipeRow";
 import { SwitchField } from "../ui/SwitchField";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
@@ -187,7 +188,13 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
         ) : (
           <div className="space-y-2">
             {items.map((item, index) => (
-              <ListRow key={item.id} className="p-2.5">
+              // 左へ払うとその1行を消す(UI/UX 調査メモ 第4弾 A-3)。右の「ごみ箱」も今までどおり使える。
+              // 消すのは保存前の手元の一覧だけ(「キャンセル」で戻る)なのは、ごみ箱と同じ。
+              <SwipeRow
+                key={item.id}
+                left={{ label: "削除", icon: Trash2, tone: "danger", after: "leave", onCommit: () => deleteItem(item.id) }}
+              >
+              <ListRow className="p-2.5">
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -270,6 +277,7 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
                   </label>
                 </div>
               </ListRow>
+              </SwipeRow>
             ))}
           </div>
         )}

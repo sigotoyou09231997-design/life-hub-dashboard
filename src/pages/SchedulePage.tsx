@@ -28,6 +28,9 @@ import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
 import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
+import { usePullToRefresh } from "../hooks/usePullToRefresh";
+import { PullToRefreshIndicator } from "../components/ui/PullToRefreshIndicator";
+import { refreshScheduleSources } from "../lib/scheduleRefresh";
 
 type Tab = "today" | "calendar" | "list" | "jobs";
 type EditingEvent = CalendarEvent | "new" | null;
@@ -127,6 +130,12 @@ export default function SchedulePage() {
   const replyWaiting = useReplyWaiting();
   // Googleカレンダーの取り込みを入にしてあれば、開いた時に取り込む(10分に1回まで)。
   useGoogleCalendarAutoSync();
+  // 画面を下へ引っ張ると、端末間の同期と Googleカレンダーの取り込みを今すぐ走らせる
+  // (UI/UX 調査メモ 第4弾 A-7。中身は src/lib/scheduleRefresh.ts)。指で触った時だけ。
+  const pull = usePullToRefresh(async () => {
+    const result = await refreshScheduleSources();
+    showToast(result.message, result.tone);
+  });
 
   function handleEditTask(task: Task) {
     setEditingTask({ mode: "edit", task });
@@ -149,7 +158,8 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="spatial-page planning-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.schedule}>
+    <div ref={pull.containerRef} className="spatial-page planning-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.schedule}>
+      <PullToRefreshIndicator ref={pull.indicatorRef} phase={pull.phase} />
       <PageHeader title="予定・タスク管理" backTo="/" />
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[620px]">

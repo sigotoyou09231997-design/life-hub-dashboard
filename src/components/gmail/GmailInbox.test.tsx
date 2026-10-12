@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import type { GmailAccount, SyncedEmail } from "../../types";
@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   syncCalls: 0,
   /** 返信待ちの判定そのものは src/lib/replyWaiting.test.ts で見る。ここでは結果だけ渡す。 */
   replyWaiting: [] as { email: Record<string, unknown>; sentAt: number; waitingDays: number }[],
+  /** 既読にした・重要にした等(updateMessageState)の呼び出し。 */
+  stateUpdates: [] as { id: unknown; patch: unknown }[],
 }));
 
 vi.mock("../../hooks/useReplyWaiting", () => ({
@@ -68,7 +70,9 @@ vi.mock("../../lib/blockedSenders", () => ({
 }));
 
 vi.mock("../../lib/gmailMessageState", () => ({
-  updateMessageState: async () => undefined,
+  updateMessageState: async (_account: string, email: { id: unknown }, patch: unknown) => {
+    mocks.stateUpdates.push({ id: email.id, patch });
+  },
 }));
 
 const { GmailInbox } = await import("./GmailInbox");
@@ -205,6 +209,67 @@ describe("メール一覧", () => {
     const group = screen.getByRole("group", { name: "ステータスフィルター" });
     expect(group.className).toContain("overflow-x-auto");
     expect(group.className).not.toContain("flex-wrap");
+  });
+
+  describe("左へ払うと既読(UI/UX 調査メモ 第4弾 A-3)", () => {
+    /** jsdom には PointerEvent が無い(src/components/ui/SwipeRow.test.tsx と同じ)。 */
+    class TestPointerEvent extends MouseEvent {
+      pointerId: number;
+      pointerType: string;
+      isPrimary: boolean;
+      constructor(type: string, init: PointerEventInit = {}) {
+        super(type, init);
+        this.pointerId = init.pointerId ?? 1;
+        this.pointerType = init.pointerType ?? "touch";
+        this.isPrimary = init.isPrimary ?? true;
+      }
+    }
+
+    beforeEach(() => {
+      vi.stubGlobal("PointerEvent", TestPointerEvent);
+      mocks.stateUpdates = [];
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
+        () => ({ top: 0, bottom: 80, left: 0, right: 360, width: 360, height: 80, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect,
+      );
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    });
+
+    function swipeLeft(target: HTMLElement) {
+      fireEvent.pointerDown(target, { pointerId: 1, pointerType: "touch", clientX: 330, clientY: 40 });
+      fireEvent.pointerMove(target, { pointerId: 1, pointerType: "touch", clientX: 260, clientY: 40 });
+      fireEvent.pointerMove(target, { pointerId: 1, pointerType: "touch", clientX: 100, clientY: 40 });
+      fireEvent.pointerUp(target, { pointerId: 1, pointerType: "touch", clientX: 100, clientY: 40 });
+    }
+
+    it("「既読にする」と同じく既読にする(払っただけでメールは開かない)", async () => {
+      renderInbox({ id: "swipe" });
+      const row = await screen.findByRole("link", { name: /一次面接のご案内/ });
+      let opened = false;
+      row.addEventListener("click", (event) => {
+        if (!event.defaultPrevented) opened = true;
+      });
+      swipeLeft(row);
+      fireEvent.click(row);
+      await waitFor(() => expect(mocks.stateUpdates).toHaveLength(1));
+      expect(mocks.stateUpdates[0].id).toBe("m1");
+      expect(mocks.stateUpdates[0].patch).toHaveProperty("readAt");
+      expect(opened).toBe(false);
+    });
+
+    it("もう既読のメールは払えない(「既読にする」のボタンが無い行)", async () => {
+      mocks.emails = [email("m1", "見返したいメール", { importantAt: 1, readAt: 1 })];
+      renderInbox({ id: "swipe-read" });
+      await userEvent.click(await screen.findByRole("button", { name: "重要" }));
+      const row = await screen.findByRole("link", { name: /見返したいメール/ });
+      expect(row.closest(".swipe-row")?.className).not.toContain("swipe-row--enabled");
+      swipeLeft(row);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      expect(mocks.stateUpdates).toHaveLength(0);
+    });
   });
 
   describe("PC(compact)", () => {

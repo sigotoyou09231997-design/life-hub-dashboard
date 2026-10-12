@@ -103,6 +103,7 @@ export function TaskList({ tasks, onEdit, onAddSubtask, emptyMessage, onAdd }: P
           onDelete={handleDelete}
           onAddSubtask={onAddSubtask}
           onPostpone={handlePostpone}
+          collapseOnComplete
         />
       ))}
 

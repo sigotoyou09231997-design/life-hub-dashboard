@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent, type MouseEvent, type PointerEvent } from "react";
 import { moveTo } from "../lib/packingOrder";
+import { haptic } from "../lib/haptics";
 
 /** 長押しと見なすまでの時間。これより前に指が動いたら、並べ替えではなく普通のスクロール。 */
 export const LONG_PRESS_MS = 350;
@@ -89,7 +90,7 @@ export function useLongPressReorder(onMove: (group: string, from: number, to: nu
     const pointerId = event.pointerId;
     const timer = window.setTimeout(() => {
       pressRef.current = null;
-      navigator.vibrate?.(15);
+      haptic("light");
       setDrag({ group, pointerId, from: index, over: index });
       followPointer(pointerId);
     }, LONG_PRESS_MS);

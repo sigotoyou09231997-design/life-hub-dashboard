@@ -19,6 +19,7 @@ import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { useHubMotion } from "../hooks/useHubMotion";
 import { useIsDesktop } from "../hooks/useIsDesktop";
 import { toggleTaskCompletion } from "../components/tasks/TaskList";
+import { haptic } from "../lib/haptics";
 import { UsageAlertCard } from "../components/review/UsageAlertCard";
 import { useUsageAlerts } from "../hooks/useFeatureUsage";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
@@ -370,7 +371,11 @@ export default function TopPage() {
                 <button
                   type="button"
                   className="warm-check"
-                  onClick={() => toggleTaskCompletion(task)}
+                  onClick={() => {
+                    // 完了にした時だけ、Android では短く振動させる(UI/UX 調査メモ 第4弾 A-6)。
+                    if (!task.completed) haptic("success");
+                    void toggleTaskCompletion(task);
+                  }}
                   aria-label={`${task.title}の完了を切り替え`}
                   aria-pressed={task.completed}
                 >

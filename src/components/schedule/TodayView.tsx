@@ -12,6 +12,7 @@ import { Card } from "../ui/Card";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
 import { WeekAheadPanel } from "./WeekAheadPanel";
 import { useIsDesktop } from "../../hooks/useIsDesktop";
+import { useTaskRingCelebration } from "../../hooks/useTaskRingCelebration";
 
 interface Props {
   events: CalendarEvent[];
@@ -36,6 +37,8 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
   const allDueTodayTasks = tasks.filter((t) => t.dueDate === today && !t.parentTaskId);
   const completedTodayCount = allDueTodayTasks.filter((t) => t.completed).length;
   const taskProgress = allDueTodayTasks.length ? Math.round((completedTodayCount / allDueTodayTasks.length) * 100) : 0;
+  // 今日の最後の1件を終えた時だけ、輪を一周させて小さく光らせる(1日1回。UI/UX 調査メモ 第4弾 A-4)。
+  const ringCelebrating = useTaskRingCelebration(allDueTodayTasks.length, completedTodayCount, today);
   const now = new Date();
   const currentTimePosition = Math.max(0, Math.min(100, (((now.getHours() + now.getMinutes() / 60) - 6) / 18) * 100));
 
@@ -78,7 +81,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
         <Card className="planning-task-module flex min-h-[250px] flex-col">
           <div className="planning-module-heading"><div><p>今日のタスク</p></div><b>{completedTodayCount} / {allDueTodayTasks.length}</b></div>
           <div className="planning-task-overview">
-            <div className="planning-progress-ring" style={{ "--planning-progress": `${taskProgress * 3.6}deg` } as CSSProperties}><span>{taskProgress}<small>%</small></span></div>
+            <div className={`planning-progress-ring ${ringCelebrating ? "is-celebrating" : ""}`} style={{ "--planning-progress": `${taskProgress * 3.6}deg` } as CSSProperties}><span>{taskProgress}<small>%</small></span></div>
             <div><strong>{allDueTodayTasks.length ? `あと${Math.max(0, allDueTodayTasks.length - completedTodayCount)}件` : "タスクなし"}</strong><p>完了 {completedTodayCount} / 全体 {allDueTodayTasks.length}</p></div>
           </div>
           <div className="planning-task-list">
@@ -90,7 +93,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
             ) : (
               <div className="space-y-2">
                 {dueTodayTasks.map((task) => (
-                  <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskCascade} onAddSubtask={onAddSubtask} onPostpone={postponeTaskToTomorrow} />
+                  <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskCascade} onAddSubtask={onAddSubtask} onPostpone={postponeTaskToTomorrow} collapseOnComplete />
                 ))}
               </div>
             )}
@@ -105,7 +108,7 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
       {overdueTasks.length > 0 && (
         <section className="planning-secondary-module planning-secondary-module--danger">
           <p>期限切れのタスク</p>
-          <div className="space-y-2">{overdueTasks.map((task) => <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskCascade} onAddSubtask={onAddSubtask} onPostpone={postponeTaskToTomorrow} />)}</div>
+          <div className="space-y-2">{overdueTasks.map((task) => <TaskItem key={task.id} task={task} allTasks={tasks} onToggle={toggleTaskCompletion} onEdit={onEditTask} onDelete={deleteTaskCascade} onAddSubtask={onAddSubtask} onPostpone={postponeTaskToTomorrow} collapseOnComplete />)}</div>
         </section>
       )}
     </div>
