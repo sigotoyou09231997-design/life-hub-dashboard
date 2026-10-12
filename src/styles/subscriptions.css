@@ -16,7 +16,8 @@
 
 @media (min-width: 1024px) {
   .subs-home {
-    max-width: 1180px;
+    /* 2026-10-13: 横幅の上限(1180px)を外した。本人「PCのときは横幅いっぱいに使いたい」(layout-teal.css の P-1) */
+    max-width: none;
     grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
     align-items: start;
     gap: 1.4rem 1.75rem;
