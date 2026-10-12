@@ -29,8 +29,7 @@
 /* 当てる所。JSX に .num を足すより、すでにある数字のクラスへ当てる方を優先した。
    :root を前に付けて、各画面の font-family（時刻の丸ゴシック・.tabular-nums の inherit）より強くする。 */
 :root .num,
-/* ホーム: 時刻・お金のカード・今日のまとめの件数 */
-:root .lh-cover__clock,
+/* ホーム: お金のカード・今日のまとめの件数 */
 :root .warm-amount,
 :root .lh-money__stats dd,
 :root .warm-brief__count,
