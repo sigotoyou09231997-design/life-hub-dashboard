@@ -148,7 +148,7 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
       参考の「今月のサブスク合計支払い」。そこに、指の位置で動く光と
       ゆっくり流れる光沢を足す（傾きは useDesignMotion.ts）。
    ------------------------------------------------------------------------ */
-.lh-home > a.lh-money,
+.lh-home > .lh-money,
 .finance-control-center > .finance-balance-module {
   position: relative;
   overflow: hidden;
@@ -178,7 +178,7 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 }
 
 /* 光沢の帯。カードが現れたあと一度だけ斜めに流れ、PCで乗せると流れ直す。 */
-.lh-home > a.lh-money::after,
+.lh-home > .lh-money::after,
 .finance-control-center > .finance-balance-module::after {
   content: "";
   position: absolute;
@@ -204,12 +204,14 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
   box-shadow: 0 2px 4px rgba(10, 16, 18, 0.12), 0 28px 56px rgba(10, 16, 18, 0.28);
 }
 
-.lh-home > a.lh-money .warm-card__title { color: rgba(244, 247, 247, 0.72); font-weight: 700; }
-.lh-home > a.lh-money .warm-amount { color: #fff; font-weight: 800; letter-spacing: -0.03em; }
-.lh-home > a.lh-money .warm-amount small { color: rgba(255, 255, 255, 0.6); }
-.lh-home > a.lh-money .warm-amount.is-negative { color: #ff8f80; }
-.lh-home > a.lh-money .warm-amount__note { color: rgba(244, 247, 247, 0.62); }
-.lh-home > a.lh-money .warm-card__foot { color: var(--teal-400); }
+/* 給与がまだ無い時の「今月の支出」(TopPage.tsx)は中にリンクを2つ持つのでカード自体は
+   リンクではない(div)。色はリンクの時と同じにする。傾き・浮き上がりはリンクの時だけ。 */
+.lh-home > .lh-money .warm-card__title { color: rgba(244, 247, 247, 0.72); font-weight: 700; }
+.lh-home > .lh-money .warm-amount { color: #fff; font-weight: 800; letter-spacing: -0.03em; }
+.lh-home > .lh-money .warm-amount small { color: rgba(255, 255, 255, 0.6); }
+.lh-home > .lh-money .warm-amount.is-negative { color: #ff8f80; }
+.lh-home > .lh-money .warm-amount__note { color: rgba(244, 247, 247, 0.62); }
+.lh-home > .lh-money .warm-card__foot { color: var(--teal-400); }
 
 /* お金管理の「使えるお金」。中は Tailwind の文字色クラスなので、カードの中だけ白へ。 */
 .finance-control-center > .finance-balance-module {
@@ -410,10 +412,11 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
     opacity 200ms ease;
 }
 .glass-nav nav.is-ind-instant::before { transition: none; }
-.glass-nav nav a svg { color: var(--warm-ink-3) !important; }
-.glass-nav nav a span:not(.absolute) { color: var(--warm-ink-3) !important; }
-.glass-nav nav a.is-active svg,
-.glass-nav nav a.is-active span:not(.absolute) { color: var(--teal-600) !important; }
+/* 右端の「すべて」(QuickActionBar.tsx)はリンクではなくボタンなので、両方に当てる。 */
+.glass-nav nav :is(a, button) svg { color: var(--warm-ink-3) !important; }
+.glass-nav nav :is(a, button) span:not(.absolute) { color: var(--warm-ink-3) !important; }
+.glass-nav nav :is(a, button).is-active svg,
+.glass-nav nav :is(a, button).is-active span:not(.absolute) { color: var(--teal-600) !important; }
 .glass-nav nav a > span.absolute { display: none; }
 
 /* ---------------------------------------------------------------------------
@@ -439,3 +442,19 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
   .is-sheen::after,
   .task-progress > div::after { animation: none !important; display: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   青緑への統一の取りこぼし（2026-10-12、UI/UX 調査メモ C-1）
+   予定・タスクの「今日」の「＋予定を追加」「＋タスクを追加」、時間軸の点、カレンダーの
+   選んだ日・今日の印が、pages-warm.css の --tone-schedule（予定のデータの色＝青）のまま
+   だった。決まり: 操作の部分（ボタン・リンク・選んでいる状態・今日の印）は青緑。
+   予定のカテゴリ・人・メモの種類の色はデータの色なので、そのまま。
+   ------------------------------------------------------------------------ */
+.spatial-page .planning-empty-footer > span i,
+.spatial-page .planning-time-rail i {
+  background: var(--teal-500);
+  box-shadow: 0 0 0 3px rgba(23, 161, 153, 0.14);
+}
+.spatial-page .planning-empty-footer button { color: var(--teal-700); }
+.spatial-page .spatial-calendar__cell.is-selected { box-shadow: inset 0 0 0 1px var(--teal-500); }
+.spatial-page .spatial-calendar__cell.is-today:not(.is-selected)::after { background: var(--teal-500); }

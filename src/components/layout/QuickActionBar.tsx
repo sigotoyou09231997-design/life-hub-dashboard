@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { LayoutGrid } from "lucide-react";
 import { AllFeaturesSheet } from "./AllFeaturesSheet";
 import { getQuickAction, loadQuickActionKeys, saveQuickActionKeys, type QuickActionKey } from "./quickActions";
 import { useToast } from "../ui/ToastProvider";
 
 function useActiveQuickActionKey(): QuickActionKey | null {
   const { pathname } = useLocation();
+  if (pathname === "/") return "home";
   if (pathname === "/schedule") return "schedule";
   if (pathname.startsWith("/records/expense")) return "money";
   if (pathname.startsWith("/records/notes")) return "notes";
@@ -21,6 +23,9 @@ export function QuickActionBar() {
   const activeKey = useActiveQuickActionKey();
   const showToast = useToast();
   const actions = selectedKeys.map(getQuickAction);
+  // 今いる画面がナビに無い時(ナビから外したメモ・ふりかえり・設定など)は「すべて」を
+  // 光らせる。どれも光らないと現在地が分からなかった(UI/UX 調査メモ A-2)。
+  const allActive = activeKey === null || !selectedKeys.includes(activeKey);
 
   function handleSave(next: QuickActionKey[]) {
     setSelectedKeys(saveQuickActionKeys(next));
@@ -48,18 +53,12 @@ export function QuickActionBar() {
       <div className="fixed inset-x-0 bottom-[calc(-1*var(--viewport-gap,0px))] z-30 transform-gpu lg:hidden">
         <div className="mx-auto max-w-md px-2 pb-[env(safe-area-inset-bottom)] pt-2">
           <div className="glass-nav">
-            <button
-              type="button"
-              onClick={() => setSheetOpen(true)}
-              aria-label="すべての機能"
-              className="flex w-full items-center justify-center pb-1 pt-2"
-            >
-              <span className="h-1 w-9 rounded-full bg-slate-300/70" aria-hidden="true" />
-            </button>
+            {/* 全機能シートの入口は、前はナビの上の細いつまみだけで、押せると気づきにくかった
+                (UI/UX 調査メモ A-2)。いまは右端の「すべて」。入れ替えはできない固定の1つ。 */}
             <nav
               aria-label="追従ナビゲーション"
-              className="grid gap-1 px-2 pb-2"
-              style={{ gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))` }}
+              className="grid gap-1 px-2 pb-2 pt-2"
+              style={{ gridTemplateColumns: `repeat(${actions.length + 1}, minmax(0, 1fr))` }}
             >
               {actions.map(({ key, label, icon: Icon, tintIcon, to, color, underline }) => {
                 const isActive = activeKey === key;
@@ -69,14 +68,21 @@ export function QuickActionBar() {
                     to={to}
                     className={`relative flex min-h-12 flex-col items-center justify-center gap-1 py-1.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${isActive ? "is-active" : ""}`}
                   >
-                    {/* アイコンは選択有無に関わらず常にブランドカラー(未選択でも薄いグレーにしない)。
-                        Gmailのロゴだけは元から多色なので着色しない。 */}
                     <Icon size={20} className={tintIcon ? color : ""} />
                     <span className={`text-[11px] font-medium ${isActive ? `${color} font-semibold` : "text-slate-500"}`}>{label}</span>
                     {isActive && <span className={`absolute -bottom-0.5 h-0.5 w-6 rounded-full ${underline}`} aria-hidden="true" />}
                   </Link>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => setSheetOpen(true)}
+                aria-label="すべての機能"
+                className={`relative flex min-h-12 flex-col items-center justify-center gap-1 py-1.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${allActive ? "is-active" : ""}`}
+              >
+                <LayoutGrid size={20} />
+                <span className="text-[11px] font-medium text-slate-500">すべて</span>
+              </button>
             </nav>
           </div>
         </div>

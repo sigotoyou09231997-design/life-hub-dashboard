@@ -1,25 +1,4 @@
-/** タブの数 → 1段に並べる列数。6個は3列×2段に折り返す（5個までは1段） */
-const COLS_FOR_COUNT: Record<number, number> = {
-  2: 2,
-  3: 3,
-  4: 4,
-  5: 5,
-  6: 3,
-};
-
-const COLS_CLASS: Record<number, string> = {
-  2: "grid-cols-2",
-  3: "grid-cols-3",
-  4: "grid-cols-4",
-  5: "grid-cols-5",
-};
-
-/** 何列×何段に並べるか。6個のときだけ3列×2段に折り返す */
-export function tabGridLayout(count: number) {
-  const cols = COLS_FOR_COUNT[count] ?? 3;
-  const rows = Math.max(1, Math.ceil(count / cols));
-  return { cols, rows };
-}
+import { useEffect, useRef } from "react";
 
 export interface TabOption<T extends string> {
   value: T;
@@ -49,39 +28,79 @@ interface Props<T extends string> {
  * 見えるので、大きさは large だった形に一本化した。
  *
  * 2026-09-06に「ボタンはそれぞれ分けて表示がいい」（本人）で、**1つの入れ物に
- * 詰めて白いつまみを滑らせる形をやめた**。お金管理のように6個あって2段に折り返すと、
- * 溝の中で2行に割れた見た目になり、どこからどこまでが1つのボタンなのか分かり
- * にくかったため。いまは1つずつ独立した丸ボタンを隙間を空けて並べ、選んでいる
- * ものだけ白く浮かせる（つまみの span は無くなった）。
+ * 詰めて白いつまみを滑らせる形をやめた**。いまは1つずつ独立した丸ボタンを隙間を空けて並べる。
+ *
+ * 2026-10-12(UI/UX 調査メモ C-2): 6個のタブを3列×2段に折り返すのをやめ、**1段のまま横に
+ * スクロールする**形にした。2段だと画面の上を大きく使い、4個の予定・タスクでも狭い幅では
+ * 右端の「就活」が切れていた。入りきる時は今までどおり幅いっぱいに均等に広がり、入りきらない
+ * 時だけ横に流せる。選んだタブは帯の真ん中へ寄せる(端のタブを選んでも隠れないように)。
  */
 export function Tabs<T extends string>({ options, value, onChange, dense = false, className = "" }: Props<T>) {
-  const { cols } = tabGridLayout(options.length);
+  const listRef = useRef<HTMLDivElement>(null);
+  const placedOnce = useRef(false);
+
+  // 入りきらない時は、隠れている側の端を薄くして「まだ続きがある」と分かるようにする
+  // (CSS の [data-more-left] / [data-more-right])。描き直しを起こさないよう属性で持つ。
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const mark = () => {
+      const max = list.scrollWidth - list.clientWidth;
+      list.dataset.moreLeft = String(max > 1 && list.scrollLeft > 1);
+      list.dataset.moreRight = String(max > 1 && list.scrollLeft < max - 1);
+    };
+    mark();
+    list.addEventListener("scroll", mark, { passive: true });
+    window.addEventListener("resize", mark);
+    return () => {
+      list.removeEventListener("scroll", mark);
+      window.removeEventListener("resize", mark);
+    };
+  }, [options.length]);
+
+  useEffect(() => {
+    const list = listRef.current;
+    const selected = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !selected) return;
+    // 入りきっている時は動かさない(スクロールする余地が無い)。
+    if (list.scrollWidth <= list.clientWidth) return;
+    const left = selected.offsetLeft - (list.clientWidth - selected.offsetWidth) / 2;
+    // scrollIntoView は画面ごと縦にも動かしてしまうので、帯の中だけを動かす。
+    list.scrollTo?.({ left: Math.max(0, left), behavior: placedOnce.current ? "smooth" : "auto" });
+    placedOnce.current = true;
+  }, [value]);
+
+  // className(mb-4 など、置き場所の余白)は外側の箱に付ける。内側の帯は影を切らないための
+  // 負の余白を持っているので、そこに付けると打ち消されてしまう(layout-teal.css)。
   return (
-    <div
-      role="tablist"
-      className={`spatial-tabs grid gap-2 ${COLS_CLASS[cols] ?? "grid-cols-3"} ${className}`}
-    >
-      {options.map((opt) => {
-        const selected = opt.value === value;
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            onClick={() => onChange(opt.value)}
-            className={`spatial-tabs__tab min-h-12 border px-1 py-3 font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
-              dense ? "text-[11px]" : "text-sm"
-            } ${
-              selected
-                ? "is-selected border-white/50 bg-white/55 font-semibold text-accent"
-                : "border-white/35 bg-white/18 text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
+    <div className={className}>
+      <div
+        ref={listRef}
+        role="tablist"
+        className="spatial-tabs spatial-tabs--scroll relative flex gap-2 overflow-x-auto"
+      >
+        {options.map((opt) => {
+          const selected = opt.value === value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => onChange(opt.value)}
+              className={`spatial-tabs__tab min-h-12 flex-[1_0_auto] whitespace-nowrap border px-4 py-3 font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${
+                dense ? "text-[11px]" : "text-sm"
+              } ${
+                selected
+                  ? "is-selected border-white/50 bg-white/55 font-semibold text-accent"
+                  : "border-white/35 bg-white/18 text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

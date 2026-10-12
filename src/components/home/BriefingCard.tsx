@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { CalendarDays, Hourglass, Mail } from "lucide-react";
+import { CalendarCheck, CalendarDays, ChevronRight, Hourglass, Mail } from "lucide-react";
 import { REPLY_WAIT_DAYS, type ReplyWaitingItem } from "../../lib/replyWaiting";
 
 export interface BriefingGmail {
@@ -35,6 +35,21 @@ export function BriefingCard({ eventCount, nextEvent, gmail, waiting }: Props) {
     : eventCount
       ? "今日の分は終わりました"
       : "予定はありません";
+
+  // 全部0件の日は、大きな「0件」を3つ並べずに1行にまとめて場所を譲る(UI/UX 調査メモ C-6)。
+  // 読み込み中(undefined)はまとめない — 0件と決まる前に1行へ縮むと、あとで3枚に戻って跳ねる。
+  const gmailClear = !gmail?.connected || (gmail.importantUnread === 0 && waiting !== undefined && waiting.length === 0);
+  if (eventCount === 0 && gmail !== undefined && gmailClear) {
+    return (
+      <section className="warm-card warm-brief is-clear" data-reveal="1" aria-label="今日のまとめ">
+        <Link to="/schedule?view=today" className="warm-brief__clear">
+          <CalendarCheck size={17} aria-hidden="true" />
+          <span>{gmail.connected ? "今日は予定・重要な未読・返信待ちはありません" : "今日の予定はありません"}</span>
+          <ChevronRight size={15} aria-hidden="true" />
+        </Link>
+      </section>
+    );
+  }
 
   return (
     <section className="warm-card warm-brief" data-reveal="1" aria-label="今日のまとめ">

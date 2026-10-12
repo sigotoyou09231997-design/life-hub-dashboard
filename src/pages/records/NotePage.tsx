@@ -95,7 +95,6 @@ export default function NotePage() {
           ) : (
             <NoteList
               notes={notes ?? []}
-              onAdd={() => setAddTypeOpen(true)}
               onEdit={(note) => setEditing({ mode: "edit", note })}
               onDelete={handleDelete}
             />

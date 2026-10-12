@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { differenceInCalendarDays, format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import { ArrowRight, CalendarDays, CheckSquare, Check, ChevronRight, Mail, Plane } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckSquare, Check, ChevronRight, Mail, Plane, Plus } from "lucide-react";
 import { db } from "../db/schema";
 import type { CalendarEvent } from "../types";
 import { formatDisplayDate, formatGmailTimestamp, todayStr } from "../lib/date";
@@ -24,6 +24,8 @@ import { useUsageAlerts } from "../hooks/useFeatureUsage";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
 import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
 import { BriefingCard } from "../components/home/BriefingCard";
+import { PageFab } from "../components/ui/PageFab";
+import { openAddChooser } from "../components/layout/AddChooser";
 
 const EVENT_PREVIEW_LIMIT = 3;
 const TASK_PREVIEW_LIMIT = 3;
@@ -124,6 +126,20 @@ export default function TopPage() {
   const previewTasks = sortedTasks.slice(0, TASK_PREVIEW_LIMIT);
 
   const { data: budget } = usePayPeriodBudget();
+  // 給与がまだ無い時の「今月のお金」。前は「¥—」と案内の1行だけで、ホームでいちばん大きな
+  // 面が空いていた(UI/UX 調査メモ A-4)ので、給与が無くても分かる今月の支出を出す。
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const monthSpending = useLiveQuery(async () => {
+    const rows = await db.transactions.where("date").between(monthStart, today, true, true).toArray();
+    const expenses = rows.filter((row) => row.type === "expense");
+    const latest = [...expenses].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)[0];
+    return {
+      total: expenses.reduce((sum, row) => sum + row.amount, 0),
+      count: expenses.length,
+      today: expenses.filter((row) => row.date === today).reduce((sum, row) => sum + row.amount, 0),
+      latest: latest ? latest.store || latest.category : null,
+    };
+  }, [monthStart, today]);
   // 使われなくなった機能のお知らせ。ある月だけ、上段と4分割のカードの間に1枚出す。
   const usageAlerts = useUsageAlerts();
   // 「今日のまとめ」に出す返信待ち(src/lib/replyWaiting.ts)。
@@ -221,18 +237,18 @@ export default function TopPage() {
           <p className="lh-cover__quote">{hero.quote}</p>
         </div>
         <p className="lh-cover__clock">
-          <time dateTime={format(now, "yyyy-MM-dd'T'HH:mm")}>{format(now, "h:mm")}</time>
-          <small>{hour < 12 ? "AM" : "PM"}</small>
+          {/* 24時間の表記(2026-10-12、UI/UX 調査メモ C-4)。ここだけ「5:34 PM」と英語だった。 */}
+          <time dateTime={format(now, "yyyy-MM-dd'T'HH:mm")}>{format(now, "H:mm")}</time>
         </p>
       </header>
 
-      <Link to="/records/expense" className="warm-card lh-money" data-reveal="1">
-        <span className="lh-money__label">今月のお金</span>
-        <p className={`warm-amount ${budget && budget.remaining < 0 ? "is-negative" : ""}`}>
-          <small>¥</small>
-          {budget ? budget.remaining.toLocaleString() : "—"}
-        </p>
-        {budget ? (
+      {budget ? (
+        <Link to="/records/expense" className="warm-card lh-money" data-reveal="1">
+          <span className="lh-money__label">今月のお金</span>
+          <p className={`warm-amount ${budget.remaining < 0 ? "is-negative" : ""}`}>
+            <small>¥</small>
+            {budget.remaining.toLocaleString()}
+          </p>
           <dl className="lh-money__stats">
             <div>
               <dt>1日あたり使える</dt>
@@ -247,13 +263,43 @@ export default function TopPage() {
               <dd>{budget.period.daysUntilNextPayday}日</dd>
             </div>
           </dl>
-        ) : (
-          <p className="warm-amount__note">給与を登録すると自動計算します</p>
-        )}
-        <span className="warm-card__foot">
-          詳細をチェック <ArrowRight size={14} />
-        </span>
-      </Link>
+          <span className="warm-card__foot">
+            詳細をチェック <ArrowRight size={14} />
+          </span>
+        </Link>
+      ) : (
+        // 給与がまだ無い時。中にリンクが2つあるので、カードそのものはリンクにしない。
+        <div className="warm-card lh-money is-unset" data-reveal="1">
+          <span className="lh-money__label">今月の支出</span>
+          <p className="warm-amount">
+            <small>¥</small>
+            {monthSpending ? monthSpending.total.toLocaleString() : "—"}
+          </p>
+          <dl className="lh-money__stats">
+            <div>
+              <dt>記録した数</dt>
+              <dd>{monthSpending?.count ?? 0}件</dd>
+            </div>
+            <div>
+              <dt>今日</dt>
+              <dd>¥{(monthSpending?.today ?? 0).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt>さいごの支出</dt>
+              <dd>{monthSpending?.latest ?? "まだなし"}</dd>
+            </div>
+          </dl>
+          <p className="warm-amount__note">給与を入れると、給料日まで1日いくら使えるかも出ます</p>
+          <div className="lh-money__actions">
+            <Link to="/records/expense?new=salary" className="lh-money__cta">
+              給与を登録する
+            </Link>
+            <Link to="/records/expense?tab=history" className="warm-card__foot">
+              支出を見る <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* 今日のまとめ(2026-09-16)。予定・重要な未読・返信待ちを、画面を回らずに1枚で。 */}
       <BriefingCard
@@ -262,8 +308,6 @@ export default function TopPage() {
         gmail={gmailPreview}
         waiting={replyWaiting}
       />
-
-      <UsageAlertCard alerts={usageAlerts.alerts} onDismiss={usageAlerts.dismiss} />
 
       <section className="lh-section lh-section--events" data-reveal="3">
         <SectionHead title="次の予定" to="/schedule?view=calendar" />
@@ -473,6 +517,16 @@ export default function TopPage() {
           </div>
         </section>
       )}
+
+      {/* 使われなくなった機能のお知らせ。前は「今日のまとめ」のすぐ下(次の予定より上)に
+          カード1枚で出ていたが、毎日の行動とは関係が薄いので、いちばん下の1行に縮めた
+          (UI/UX 調査メモ A-5)。 */}
+      <UsageAlertCard alerts={usageAlerts.alerts} onDismiss={usageAlerts.dismiss} compact />
+
+      {/* 追加の入口(UI/UX 調査メモ A-3)。ホームは何を足すか決まらないので、選ぶシートを開く。 */}
+      <PageFab onClick={openAddChooser} label="追加する">
+        <Plus size={24} />
+      </PageFab>
     </div>
   );
 }

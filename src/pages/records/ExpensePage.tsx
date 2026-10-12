@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ArrowLeft, CreditCard, Download, FileUp, Plus, ReceiptText, Smartphone } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
@@ -31,6 +32,7 @@ import { TransactionCsvExport } from "../../components/expense/TransactionCsvExp
 import { useToast } from "../../components/ui/ToastProvider";
 import { ListSkeleton } from "../../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../../hooks/useDelayedFlag";
+import { PageFab } from "../../components/ui/PageFab";
 
 /** レシート読み取り結果を、支出フォームへの下書きにする。idを持たせないので、
  * ExpenseFormは「新規追加」として保存する(既存の編集判定はinitial?.idを見ている)。 */
@@ -50,7 +52,12 @@ function receiptToDraftTransaction(receipt: ExtractedReceipt): Transaction {
 
 // 2026-10-12: 固定費のタブを「サブスク」に作り替えて先頭に置いた(参考: サブスクBOX)。
 // 開いたときに最初に出るのもサブスク。固定費の中身はそのまま、サブスクの一覧に並ぶ。
-type Tab = "subs" | "summary" | "salary" | "history" | "card" | "paypay";
+// 同じ日に「カード」「PayPay」をタブから外した(UI/UX 調査メモ C-2)。どちらも見る場所ではなく
+// 取り込みの方法なので、履歴タブの「ほかの方法」に入れた。タブは6個2段 → 4個1段。
+type Tab = "subs" | "summary" | "salary" | "history";
+const TABS: Tab[] = ["subs", "summary", "salary", "history"];
+/** 履歴タブの中身。カードの利用明細・PayPay は「ほかの方法」から開く。 */
+type HistoryView = "list" | "card" | "paypay";
 
 export default function ExpensePage() {
   const showToast = useToast();
@@ -63,18 +70,32 @@ export default function ExpensePage() {
   const [csvExportOpen, setCsvExportOpen] = useState(false);
   const [salaryCsvImportOpen, setSalaryCsvImportOpen] = useState(false);
   const [receiptScanOpen, setReceiptScanOpen] = useState(false);
+  const [historyView, setHistoryView] = useState<HistoryView>("list");
+  const [moreMethodsOpen, setMoreMethodsOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
 
   // アプリアイコン長押しのショートカット(vite.config.ts の manifest.shortcuts)から
   // ?new=expense で来たときは、収支の追加フォームを開いた状態で始める。合わせて
   // 履歴タブへ移す — 保存したあとに何が増えたのかが見える場所で終わるようにする。
   // 開いたら印はURLから消す(残すと、閉じたあとの再読み込みや戻るでまた開く)。
+  // ?new=salary はホームの「今月のお金」(給与がまだ無い時)の「給与を登録する」から。
+  // ?tab= は、ほかの画面から決まったタブを開くため(ホームの「支出を見る」など)。
   useEffect(() => {
-    if (searchParams.get("new") !== "expense") return;
-    setTab("history");
-    setEditingTransaction("new");
+    const requested = searchParams.get("new");
+    const requestedTab = searchParams.get("tab");
+    if (requested !== "expense" && requested !== "salary" && !requestedTab) return;
+    if (requested === "expense") {
+      setTab("history");
+      setEditingTransaction("new");
+    } else if (requested === "salary") {
+      setTab("salary");
+      setEditingSalary("new");
+    } else if (TABS.includes(requestedTab as Tab)) {
+      setTab(requestedTab as Tab);
+    }
     const rest = new URLSearchParams(searchParams);
     rest.delete("new");
+    rest.delete("tab");
     setSearchParams(rest, { replace: true });
   }, [searchParams, setSearchParams]);
 
@@ -108,11 +129,12 @@ export default function ExpensePage() {
             { value: "summary", label: "サマリー" },
             { value: "salary", label: "給与" },
             { value: "history", label: "履歴" },
-            { value: "card", label: "カード" },
-            { value: "paypay", label: "PayPay" },
           ]}
           value={tab}
-          onChange={setTab}
+          onChange={(next) => {
+            setTab(next);
+            setHistoryView("list");
+          }}
         />
       </div>
 
@@ -164,7 +186,7 @@ export default function ExpensePage() {
           </div>
         )}
 
-        {tab === "history" && (
+        {tab === "history" && historyView === "list" && (
           <div className={`finance-ledger-workspace ${noTransactions ? "is-empty-fill" : ""}`}>
             {showHistorySkeleton ? (
               <ListSkeleton />
@@ -180,27 +202,66 @@ export default function ExpensePage() {
                 }}
               />
             )}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button className="flex-1" onClick={() => setEditingTransaction("new")}>
-                収支を追加
+            {/* 前は4つのボタンを1行に詰めていて、「収支を追/加」と途中で折り返し、
+                「CSVで書き出す」は切れていた(UI/UX 調査メモ B-4)。いちばん使う「収支を追加」
+                だけを大きく置き、残りは「ほかの方法」にまとめる。 */}
+            <div className="finance-history-actions mt-4">
+              <Button className="w-full" onClick={() => setEditingTransaction("new")}>
+                <Plus size={16} aria-hidden="true" /> 収支を追加
               </Button>
-              <Button variant="secondary" className="flex-1" onClick={() => setReceiptScanOpen(true)}>
-                レシートから追加
-              </Button>
-              <Button variant="secondary" className="flex-1" onClick={() => setCsvImportOpen(true)}>
-                CSVから取込
-              </Button>
-              <Button variant="secondary" className="flex-1" onClick={() => setCsvExportOpen(true)}>
-                CSVで書き出す
+              <Button variant="secondary" className="w-full" onClick={() => setMoreMethodsOpen(true)}>
+                ほかの方法(レシート・CSV など)
               </Button>
             </div>
           </div>
         )}
 
-        {tab === "card" && <PendingCardChargeList onImport={() => setCardCsvImportOpen(true)} />}
-
-        {tab === "paypay" && <PayPayImport />}
+        {tab === "history" && historyView !== "list" && (
+          <div className="finance-history-subview">
+            <button type="button" className="finance-history-back" onClick={() => setHistoryView("list")}>
+              <ArrowLeft size={15} aria-hidden="true" /> 履歴に戻る
+            </button>
+            {historyView === "card" && <PendingCardChargeList onImport={() => setCardCsvImportOpen(true)} />}
+            {historyView === "paypay" && <PayPayImport />}
+          </div>
+        )}
       </div>
+
+      {/* お金管理の「＋」は、いちばん多い追加の「収支」(UI/UX 調査メモ A-3)。
+          前はサマリーに追加の入口が無く、履歴タブの中まで行く必要があった。 */}
+      <PageFab onClick={() => setEditingTransaction("new")} label="収支を追加">
+        <Plus size={24} />
+      </PageFab>
+
+      <Sheet open={moreMethodsOpen} onClose={() => setMoreMethodsOpen(false)} title="ほかの方法">
+        <div className="finance-more-methods">
+          {[
+            { label: "レシートから追加", note: "写真から読み取る", icon: ReceiptText, run: () => setReceiptScanOpen(true) },
+            { label: "CSVから取込", note: "銀行・カードの明細", icon: FileUp, run: () => setCsvImportOpen(true) },
+            { label: "CSVで書き出す", note: "記録をファイルに", icon: Download, run: () => setCsvExportOpen(true) },
+            { label: "カードの利用明細", note: "引き落とし前のぶん", icon: CreditCard, run: () => setHistoryView("card") },
+            { label: "PayPay", note: "残高と取り込み", icon: Smartphone, run: () => setHistoryView("paypay") },
+          ].map(({ label, note, icon: Icon, run }) => (
+            <button
+              key={label}
+              type="button"
+              className="lh-row finance-more-methods__row"
+              onClick={() => {
+                setMoreMethodsOpen(false);
+                run();
+              }}
+            >
+              <span className="lh-row__icon lh-row__icon--initial" aria-hidden="true">
+                <Icon size={17} />
+              </span>
+              <span className="lh-row__copy">
+                <strong>{label}</strong>
+                <small>{note}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      </Sheet>
 
       <Sheet
         open={editingTransaction !== null}

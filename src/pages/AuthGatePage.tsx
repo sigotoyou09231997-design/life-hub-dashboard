@@ -5,6 +5,8 @@ import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { useToast } from "../components/ui/ToastProvider";
+import { Tabs } from "../components/ui/Tabs";
+import { hasLoggedInBefore } from "../lib/loginMemory";
 
 type Mode = "register" | "login";
 
@@ -22,7 +24,9 @@ interface Props {
  * stays logged in on this device until they explicitly log out. */
 export default function AuthGatePage({ addingAccount = false }: Props) {
   const showToast = useToast();
-  const [mode, setMode] = useState<Mode>(addingAccount ? "login" : "register");
+  // 前にこの端末でログインしたことがあれば「ログイン」から開く(UI/UX 調査メモ)。
+  // ふだん使う人はログインする方が多く、毎回「新規登録」から切り替えていた。
+  const [mode, setMode] = useState<Mode>(addingAccount || hasLoggedInBefore() ? "login" : "register");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -107,26 +111,17 @@ export default function AuthGatePage({ addingAccount = false }: Props) {
               : "ログインして続ける"}
         </p>
 
-        <div className="mb-5 flex border border-white/45 bg-white/20 p-1">
-          <button
-            type="button"
-            onClick={() => switchMode("register")}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-              mode === "register" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
-            }`}
-          >
-            新規登録
-          </button>
-          <button
-            type="button"
-            onClick={() => switchMode("login")}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-              mode === "login" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500"
-            }`}
-          >
-            ログイン
-          </button>
-        </div>
+        {/* 1つの溝に詰めた切り替えをやめ、ほかの画面と同じ1つずつのタブにする
+            (ボタンを溝に詰めない本人の好み、UI/UX 調査メモ C-1)。 */}
+        <Tabs<Mode>
+          className="mb-5"
+          options={[
+            { value: "register", label: "新規登録" },
+            { value: "login", label: "ログイン" },
+          ]}
+          value={mode}
+          onChange={switchMode}
+        />
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <Input

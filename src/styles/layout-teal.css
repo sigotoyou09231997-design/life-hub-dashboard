@@ -413,12 +413,11 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   .lh-section--events { grid-column: 1; }
   .lh-section--tasks { grid-column: 2; }
   .lh-section--gmail { grid-column: 3; }
+  /* 3枚の高さは中身に合わせる(2026-10-12、UI/UX 調査メモ C-5)。前は Gmail に合わせて
+     そろえていたので、予定やタスクが空の日は下半分が空いた箱に見えていた。 */
   .lh-section--events,
   .lh-section--tasks,
-  .lh-section--gmail { align-self: stretch; }
-  .lh-section--events .lh-group,
-  .lh-section--tasks .lh-group,
-  .lh-section--gmail .lh-group { flex: 1; }
+  .lh-section--gmail { align-self: start; }
 
   .lh-home .warm-brief__item {
     flex-direction: row;
@@ -563,3 +562,122 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 
 /* 財布の現金（別の部品）は、上下の区切りと同じ角丸にそろえる */
 .lh-finance .finance-cash-module { border-radius: 22px !important; }
+
+/* ============================================================================
+   UI/UX 調査メモの対応（2026-10-12）
+   ========================================================================= */
+
+/* A-4 給与がまだ無い時の「今月の支出」— 「給与を登録する」と「支出を見る」を並べる */
+.lh-money.is-unset .warm-amount__note { margin: 0.7rem 0 0; font-size: 0.74rem; }
+.lh-money__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.lh-money__cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.4rem;
+  border-radius: 999px;
+  padding: 0.35rem 1rem;
+  background: #fff;
+  color: var(--ink-black);
+  font-size: 0.82rem;
+  font-weight: 800;
+  transition: transform 300ms var(--spring);
+}
+.lh-money__cta:active { transform: scale(0.96); }
+.lh-money.is-unset .warm-card__foot { margin-top: 0; }
+
+/* A-5 使われていない機能 — いちばん下の1行の帯 */
+.warm-usage-band {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  border-radius: 16px;
+  padding: 0.65rem 0.9rem;
+  background: var(--warm-surface-sunk);
+  color: var(--warm-ink-2);
+  font-size: 0.8rem;
+}
+.warm-usage-band > svg { flex: 0 0 auto; color: var(--warm-ink-3); }
+.warm-usage-band__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--warm-ink);
+  font-weight: 700;
+}
+.warm-usage-band__dismiss {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--warm-ink-3);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+/* C-6 今日のまとめが全部0件の日は1行 */
+.lh-home .warm-brief.is-clear { gap: 0; }
+.warm-brief__clear {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  border-radius: 18px;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(160deg, #ffffff, var(--teal-50));
+  box-shadow: var(--warm-shadow);
+  color: var(--warm-ink);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.warm-brief__clear > svg:first-child { flex: 0 0 auto; color: var(--teal-600); }
+.warm-brief__clear > span { min-width: 0; flex: 1; }
+.warm-brief__clear > svg:last-child { flex: 0 0 auto; color: var(--warm-ink-3); }
+
+/* B-4 お金管理・履歴タブ — 「収支を追加」を大きく1つ、残りは「ほかの方法」 */
+.finance-history-actions { display: grid; gap: 0.5rem; }
+.finance-history-actions .app-button { min-height: 3rem; border-radius: 999px; }
+.finance-history-subview { display: grid; gap: 0.9rem; }
+.finance-history-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  justify-self: start;
+  border: 0;
+  background: none;
+  padding: 0.2rem 0;
+  color: var(--teal-700);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.finance-more-methods { display: grid; }
+.finance-more-methods__row + .finance-more-methods__row { border-top: 1px solid var(--warm-line); }
+.finance-more-methods__row::before { display: none; }
+
+/* C-2 タブは1段のまま横に流す(ui/Tabs.tsx)。横に流せる箱は、はみ出した影まで四角く
+   切ってしまう(選んだタブの黒い影が、端と下で角張って見えた)。影が収まるだけの余白を
+   内側に取り、同じだけ外へ負の余白で返して、並びの位置は前と変えない。 */
+.spatial-tabs--scroll {
+  margin: -0.5rem -0.75rem -1.6rem;
+  padding: 0.5rem 0.75rem 1.6rem;
+  scrollbar-width: none;
+}
+.spatial-tabs--scroll::-webkit-scrollbar { display: none; }
+/* 入りきらない時は、隠れている側の端を薄くする */
+.spatial-tabs--scroll[data-more-right="true"] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.25rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.25rem), transparent);
+}
+.spatial-tabs--scroll[data-more-left="true"] {
+  -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 2.25rem), transparent);
+  mask-image: linear-gradient(to left, #000 calc(100% - 2.25rem), transparent);
+}
+.spatial-tabs--scroll[data-more-left="true"][data-more-right="true"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2.25rem, #000 calc(100% - 2.25rem), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 2.25rem, #000 calc(100% - 2.25rem), transparent);
+}
+

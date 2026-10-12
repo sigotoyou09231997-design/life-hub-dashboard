@@ -44,14 +44,20 @@ describe("Supabase authentication flows", () => {
     auth.onAuthStateChange.mockReturnValue({ data: { subscription: { unsubscribe: vi.fn() } } });
   });
 
+  it("opens on the ログイン tab on a device that has logged in before", () => {
+    localStorage.setItem("lifehub.hasLoggedIn", "1");
+    renderWithToast(<AuthGatePage />);
+    expect(screen.getByRole("tab", { name: "ログイン" }).getAttribute("aria-selected")).toBe("true");
+  });
+
   it("logs in with email and password", async () => {
     const user = userEvent.setup();
     renderWithToast(<AuthGatePage />);
 
-    await user.click(screen.getByRole("button", { name: "ログイン" }));
+    await user.click(screen.getByRole("tab", { name: "ログイン" }));
     await user.type(screen.getByLabelText("メールアドレス"), "person@example.com");
     await user.type(screen.getByLabelText("パスワード"), "secret12");
-    fireEvent.submit(screen.getAllByRole("button", { name: "ログイン" })[1].closest("form")!);
+    fireEvent.submit(screen.getByRole("button", { name: "ログイン" }).closest("form")!);
 
     await waitFor(() => expect(auth.signInWithPassword).toHaveBeenCalledWith({
       email: "person@example.com",

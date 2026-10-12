@@ -13,7 +13,8 @@ import { refreshViewportGap } from "./lib/viewport";
 import { finishAddAccount, isRestarting, rememberSignedInAccount } from "./lib/accountSwitch";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { ConfirmProvider } from "./components/ui/ConfirmProvider";
-import { FeedbackButton } from "./components/feedback/FeedbackButton";
+import { InAppFeedbackButton } from "./components/feedback/FeedbackButton";
+import { AddChooserHost } from "./components/layout/AddChooser";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AmbientBackground } from "./components/layout/AmbientBackground";
 import { AppHeader } from "./components/layout/AppHeader";
@@ -24,6 +25,7 @@ import { useDesignMotion } from "./hooks/useDesignMotion";
 import { usePlaceReminderWatch } from "./hooks/usePlaceReminderWatch";
 
 import AuthGatePage from "./pages/AuthGatePage";
+import { markLoggedIn } from "./lib/loginMemory";
 import TopPage from "./pages/TopPage";
 import AuthCallbackPage from "./pages/AuthCallbackPage";
 
@@ -184,6 +186,12 @@ export default function App() {
     })();
   }, []);
 
+  // ログインできた端末だと覚える。次にログイン画面を出す時は「ログイン」から開く
+  // (src/lib/loginMemory.ts)。
+  useEffect(() => {
+    if (session) markLoggedIn();
+  }, [session]);
+
   // ページ切り替え時の「読み込み中…」表示を体感上ほぼ無くすため、ログイン後の暇な
   // タイミング(requestIdleCallback)で全lazyページのJSチャンクを先読みしておく。
   // 初回起動直後の重要な描画とは competing しないよう、あえて即時ではなくidle時に行う。
@@ -306,8 +314,11 @@ export default function App() {
                 切り替えのアニメーションが position:fixed の基準になってボタンが動いて
                 見えるので、その外側に出す(src/components/ui/PageFab.tsx)。 */}
             <div id="page-fab-root" />
-            {/* 「ここ直した方がいい」を送る入口。右下の「＋」の真上(src/components/feedback/FeedbackButton.tsx)。 */}
-            <FeedbackButton />
+            {/* 「ここ直した方がいい」を送る入口。右下の「＋」の真上(src/components/feedback/FeedbackButton.tsx)。
+                持ち主(本人)には出さない。 */}
+            <InAppFeedbackButton />
+            {/* 「何を追加しますか?」(ホームの「＋」・PCの上の帯の「＋追加」から開く)。 */}
+            <AddChooserHost />
           </div>
           <QuickActionBar />
         </div>
