@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 修正を本番に出すまでを1コマンドで行う(作業場所の中で、変更をコミットしたあとに)。
 #
-#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--shots] [--keep] [--dry-run] [--push-branch]
+#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--from <依頼が来た時刻 epoch 秒>] [--shots] [--keep] [--dry-run] [--push-branch]
 #
 # やること(todoアプリ/CLAUDE.md の「本番反映」と同じ条件。1つでも落ちたら main に入れずに止まる):
 #   1. 手元の main が公開の main と同じか確かめる(違えば止まる)。ブランチが main に追いついていなければ main を取り込む
@@ -17,11 +17,12 @@ set -euo pipefail
 
 MSG="${1:?何を直したか(統合のメッセージ)を渡してください}"
 shift || true
-DONE_ID=""; SHOTS=0; KEEP=0; DRY=0; PUSH_BRANCH=0
+DONE_ID=""; SHOTS=0; KEEP=0; DRY=0; PUSH_BRANCH=0; FROM_EPOCH=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --done) DONE_ID="${2:?--done の後に要望のid}"; shift 2 ;;
     --shots) SHOTS=1; shift ;;
+    --from) FROM_EPOCH="${2:?--from の後に、依頼が来た時刻(epoch 秒。date +%s)}"; shift 2 ;;
     --keep) KEEP=1; shift ;;
     --push-branch) PUSH_BRANCH=1; shift ;;
     --dry-run) DRY=1; shift ;;
@@ -30,6 +31,7 @@ while [ $# -gt 0 ]; do
 done
 
 START=$SECONDS
+E_START=$(date +%s)
 die() { echo "✗ $*" >&2; exit 1; }
 step() { echo "▶ $*  (+$((SECONDS - START))秒)"; }
 
@@ -87,6 +89,7 @@ git merge -q --no-ff "$BRANCH" -m "Merge branch '$BRANCH': $MSG
 Co-Authored-By: $COAUTHOR"
 SHA="$(git rev-parse HEAD)"
 git push origin HEAD:main 2>&1 | tail -1
+E_PUSHED=$(date +%s)
 step "4/6 手元の main を進める"
 git -C "$MAIN_DIR" merge -q --ff-only "$SHA" || die "手元の main を進められませんでした(公開はされています: ${SHA:0:7})"
 
@@ -107,6 +110,7 @@ while [ "$SECONDS" -lt "$DEADLINE" ]; do
   fi
   sleep 4
 done
+E_LIVE=$(date +%s)
 [ "$LIVE" -eq 1 ] && echo "✓ Vercel に出ました: ${SHA:0:7}" || echo "✗ Vercel がまだ ${SHA:0:7} になっていません(20分待ちました)。Vercel の画面を見てください"
 
 step "6/6 Netlify を見る(待たない。ユーザーが使うのは Vercel の方で、Netlify は定期実行の担当)"
@@ -126,6 +130,23 @@ if [ "$KEEP" -eq 0 ]; then
   cd "$MAIN_DIR"
   git worktree remove --force "$WT" 2>/dev/null || true
   git branch -D "$BRANCH" >/dev/null 2>&1 || true
+fi
+# 所要時間の計測(2026-10-13)。依頼が届いてから公開までを、3つに分けて出し、.fix-times.log(git に入れない)に残す。
+#   依頼→開始 = 見つけて、調べて、直す時間(私の作業)/ テスト・統合 = ship.sh の前半 / 公開待ち = push から Vercel が公開するまで
+if [ "$DRY" -eq 0 ]; then
+  T0=""
+  if [ -n "$FROM_EPOCH" ]; then T0="$FROM_EPOCH"
+  elif [ -n "$DONE_ID" ]; then T0="$(node "$MAIN_DIR/scripts/feedback-inbox.mjs" --created "$DONE_ID" 2>/dev/null || true)"; fi
+  case "$T0" in ''|*[!0-9]*) T0="" ;; esac
+  A=$((E_PUSHED - E_START)); B=$((${E_LIVE:-$(date +%s)} - E_PUSHED))
+  if [ -n "$T0" ]; then
+    W0=$((E_START - T0)); TOTAL=$((${E_LIVE:-$(date +%s)} - T0))
+    echo "計測: 依頼→開始 ${W0}秒(調べて直す) / テスト・統合 ${A}秒 / 公開待ち ${B}秒 / 依頼→公開 ${TOTAL}秒"
+  else
+    W0=""; TOTAL=$((${E_LIVE:-$(date +%s)} - E_START))
+    echo "計測: テスト・統合 ${A}秒 / 公開待ち ${B}秒 / 開始→公開 ${TOTAL}秒(依頼の時刻が分からないので、依頼→開始は無し)"
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "${SHA:0:7}" "${W0:--}" "$A" "$B" "$TOTAL" "$MSG" >> "$MAIN_DIR/.fix-times.log" || true
 fi
 echo "完了: ${SHA:0:7}  Vercel=$([ "$LIVE" -eq 1 ] && echo 公開済み || echo 未確認)  Netlify=$NETLIFY  所要 $((SECONDS - START))秒"
 [ "$LIVE" -eq 1 ]

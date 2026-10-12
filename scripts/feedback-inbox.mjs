@@ -5,6 +5,7 @@
 //   node scripts/feedback-inbox.mjs --all        対応済み・見送りも並べる
 //   node scripts/feedback-inbox.mjs --json       そのまま JSON で出す
 //   node scripts/feedback-inbox.mjs --done <id>  対応済みにする(--dismiss で見送り、--reopen で未対応に戻す)
+//   node scripts/feedback-inbox.mjs --created <id>  届いた時刻(epoch 秒)だけを出す(ship.sh の所要時間の計測用)
 //   node scripts/feedback-inbox.mjs --images <id>  付いている画像を todoアプリ/.feedback-images/ に保存して、パスを出す(画像を開いて見る)
 //
 // 読み取りコードは todoアプリ/.feedback-code に置く(git には入れない。.gitignore 済み)。
@@ -78,6 +79,17 @@ async function main() {
     if (!id) throw new Error("--images のあとに要望の id を付けてください");
     const paths = await saveFeedbackImages({ env, code, id, root: ROOT });
     console.log(paths.length ? paths.join("\n") : "この依頼に付いている画像はありません(または、対応済みにして消えました)");
+    return;
+  }
+
+  // 届いた時刻(epoch 秒)だけを出す。scripts/ship.sh が「依頼が届いてから公開まで」を測るのに使う。
+  if (args.includes("--created")) {
+    const id = args[args.indexOf("--created") + 1];
+    if (!id) throw new Error("--created のあとに要望の id を付けてください");
+    const all = await rpc(env, "app_feedback_inbox", { p_code: code, p_include_resolved: true });
+    const item = (all.items ?? []).find((entry) => entry.id === id);
+    if (!item) throw new Error("その id の要望が見つかりません");
+    console.log(Math.floor(new Date(item.createdAt).getTime() / 1000));
     return;
   }
 
