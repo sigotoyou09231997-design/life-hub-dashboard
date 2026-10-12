@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction, TransactionType } from "../../types";
 import { todayStr } from "../../lib/date";
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "../../lib/categories";
+import { orderCategoriesByUsage } from "../../lib/categoryUsage";
 import { collectStoreSamples, guessCategoryFromStore } from "../../lib/storeCategory";
 import { knownProjectTags, loadProjectTag, saveProjectTag } from "../../lib/projectTags";
-import { Wallet, Store } from "lucide-react";
+import { CalendarDays, ChevronDown, Store, Wallet } from "lucide-react";
 import { Input, Textarea, AmountInput } from "../ui/Input";
-import { Select } from "../ui/Select";
 import { SegmentedField } from "../ui/SegmentedField";
 import { SwitchField } from "../ui/SwitchField";
 import { DateField } from "../ui/DateField";
@@ -26,20 +26,38 @@ interface Props {
   onCancel: () => void;
 }
 
+/** 支払い方法のボタンに出す名前。保存する値(PAYMENT_METHODS)はそのままで、
+ * 「クレジットカード」だけは3列のボタンに収まらず2行に折れるので短くして見せる。 */
+const METHOD_LABELS: Record<string, string> = { クレジットカード: "クレカ" };
+
+/** 一覧に無い値(取り込みで入った独自のカテゴリ・支払い方法)を開いたときは、末尾に1つ足して
+ * 選んだ状態で見せる。足さないと、どれも選ばれていないように見えるのに保存すると元の値が残る。 */
+function withCurrent(options: readonly string[], current: string): string[] {
+  return current && !options.includes(current) ? [...options, current] : [...options];
+}
+
+function defaultCategoriesFor(type: TransactionType): readonly string[] {
+  return type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+}
+
 export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onSaved, onCancel }: Props) {
   const [type, setType] = useState<TransactionType>(initial?.type ?? defaultType);
   // amount: 0(レシート読み取りで金額が読めなかった時の仮値)は未入力と同じ扱いにする —
   // 「0」が入ったまま出すより、空欄で金額の入力を促す方がよい。
   const [amount, setAmount] = useState(initial?.amount ? initial.amount.toString() : "");
-  const [category, setCategory] = useState(
-    initial?.category ?? (type === "expense" ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0]),
-  );
+  // 自分で選んだカテゴリ。null のあいだは、店名からの推測 → よく使う順の先頭、の順で決める。
+  // 編集中の記録・レシートの下書きは、既にカテゴリが入っているので最初から「選んだ」扱いにして
+  // 推測で上書きしない。
+  const [pickedCategory, setPickedCategory] = useState<string | null>(initial?.category ?? null);
   const [method, setMethod] = useState(initial?.method ?? PAYMENT_METHODS[0]);
   const [store, setStore] = useState(initial?.store ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [date, setDate] = useState(initial?.date ?? todayStr());
   const [isFixed, setIsFixed] = useState(initial?.isFixed ?? false);
   const [projectTag, setProjectTag] = useState("");
+  // 案件・メモ・固定費は毎回は使わないので「詳しく」に畳む。使っている記録を開いたときだけ
+  // 最初から開く(畳んだままだと、入っている値が見えないまま保存してしまう)。
+  const [moreOpen, setMoreOpen] = useState(() => Boolean(initial?.memo?.trim() || initial?.isFixed));
   const [saving, setSaving] = useState(false);
 
   // 案件タグは収支の行と別のテーブルにあるので、開いたときに読み直す
@@ -49,7 +67,9 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
     if (!initialId) return;
     let alive = true;
     loadProjectTag(initialId).then((tag) => {
-      if (alive) setProjectTag(tag);
+      if (!alive) return;
+      setProjectTag(tag);
+      if (tag) setMoreOpen(true);
     });
     return () => {
       alive = false;
@@ -60,32 +80,34 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
   const projectTagRows = useLiveQuery(() => db.transactionProjectTags.toArray(), []);
   const tagSuggestions = knownProjectTags(projectTagRows ?? []);
 
-  // 店名からカテゴリを推測する材料。過去の支出はそう多くないので全件から作る。
+  // 店名からカテゴリを推測する材料と、カテゴリをよく使う順に並べる材料。過去の収支は
+  // そう多くないので全件から作る。
   const pastTransactions = useLiveQuery(() => db.transactions.toArray(), []);
   const storeSamples = collectStoreSamples(pastTransactions ?? []);
   const guess = type === "expense" ? guessCategoryFromStore(storeSamples, store) : null;
 
-  // 自分でカテゴリを選んだあとは推測で上書きしない。編集中の記録も、既に選んだ
-  // カテゴリがあるので触らない。
-  const categoryTouched = useRef(initial != null);
-  const appliedGuessFor = useRef<string | null>(null);
+  // カテゴリのボタンの並び。開いた時点の記録で1回だけ決めて、開いているあいだは動かさない
+  // (同期で記録が届くたびに並びが変わると、押そうとしたボタンが逃げる)。
+  const [categoryOrder, setCategoryOrder] = useState<Record<TransactionType, string[]> | null>(null);
   useEffect(() => {
-    if (categoryTouched.current || !guess) return;
-    if (appliedGuessFor.current === guess.category) return;
-    appliedGuessFor.current = guess.category;
-    setCategory(guess.category);
-  }, [guess?.category]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (categoryOrder || !pastTransactions) return;
+    const today = todayStr();
+    setCategoryOrder({
+      expense: orderCategoriesByUsage(EXPENSE_CATEGORIES, pastTransactions, "expense", today),
+      income: orderCategoriesByUsage(INCOME_CATEGORIES, pastTransactions, "income", today),
+    });
+  }, [pastTransactions, categoryOrder]);
 
-  const categories = type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+  const orderedCategories = categoryOrder?.[type] ?? defaultCategoriesFor(type);
+  const category = pickedCategory ?? guess?.category ?? orderedCategories[0];
+  const categoryOptions = withCurrent(orderedCategories, category);
+  const methodOptions = withCurrent(PAYMENT_METHODS, method);
 
   function handleTypeChange(next: TransactionType) {
+    if (next === type) return;
     setType(next);
-    setCategory(next === "expense" ? EXPENSE_CATEGORIES[0] : INCOME_CATEGORIES[0]);
-  }
-
-  function handleCategoryChange(next: string) {
-    categoryTouched.current = true;
-    setCategory(next);
+    // 収入と支出でカテゴリの一覧が違うので、選び直しにする。
+    setPickedCategory(null);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -141,25 +163,12 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
           min={1}
           autoFocus
         />
-        <Select label="カテゴリ" value={category} onChange={(e) => handleCategoryChange(e.target.value)}>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </Select>
-        <DateField label="日付" value={date} onChange={setDate} />
       </FormPanel>
 
-      {type === "expense" && (
-        <FormPanel caption="どこで・どうやって" icon={Store}>
-          <Select label="支払い方法" value={method} onChange={(e) => setMethod(e.target.value)}>
-            {PAYMENT_METHODS.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </Select>
+      {/* 店舗をカテゴリより前に置く。店名を打った時点で、過去に同じ店で選んだカテゴリが
+          下のボタンに入るので、たいていはカテゴリを押さずに済む。 */}
+      <FormPanel caption={type === "expense" ? "どこで・何に" : "何の収入"} icon={Store}>
+        {type === "expense" && (
           <div>
             <Input
               label="店舗"
@@ -168,52 +177,103 @@ export function ExpenseForm({ initial, defaultType = "expense", submitLabel, onS
               onChange={(e) => setStore(e.target.value)}
               placeholder="例: いつものスーパー"
             />
-            {/* 過去に同じ店で選んだカテゴリ。まだ自分で選んでいなければ上のカテゴリに
+            {/* 過去に同じ店で選んだカテゴリ。まだ自分で選んでいなければ下のカテゴリに
                 入れてあり、選んだあとは押して入れ替えられるようにする。 */}
             {guess && (
-              guess.category === category ? (
-                <p className="mt-1.5 text-xs text-slate-500">
-                  「{guess.matchedStore}」の過去{guess.matchedCount}件から
-                  <span className="font-semibold text-slate-700">{guess.category}</span>にしています
-                </p>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => handleCategoryChange(guess.category)}
-                  className="mt-1.5 text-xs font-medium text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-                >
-                  「{guess.matchedStore}」では{guess.category}が多いです。{guess.category}にする
-                </button>
-              )
+              <div className="-mt-1.5 px-[0.9rem] pb-3">
+                {guess.category === category ? (
+                  <p className="text-xs text-slate-500">
+                    「{guess.matchedStore}」の過去{guess.matchedCount}件から
+                    <span className="font-semibold text-slate-700">{guess.category}</span>にしています
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPickedCategory(guess.category)}
+                    className="text-left text-xs font-medium text-accent underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                  >
+                    「{guess.matchedStore}」では{guess.category}が多いです。{guess.category}にする
+                  </button>
+                )}
+              </div>
             )}
           </div>
-          <SwitchField
-            label="固定費の支払いとして記録する"
-            hint="使えるお金の計算から外します。"
-            checked={isFixed}
-            onChange={setIsFixed}
+        )}
+        {/* 最近よく使う順(src/lib/categoryUsage.ts)。iPhone ではシートの中のプルダウンが
+            離れた所に開いて編集画面ごと消えることがあるので、少ない選択肢はボタンにする。 */}
+        <SegmentedField
+          label="カテゴリ"
+          value={category}
+          options={categoryOptions.map((c) => ({ value: c, label: c }))}
+          onChange={setPickedCategory}
+          columns={3}
+          separate
+        />
+        {type === "expense" && (
+          <SegmentedField
+            label="支払い方法"
+            value={method}
+            options={methodOptions.map((m) => ({ value: m, label: METHOD_LABELS[m] ?? m }))}
+            onChange={setMethod}
+            columns={3}
+            separate
           />
-        </FormPanel>
-      )}
+        )}
+      </FormPanel>
+
+      <FormPanel caption="いつ" icon={CalendarDays}>
+        <DateField label="日付" value={date} onChange={setDate} />
+      </FormPanel>
 
       <FormPanel>
-        {/* 個人開発の案件ごとの収支を、年末にまとめて書き出すための印
-            (src/lib/projectTags.ts)。付けたものだけが案件別の集計に出る。 */}
-        <Input
-          label="案件"
-          optional
-          value={projectTag}
-          onChange={(e) => setProjectTag(e.target.value)}
-          placeholder="例: Aサイト制作"
-          list="project-tag-options"
-          hint="付けた収支だけ、年間の案件別エクスポートに出ます。"
-        />
-        <datalist id="project-tag-options">
-          {tagSuggestions.map((tag) => (
-            <option key={tag} value={tag} />
-          ))}
-        </datalist>
-        <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
+        <button
+          type="button"
+          aria-expanded={moreOpen}
+          aria-controls="expense-form-more"
+          onClick={() => setMoreOpen((open) => !open)}
+          className="flex w-full items-center justify-between gap-3 px-[0.9rem] py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
+        >
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold text-slate-700">詳しく</span>
+            <span className="block text-xs text-slate-500">
+              {type === "expense" ? "案件・メモ・固定費の支払い" : "案件・メモ"}
+            </span>
+          </span>
+          <ChevronDown
+            size={16}
+            className={`shrink-0 text-slate-500 transition-transform ${moreOpen ? "rotate-180" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+        {moreOpen && (
+          <div id="expense-form-more" className="form-panel__body">
+            {/* 個人開発の案件ごとの収支を、年末にまとめて書き出すための印
+                (src/lib/projectTags.ts)。付けたものだけが案件別の集計に出る。 */}
+            <Input
+              label="案件"
+              optional
+              value={projectTag}
+              onChange={(e) => setProjectTag(e.target.value)}
+              placeholder="例: Aサイト制作"
+              list="project-tag-options"
+              hint="付けた収支だけ、年間の案件別エクスポートに出ます。"
+            />
+            <datalist id="project-tag-options">
+              {tagSuggestions.map((tag) => (
+                <option key={tag} value={tag} />
+              ))}
+            </datalist>
+            <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
+            {type === "expense" && (
+              <SwitchField
+                label="固定費の支払いとして記録する"
+                hint="使えるお金の計算から外します。"
+                checked={isFixed}
+                onChange={setIsFixed}
+              />
+            )}
+          </div>
+        )}
       </FormPanel>
 
       <FormActions>
