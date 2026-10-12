@@ -120,6 +120,8 @@ export default function App() {
     if (!isSupabaseConfigured || isSharedTripRoute) return;
     let active = true;
     let transition = 0;
+    /** 同期の準備が済んだ人。この人のトークン更新などの知らせでは、画面を「準備中」の空白に戻さない。 */
+    let readyUserId: string | null = null;
     const applySession = async (next: Session | null) => {
       const currentTransition = ++transition;
       if (!active) return;
@@ -140,12 +142,25 @@ export default function App() {
       }
       setSession(next);
       if (!next) {
+        readyUserId = null;
         stopSync();
         setSyncReady(true);
         return;
       }
       // この端末に登録済みのアカウント一覧に記録する(ヘッダーの切り替えがここを読む)。
       rememberSignedInAccount(next);
+      // 同じ人のトークン更新・アプリに戻った時の「ログイン中」の知らせ(Supabase は、アプリを開き直すたびや
+      // 約1時間ごとに出す)。同期の準備はもう済んでいるので、「準備中」に戻さない — 戻すと、そのたびに
+      // 画面が真っ白になり、メールなどが出なくなる(2026-10-13、本人「gmailの画面になった時に毎回、更新が入って
+      // 画面にメールが表示されずに真っ白になる」)。リアルタイム同期のトークンだけ新しくする。
+      if (readyUserId === next.user.id) {
+        try {
+          await startSync(next.user.id, next.access_token);
+        } catch (error) {
+          console.error("[sync] failed to refresh token:", error);
+        }
+        return;
+      }
       setSyncReady(false);
       // 同期を始める前に、この端末のローカルデータが本当にこのユーザーのものか確かめる。
       // 別アカウントでログインし直した場合は空にしてから同期する(src/lib/dataOwner.ts)。
@@ -161,7 +176,10 @@ export default function App() {
       } catch (error) {
         console.error("[sync] failed to initialize:", error);
       }
-      if (active && transition === currentTransition) setSyncReady(true);
+      if (active && transition === currentTransition) {
+        readyUserId = next.user.id;
+        setSyncReady(true);
+      }
     };
     auth.getSession().then(({ data }) => void applySession(data.session));
     const { data: listener } = auth.onAuthStateChange((_event, next) => void applySession(next));
