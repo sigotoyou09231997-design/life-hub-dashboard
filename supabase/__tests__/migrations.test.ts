@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * - 029: 要望の受信箱(ログインして・共有リンクから送れる・持ち主だけ読める・読み取りコード・連投の上限)。
  * - 030: 要望から足した欄(移動手段・予定の詳細・持ち物の並び順・参加者・支払った人)と、共有したしおりへの反映。
  * - 033: 修正依頼に付ける画像(JPEG だけ・3枚まで・大きさの上限・画像つきは1時間3件まで・対応済みで消える・読み取りコードで1件ずつ読む)。
+ * - 034: 旅行を一緒に編集(メールで招く・承認するまで見えない・承認後は持ち主の名前で読み書き・消せない・外す／抜けるで即座に届かなくなる・日記は共有しない)。
  */
 
 const SQL_DIR = new URL("../sql/", import.meta.url);
@@ -49,6 +50,8 @@ beforeAll(async () => {
   await db.exec(`
     create role anon nologin; create role authenticated nologin;
     create schema auth;
+    -- Supabase の auth.users の代わり(034 が、アドレスの確認が済んでいるかを引く)。
+    create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz);
     create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
     create function auth.uid() returns uuid language sql stable as $$ select nullif(auth.jwt() ->> 'sub', '')::uuid $$;
     create publication supabase_realtime;
@@ -488,6 +491,352 @@ describe("033: 修正依頼の画像", () => {
       expect(await count("select image_count as n from public.app_feedback where message = 'アプリから見送る'")).toBe(1);
       await db.exec("update public.app_feedback set status = 'dismissed' where message = 'アプリから見送る'");
       expect(await count("select image_count as n from public.app_feedback where message = 'アプリから見送る'")).toBe(0);
+    });
+  });
+});
+
+describe("034: 旅行を一緒に編集", () => {
+  const FRIEND = "77777777-2222-4333-8444-555555555555"; // 招かれる人(friend@example.com・確認済み)
+  const IMPOSTOR = "66666666-2222-4333-8444-555555555555"; // 同じアドレスで登録しただけ(確認していない)
+  const THIRD = "55555555-2222-4333-8444-555555555555"; // 同じ旅行に参加している、もう1人
+  const T_PENDING = "a0000000-bbbb-4ccc-8ddd-eeeeeeeeeee1"; // 招待中(まだ承認していない)
+  const T_SHARED = "a0000000-bbbb-4ccc-8ddd-eeeeeeeeeee2"; // FRIEND と THIRD が参加中
+  const T_PRIVATE = "a0000000-bbbb-4ccc-8ddd-eeeeeeeeeee3"; // 誰にも共有していない
+  const T_DELETED = "a0000000-bbbb-4ccc-8ddd-eeeeeeeeeee4"; // 持ち主が消した旅行への招待
+  const S_SHARED = "b0000000-bbbb-4ccc-8ddd-eeeeeeeeeee1";
+  const S_PRIVATE = "b0000000-bbbb-4ccc-8ddd-eeeeeeeeeee2";
+  const E_SHARED = "c0000000-bbbb-4ccc-8ddd-eeeeeeeeeee1";
+  const E_PRIVATE = "c0000000-bbbb-4ccc-8ddd-eeeeeeeeeee2";
+
+  const asUser = <T,>(sub: string, fn: () => Promise<T>, extra: Record<string, unknown> = {}) =>
+    as("authenticated", { sub, role: "authenticated", ...extra }, fn);
+  /** 同じ取引の中で、別の人に切り替える(招待→承認、のような続きの流れを確かめる)。 */
+  const switchTo = (sub: string) => db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub, role: "authenticated" })]);
+  const invite = async (tripId: string, email: string) =>
+    (await db.query<{ r: { id: string; status: string; alreadyInvited: boolean } }>("select public.invite_trip_member($1, $2) as r", [tripId, email])).rows[0].r;
+  const respond = async (tripId: string, accept: boolean) =>
+    (await db.query<{ r: { status: string } }>("select public.respond_trip_invite($1, $2) as r", [tripId, accept])).rows[0].r;
+  const newSchedule = (id: string, tripId: string, userId: string) =>
+    `insert into public.trip_schedule (id, user_id, device_id, trip_id, date, title, type) values ('${id}','${userId}','phone','${tripId}','2026-12-28','追加','other')`;
+
+  beforeAll(async () => {
+    await db.exec(`
+      insert into auth.users (id, email, email_confirmed_at) values
+        ('${USER}', 'owner@example.com', now()), ('${FRIEND}', 'friend@example.com', now()),
+        ('${IMPOSTOR}', 'friend@example.com', null), ('${THIRD}', 'third@example.com', now()), ('${OTHER}', 'other@example.com', now());
+      insert into public.trips (id, user_id, device_id, name, destination, start_date, end_date, status, deleted_at) values
+        ('${T_PENDING}', '${USER}', 'pc', '招待中の旅', '金沢', '2026-11-01', '2026-11-03', 'planning', null),
+        ('${T_SHARED}', '${USER}', 'pc', 'みんなの旅', '高松', '2026-12-27', '2027-01-02', 'planning', null),
+        ('${T_PRIVATE}', '${USER}', 'pc', '共有していない旅', '札幌', '2027-02-01', '2027-02-03', 'planning', null),
+        ('${T_DELETED}', '${USER}', 'pc', '消した旅', '那覇', '2027-03-01', '2027-03-03', 'planning', now());
+      insert into public.trip_schedule (id, user_id, device_id, trip_id, date, title, type) values
+        ('${S_SHARED}', '${USER}', 'pc', '${T_SHARED}', '2026-12-27', '羽田発', 'transport'),
+        ('${S_PRIVATE}', '${USER}', 'pc', '${T_PRIVATE}', '2027-02-01', '新千歳着', 'transport');
+      insert into public.trip_expenses (id, user_id, device_id, trip_id, title, amount, category) values
+        ('${E_SHARED}', '${USER}', 'pc', '${T_SHARED}', 'うどん', 900, 'food'),
+        ('${E_PRIVATE}', '${USER}', 'pc', '${T_PRIVATE}', 'ラーメン', 1100, 'food');
+      insert into public.trip_expense_currencies (id, user_id, device_id, expense_id, currency, original_amount, exchange_rate) values
+        ('d0000000-bbbb-4ccc-8ddd-eeeeeeeeeee1', '${USER}', 'pc', '${E_SHARED}', 'EUR', 6, 150),
+        ('d0000000-bbbb-4ccc-8ddd-eeeeeeeeeee2', '${USER}', 'pc', '${E_PRIVATE}', 'EUR', 7, 150);
+      insert into public.trip_packing_items (id, user_id, device_id, trip_id, title, category) values
+        ('e0000000-bbbb-4ccc-8ddd-eeeeeeeeeee1', '${USER}', 'pc', '${T_SHARED}', '充電器', 'gadget');
+      insert into public.trip_route_places (id, user_id, device_id, trip_id, name, address) values
+        ('f0000000-bbbb-4ccc-8ddd-eeeeeeeeeee1', '${USER}', 'pc', '${T_SHARED}', '栗林公園', '香川県高松市');
+      insert into public.trip_members (trip_id, owner_id, owner_email, invited_email, trip_name, trip_destination) values
+        ('${T_PENDING}', '${USER}', 'owner@example.com', 'friend@example.com', '招待中の旅', '金沢'),
+        ('${T_SHARED}', '${USER}', 'owner@example.com', 'waiting@example.com', 'みんなの旅', '高松'),
+        ('${T_DELETED}', '${USER}', 'owner@example.com', 'friend@example.com', '消した旅', '那覇');
+      insert into public.trip_members (trip_id, owner_id, owner_email, invited_email, member_id, status, accepted_at, trip_name, trip_destination) values
+        ('${T_SHARED}', '${USER}', 'owner@example.com', 'friend@example.com', '${FRIEND}', 'accepted', now(), 'みんなの旅', '高松'),
+        ('${T_SHARED}', '${USER}', 'owner@example.com', 'third@example.com', '${THIRD}', 'accepted', now(), 'みんなの旅', '高松');
+    `);
+  });
+
+  describe("招待する(持ち主)", () => {
+    it("メールアドレスで招ける。大文字・空白はそろえて入り、同じ人をもう一度招いても行は増えない", async () => {
+      await asUser(USER, async () => {
+        const first = await invite(TRIP, "  Mate@Example.COM ");
+        expect(first).toMatchObject({ status: "pending", alreadyInvited: false });
+        expect(await invite(TRIP, "mate@example.com")).toMatchObject({ id: first.id, alreadyInvited: true });
+        expect(await count(`select count(*)::int as n from public.trip_members where trip_id = '${TRIP}'`)).toBe(1);
+        const row = (await db.query<{ invited_email: string; trip_name: string; trip_destination: string; owner_email: string }>(
+          `select invited_email, trip_name, trip_destination, owner_email from public.trip_members where trip_id = '${TRIP}'`,
+        )).rows[0];
+        expect(row).toEqual({ invited_email: "mate@example.com", trip_name: "四国旅行", trip_destination: "高松", owner_email: "owner@example.com" });
+      });
+    });
+
+    it("アドレスの形が違う・自分宛て・長すぎるものは断る", async () => {
+      await expect(asUser(USER, () => invite(TRIP, "ただの文字"))).rejects.toThrow(/invalid_email/);
+      await expect(asUser(USER, () => invite(TRIP, "a@b"))).rejects.toThrow(/invalid_email/);
+      await expect(asUser(USER, () => invite(TRIP, `${"a".repeat(250)}@example.com`))).rejects.toThrow(/invalid_email/);
+      await expect(asUser(USER, () => invite(TRIP, "Owner@Example.com"))).rejects.toThrow(/self_invite/);
+    });
+
+    it("自分の旅行でなければ招けない(他人の旅行・参加しているだけの旅行・消した旅行・無い旅行)", async () => {
+      await expect(asUser(OTHER, () => invite(TRIP, "mate@example.com"))).rejects.toThrow(/trip_not_found/);
+      await expect(asUser(FRIEND, () => invite(T_SHARED, "mate@example.com"))).rejects.toThrow(/trip_not_found/);
+      await expect(asUser(USER, () => invite(T_DELETED, "mate@example.com"))).rejects.toThrow(/trip_not_found/);
+      await expect(asUser(USER, () => invite("a0000000-bbbb-4ccc-8ddd-000000000000", "mate@example.com"))).rejects.toThrow(/trip_not_found/);
+    });
+
+    it("参加者は10人まで。ログインしていない・ChatGPT のトークンでは招けない", async () => {
+      await expect(
+        asUser(USER, async () => {
+          for (let i = 0; i < 10; i += 1) await invite(TRIP, `mate${i}@example.com`);
+          return invite(TRIP, "mate10@example.com");
+        }),
+      ).rejects.toThrow(/too_many_members/);
+      await expect(as("anon", null, () => invite(TRIP, "mate@example.com"))).rejects.toThrow(/login_required/);
+      await expect(asUser(USER, () => invite(TRIP, "mate@example.com"), { client_id: "chatgpt-client" })).rejects.toThrow(/not_allowed/);
+    });
+  });
+
+  describe("承認するまで", () => {
+    it("招かれた人には、招待が見える。旅行そのものは、まだ見えない・書けない", async () => {
+      await asUser(FRIEND, async () => {
+        const invites = (await db.query<{ trip_name: string; trip_destination: string; owner_email: string; status: string }>(
+          `select trip_name, trip_destination, owner_email, status from public.trip_members where trip_id = '${T_PENDING}'`,
+        )).rows;
+        expect(invites).toEqual([{ trip_name: "招待中の旅", trip_destination: "金沢", owner_email: "owner@example.com", status: "pending" }]);
+        expect(await count(`select count(*)::int as n from public.trips where id = '${T_PENDING}'`)).toBe(0);
+        await db.exec("savepoint s");
+        await expect(db.exec(newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee99", T_PENDING, USER))).rejects.toThrow();
+      });
+    });
+
+    it("関係ない人・アドレスの確認が済んでいない人(同じアドレスで登録しただけ)には、招待が見えず、承認もできない", async () => {
+      expect(await asUser(OTHER, () => rows(`select * from public.trip_members where trip_id = '${T_PENDING}'`))).toBe(0);
+      expect(await asUser(IMPOSTOR, () => rows(`select * from public.trip_members where trip_id = '${T_PENDING}'`))).toBe(0);
+      await expect(asUser(IMPOSTOR, () => respond(T_PENDING, true))).rejects.toThrow(/invite_not_found/);
+      await expect(asUser(OTHER, () => respond(T_PENDING, true))).rejects.toThrow(/invite_not_found/);
+    });
+
+    it("参加すると、その場から旅行が読める。もう一度は参加できない", async () => {
+      await asUser(USER, async () => {
+        const { id } = await invite(TRIP, "friend@example.com");
+        expect(id).toBeTruthy();
+        await switchTo(FRIEND);
+        expect(await count(`select count(*)::int as n from public.trips where id = '${TRIP}'`)).toBe(0);
+        expect(await respond(TRIP, true)).toEqual({ tripId: TRIP, status: "accepted" });
+        expect(await count(`select count(*)::int as n from public.trips where id = '${TRIP}'`)).toBe(1);
+        expect(await count(`select count(*)::int as n from public.trip_schedule where trip_id = '${TRIP}'`)).toBe(1);
+        const row = (await db.query<{ status: string; member_id: string }>(`select status, member_id from public.trip_members where trip_id = '${TRIP}'`)).rows[0];
+        expect(row).toEqual({ status: "accepted", member_id: FRIEND });
+      });
+      await expect(
+        asUser(USER, async () => {
+          await invite(TRIP, "friend@example.com");
+          await switchTo(FRIEND);
+          await respond(TRIP, true);
+          return respond(TRIP, true);
+        }),
+      ).rejects.toThrow(/invite_not_found/);
+    });
+
+    it("断ると、招待の行が消える(持ち主は、もう一度招ける)", async () => {
+      await asUser(USER, async () => {
+        await invite(TRIP, "friend@example.com");
+        await switchTo(FRIEND);
+        expect(await respond(TRIP, false)).toEqual({ tripId: TRIP, status: "declined" });
+        expect(await count(`select count(*)::int as n from public.trip_members where trip_id = '${TRIP}'`)).toBe(0);
+        expect(await count(`select count(*)::int as n from public.trips where id = '${TRIP}'`)).toBe(0);
+        await switchTo(USER);
+        expect((await invite(TRIP, "friend@example.com")).alreadyInvited).toBe(false);
+      });
+    });
+
+    it("持ち主が消した旅行には参加できない(招待の行も片付く)", async () => {
+      await asUser(FRIEND, async () => {
+        await expect(respond(T_DELETED, true)).rejects.toThrow(/trip_not_found/);
+      });
+    });
+
+    it("ChatGPT のトークンでは、招待を読むことも承認することもできない", async () => {
+      expect(await asUser(FRIEND, () => rows("select * from public.trip_members"), { client_id: "chatgpt-client" })).toBe(0);
+      await expect(asUser(FRIEND, () => respond(T_PENDING, true), { client_id: "chatgpt-client" })).rejects.toThrow(/not_allowed/);
+    });
+  });
+
+  describe("参加中の人(一緒に編集)", () => {
+    it("旅行・日程・費用・通貨の内訳・持ち物・ルートが読める。共有していない旅行と、日記は読めない", async () => {
+      await asUser(FRIEND, async () => {
+        expect(await count(`select count(*)::int as n from public.trips where id = '${T_SHARED}'`)).toBe(1);
+        expect(await count(`select count(*)::int as n from public.trip_schedule where trip_id = '${T_SHARED}'`)).toBe(1);
+        expect(await count(`select count(*)::int as n from public.trip_expenses where trip_id = '${T_SHARED}'`)).toBe(1);
+        expect(await count(`select count(*)::int as n from public.trip_expense_currencies where expense_id = '${E_SHARED}'`)).toBe(1);
+        expect(await count(`select count(*)::int as n from public.trip_packing_items where trip_id = '${T_SHARED}'`)).toBe(1);
+        expect(await count(`select count(*)::int as n from public.trip_route_places where trip_id = '${T_SHARED}'`)).toBe(1);
+        // 共有していない旅行
+        expect(await count(`select count(*)::int as n from public.trips where id = '${T_PRIVATE}'`)).toBe(0);
+        expect(await count(`select count(*)::int as n from public.trip_schedule where trip_id = '${T_PRIVATE}'`)).toBe(0);
+        expect(await count(`select count(*)::int as n from public.trip_expense_currencies where expense_id = '${E_PRIVATE}'`)).toBe(0);
+        // 日記は、旅行を共有しても共有しない
+        expect(await count("select count(*)::int as n from public.diary_entries")).toBe(0);
+      });
+    });
+
+    it("日程を、持ち主の名前で足せる・直せる・消せる(消すのは deleted_at を入れる更新)。持ち主の端末にも見える", async () => {
+      await asUser(FRIEND, async () => {
+        expect(await rows(`${newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee10", T_SHARED, USER)} returning id`)).toBe(1);
+        expect(await rows(`update public.trip_schedule set title = '書き換え' where id = '${S_SHARED}' returning id`)).toBe(1);
+        expect(await rows(`update public.trip_schedule set deleted_at = now() where id = 'b0000000-bbbb-4ccc-8ddd-eeeeeeeeee10' returning id`)).toBe(1);
+        expect(await rows(`${newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee11", T_SHARED, USER)} returning id`)).toBe(1);
+        await switchTo(USER);
+        const titles = (await db.query<{ title: string }>(`select title from public.trip_schedule where trip_id = '${T_SHARED}' and deleted_at is null order by title`)).rows.map((r) => r.title);
+        expect(titles).toEqual(["書き換え", "追加"]);
+      });
+    });
+
+    it("費用と通貨の内訳も足せる。ただし持ち主の名前で。ほかの旅行の費用には付けられない", async () => {
+      await asUser(FRIEND, async () => {
+        expect(
+          await rows(`insert into public.trip_expenses (id, user_id, device_id, trip_id, title, amount, category) values ('c0000000-bbbb-4ccc-8ddd-eeeeeeeeee10','${USER}','phone','${T_SHARED}','お土産',1500,'shopping') returning id`),
+        ).toBe(1);
+        expect(
+          await rows(`insert into public.trip_expense_currencies (id, user_id, device_id, expense_id, currency, original_amount, exchange_rate) values ('d0000000-bbbb-4ccc-8ddd-eeeeeeeeee10','${USER}','phone','c0000000-bbbb-4ccc-8ddd-eeeeeeeeee10','USD',10,150) returning id`),
+        ).toBe(1);
+        expect(await rows(`update public.trip_expense_currencies set exchange_rate = 151 where expense_id = '${E_SHARED}' returning id`)).toBe(1);
+        expect(await rows(`update public.trip_expense_currencies set exchange_rate = 1 where expense_id = '${E_PRIVATE}' returning id`)).toBe(0);
+      });
+      await expect(
+        asUser(FRIEND, () =>
+          db.exec(`insert into public.trip_expense_currencies (id, user_id, device_id, expense_id, currency, original_amount, exchange_rate) values ('d0000000-bbbb-4ccc-8ddd-eeeeeeeeee11','${USER}','phone','${E_PRIVATE}','USD',10,150)`),
+        ),
+      ).rejects.toThrow();
+      await expect(
+        asUser(FRIEND, () =>
+          db.exec(`insert into public.trip_expense_currencies (id, user_id, device_id, expense_id, currency, original_amount, exchange_rate) values ('d0000000-bbbb-4ccc-8ddd-eeeeeeeeee12','${FRIEND}','phone','${E_SHARED}','USD',10,150)`),
+        ),
+      ).rejects.toThrow();
+    });
+
+    it("他人の名前では書けない(自分の名前でも、別の人の名前でも)", async () => {
+      await expect(asUser(FRIEND, () => db.exec(newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee20", T_SHARED, FRIEND)))).rejects.toThrow();
+      await expect(asUser(FRIEND, () => db.exec(newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee21", T_SHARED, OTHER)))).rejects.toThrow();
+      await expect(asUser(FRIEND, () => db.exec(`update public.trip_schedule set user_id = '${FRIEND}' where id = '${S_SHARED}'`))).rejects.toThrow();
+    });
+
+    it("共有していない旅行には、書けない・直せない・消せない", async () => {
+      await expect(asUser(FRIEND, () => db.exec(newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee30", T_PRIVATE, USER)))).rejects.toThrow();
+      expect(await asUser(FRIEND, () => rows(`update public.trip_schedule set title = 'x' where id = '${S_PRIVATE}' returning id`))).toBe(0);
+      expect(await asUser(FRIEND, () => rows(`update public.trip_schedule set deleted_at = now() where id = '${S_PRIVATE}' returning id`))).toBe(0);
+      expect(await asUser(FRIEND, () => rows(`update public.trips set name = 'x' where id = '${T_PRIVATE}' returning id`))).toBe(0);
+      // 招待中(承認前)の旅行にも書けない
+      expect(await asUser(FRIEND, () => rows(`update public.trips set name = 'x' where id = '${T_PENDING}' returning id`))).toBe(0);
+    });
+
+    it("旅行そのものは、直せる(名前・日付)。ただし消せない・持ち主を変えられない・新しい旅行は作れない", async () => {
+      await asUser(FRIEND, async () => {
+        expect(await rows(`update public.trips set name = 'みんなの旅(改)' where id = '${T_SHARED}' returning id`)).toBe(1);
+        // 同期は upsert で送るので、行が既にある旅行への upsert が通ること
+        expect(
+          await rows(`insert into public.trips (id, user_id, device_id, name, destination, start_date, end_date, status) values ('${T_SHARED}','${USER}','phone','みんなの旅(再)','高松','2026-12-27','2027-01-03','planning')
+            on conflict (id) do update set name = excluded.name, end_date = excluded.end_date, device_id = excluded.device_id returning id`),
+        ).toBe(1);
+      });
+      await expect(asUser(FRIEND, () => db.exec(`update public.trips set deleted_at = now() where id = '${T_SHARED}'`))).rejects.toThrow();
+      await expect(asUser(FRIEND, () => db.exec(`update public.trips set user_id = '${FRIEND}' where id = '${T_SHARED}'`))).rejects.toThrow();
+      await expect(
+        asUser(FRIEND, () =>
+          db.exec(`insert into public.trips (id, user_id, device_id, name, destination, start_date, end_date, status) values ('a0000000-bbbb-4ccc-8ddd-eeeeeeeeee99','${USER}','phone','勝手な旅','x','2027-01-01','2027-01-02','planning')`),
+        ),
+      ).rejects.toThrow();
+      expect(await asUser(FRIEND, () => rows(`delete from public.trips where id = '${T_SHARED}' returning id`))).toBe(0);
+      expect(await asUser(FRIEND, () => rows(`delete from public.trip_schedule where id = '${S_SHARED}' returning id`))).toBe(0);
+    });
+
+    it("持ち主は今までどおり全部できる。ほかの人(参加していない)には、何も見えない", async () => {
+      expect(await asUser(USER, () => rows(`update public.trips set memo = 'メモ' where id = '${T_SHARED}' returning id`))).toBe(1);
+      expect(await asUser(USER, () => count("select count(*)::int as n from public.trips"))).toBeGreaterThanOrEqual(4);
+      expect(await asUser(OTHER, () => count(`select count(*)::int as n from public.trips where id in ('${T_SHARED}','${T_PRIVATE}','${T_PENDING}')`))).toBe(0);
+      expect(await asUser(OTHER, () => count(`select count(*)::int as n from public.trip_schedule where trip_id = '${T_SHARED}'`))).toBe(0);
+      expect(await as("anon", null, () => count("select count(*)::int as n from public.trips"))).toBe(0);
+    });
+
+    it("ChatGPT のトークンは、共有された旅行にも、これまでの制限どおり(読む・足すだけ)", async () => {
+      expect(await asUser(FRIEND, () => count(`select count(*)::int as n from public.trips where id = '${T_SHARED}'`), { client_id: "chatgpt-client" })).toBe(1);
+      expect(await asUser(FRIEND, () => rows(`update public.trips set name = 'x' where id = '${T_SHARED}' returning id`), { client_id: "chatgpt-client" })).toBe(0);
+      expect(await asUser(FRIEND, () => rows(`update public.trip_schedule set title = 'x' where id = '${S_SHARED}' returning id`), { client_id: "chatgpt-client" })).toBe(0);
+      expect(await asUser(FRIEND, () => count(`select count(*)::int as n from public.trip_expenses where trip_id = '${T_SHARED}'`), { client_id: "chatgpt-client" })).toBe(0);
+    });
+  });
+
+  describe("参加者の一覧と、表への直接の書き込み", () => {
+    it("参加中の人は、同じ旅行の参加中の人が見える。承認待ちの人は、持ち主だけが見える", async () => {
+      const emails = (sub: string) =>
+        asUser(sub, async () =>
+          (await db.query<{ invited_email: string }>(`select invited_email from public.trip_members where trip_id = '${T_SHARED}' order by invited_email`)).rows.map((r) => r.invited_email),
+        );
+      expect(await emails(USER)).toEqual(["friend@example.com", "third@example.com", "waiting@example.com"]);
+      expect(await emails(FRIEND)).toEqual(["friend@example.com", "third@example.com"]);
+      expect(await emails(THIRD)).toEqual(["friend@example.com", "third@example.com"]);
+      expect(await emails(OTHER)).toEqual([]);
+    });
+
+    it("表には、誰も直接は書けない(持ち主も、参加者も、招かれた人も)", async () => {
+      const insert = `insert into public.trip_members (trip_id, owner_id, invited_email, member_id, status) values ('${T_PRIVATE}','${FRIEND}','friend@example.com','${FRIEND}','accepted')`;
+      await expect(asUser(FRIEND, () => db.exec(insert))).rejects.toThrow();
+      await expect(asUser(USER, () => db.exec(insert.replace(`'${FRIEND}','friend`, `'${USER}','friend`)))).rejects.toThrow();
+      expect(await asUser(FRIEND, () => rows(`update public.trip_members set status = 'accepted', member_id = '${FRIEND}' where trip_id = '${T_PENDING}' returning id`))).toBe(0);
+      expect(await asUser(FRIEND, () => rows(`delete from public.trip_members where trip_id = '${T_SHARED}' returning id`))).toBe(0);
+      expect(await asUser(USER, () => rows(`delete from public.trip_members where trip_id = '${T_SHARED}' returning id`))).toBe(0);
+      expect(await as("anon", null, () => rows("select * from public.trip_members"))).toBe(0);
+    });
+
+    it("参加の増減は、リアルタイムの配信に載っている", async () => {
+      expect(await count("select count(*)::int as n from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'trip_members'")).toBe(1);
+    });
+  });
+
+  describe("外す・抜ける", () => {
+    it("持ち主が外すと、その場から読めも書けもしない。外されたのが自分でなければ、変わらない", async () => {
+      await asUser(USER, async () => {
+        const friendRow = (await db.query<{ id: string }>(`select id from public.trip_members where trip_id = '${T_SHARED}' and member_id = '${FRIEND}'`)).rows[0].id;
+        await switchTo(FRIEND);
+        expect(await count(`select count(*)::int as n from public.trips where id = '${T_SHARED}'`)).toBe(1);
+        // 参加者本人は、他人(や自分)の行を「外す」ことはできない
+        expect((await db.query<{ n: number }>("select public.remove_trip_member($1) as n", [friendRow])).rows[0].n).toBe(0);
+        await switchTo(USER);
+        expect((await db.query<{ n: number }>("select public.remove_trip_member($1) as n", [friendRow])).rows[0].n).toBe(1);
+        await switchTo(FRIEND);
+        expect(await count(`select count(*)::int as n from public.trips where id = '${T_SHARED}'`)).toBe(0);
+        expect(await count(`select count(*)::int as n from public.trip_schedule where trip_id = '${T_SHARED}'`)).toBe(0);
+        await db.exec("savepoint after_remove");
+        await expect(db.exec(newSchedule("b0000000-bbbb-4ccc-8ddd-eeeeeeeeee40", T_SHARED, USER))).rejects.toThrow();
+        await db.exec("rollback to savepoint after_remove");
+        expect(await rows(`update public.trip_schedule set title = 'x' where id = '${S_SHARED}' returning id`)).toBe(0);
+        // もう一人の参加者には、影響しない
+        await switchTo(THIRD);
+        expect(await count(`select count(*)::int as n from public.trips where id = '${T_SHARED}'`)).toBe(1);
+      });
+    });
+
+    it("承認待ちの招待は、持ち主が取り消せる。他人の旅行の招待は取り消せない", async () => {
+      await asUser(USER, async () => {
+        const waiting = (await db.query<{ id: string }>(`select id from public.trip_members where trip_id = '${T_SHARED}' and invited_email = 'waiting@example.com'`)).rows[0].id;
+        await switchTo(OTHER);
+        expect((await db.query<{ n: number }>("select public.remove_trip_member($1) as n", [waiting])).rows[0].n).toBe(0);
+        await switchTo(USER);
+        expect((await db.query<{ n: number }>("select public.remove_trip_member($1) as n", [waiting])).rows[0].n).toBe(1);
+      });
+    });
+
+    it("参加した人は、自分から抜けられる。抜けたあとは読めない。参加していない人が抜けても何も起きない", async () => {
+      await asUser(FRIEND, async () => {
+        expect((await db.query<{ n: number }>("select public.leave_trip($1) as n", [T_SHARED])).rows[0].n).toBe(1);
+        expect(await count(`select count(*)::int as n from public.trips where id = '${T_SHARED}'`)).toBe(0);
+        expect((await db.query<{ n: number }>("select public.leave_trip($1) as n", [T_SHARED])).rows[0].n).toBe(0);
+      });
+      expect(await asUser(OTHER, async () => (await db.query<{ n: number }>("select public.leave_trip($1) as n", [T_SHARED])).rows[0].n)).toBe(0);
+      // 持ち主の分は、抜ける操作では消えない
+      expect(await asUser(USER, async () => (await db.query<{ n: number }>("select public.leave_trip($1) as n", [T_SHARED])).rows[0].n)).toBe(0);
+    });
+
+    it("ログインしていない・ChatGPT のトークンでは、抜ける・外すもできない", async () => {
+      await expect(as("anon", null, () => db.query("select public.leave_trip($1)", [T_SHARED]))).rejects.toThrow(/login_required/);
+      await expect(asUser(FRIEND, () => db.query("select public.leave_trip($1)", [T_SHARED]), { client_id: "chatgpt-client" })).rejects.toThrow(/not_allowed/);
+      await expect(asUser(USER, () => db.query("select public.remove_trip_member($1)", [T_SHARED]), { client_id: "chatgpt-client" })).rejects.toThrow(/not_allowed/);
     });
   });
 });
