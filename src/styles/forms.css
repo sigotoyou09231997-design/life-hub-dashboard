@@ -423,6 +423,110 @@ textarea.field-shell {
   font-variant-numeric: tabular-nums;
 }
 
+/* --- 予定の時刻の早押し(EventForm) ---------------------------------------
+   開始の「9:00/12:00/19:00」と長さの「30分/1時間/2時間」。時刻の欄を開いて
+   回すより1回押す方が早い時の近道なので、選択欄(.segmented)より一回り小さく、
+   1つずつ離して置く(1つの溝に詰めない — 本人の好み、2026-09-06)。
+   選んでいる印は .segmented--separate と同じ青緑の縁にそろえる。 */
+.time-quick {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.time-quick__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.time-quick__label {
+  flex: none;
+  width: 2.3rem;
+  color: var(--warm-ink-3, #9aa2a6);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.time-quick__chip {
+  min-width: 3.7rem;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--warm-line-strong, rgba(18, 28, 30, 0.13));
+  border-radius: 999px;
+  background: var(--warm-surface, #fff);
+  color: var(--warm-ink, #141618);
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background-color 200ms var(--hub-ease),
+    border-color 200ms var(--hub-ease),
+    color 200ms var(--hub-ease),
+    transform 200ms var(--hub-ease);
+}
+
+.time-quick__chip:active:not(:disabled) { transform: scale(0.95); }
+
+.time-quick__chip[aria-pressed="true"] {
+  border-color: var(--teal-500, #17a199);
+  background: var(--teal-50, #ebf8f6);
+  color: var(--teal-700, #0f736e);
+  font-weight: 700;
+}
+
+/* 開始が無いうちの「長さ」。消さずに薄く残すのは、開始を選べば押せると分かるようにするため。 */
+.time-quick__chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.time-quick__chip:focus-visible {
+  outline: 3px solid var(--teal-500, #17a199);
+  outline-offset: 2px;
+}
+
+/* --- タイトルに書いた日時の提案(EventForm)-------------------------------
+   「明日19時 歯医者」と打つと出る「10/13(火) 19:00 で入れる」。押すまで何も入れない。
+   タイトルの欄のすぐ下に、欄の余白(.field の下 0.85rem)に食い込ませて置く。 */
+.title-when {
+  margin-top: -0.3rem;
+  padding: 0 0.9rem 0.85rem;
+}
+
+.title-when__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.9rem;
+  border: 1px solid rgba(23, 161, 153, 0.3);
+  border-radius: 999px;
+  background: var(--teal-50, #ebf8f6);
+  color: var(--teal-700, #0f736e);
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  animation: field-expand 260ms var(--hub-ease-out);
+  transition:
+    background-color 200ms var(--hub-ease),
+    transform 200ms var(--hub-ease);
+}
+
+.title-when__chip svg { flex: none; }
+
+.title-when__chip:hover { background: var(--teal-100, #d4f0ed); }
+
+.title-when__chip:active { transform: scale(0.97); }
+
+.title-when__chip:focus-visible {
+  outline: 3px solid var(--teal-500, #17a199);
+  outline-offset: 2px;
+}
+
 /* --- 下に貼りつく操作 ----------------------------------------------------
    各フォームが -mx-5 で自前の footer を作っていた。シート側の余白と噛み合わず
    端が欠けることがあるので、1か所にまとめる。 */
