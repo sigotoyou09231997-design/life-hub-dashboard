@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { NotebookPen, Plus } from "lucide-react";
 import { db } from "../../db/schema";
@@ -41,6 +42,21 @@ export default function NotePage() {
   const [addTypeOpen, setAddTypeOpen] = useState(false);
   const [editing, setEditing] = useState<Editing>(null);
   const [editingDiary, setEditingDiary] = useState<DiaryEntry | "new" | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // まとめて検索の「メモを書く」やホームの「＋」から ?new=note で来たときは、右下の「＋」と
+  // 同じ「何を追加しますか?」を開いた状態で始める。保存したものが見えるよう、メモ・リストの
+  // タブへ移す。開いたら印はURLから消す(残すと、閉じたあとの再読み込みや戻るでまた開く)。
+  // ExpensePage.tsx の ?new=expense と同じ作り。
+  useEffect(() => {
+    if (searchParams.get("new") !== "note") return;
+    setTab("notes");
+    setAddTypeOpen(true);
+    const rest = new URLSearchParams(searchParams);
+    rest.delete("new");
+    setSearchParams(rest, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   const notes = useLiveQuery(() => db.notes.toArray(), []);
   const showSkeleton = useDelayedFlag(notes === undefined);
 

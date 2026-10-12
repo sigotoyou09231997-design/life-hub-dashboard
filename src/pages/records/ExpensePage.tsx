@@ -51,6 +51,7 @@ function receiptToDraftTransaction(receipt: ExtractedReceipt): Transaction {
 // 2026-10-12: 固定費のタブを「サブスク」に作り替えて先頭に置いた(参考: サブスクBOX)。
 // 開いたときに最初に出るのもサブスク。固定費の中身はそのまま、サブスクの一覧に並ぶ。
 type Tab = "subs" | "summary" | "salary" | "history" | "card" | "paypay";
+const TABS: readonly Tab[] = ["subs", "summary", "salary", "history", "card", "paypay"];
 
 export default function ExpensePage() {
   const showToast = useToast();
@@ -75,6 +76,18 @@ export default function ExpensePage() {
     setEditingTransaction("new");
     const rest = new URLSearchParams(searchParams);
     rest.delete("new");
+    setSearchParams(rest, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  // まとめて検索の「サブスクを見る」(src/lib/commandPalette.ts)は ?tab=subs で来る。
+  // 開くとサブスクから始まるが、すでにお金管理の別のタブを見ている時は同じ画面のまま
+  // (作り直されない)なので、印を見てタブを移す。印は ?new= と同じく見たら消す。
+  useEffect(() => {
+    const requested = searchParams.get("tab");
+    if (!requested || !TABS.includes(requested as Tab)) return;
+    setTab(requested as Tab);
+    const rest = new URLSearchParams(searchParams);
+    rest.delete("tab");
     setSearchParams(rest, { replace: true });
   }, [searchParams, setSearchParams]);
 

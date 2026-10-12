@@ -66,6 +66,82 @@ function joinParts(parts: (string | undefined)[]): string {
   return parts.filter((part) => part && part.trim().length > 0).join(" ・ ");
 }
 
+// 1件を検索結果の行にする部品。まとめて検索の当たりと、「最近見たもの」(src/lib/recentItems.ts)
+// の行の両方から使う — 同じデータが2か所で違う書き方・違う行き先にならないように。
+// idの無い行は呼ぶ側で除く(行き先もキーも作れないため)。
+
+export function eventHit(event: CalendarEvent & { id: string }): SearchHit {
+  return {
+    kind: "event",
+    id: event.id,
+    title: event.title,
+    subtitle: joinParts([event.date, event.startTime, event.location]),
+    date: event.date,
+    to: "/schedule?view=list",
+    personIds: event.personIds,
+  };
+}
+
+export function taskHit(task: Task & { id: string }): SearchHit {
+  return {
+    kind: "task",
+    id: task.id,
+    title: task.title,
+    subtitle: joinParts([task.dueDate ? `期限 ${task.dueDate}` : "期限なし", task.completed ? "完了" : undefined]),
+    date: task.dueDate ?? "",
+    to: "/schedule?view=list",
+  };
+}
+
+export function noteHit(note: Note & { id: string }): SearchHit {
+  return {
+    kind: "note",
+    id: note.id,
+    title: note.title || "(無題)",
+    subtitle: joinParts([NOTE_TYPE_LABEL[getNoteType(note)], note.category, note.body.slice(0, 40)]),
+    date: "",
+    to: "/records/notes",
+  };
+}
+
+export function tripHit(trip: Trip & { id: string }): SearchHit {
+  return {
+    kind: "trip",
+    id: trip.id,
+    title: trip.name,
+    subtitle: joinParts([trip.destination, `${trip.startDate}〜${trip.endDate}`]),
+    date: trip.startDate,
+    to: `/trips/${trip.id}`,
+  };
+}
+
+export function tripScheduleHit(item: TripScheduleItem & { id: string }, tripName: string | undefined): SearchHit {
+  return {
+    kind: "tripSchedule",
+    id: item.id,
+    title: item.title,
+    subtitle: joinParts([tripName, item.date, item.location]),
+    date: item.date,
+    to: `/trips/${item.tripId}?tab=schedule`,
+  };
+}
+
+export function emailHit(email: SyncedEmail & { id: string }): SearchHit {
+  return {
+    kind: "email",
+    id: email.id,
+    title: email.subject || "(件名なし)",
+    subtitle: email.from,
+    date: "",
+    to: `/gmail/mail/${email.id}`,
+  };
+}
+
+/** 検索の当たりの種類ごとの呼び名(「予定」「Gmail」など)。 */
+export function searchKindLabel(kind: SearchKind): string {
+  return GROUP_LABEL[kind];
+}
+
 /**
  * 予定・タスク・メモ・旅行・旅行の日程・Gmailを1つの語でまとめて探す。
  * 各画面の個別検索とは独立していて、こちらは「どの機能に当たったか」を
@@ -81,27 +157,12 @@ export function searchEverything(query: string, source: SearchSource): SearchGro
 
   for (const event of source.events) {
     if (!event.id || !matches(trimmed, [event.title, event.location, event.memo])) continue;
-    hits.push({
-      kind: "event",
-      id: event.id,
-      title: event.title,
-      subtitle: joinParts([event.date, event.startTime, event.location]),
-      date: event.date,
-      to: "/schedule?view=list",
-      personIds: event.personIds,
-    });
+    hits.push(eventHit({ ...event, id: event.id }));
   }
 
   for (const task of source.tasks) {
     if (!task.id || !matches(trimmed, [task.title])) continue;
-    hits.push({
-      kind: "task",
-      id: task.id,
-      title: task.title,
-      subtitle: joinParts([task.dueDate ? `期限 ${task.dueDate}` : "期限なし", task.completed ? "完了" : undefined]),
-      date: task.dueDate ?? "",
-      to: "/schedule?view=list",
-    });
+    hits.push(taskHit({ ...task, id: task.id }));
   }
 
   for (const note of source.notes) {
@@ -110,50 +171,22 @@ export function searchEverything(query: string, source: SearchSource): SearchGro
       ...(note.shoppingItems ?? []).map((item) => item.name),
     ];
     if (!note.id || !matches(trimmed, [note.title, note.body, note.category, ...note.tags, ...itemTexts])) continue;
-    hits.push({
-      kind: "note",
-      id: note.id,
-      title: note.title || "(無題)",
-      subtitle: joinParts([NOTE_TYPE_LABEL[getNoteType(note)], note.category, note.body.slice(0, 40)]),
-      date: "",
-      to: "/records/notes",
-    });
+    hits.push(noteHit({ ...note, id: note.id }));
   }
 
   for (const trip of source.trips) {
     if (!trip.id || !matches(trimmed, [trip.name, trip.destination, trip.memo])) continue;
-    hits.push({
-      kind: "trip",
-      id: trip.id,
-      title: trip.name,
-      subtitle: joinParts([trip.destination, `${trip.startDate}〜${trip.endDate}`]),
-      date: trip.startDate,
-      to: `/trips/${trip.id}`,
-    });
+    hits.push(tripHit({ ...trip, id: trip.id }));
   }
 
   for (const item of source.tripSchedule) {
     if (!item.id || !matches(trimmed, [item.title, item.location, item.memo])) continue;
-    hits.push({
-      kind: "tripSchedule",
-      id: item.id,
-      title: item.title,
-      subtitle: joinParts([tripName.get(item.tripId), item.date, item.location]),
-      date: item.date,
-      to: `/trips/${item.tripId}?tab=schedule`,
-    });
+    hits.push(tripScheduleHit({ ...item, id: item.id }, tripName.get(item.tripId)));
   }
 
   for (const email of source.emails) {
     if (!email.id || !matches(trimmed, [email.subject, email.from, email.snippet])) continue;
-    hits.push({
-      kind: "email",
-      id: email.id,
-      title: email.subject || "(件名なし)",
-      subtitle: email.from,
-      date: "",
-      to: `/gmail/mail/${email.id}`,
-    });
+    hits.push(emailHit({ ...email, id: email.id }));
   }
 
   return GROUP_ORDER.map((kind) => ({
