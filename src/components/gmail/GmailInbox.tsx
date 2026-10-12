@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router-dom";
 import { Ban, CalendarPlus, Check, Hourglass, Mail, MailCheck, Receipt, Search, Star } from "lucide-react";
@@ -9,8 +9,9 @@ import { summarizeGmailSync, syncGmailAccount } from "../../lib/gmailSync";
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
 import { updateMessageState } from "../../lib/gmailMessageState";
-import { pickPlanSuggestions, planSuggestionHint } from "../../lib/mailPlanSuggestion";
-import { expenseSuggestionHint, pickExpenseSuggestions } from "../../lib/expenseMailSuggestion";
+import { planSuggestionHint } from "../../lib/mailPlanSuggestion";
+import { expenseSuggestionHint } from "../../lib/expenseMailSuggestion";
+import { useMailSuggestions } from "../../hooks/useMailSuggestions";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
 import { ListRow } from "../ui/ListRow";
@@ -136,7 +137,6 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
     rememberedList = { accountId: account.id, emails: liveEmails, blocked: liveBlocked ?? remembered?.blocked };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account.id, liveEmails, liveBlocked]);
-  const blockedSet = new Set((blockedSenders ?? []).map((b) => b.email));
 
   // blockSenderRemote() is fire-and-forget (see src/lib/blockedSenders.ts) — if that
   // one push fails (offline, Supabase session not ready yet, transient error), the
@@ -155,17 +155,24 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
     }
   }, [blockedSenders, account.email]);
 
-  const visibleEmails = emails?.filter((email) => !blockedSet.has(parseSender(email.from).email.toLowerCase()));
+  // 描き直すたびに全メールの差出人を読み直さない(2026-10-13)。メールかブロックの一覧が変わった時だけ作り直す。
+  const visibleEmails = useMemo(() => {
+    const blockedSet = new Set((blockedSenders ?? []).map((b) => b.email));
+    return emails?.filter((email) => !blockedSet.has(parseSender(email.from).email.toLowerCase()));
+  }, [emails, blockedSenders]);
 
   // 日時が書かれていそうなメール(端末の中の文字合わせだけで見る。AIは呼ばない —
-  // src/lib/mailPlanSuggestion.ts)。件数が0のときは絞り込みのボタンごと出さない。
-  const planSuggestions = visibleEmails ? pickPlanSuggestions(visibleEmails) : undefined;
-  const planSuggestionIds = new Set((planSuggestions ?? []).map((email) => email.id));
-
-  // 注文確認・領収書らしいメール。予定候補と同じで、AIは呼ばず端末の中の文字合わせだけ
-  // (src/lib/expenseMailSuggestion.ts)。
-  const expenseSuggestions = visibleEmails ? pickExpenseSuggestions(visibleEmails) : undefined;
-  const expenseSuggestionIds = new Set((expenseSuggestions ?? []).map((email) => email.id));
+  // src/lib/mailPlanSuggestion.ts)と、注文確認・領収書らしいメール(src/lib/expenseMailSuggestion.ts)。
+  // 全件を調べる処理は重いので、画面を描いたあとに分けて求める(src/hooks/useMailSuggestions.ts)。
+  // 件数が0のときは絞り込みのボタンごと出さない。
+  const suggestions = useMailSuggestions(account.id, visibleEmails);
+  const planSuggestions = suggestions?.plan;
+  const expenseSuggestions = suggestions?.expense;
+  const planSuggestionIds = useMemo(() => new Set((planSuggestions ?? []).map((email) => email.id)), [planSuggestions]);
+  const expenseSuggestionIds = useMemo(
+    () => new Set((expenseSuggestions ?? []).map((email) => email.id)),
+    [expenseSuggestions],
+  );
 
   // 返信を送ったのに、相手から何日も返事が無いやり取り(src/lib/replyWaiting.ts)。
   // 行に出すのは、こちらが最後に返信した相手のメール。相手から返事が来れば次の同期で外れる。

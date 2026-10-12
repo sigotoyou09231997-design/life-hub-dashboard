@@ -75,6 +75,18 @@ interface AmountCandidate {
  * なることが多い。読めなければ undefined。
  */
 export function detectAmount(text: string): number | undefined {
+  if (amountCache.has(text)) return amountCache.get(text);
+  if (amountCache.size >= AMOUNT_CACHE_LIMIT) amountCache.clear();
+  const amount = computeAmount(text);
+  amountCache.set(text, amount);
+  return amount;
+}
+
+/** 同じ本文の金額の読み取りを、一覧を開くたびにやり直さないための控え(detectPlanSignals と同じ理由)。 */
+const AMOUNT_CACHE_LIMIT = 4000;
+const amountCache = new Map<string, number | undefined>();
+
+function computeAmount(text: string): number | undefined {
   const normalized = normalizeText(text);
   const candidates: AmountCandidate[] = [];
 
