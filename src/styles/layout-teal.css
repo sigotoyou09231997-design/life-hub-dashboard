@@ -21,51 +21,12 @@
 }
 
 /* ---------------------------------------------------------------------------
-   表紙（写真だけ。日付・時刻・ひとことは 2026-10-13 に外した）
-   ------------------------------------------------------------------------ */
-.lh-cover {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 8rem;
-  overflow: hidden;
-  border-radius: var(--r-card);
-  padding: 1.25rem 1.25rem 3.6rem;
-  color: #fff;
-  isolation: isolate;
-}
-.lh-cover__photo {
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  background-position: center;
-  background-size: cover;
-  transform: scale(1.06);
-  animation: lh-cover-drift 18s ease-in-out infinite alternate;
-}
-@keyframes lh-cover-drift {
-  from { transform: scale(1.06) translate3d(0, 0, 0); }
-  to { transform: scale(1.12) translate3d(-1.5%, -1%, 0); }
-}
-.lh-cover__veil {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background:
-    linear-gradient(180deg, rgba(10, 14, 16, 0.05) 0%, rgba(10, 14, 16, 0.18) 45%, rgba(10, 14, 16, 0.62) 100%),
-    linear-gradient(90deg, rgba(10, 14, 16, 0.35), transparent 70%);
-}
-
-/* ---------------------------------------------------------------------------
-   黒い「今月のお金」— スマホでは表紙の下端に重ねる
+   黒い「今月のお金」— ホームのいちばん上
    ------------------------------------------------------------------------ */
 .lh-money {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  margin-top: -3.9rem;
   z-index: 1;
   padding: 1.2rem 1.25rem 1rem;
   border-radius: var(--r-card) !important;
@@ -343,17 +304,9 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   }
   .lh-home > * { grid-column: 1 / -1; }
 
-  .lh-cover {
-    grid-row: 1;
-    min-height: 6rem;
-    align-items: flex-end;
-    padding: 1.6rem 1.9rem;
-  }
-
   .lh-money {
-    grid-row: 2;
+    grid-row: 1;
     grid-column: 1 / span 2;
-    margin-top: 0;
     padding: 1.6rem 1.8rem 1.3rem;
     min-height: 15rem;
   }
@@ -363,7 +316,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   .lh-money__stats dt { font-size: 0.74rem; }
 
   .lh-section--trip {
-    grid-row: 2;
+    grid-row: 1;
     grid-column: 3;
   }
   .lh-section--trip .warm-trip { flex: 1; min-height: 0; }
@@ -387,10 +340,6 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   .lh-home .warm-brief__label { flex-direction: row; align-items: center; gap: 0.6rem; font-size: 0.82rem; }
   .lh-home .warm-brief__count { margin-left: auto; font-size: 1.9rem; }
   .lh-home .warm-brief__note { flex-basis: 100%; font-size: 0.74rem; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .lh-cover__photo { animation: none; transform: none; }
 }
 
 /* ============================================================================

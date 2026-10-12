@@ -39,21 +39,6 @@ const WEEK_AHEAD_DAYS = 7;
 const WEEK_AHEAD_PER_DAY = 3;
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
-/** ヒーローの写真。時間帯ごとに、光の向きが合う暖色の室内カットを1枚ずつ。
- *  素材は既存の public/backgrounds（旧デザインで全画面の地に敷いていたもの）。
- *  2026-10-13: 写真の上の日付・時刻・ひとこと(「静かに、今日を始める。」など)は、本人の要望で外した
- *  (「時間と日付の項目いらない。基本時間はスマホやPCで見れてるし」)。写真だけ残してある。 */
-const HERO_PHOTO = [
-  { until: 10, src: "/backgrounds/morning-window-living-v5.jpg" },
-  { until: 16, src: "/backgrounds/day-sunlit-villa-v5.jpg" },
-  { until: 20, src: "/backgrounds/evening-warm-atrium-v5.jpg" },
-  { until: 24, src: "/backgrounds/night-ambient-lounge-v5.jpg" },
-] as const;
-
-function heroFor(hour: number) {
-  return HERO_PHOTO.find((entry) => hour < entry.until) ?? HERO_PHOTO[0];
-}
-
 /** 区切りの見出し。2026-10-12 の並べ替えで、見出しはカードの外（参考にしたアプリの形）に出した。 */
 function SectionHead({ title, to, trailing }: { title: string; to?: string; trailing?: ReactNode }) {
   return (
@@ -228,21 +213,14 @@ export default function TopPage() {
 
   const tripDays = featuredTrip ? differenceInCalendarDays(parseISO(featuredTrip.startDate), now) : null;
 
-  const hour = now.getHours();
-  const hero = heroFor(hour);
-
   // 2026-10-12: 並べ方を変えた（参考: サブスクBOX）。中身・リンク・ボタンの働きは前と同じ。
-  //  - いちばん上は写真の表紙（日付・時刻・ひとこと は 2026-10-13 に外した）に、黒い「今月のお金」が重なる形
+  //  - いちばん上は黒い「今月のお金」。写真の表紙(日付・時刻・ひとこと)は 2026-10-13 に本人の要望で外した
   //  - 見出しはカードの外に出し、カードの中は区切り線つきの行の一覧にする
   //  - DOM の順番はスマホの並び順。PC の並びは home-teal.css のグリッドが決める
   return (
     <div className="warm-home lh-home" ref={motionRef}>
-      <header className="lh-cover" data-reveal="0">
-        <div className="lh-cover__photo" style={{ backgroundImage: `url('${hero.src}')` }} aria-hidden="true" />
-        <div className="lh-cover__veil" aria-hidden="true" />
-        {/* 見出しは画面の読み上げ用に残す(見た目には出さない)。 */}
-        <h1 className="sr-only">ホーム</h1>
-      </header>
+      {/* 見出しは画面の読み上げ用に残す(見た目には出さない)。 */}
+      <h1 className="sr-only">ホーム</h1>
 
       {budget ? (
         <Link to="/records/expense" className="warm-card lh-money" data-reveal="1">
