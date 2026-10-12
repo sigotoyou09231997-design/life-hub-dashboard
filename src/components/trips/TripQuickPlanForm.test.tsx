@@ -99,7 +99,7 @@ describe("まとめて追加のフォーム", () => {
     renderForm();
 
     await user.type(field("タイトル"), "はやぶさ13号");
-    await user.selectOptions(field("種類"), "transport");
+    await user.click(screen.getByRole("button", { name: "移動" }));
     await user.click(screen.getByRole("switch", { name: /費用にも入れる/ }));
     await user.type(field("金額"), "23000");
     await user.click(screen.getByRole("button", { name: "まとめて追加" }));

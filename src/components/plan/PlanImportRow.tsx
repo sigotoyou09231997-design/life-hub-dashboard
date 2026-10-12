@@ -4,7 +4,7 @@ import type { PlanChange } from "../../lib/tripPlanEdit";
 import type { TripScheduleType } from "../../types";
 import { TRIP_SCHEDULE_TYPES } from "../../lib/tripCategories";
 import { Input } from "../ui/Input";
-import { Select } from "../ui/Select";
+import { SegmentedField } from "../ui/SegmentedField";
 import { SwitchField } from "../ui/SwitchField";
 import { DateField } from "../ui/DateField";
 import { Field } from "../ui/Field";
@@ -166,13 +166,16 @@ export function PlanImportRow({ row, destination, already, outside, similar, upd
           </Field>
           {/* 種類は旅行の日程だけが持つ項目。 */}
           {destination === "trip" && (
-            <Select label="種類" value={row.type} onChange={(e) => onChange({ type: e.target.value as TripScheduleType })}>
-              {TRIP_SCHEDULE_TYPES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+            // iPhone では、入力画面(シート)の中のプルダウンは選択肢が欄から離れて出る(2026-10-11 の持ち物と同じ)。
+            // 選択肢が少ないので、分けたボタンにする(2026-10-12)。
+            <SegmentedField
+              label="種類"
+              value={row.type}
+              options={TRIP_SCHEDULE_TYPES}
+              onChange={(type: TripScheduleType) => onChange({ type })}
+              columns={3}
+              separate
+            />
           )}
           {destination !== "task" && (
             <Input
