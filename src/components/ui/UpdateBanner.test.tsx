@@ -121,6 +121,23 @@ describe("UpdateBanner", () => {
     expect(screen.queryByText("アップデートが来ています")).toBeNull();
   });
 
+  it("ほかのアプリから戻ってきた直後に見つかった更新も、開いてすぐと同じに、その場で切り替える", async () => {
+    // 2026-10-12: iPhone のホーム画面アプリは開いたまま行き来するので、戻ってきた時に新しい版が見つかっても
+    // 「使っている途中」と数えられ、反映が次に離れるまで遅れた(本人の「反映されてない」)。
+    const { pwaUpdate, UpdateBanner } = await freshBanner();
+    render(<UpdateBanner />);
+    await useForAWhile();
+
+    act(() => setVisibility("hidden"));
+    act(() => setVisibility("visible"));
+    act(() => pwaUpdate.markUpdateAvailable());
+    expect(screen.getByText("アップデートが来ています")).toBeTruthy();
+    await act(async () => {
+      vi.advanceTimersByTime(UNTIL_APPLY_MS);
+    });
+    expect(applyUpdate).toHaveBeenCalledTimes(1);
+  });
+
   it("入力のシートを開いたまま離れた時は切り替えず、次に離れた時に切り替える", async () => {
     const { pwaUpdate, UpdateBanner } = await freshBanner();
     render(<UpdateBanner />);

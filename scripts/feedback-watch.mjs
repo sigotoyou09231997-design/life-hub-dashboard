@@ -18,6 +18,8 @@ import { dirname, join } from "node:path";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SEEN_FILE = process.env.FEEDBACK_SEEN_FILE ?? join(ROOT, ".feedback-seen");
 const INTERVAL_MS = 60_000;
+/** 新しい依頼を見つけてから、続けて届く分を待つ時間(ミリ秒)。 */
+const COLLECT_MS = Number(process.env.FEEDBACK_COLLECT_MS ?? 90_000);
 /** 1件の文章を出す長さの上限。長すぎる文章で会話が埋まらないように(あふれた分は切る)。 */
 const MAX_MESSAGE_CHARS = 1500;
 
@@ -97,8 +99,19 @@ async function poll(env, code, { replay }) {
     writeFileSync(SEEN_FILE, items.map((item) => item.id).join("\n") + (items.length ? "\n" : ""));
     return;
   }
-  for (const item of items) {
-    if (seen.has(item.id)) continue;
+  let fresh = items.filter((item) => !seen.has(item.id));
+  if (fresh.length === 0) return;
+  // 続けて届く依頼を1回の出荷にまとめるため、最初の1件を見つけてから少し待ち、そのあいだに届いた分と一緒に出す
+  // (1件ごとに出すと、出すたびにビルドとアップデート通知が付いて、遅くなる。2026-10-12)。
+  if (COLLECT_MS > 0) {
+    await new Promise((resolve) => setTimeout(resolve, COLLECT_MS));
+    try {
+      fresh = (await fetchNewItems(env, code)).filter((item) => !seen.has(item.id));
+    } catch {
+      // 読み直せなくても、先に見つけた分は出す
+    }
+  }
+  for (const item of fresh) {
     appendFileSync(SEEN_FILE, `${item.id}\n`);
     seen.add(item.id);
     printItem(item);

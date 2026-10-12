@@ -4,7 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import { installPressFeedback } from "./lib/pressFeedback";
-import { markUpdateAvailable, setUpdateApplier } from "./lib/pwaUpdate";
+import { markUpdateAvailable, setUpdateApplier, setUpdateChecker } from "./lib/pwaUpdate";
 import { trackViewportGap } from "./lib/viewport";
 import "./index.css";
 import "./styles/hub.css";
@@ -47,6 +47,7 @@ const updateSW = registerSW({
   onRegisteredSW(_swScriptUrl, registration) {
     if (!registration) return;
     const checkForUpdate = () => void registration.update();
+    setUpdateChecker(() => registration.update().then(() => undefined));
     setInterval(checkForUpdate, 60_000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") checkForUpdate();

@@ -244,7 +244,8 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
       const body = bodyRef.current;
       if (changed && area.keyboard && active && body?.contains(active)) {
         requestAnimationFrame(() => {
-          active.scrollIntoView({ block: "nearest" });
+          // scrollIntoView の無い環境(テスト用の jsdom)でも、描き終わった後の呼び出しで落ちないように ?. にする。
+          active.scrollIntoView?.({ block: "nearest" });
           revealAboveActions(body, active);
         });
       }

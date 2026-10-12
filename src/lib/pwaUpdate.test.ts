@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Module-level singleton state, so each test gets its own fresh instance.
 async function freshModule() {
@@ -62,5 +62,45 @@ describe("pwaUpdate", () => {
   it("applyUpdate is a no-op when no applier has been registered yet", async () => {
     const { applyUpdate } = await freshModule();
     await expect(applyUpdate()).resolves.toBeUndefined();
+  });
+
+  describe("updateToLatestNow(設定の「最新版にする」)", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("公開されている版がいま動いている版と同じなら、何もせず latest を返す", async () => {
+      const mod = await import("./pwaUpdate");
+      vi.stubGlobal("__APP_COMMIT__", "abcdef1234567890");
+      vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ version: "abcdef1234567890aaaa" }) })));
+      expect(mod.currentVersion()).toBe("abcdef1");
+      expect(await mod.updateToLatestNow()).toBe("latest");
+    });
+
+    it("版が違えば、確かめて切り替えに入る(updating)", async () => {
+      vi.resetModules();
+      const mod = await import("./pwaUpdate");
+      const applier = vi.fn(async () => {});
+      const checker = vi.fn(async () => {});
+      mod.setUpdateApplier(applier);
+      mod.setUpdateChecker(checker);
+      vi.stubGlobal("__APP_COMMIT__", "abcdef1234567890");
+      vi.stubGlobal("fetch", vi.fn(async () => ({ ok: true, json: async () => ({ version: "1111111222222" }) })));
+      expect(await mod.updateToLatestNow()).toBe("updating");
+      expect(checker).toHaveBeenCalledTimes(1);
+      expect(applier).toHaveBeenCalledWith(true);
+    });
+
+    it("公開されている版を読めなければ、unknown を返して何もしない", async () => {
+      vi.resetModules();
+      const mod = await import("./pwaUpdate");
+      const applier = vi.fn(async () => {});
+      mod.setUpdateApplier(applier);
+      vi.stubGlobal("fetch", vi.fn(async () => {
+        throw new Error("offline");
+      }));
+      expect(await mod.updateToLatestNow()).toBe("unknown");
+      expect(applier).not.toHaveBeenCalled();
+    });
   });
 });
