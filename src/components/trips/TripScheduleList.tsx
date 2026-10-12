@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { canMove, moveInDay, orderScheduleDay } from "../../lib/scheduleOrder";
+import { moveInDay, orderScheduleDay } from "../../lib/scheduleOrder";
+import { useLongPressReorder } from "../../hooks/useLongPressReorder";
 import type { Attachment, TripExpense, TripScheduleItem } from "../../types";
 import { formatDisplayDate, formatShortDate } from "../../lib/date";
 import { occurringOn, spanLabel } from "../../lib/eventSpan";
@@ -11,9 +12,8 @@ import { Badge } from "../ui/Badge";
 import { TransportModeChip } from "./transportModes";
 import { PhotoStrip } from "../attachments/PhotoStrip";
 import { ScheduleDetailLines } from "./ScheduleDetailLines";
-import { useConfirm } from "../ui/ConfirmProvider";
 import { Button } from "../ui/Button";
-import { CalendarRange, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MapPin, Plus, Trash2, Wallet } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, MapPin, Plus, Wallet } from "lucide-react";
 
 interface Props {
   dayList: string[];
@@ -22,10 +22,10 @@ interface Props {
   photosBySchedule?: Map<string, Attachment[]>;
   /** 予定の費用(TripExpense.scheduleId ごと)。あれば「¥17,000・えっくん」を出す。 */
   expenseBySchedule?: Map<string, TripExpense>;
+  /** 行を押した時(編集を開く)。予定の削除も、開いた編集の中から行う。 */
   onEdit: (item: TripScheduleItem) => void;
-  onDelete: (id: string) => void;
   onLocationTap: (location: string, title: string, date: string) => void;
-  /** 予定を上下に入れ替えた時に書き直す並び順(src/lib/scheduleOrder.ts)。無ければ「↑」「↓」を出さない。 */
+  /** 長押しで予定を動かした時に書き直す並び順(src/lib/scheduleOrder.ts)。無ければ並べ替えられない。 */
   onReorder?: (changes: { id: string; sortOrder: number }[]) => void;
   /** その日を初期値にして「予定を追加」を開く。 */
   onAddForDate: (date: string) => void;
@@ -53,10 +53,19 @@ interface Props {
  * 選んだ1日だけを出す(2026-10-07、「日程も下にスクロールするのがめんどくさい」)。
  * 全部の日を縦に並べていた頃は、7日間の旅行で2日目以降へ行くのに、1日目の15件ぶんを
  * 延々と送る必要があった。下には「前の日・次の日」を置き、1日を読み終えたらそのまま次へ進める。
+ *
+ * 行に出すのは中身だけにした(2026-10-12)。それまでは全部の行に「↑」「↓」とゴミ箱が付いていて、
+ * 20件ほどある日は矢印とゴミ箱ばかりが目に入り、スクロールの途中でゴミ箱を押しかけた。
+ * - 並べ替えは、持ち物と同じく長押しして上下に動かす(src/hooks/useLongPressReorder.ts)。
+ * - 削除は、行を押して開く編集の中(TripScheduleForm)へ移した。
+ * - 種類の札は「その他」なら出さない。種類を選ばなかった予定ほど多く、全部の行に同じ札が並ぶだけだった。
  */
-export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySchedule, onEdit, onDelete, onLocationTap, onReorder, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
-  const confirm = useConfirm();
+export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySchedule, onEdit, onLocationTap, onReorder, onAddForDate, weather, selectedDate, onSelectDate }: Props) {
   const chipsRef = useRef<HTMLDivElement>(null);
+  // 組 = 日付。指を離した時点の並び(時刻の順 + 並べ替えた順)の中で動かす。
+  const reorder = useLongPressReorder((date, from, to) => {
+    onReorder?.(moveInDay(orderScheduleDay(occurringOn(items, date)), from, to));
+  });
 
   // 選んだ日のチップが、横に並べきれない時でも見えるところへ送る。
   useEffect(() => {
@@ -109,9 +118,12 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
       </div>
       {shownDays.map(({ date, i }) => {
         // またがる日程(2泊の宿泊など)は、初日だけでなくその間の日すべてに出す。
-        // 時刻の順。「↑」「↓」で入れ替えた日は、その順(src/lib/scheduleOrder.ts)。
+        // 時刻の順。並べ替えた日は、その順(src/lib/scheduleOrder.ts)。
         const dayItems = orderScheduleDay(occurringOn(items, date));
         const forecast = forecastForDate(forecasts, date);
+        const canReorder = Boolean(onReorder) && dayItems.length > 1;
+        // 長押しで動かしている間は、落とす位置へ動かした並びで見せる。
+        const shownItems = canReorder ? reorder.preview(date, dayItems) : dayItems;
 
         return (
           <section key={date} className={`trip-day${dayItems.length === 0 ? " trip-day--empty" : ""}`}>
@@ -131,49 +143,37 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                 予定を追加
               </button>
             ) : (
-              <ol className="trip-timeline">
-                {dayItems.map((item, index) => {
-                  const canUp = canMove(dayItems, index, -1);
-                  const canDown = canMove(dayItems, index, 1);
-                  const typeDef = getTripScheduleType(item.type);
-                  const time = timelineTimeParts(item, date);
-                  return (
-                    <li key={item.id} className={`trip-timeline__item trip-timeline__item--${item.type}`}>
-                      <div className={`trip-timeline__time${time.plain ? " is-plain" : ""}`}>
-                        <span>{time.main}</span>
-                        {time.sub && <small>{time.sub}</small>}
-                        {/* 入れ替えは時刻の下(2026-10-11、本人「入れ替えるボタンの位置を日付の下ぐらいがいいな」)。 */}
-                        {onReorder && dayItems.length > 1 && (
-                          <div className="trip-timeline__order" role="group" aria-label="予定の順番">
-                            <button
-                              type="button"
-                              disabled={!canUp}
-                              onClick={() => onReorder(moveInDay(dayItems, index, -1))}
-                              aria-label={`「${item.title}」を上へ`}
-                            >
-                              <ChevronUp size={15} />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!canDown}
-                              onClick={() => onReorder(moveInDay(dayItems, index, 1))}
-                              aria-label={`「${item.title}」を下へ`}
-                            >
-                              <ChevronDown size={15} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <span className="trip-timeline__dot" aria-hidden="true" />
-                      <div className="trip-timeline__body">
-                        <button
-                          type="button"
-                          onClick={() => onEdit(item)}
-                          aria-label={`${item.title}を編集`}
-                          className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-                        />
-                        <div className="pointer-events-none relative z-10 flex items-start justify-between gap-3">
-                          <div className="min-w-0">
+              <>
+                <ol className="trip-timeline" ref={reorder.containerRef}>
+                  {shownItems.map((item) => {
+                    const index = dayItems.indexOf(item);
+                    const typeDef = getTripScheduleType(item.type);
+                    // 「その他」は種類を選ばなかった時の既定。全部の行に同じ札が並ぶだけなので出さない。
+                    const showType = typeDef.value !== "other";
+                    const expense = item.id ? expenseBySchedule?.get(item.id) : undefined;
+                    const span = spanLabel(item, date);
+                    const showTransport = item.type === "transport" && Boolean(item.transportMode);
+                    const time = timelineTimeParts(item, date);
+                    const dragging = canReorder && reorder.isDragging(date, index);
+                    return (
+                      <li
+                        key={item.id}
+                        {...(canReorder ? reorder.rowProps(date, index) : {})}
+                        className={`trip-timeline__item trip-timeline__item--${item.type}${dragging ? " is-dragging" : ""}`}
+                      >
+                        <div className={`trip-timeline__time${time.plain ? " is-plain" : ""}`}>
+                          <span>{time.main}</span>
+                          {time.sub && <small>{time.sub}</small>}
+                        </div>
+                        <span className="trip-timeline__dot" aria-hidden="true" />
+                        <div className="trip-timeline__body">
+                          <button
+                            type="button"
+                            onClick={() => onEdit(item)}
+                            aria-label={`${item.title}を編集`}
+                            className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                          />
+                          <div className="pointer-events-none relative z-10 min-w-0">
                             <p className="trip-timeline__title line-clamp-2" title={item.title}>
                               {item.title}
                             </p>
@@ -190,49 +190,43 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                             <div className="pointer-events-auto">
                               <ScheduleDetailLines item={item} />
                             </div>
-                            <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                              <Badge tone={typeDef.tone} className="trip-timeline__badge">
-                                {typeDef.label}
-                              </Badge>
-                              {item.type === "transport" && item.transportMode && <TransportModeChip mode={item.transportMode} />}
-                              {item.id && expenseBySchedule?.get(item.id) && (
-                                <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-slate-600">
-                                  <Wallet size={12} aria-hidden="true" />
-                                  ¥{Math.round(expenseBySchedule.get(item.id)!.amount).toLocaleString()}
-                                  {expenseBySchedule.get(item.id)!.paidBy ? `・${expenseBySchedule.get(item.id)!.paidBy}` : ""}
-                                </span>
-                              )}
-                              {spanLabel(item, date) && (
-                                <span className="flex items-center gap-0.5 whitespace-nowrap text-xs font-medium text-slate-500">
-                                  <CalendarRange size={12} />
-                                  {spanLabel(item, date)}
-                                </span>
-                              )}
-                            </div>
+                            {(showType || showTransport || expense || span) && (
+                              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                                {showType && (
+                                  <Badge tone={typeDef.tone} className="trip-timeline__badge">
+                                    {typeDef.label}
+                                  </Badge>
+                                )}
+                                {showTransport && <TransportModeChip mode={item.transportMode!} />}
+                                {expense && (
+                                  <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-slate-600">
+                                    <Wallet size={12} aria-hidden="true" />
+                                    ¥{Math.round(expense.amount).toLocaleString()}
+                                    {expense.paidBy ? `・${expense.paidBy}` : ""}
+                                  </span>
+                                )}
+                                {span && (
+                                  <span className="flex items-center gap-0.5 whitespace-nowrap text-xs font-medium text-slate-500">
+                                    <CalendarRange size={12} />
+                                    {span}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {item.id && (photosBySchedule?.get(item.id)?.length ?? 0) > 0 && (
                               <div className="pointer-events-auto mt-2">
                                 <PhotoStrip attachments={photosBySchedule!.get(item.id)!} limit={4} interactive />
                               </div>
                             )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (item.id && (await confirm({ title: `「${item.title}」を削除しますか?` }))) {
-                                onDelete(item.id);
-                              }
-                            }}
-                            aria-label="削除"
-                            className="pointer-events-auto shrink-0 rounded-full p-1.5 text-slate-300 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
-                          >
-                            <Trash2 size={16} />
-                          </button>
                         </div>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ol>
+                      </li>
+                    );
+                  })}
+                </ol>
+                {/* 矢印を行ごとに出さなくなったので、並べ替えられることは1か所の案内で伝える(持ち物と同じ言い方)。 */}
+                {canReorder && <p className="trip-day__hint">長押しして上下に動かすと、並べ替えられます。</p>}
+              </>
             )}
           </section>
         );
