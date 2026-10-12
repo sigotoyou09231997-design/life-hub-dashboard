@@ -85,7 +85,29 @@ export async function updateToLatestNow(): Promise<"latest" | "updating" | "unkn
   return "updating";
 }
 
+/** 更新を適用した(読み込み直す)時刻の控え。読み込み直したあとの画面が読む(localStorage は読み込み直しをまたぐ)。 */
+const UPDATE_APPLIED_KEY = "lifeHubUpdateAppliedAt";
+
+function markUpdateApplied(): void {
+  try {
+    window.localStorage.setItem(UPDATE_APPLIED_KEY, String(Date.now()));
+  } catch {
+    // 書けなくても、更新そのものはできる(帯が続けて出るのを抑えられないだけ)
+  }
+}
+
+/** 更新を適用してから withinMs 以内か。読み込み直した直後に、もう次の版が見つかった時(続けて出した時)を見分ける。 */
+export function wasUpdatedRecently(withinMs: number): boolean {
+  try {
+    const at = Number(window.localStorage.getItem(UPDATE_APPLIED_KEY));
+    return Number.isFinite(at) && at > 0 && Date.now() - at < withinMs;
+  } catch {
+    return false;
+  }
+}
+
 export async function applyUpdate(): Promise<void> {
+  markUpdateApplied();
   if (applyFn) await applyFn(true);
   if (typeof window === "undefined") return; // non-browser environment (tests)
   window.setTimeout(() => {

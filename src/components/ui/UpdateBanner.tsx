@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
-import { applyUpdate, subscribeUpdateAvailable } from "../../lib/pwaUpdate";
+import { applyUpdate, subscribeUpdateAvailable, wasUpdatedRecently } from "../../lib/pwaUpdate";
 
 const PROGRESS_DURATION_MS = 1500;
 
@@ -19,6 +19,10 @@ const PROGRESS_DURATION_MS = 1500;
  */
 const LAUNCH_WINDOW_MS = 15_000;
 const MAX_HOLD_MS = 3 * 60 * 60_000;
+/** 更新を適用して読み込み直した直後に、もう次の版が見つかった時は、帯を出さずに待つ(画面を離れた時に黙って切り替える)。
+ * 2026-10-13、本人「アップデートが来ていますの通知が二回来た」— 続けて出すと、戻るたびに帯が出て読み込み直し、その直後にまた次の版が
+ * 見つかって帯がもう1回出ていた(帯→読み込み直し→帯)。 */
+const RECENT_UPDATE_MS = 2 * 60_000;
 
 /** この画面（タブ）を読み込んだ、またはほかのアプリ・タブから戻ってきた時刻。「開いてすぐ」かどうかの基準。
  * 2026-10-12: 読み込んだ時刻だけを見ていたので、アプリを開いたまま行き来する使い方(iPhone のホーム画面アプリ)では
@@ -48,7 +52,7 @@ export function UpdateBanner() {
   useEffect(
     () =>
       subscribeUpdateAvailable(() => {
-        const justOpened = Date.now() - loadedAt <= LAUNCH_WINDOW_MS;
+        const justOpened = Date.now() - loadedAt <= LAUNCH_WINDOW_MS && !wasUpdatedRecently(RECENT_UPDATE_MS);
         setPhase(justOpened ? "updating" : "held");
       }),
     [],
