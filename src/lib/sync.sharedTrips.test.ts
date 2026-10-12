@@ -122,8 +122,6 @@ async function setup() {
   return { sync, tables };
 }
 
-const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-
 describe("他人と一緒に編集する旅行の同期", () => {
   beforeEach(() => {
     vi.resetModules();
