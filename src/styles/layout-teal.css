@@ -322,6 +322,8 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   .lh-section--trip .warm-trip { flex: 1; min-height: 0; }
 
   .lh-section--events { grid-column: 1; }
+  /* 予定もタスクも無い日の1枚は、予定とタスクの2列ぶん(Gmail は3列目のまま)。 */
+  .lh-section--today-empty { grid-column: 1 / span 2; align-self: start; }
   .lh-section--tasks { grid-column: 2; }
   .lh-section--gmail { grid-column: 3; }
   /* 3枚の高さは中身に合わせる(2026-10-12、UI/UX 調査メモ C-5)。前は Gmail に合わせて
@@ -719,3 +721,51 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 .settings-page .system-section {
   min-height: auto;
 }
+
+/* 第5弾 A-1・A-2(2026-10-13) ホームの空の表示: 線画・一言・「＋」ボタン。 */
+.lh-empty-line {
+  gap: 0.85rem;
+}
+.lh-empty-line strong {
+  font-size: 0.86rem;
+}
+.lh-today-empty {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  padding: 1.1rem 1.25rem;
+}
+.lh-today-empty strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--warm-ink);
+}
+.lh-today-empty p {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: var(--warm-ink-3);
+}
+.lh-today-empty__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+/* 「＋予定」「＋タスク」の小さなボタン。青緑の枠の丸(押す所だと分かるように)。 */
+.lh-add-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2rem;
+  margin-top: 0.35rem;
+  border: 1px solid var(--teal-500);
+  border-radius: var(--r-pill);
+  background: transparent;
+  padding: 0.2rem 0.8rem;
+  color: var(--teal-700);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.lh-today-empty__actions .lh-add-pill { margin-top: 0; }
+.lh-add-pill:hover { background: var(--teal-50); }
+.lh-add-pill:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; }
