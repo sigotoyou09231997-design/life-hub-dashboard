@@ -125,7 +125,8 @@ describe("済ませた変更の元に戻す(showUndoToast)", () => {
 describe("お知らせの中の名前(quoted)", () => {
   it("「」で囲み、長い題名は縮める。空なら空文字", () => {
     expect(quoted("牛乳を買う")).toBe("「牛乳を買う」");
-    expect(quoted("とても長いタスクの名前でお知らせに入りきらない")).toBe("「とても長いタスクの名前でお知…」");
+    expect(quoted("とても長いタスクの名前でお知らせに入りきらない")).toBe("「とても長いタスク…」");
+    expect(quoted("請求書をまとめて送る")).toBe("「請求書をまとめて…」");
     expect(quoted("  ")).toBe("");
     expect(quoted(undefined)).toBe("");
   });

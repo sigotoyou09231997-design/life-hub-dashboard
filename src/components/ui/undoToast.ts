@@ -22,8 +22,10 @@ import { ACTION_TOAST_DURATION_MS, showToast } from "./toastStore";
 export const UNDO_LABEL = "元に戻す";
 export const UNDO_DURATION_MS = ACTION_TOAST_DURATION_MS;
 
-/** お知らせの中で名前を「」で囲む。長い題名は1行に収まるよう縮める(お知らせは横幅が狭い)。 */
-export function quoted(title: string | undefined, max = 14): string {
+/** お知らせの中で名前を「」で囲む。長い題名は縮める(お知らせは横幅が狭い)。
+ * スマホでは右下の「＋」を避けて1行に9文字ほどしか入らず、14文字まで残すと2行に収まらずに
+ * 「…を完了しました」の方が切れていた(何をしたのかが読めない)ので、8文字にしている。 */
+export function quoted(title: string | undefined, max = 8): string {
   const text = (title ?? "").trim();
   if (!text) return "";
   return `「${text.length > max ? `${text.slice(0, max)}…` : text}」`;
