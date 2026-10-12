@@ -31,7 +31,7 @@ export function PersonFilter({ people, value, onChange, showUnassigned }: Props)
       <span className="person-filter__label">誰の</span>
       <button
         type="button"
-        className={`person-chip${value.length === 0 ? " is-on" : ""}`}
+        className={`person-chip person-chip--all${value.length === 0 ? " is-on" : ""}`}
         aria-pressed={value.length === 0}
         onClick={() => onChange([])}
       >

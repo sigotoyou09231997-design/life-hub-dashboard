@@ -6,17 +6,19 @@ import { NOTE_TYPE_DEFS, getNoteType } from "../../lib/noteTypes";
 import { groupByOwner } from "../../lib/attachments";
 import { NoteCard } from "./NoteCard";
 import { EmptyState } from "../ui/EmptyState";
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 
 interface Props {
   notes: Note[];
   onEdit: (note: Note) => void;
   onDelete: (id: string) => void;
+  /** 1件も無い時の「メモを書く」。メモ画面の「＋」と同じ「何を追加しますか?」を開く。 */
+  onAdd?: () => void;
 }
 
 type TypeFilter = "all" | NoteType;
 
-export function NoteList({ notes, onEdit, onDelete }: Props) {
+export function NoteList({ notes, onEdit, onDelete, onAdd }: Props) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
 
@@ -99,10 +101,16 @@ export function NoteList({ notes, onEdit, onDelete }: Props) {
                 return <div key={def.value}><Icon size={16} /><span>{def.label}</span><strong>0</strong></div>;
               })}
             </div>
-            {/* 「新しいメモ」のボタンは、右下の「＋」と同じ働きで2つ並んでいたので外した
-                (UI/UX 調査メモ A-3。追加の入口は各画面の「＋」1つに決めた)。 */}
+            {/* 「＋」の場所(スマホは右下・PCは上の帯)を文で案内すると、どちらかで必ず食い違う
+                (UI/UX 調査メモ 第3弾 N-1)。場所は書かず、空の時だけここにボタンを置く。 */}
             <div className="notes-empty-control__action">
-              <p><strong>最初のメモを作成</strong><span>右下の「＋」から、アイデアやリストを作れます。</span></p>
+              <p><strong>最初のメモを作成</strong><span>アイデアやチェックリスト、買い物リストを作れます。</span></p>
+              {onAdd && (
+                <button type="button" onClick={onAdd}>
+                  <Plus size={15} />
+                  メモを書く
+                </button>
+              )}
             </div>
           </section>
         ) : (

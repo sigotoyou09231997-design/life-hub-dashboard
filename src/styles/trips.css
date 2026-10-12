@@ -156,6 +156,11 @@
   letter-spacing: 0.005em;
   line-height: 1.18;
   text-shadow: 0 2px 22px rgba(0, 0, 0, 0.42);
+  /* 旅行詳細の表紙(.trip-detail-hero__title)と同じく、言葉の切れ目で折って行の長さをそろえる。
+     PCで「…スケジュー／ル」と1文字だけ次の行に落ちていた(UI/UX 調査メモ 第3弾 N-4)。 */
+  text-wrap: balance;
+  word-break: auto-phrase;
+  overflow-wrap: anywhere;
 }
 
 .trip-lead__meta {
