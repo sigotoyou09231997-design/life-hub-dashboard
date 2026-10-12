@@ -351,10 +351,61 @@ describe("予定の並べ替え(長押しして動かす)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("行ごとの「↑」「↓」は出さず、並べ替えられることは1行の案内で伝える", () => {
+  it("行ごとの「↑」「↓」もつまみも、ふだんは出さない。並べ替えられることは「並べ替え」のボタンで見せる", () => {
     renderReorderable(SAME_TIME_DAY);
     expect(screen.queryByRole("button", { name: /を上へ|を下へ/ })).toBeNull();
-    expect(screen.getByText("長押しして上下に動かすと、並べ替えられます。")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /を動かす$/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "並べ替え" })).toBeTruthy();
+  });
+
+  it("「並べ替え」を押すと、各行につまみが出て、案内が1行出る。「完了」で元に戻る", () => {
+    renderReorderable(SAME_TIME_DAY);
+    fireEvent.click(screen.getByRole("button", { name: "並べ替え" }));
+    expect(screen.getAllByRole("button", { name: /を動かす$/ })).toHaveLength(3);
+    expect(screen.getByText(/を上下に動かすと、順番を変えられます/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    expect(screen.queryByRole("button", { name: /を動かす$/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "並べ替え" })).toBeTruthy();
+  });
+
+  it("つまみは長押しを待たずに、押してすぐ動かせる(押しただけでは編集を開かない)", async () => {
+    const { onReorder, onEdit } = renderReorderable(SAME_TIME_DAY);
+    fireEvent.click(screen.getByRole("button", { name: "並べ替え" }));
+    const grip = screen.getByRole("button", { name: "受付・待機を動かす" });
+    fireEvent.pointerDown(grip, { pointerId: 1, button: 0, clientX: 300, clientY: 120 });
+    // 待たずに、もう動かしている。
+    expect(rowOf("受付・待機").classList.contains("is-dragging")).toBe(true);
+    fireEvent.pointerMove(document.body, { pointerId: 1, clientX: 300, clientY: 5 });
+    await act(async () => {
+      fireEvent.pointerUp(document.body, { pointerId: 1, clientX: 300, clientY: 5 });
+    });
+    fireEvent.click(grip);
+    expect(onReorder).toHaveBeenLastCalledWith([
+      { id: "desk", sortOrder: 1 },
+      { id: "boat", sortOrder: 2 },
+      { id: "leave", sortOrder: 3 },
+    ]);
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
+  it("つまみはキーボードの ↑ ↓ でも1つずつ動かせる(端では何もしない)", () => {
+    const { onReorder } = renderReorderable(SAME_TIME_DAY);
+    fireEvent.click(screen.getByRole("button", { name: "並べ替え" }));
+    fireEvent.keyDown(screen.getByRole("button", { name: "ホテル出発を動かす" }), { key: "ArrowUp" });
+    expect(onReorder).toHaveBeenLastCalledWith([
+      { id: "leave", sortOrder: 1 },
+      { id: "boat", sortOrder: 2 },
+      { id: "desk", sortOrder: 3 },
+    ]);
+    fireEvent.keyDown(screen.getByRole("button", { name: "高知→四万十の碧 乗船場所を動かす" }), { key: "ArrowUp" });
+    expect(onReorder).toHaveBeenCalledTimes(1);
+  });
+
+  it("ふだんの表示でも、長押しで並べ替えられる(近道として残す)", async () => {
+    const { onReorder } = renderReorderable(SAME_TIME_DAY);
+    expect(screen.queryByRole("button", { name: /を動かす$/ })).toBeNull();
+    await longPressDrag(rowOf("受付・待機"), 120, 60);
+    expect(onReorder).toHaveBeenCalledTimes(1);
   });
 
   it("長押しして1つ上へ動かすと、以前の「↑」と同じ並び順を渡す(時刻がちがっても動かせる)", async () => {
@@ -449,9 +500,9 @@ describe("予定の並べ替え(長押しして動かす)", () => {
     expect(onEdit).toHaveBeenCalledTimes(2);
   });
 
-  it("予定が1つだけの日は並べ替えにしない(案内も出さない)", () => {
+  it("予定が1つだけの日は並べ替えにしない(「並べ替え」のボタンも出さない)", () => {
     renderReorderable([item({ id: "only", title: "ホテル出発", startTime: "06:00" })]);
     expect(rowOf("ホテル出発").hasAttribute("data-reorder-row")).toBe(false);
-    expect(screen.queryByText(/長押しして上下に動かすと/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "並べ替え" })).toBeNull();
   });
 });

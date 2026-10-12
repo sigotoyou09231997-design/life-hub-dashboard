@@ -1,7 +1,14 @@
 import { Cloud, CloudDrizzle, CloudFog, CloudRain, CloudSnow, CloudSun, Sun, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { formatShortDate } from "../../lib/date";
-import { describeWeather, type DailyForecast, type WeatherIconName } from "../../lib/weather";
+import {
+  describeWeather,
+  forecastForDate,
+  forecastHorizon,
+  type DailyForecast,
+  type TripWeather,
+  type WeatherIconName,
+} from "../../lib/weather";
 
 const ICONS: Record<WeatherIconName, LucideIcon> = {
   sun: Sun,
@@ -66,5 +73,68 @@ export function TripWeatherBanner({ placeName, country, horizon, beyondHorizon }
       </span>
       {beyondHorizon && horizon && <span>{formatShortDate(horizon)}より先はまだ予報が出ていません</span>}
     </p>
+  );
+}
+
+/**
+ * PCの日程タブの右の欄(TripDayPanel)に出す、見ている日の天気。見出しの横の小さな天気
+ * (TripDayWeather)と同じ予報を、言葉(晴れ・雨…)と降水確率まで出して少し大きく見せる。
+ * 右の欄は横に余裕があるので、見出しの1行に収めるために畳んだものをここで広げる。
+ *
+ * 予報が無い日も、何も出さないのではなく理由を1行で書く — 欄ごと消えると、
+ * 天気が出ない旅行なのか、まだ先の日だからなのかが分からない。
+ */
+export function TripDayWeatherCard({ weather, date }: { weather?: TripWeather; date: string }) {
+  if (!weather) return <p className="trip-day-forecast__note">天気予報を調べています…</p>;
+  if (weather.status !== "ok") {
+    return (
+      <p className="trip-day-forecast__note">
+        {weather.status === "unknown-place"
+          ? "行き先の地名から、天気予報の場所が分かりませんでした。"
+          : "天気予報を読み込めませんでした。あとで開き直すと、もう一度調べます。"}
+      </p>
+    );
+  }
+
+  const forecast = forecastForDate(weather.days, date);
+  // どこの予報かは、PCでは左の日程の上の断り書き(TripWeatherBanner)を出さないので、ここで必ず書く。
+  const { name, country } = weather.place ?? {};
+  const placeLabel = name ? `${name}${country && country !== name ? `(${country})` : ""}の予報` : undefined;
+  if (!forecast) {
+    const horizon = forecastHorizon(weather.days);
+    const first = weather.days[0]?.date;
+    return (
+      <div className="trip-day-forecast">
+        <p className="trip-day-forecast__note trip-day-forecast__wide">
+          {horizon && date > horizon
+            ? `${formatShortDate(horizon)}より先は、まだ予報が出ていません。`
+            : first && date < first
+              ? "過ぎた日の天気は出せません。"
+              : "この日の予報はありません。"}
+        </p>
+        {placeLabel && <small className="trip-day-forecast__place">{placeLabel}</small>}
+      </div>
+    );
+  }
+
+  const look = describeWeather(forecast.weatherCode);
+  const Icon = ICONS[look.icon];
+  const rain = forecast.precipitationChance;
+  return (
+    <div className="trip-day-forecast">
+      <Icon size={30} aria-hidden="true" className="trip-day-forecast__icon" />
+      <div className="trip-day-forecast__main">
+        <strong>{look.label}</strong>
+        <span>
+          最高 <b>{forecast.tempMax}°</b> / 最低 {forecast.tempMin}°
+        </span>
+      </div>
+      {rain != null && (
+        <span className={`trip-day-forecast__rain${rain >= RAIN_CHANCE_THRESHOLD ? " is-high" : ""}`}>
+          降水 {rain}%
+        </span>
+      )}
+      {placeLabel && <small className="trip-day-forecast__place">{placeLabel}</small>}
+    </div>
   );
 }

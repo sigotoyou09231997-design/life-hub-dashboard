@@ -13,6 +13,12 @@ interface Props {
   items: TripScheduleItem[];
   /** いま日程で見ている日(YYYY-MM-DD)。 */
   date: string;
+  /**
+   * 地図をその場に出す(PCの日程タブの右の欄、TripDayPanel)。出さない時は、ボタンからシートで開く。
+   * 横に余白のあるPCで、地図を見るたびにシートを開かせる理由は無いため。場所と移動手段の選び直しは、
+   * どちらでも同じシートで行う(選んだ内容は端末に覚えるので、出し方が変わっても同じ地図になる)。
+   */
+  inline?: boolean;
 }
 
 /** 地図の線の手段。以前の「車/徒歩」の切り替えと同じ鍵に覚える。 */
@@ -73,7 +79,7 @@ function store(key: string, value: string) {
  * どの場所を出すかはチェックで選ぶ(同じ日、「選択式にして、出したくないものは表示しないでほしい」)。
  * 選んだ内容は端末に覚えるので、次に開いた時もそのまま。
  */
-export function TripDayRoute({ items, date }: Props) {
+export function TripDayRoute({ items, date, inline = false }: Props) {
   const [mode, setMode] = useState<LegMode>(readStoredMode);
   const [excludedKeys, setExcludedKeys] = useState<string[]>(readExcluded);
   /** 経路に出す場所を選ぶシートを開いているか。 */
@@ -111,10 +117,32 @@ export function TripDayRoute({ items, date }: Props) {
 
   return (
     <>
-      <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>
-        <Route size={17} />
-        この日の経路を地図で見る
-      </Button>
+      {inline ? (
+        <div className="flex flex-col gap-2">
+          {chosen.length > 0 ? (
+            <div className="trip-day-route__map trip-day-route__map--inline">
+              <iframe
+                key={buildRouteEmbedUrl(chosen, mode)}
+                title={`${formatDisplayDate(date)}の経路(地図)`}
+                src={buildRouteEmbedUrl(chosen, mode)}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
+          ) : (
+            <p className="px-1 text-xs text-slate-500">地図に出す場所が1つも選ばれていません。</p>
+          )}
+          <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>
+            <Route size={17} />
+            場所と移動手段を選ぶ
+          </Button>
+        </div>
+      ) : (
+        <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>
+          <Route size={17} />
+          この日の経路を地図で見る
+        </Button>
+      )}
       <Sheet open={open} onClose={() => setOpen(false)} title={`${formatDisplayDate(date)}の経路`}>
         {open && (
           <div className="flex flex-col gap-3">

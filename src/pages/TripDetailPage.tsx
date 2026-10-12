@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { MapPinned, NotebookPen, Pencil, Plus, Replace, Share2, Sparkles, Trash2 } from "lucide-react";
+import { ChevronLeft, MapPinned, NotebookPen, Pencil, Plus, Replace, Share2, Sparkles, Trash2 } from "lucide-react";
 import { db } from "../db/schema";
 import type {
   TripScheduleItem,
@@ -40,6 +40,7 @@ import { TripShareSheet } from "../components/trips/TripShareSheet";
 import { TripMyMapsSheet } from "../components/trips/TripMyMapsSheet";
 import { TripLocationRemapSheet } from "../components/trips/TripLocationRemapSheet";
 import { TripDayRoute } from "../components/trips/TripDayRoute";
+import { TripDayPanel } from "../components/trips/TripDayPanel";
 import { TripDocumentList } from "../components/trips/TripDocumentList";
 import { DiaryList } from "../components/diary/DiaryList";
 import { DiaryForm } from "../components/diary/DiaryForm";
@@ -50,6 +51,7 @@ import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { useTripCover } from "../hooks/useTripCover";
 import { useTripWeather } from "../hooks/useTripWeather";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
@@ -218,6 +220,9 @@ export default function TripDetailPage() {
   const cover = useTripCover(tripResult?.trip?.name ?? "", tripResult?.trip?.destination ?? "");
   // 天気も表紙と同じで、読み込み中でもフックの数を変えないよう早期returnより前で呼ぶ。
   const weather = useTripWeather(tripResult?.trip?.destination ?? "");
+  // PCだけ、日程の右に「その日の天気・地図・費用」の欄を出す(TripDayPanel)。CSSで隠すだけにしないのは、
+  // スマホで見えない地図を読み込ませないためと、経路の選び方を持つ部品(TripDayRoute)を2つ並べないため。
+  const isDesktop = useIsDesktop();
 
   if (!tripId) return null;
 
@@ -267,40 +272,40 @@ export default function TripDetailPage() {
 
   return (
     <div className="spatial-page trip-detail-page micro-contrast mx-auto max-w-[1480px] pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.trips}>
-      <PageHeader
-        title={trip.name}
-        subtitle={trip.destination}
-        backTo="/trips"
-        right={
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setSharingTrip(true)}
-              aria-label="しおりを共有"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-            >
-              <Share2 size={18} />
+      {/* 旅行の名前は表紙の写真の上に1回だけ出す。2026-10-12 までは、ページの見出し(旅行の名前)と
+          表紙の中(行き先)に2回書いていて、スマホではタブまでに画面の半分近くを使っていた。
+          戻る・共有・編集・削除は、見出しの行ごと表紙の上の端へ移した(写真の上でも読めるよう、
+          ボタンには暗いすりガラスの丸を敷く。styles/trips.css)。 */}
+      <section className="trip-detail-hero mx-5 mb-3 lg:mx-8" aria-labelledby="trip-detail-title">
+        <div className="trip-detail-hero__photo" style={{ backgroundImage: `url('${cover.url}')` }} aria-hidden="true" />
+        <div className="trip-detail-hero__veil" aria-hidden="true" />
+        <div className="trip-detail-hero__bar">
+          <Link to="/trips" aria-label="旅行の一覧へ戻る" className="trip-hero-button">
+            <ChevronLeft size={21} />
+          </Link>
+          <div className="trip-detail-hero__actions">
+            <button type="button" onClick={() => setSharingTrip(true)} aria-label="しおりを共有" className="trip-hero-button">
+              <Share2 size={17} />
             </button>
-            <button
-              onClick={() => setEditingTrip(true)}
-              aria-label="旅行を編集"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-            >
-              <Pencil size={18} />
+            <button type="button" onClick={() => setEditingTrip(true)} aria-label="旅行を編集" className="trip-hero-button">
+              <Pencil size={17} />
             </button>
-            <button
-              onClick={handleDelete}
-              aria-label="旅行を削除"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition-colors active:bg-red-50 active:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
-            >
-              <Trash2 size={18} />
+            <button type="button" onClick={handleDelete} aria-label="旅行を削除" className="trip-hero-button trip-hero-button--danger">
+              <Trash2 size={17} />
             </button>
           </div>
-        }
-      />
-
-      <section className="trip-detail-hero mx-5 mb-3 lg:mx-8">
-        <div className="trip-detail-hero__photo" style={{ backgroundImage: `url('${cover.url}')` }} aria-hidden="true" /><div className="trip-detail-hero__veil" aria-hidden="true" />
-        <div className="trip-detail-hero__content"><span>{STATUS_LABEL[trip.status]}</span><h2>{trip.destination}</h2><p>{formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} · {tripDurationLabel(trip.startDate, trip.endDate)}</p></div>
+        </div>
+        <div className="trip-detail-hero__content">
+          <span>{STATUS_LABEL[trip.status]}</span>
+          <h1 id="trip-detail-title" className="trip-detail-hero__title">
+            {trip.name}
+          </h1>
+          <p>
+            {/* 行き先が名前と同じなら繰り返さない(「京都」旅行の行き先「京都」)。 */}
+            {trip.destination && trip.destination !== trip.name ? `${trip.destination} · ` : ""}
+            {formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)} · {tripDurationLabel(trip.startDate, trip.endDate)}
+          </p>
+        </div>
         {/* Googleの写真を出す時は撮影者のクレジットを併記する決まりになっている。 */}
         {cover.attribution && <span className="trip-detail-hero__credit">写真: {cover.attribution}</span>}
       </section>
@@ -339,77 +344,91 @@ export default function TripDetailPage() {
 
       <div className={`trip-detail-workspace trip-detail-workspace--${tab} px-5 lg:px-8`}>
         {tab === "schedule" && (
-          <>
-            {/* 旅行のメモ。専用の「概要」タブは行き先も日程もヒーローと重複していて
-                消したので、唯一そこにしか無かったメモを日程の先頭に置く。 */}
-            {trip.memo && <TripMemoNote memo={trip.memo} />}
-            <TripScheduleList
-              photosBySchedule={schedulePhotos ? groupByOwner(schedulePhotos) : undefined}
-              expenseBySchedule={new Map(expenses.filter((e) => e.scheduleId).map((e) => [e.scheduleId!, e]))}
-              dayList={dayList}
-              items={schedule}
-              weather={weather}
-              selectedDate={activeScheduleDay}
-              onSelectDate={setScheduleDay}
-              onEdit={(item) => setEditingSchedule(item)}
-              onAddForDate={(date) => {
-                setScheduleDay(date);
-                setScheduleDatePreset(date);
-                setEditingSchedule("new");
-              }}
-              onReorder={(changes) => {
-                void Promise.all(changes.map((change) => db.tripSchedule.update(change.id, { sortOrder: change.sortOrder })));
-              }}
-              onLocationTap={(location, title, date) => {
-                setTab("route");
-                // ルートにある場所なら、その日に切り替えて、その場所まで送る(2026-10-11、「ルートの該当の
-                // 部分に飛んで欲しいのに、違うところに飛んでる」— タブを替えるだけで、開いていた日の先頭が出ていた)。
-                const place = findRoutePlaceFor(routePlaces, location, date);
-                if (place?.id) {
-                  setRouteFocus({ id: place.id, at: Date.now() });
-                  return;
-                }
-                // まだルートに無い場所なら、そのまま追加フォームを開いて拾わせる。
-                // 一覧に戻って同じ住所を打ち直させない。
-                setRoutePreset({ name: title, address: location });
-                setEditingRoute("new");
-              }}
-            />
-            {dayList.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {/* 見ている日の日程を、Googleマップの経路として開く。 */}
-                <TripDayRoute items={schedule} date={activeScheduleDay} />
-                <Button
-                  className="w-full"
-                  onClick={() => {
-                    // 見ている日に足すのが自然(3日目を見ながら足すのに、日付を1日目から直させない)。
-                    setScheduleDatePreset(activeScheduleDay);
-                    setEditingSchedule("new");
-                  }}
-                >
-                  予定を追加
-                </Button>
-                {/* しおり・チケット・案内のメッセージから日程を起こす入り口。1件ずつ
-                    打ち込む「予定を追加」の下に置き、まとめて入れたい時だけ使う。 */}
-                <Button variant="secondary" className="w-full" onClick={() => setScanOpen(true)}>
-                  <Sparkles size={17} />
-                  写真・文章から追加・更新
-                </Button>
-                {/* 日程をGoogleマイマップへ入れるためのCSV。マイマップには外から書き込めないので、
-                    ファイルを渡して取り込んでもらう形(TripMyMapsSheet)。 */}
-                <Button variant="secondary" className="w-full" onClick={() => setMyMapsOpen(true)}>
-                  <MapPinned size={17} />
-                  Googleマイマップに入れる
-                </Button>
-                {/* 「霊山寺」のような名前だけの場所を、都道府県・市区町村つきに表でまとめて直す。
-                    地図(マイマップ・ルート)が別の場所を選ぶのを避けるため。 */}
-                <Button variant="secondary" className="w-full" onClick={() => setRemapOpen(true)}>
-                  <Replace size={17} />
-                  場所をまとめて直す
-                </Button>
-              </div>
+          <div className="trip-schedule-layout">
+            <div className="trip-schedule-layout__main">
+              {/* 旅行のメモ。専用の「概要」タブは行き先も日程もヒーローと重複していて
+                  消したので、唯一そこにしか無かったメモを日程の先頭に置く。 */}
+              {trip.memo && <TripMemoNote memo={trip.memo} />}
+              <TripScheduleList
+                photosBySchedule={schedulePhotos ? groupByOwner(schedulePhotos) : undefined}
+                expenseBySchedule={new Map(expenses.filter((e) => e.scheduleId).map((e) => [e.scheduleId!, e]))}
+                dayList={dayList}
+                items={schedule}
+                weather={weather}
+                selectedDate={activeScheduleDay}
+                onSelectDate={setScheduleDay}
+                onEdit={(item) => setEditingSchedule(item)}
+                onAddForDate={(date) => {
+                  setScheduleDay(date);
+                  setScheduleDatePreset(date);
+                  setEditingSchedule("new");
+                }}
+                onReorder={(changes) => {
+                  void Promise.all(changes.map((change) => db.tripSchedule.update(change.id, { sortOrder: change.sortOrder })));
+                }}
+                onLocationTap={(location, title, date) => {
+                  setTab("route");
+                  // ルートにある場所なら、その日に切り替えて、その場所まで送る(2026-10-11、「ルートの該当の
+                  // 部分に飛んで欲しいのに、違うところに飛んでる」— タブを替えるだけで、開いていた日の先頭が出ていた)。
+                  const place = findRoutePlaceFor(routePlaces, location, date);
+                  if (place?.id) {
+                    setRouteFocus({ id: place.id, at: Date.now() });
+                    return;
+                  }
+                  // まだルートに無い場所なら、そのまま追加フォームを開いて拾わせる。
+                  // 一覧に戻って同じ住所を打ち直させない。
+                  setRoutePreset({ name: title, address: location });
+                  setEditingRoute("new");
+                }}
+              />
+              {dayList.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {/* 見ている日の日程を、Googleマップの経路として開く。PCでは右の欄に地図そのものが出ているので出さない。 */}
+                  {!isDesktop && <TripDayRoute items={schedule} date={activeScheduleDay} />}
+                  <Button
+                    className="w-full"
+                    onClick={() => {
+                      // 見ている日に足すのが自然(3日目を見ながら足すのに、日付を1日目から直させない)。
+                      setScheduleDatePreset(activeScheduleDay);
+                      setEditingSchedule("new");
+                    }}
+                  >
+                    予定を追加
+                  </Button>
+                  {/* しおり・チケット・案内のメッセージから日程を起こす入り口。1件ずつ
+                      打ち込む「予定を追加」の下に置き、まとめて入れたい時だけ使う。 */}
+                  <Button variant="secondary" className="w-full" onClick={() => setScanOpen(true)}>
+                    <Sparkles size={17} />
+                    写真・文章から追加・更新
+                  </Button>
+                  {/* 日程をGoogleマイマップへ入れるためのCSV。マイマップには外から書き込めないので、
+                      ファイルを渡して取り込んでもらう形(TripMyMapsSheet)。 */}
+                  <Button variant="secondary" className="w-full" onClick={() => setMyMapsOpen(true)}>
+                    <MapPinned size={17} />
+                    Googleマイマップに入れる
+                  </Button>
+                  {/* 「霊山寺」のような名前だけの場所を、都道府県・市区町村つきに表でまとめて直す。
+                      地図(マイマップ・ルート)が別の場所を選ぶのを避けるため。 */}
+                  <Button variant="secondary" className="w-full" onClick={() => setRemapOpen(true)}>
+                    <Replace size={17} />
+                    場所をまとめて直す
+                  </Button>
+                </div>
+              )}
+            </div>
+            {isDesktop && dayList.length > 0 && (
+              <TripDayPanel
+                date={activeScheduleDay}
+                dayNumber={dayList.indexOf(activeScheduleDay) + 1}
+                schedule={schedule}
+                weather={weather}
+                expenses={expenses}
+                budget={trip.budget}
+                onEditExpense={(expense) => setEditingExpense(expense)}
+                onShowExpenses={() => setTab("expense")}
+              />
             )}
-          </>
+          </div>
         )}
 
         {tab === "expense" && (
