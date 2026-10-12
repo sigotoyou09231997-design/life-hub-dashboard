@@ -98,9 +98,12 @@ if [ "$TSC_OK" -ne 0 ]; then head -30 "$LOG_DIR/tsc.log" || true; die "型チェ
 # 混み合いが原因だったと確かめる)。時間切れ以外の理由(AssertionError など)が1つでもあれば、再実行せずに止まる。
 if [ "$TEST_OK" -ne 0 ]; then
   CLEAN_LOG="$(sed 's/\x1b\[[0-9;]*m//g' "$LOG_DIR/test.log")"
-  FAIL_N="$(echo "$CLEAN_LOG" | grep -cE '^ FAIL ' || true)"
-  TIMEOUT_N="$(echo "$CLEAN_LOG" | grep -cE 'Error: (Test|Hook) timed out' || true)"
-  OTHER_N="$(echo "$CLEAN_LOG" | grep -cE 'AssertionError|TestingLibraryElementError|TypeError|ReferenceError|Unhandled|Errors +[0-9]+ error' || true)"
+  # 「Failed Tests」の各項目は「 FAIL <ファイル> > <テスト名>」の次の行に原因が出る。1件ずつ、原因が時間切れか数える。
+  # 時間切れ以外(AssertionError・TypeError・未処理のエラーなど)が1件でもあれば、再実行せずに止まる。
+  read -r FAIL_N TIMEOUT_N <<EOF_COUNT
+$(echo "$CLEAN_LOG" | awk '/^⎯+ Failed Tests/{in_fail=1; next} in_fail && /^ FAIL /{n++; want=1; next} in_fail && want && NF{ if ($0 ~ /^Error: (Test|Hook) timed out/) t++; want=0 } END{print n+0, t+0}')
+EOF_COUNT
+  OTHER_N="$(echo "$CLEAN_LOG" | grep -cE 'Unhandled|Errors +[0-9]+ error' || true)"
   if [ "$FAIL_N" -gt 0 ] && [ "$FAIL_N" -eq "$TIMEOUT_N" ] && [ "$OTHER_N" -eq 0 ]; then
     FILES="$(echo "$CLEAN_LOG" | grep -E '^ FAIL ' | sed -E 's/^ FAIL +([^ ]+).*/\1/' | sort -u | tr '\n' ' ')"
     echo "   時間切れだけで落ちたテスト(${FAIL_N}件)があります。落ちたファイルだけを、1つずつ静かな状態で再実行します: $FILES"
