@@ -27,6 +27,21 @@ export interface CategoryBudgetRow {
   monthly_amount: number;
 }
 
+export interface FixedCostAmountRow {
+  id: string;
+  amount: number;
+  due_day: number;
+}
+
+/** サブスクの付け足し(supabase/sql/032_subscription_details.sql)。年払い・無料体験など。 */
+export interface SubscriptionDetailRow {
+  fixed_cost_id: string;
+  cycle: string | null;
+  billing_month: number | null;
+  start_date: string | null;
+  trial_end_date: string | null;
+}
+
 // このアプリは個人利用の日本語専用アプリという前提(CLAUDE.md)。日付はすべて端末の
 // ローカル時刻のままタイムゾーン情報を持たずに保存されているため、
 // checkRemindersAndNotify.tsと同じ割り切りでJST固定として扱う。
@@ -114,6 +129,49 @@ export function resolveBudgetPeriod(salaries: SalaryRow[], today: string): Budge
     salaryAmount: exact?.amount ?? 0,
     hasSalaryForPeriod: exact != null,
   };
+}
+
+/**
+ * その期(periodStart〜periodEnd、両端を含む)に払う固定費。画面側の chargeInPeriod
+ * (src/lib/subscriptions.ts)と同じ考え方:
+ * - 毎月払いは1期に1回ぶん。ただし請求が始まる日(契約開始日・無料体験の終わり)が期の後なら0
+ * - 年払いは、請求日が期の中にあり、請求が始まった後のときだけ
+ * 付け足しが無い固定費(032 を流す前を含む)は、いままでどおり毎月払い。
+ */
+export function fixedChargeInPeriod(
+  row: FixedCostAmountRow,
+  detail: SubscriptionDetailRow | undefined,
+  periodStart: string,
+  periodEnd: string,
+): number {
+  const amount = Number(row.amount);
+  const first = [detail?.start_date, detail?.trial_end_date].filter((d): d is string => !!d).sort().at(-1);
+  if (detail?.cycle !== "yearly") return first && first > periodEnd ? 0 : amount;
+  const billingMonth = detail.billing_month ?? 1;
+  let count = 0;
+  for (let year = Number(periodStart.slice(0, 4)); year <= Number(periodEnd.slice(0, 4)); year++) {
+    const date = paydayOfMonth(year, billingMonth, row.due_day);
+    if (date >= periodStart && date <= periodEnd && (!first || date >= first)) count++;
+  }
+  return count * amount;
+}
+
+/** サブスクの付け足しを固定費の id ごとに引く。032 を流す前(テーブルが無い)や読めない時は
+ * 空で返す — その場合は全部いままでどおり毎月払いとして数える。 */
+async function loadSubscriptionDetails(
+  supabase: SupabaseClient,
+  fixedCostIds: string[],
+): Promise<Map<string, SubscriptionDetailRow>> {
+  const out = new Map<string, SubscriptionDetailRow>();
+  if (fixedCostIds.length === 0) return out;
+  const { data, error } = await supabase
+    .from("subscription_details")
+    .select("fixed_cost_id, cycle, billing_month, start_date, trial_end_date")
+    .in("fixed_cost_id", fixedCostIds)
+    .is("deleted_at", null);
+  if (error) return out;
+  for (const row of (data ?? []) as SubscriptionDetailRow[]) out.set(row.fixed_cost_id, row);
+  return out;
 }
 
 /** 画面側のcalculatePayPeriodBudgetと同じ式。
@@ -272,7 +330,7 @@ async function processUser(
   if (!period) return;
 
   const [fixedResult, spendingResult, bonusResult] = await Promise.all([
-    supabase.from("fixed_costs").select("amount").eq("user_id", userId).eq("active", true).is("deleted_at", null),
+    supabase.from("fixed_costs").select("id, amount, due_day").eq("user_id", userId).eq("active", true).is("deleted_at", null),
     // is_fixed で絞らずに取る — 全体の残額は固定費として記録した支出を数えないが、
     // カテゴリ別の集計は数える(画面側の spendingByCategory と同じ)。1回の問い合わせで
     // 両方を出せるように、絞り込みはこちら側でやる。
@@ -306,9 +364,16 @@ async function processUser(
 
   const sum = (rows: { amount: number }[] | null) => (rows ?? []).reduce((total, row) => total + Number(row.amount), 0);
   const expenses = (spendingResult.data ?? []) as ExpenseRow[];
+  const fixedRows = (fixedResult.data ?? []) as FixedCostAmountRow[];
+  const details = await loadSubscriptionDetails(supabase, fixedRows.map((row) => row.id));
+  const periodEnd = new Date(Date.parse(`${period.nextPayday}T00:00:00Z`) - ONE_DAY_MS).toISOString().slice(0, 10);
+  const totalFixedCosts = fixedRows.reduce(
+    (total, row) => total + fixedChargeInPeriod(row, details.get(row.id), period.periodStart, periodEnd),
+    0,
+  );
   const remaining = calculateRemaining(
     period.salaryAmount,
-    sum(fixedResult.data as { amount: number }[] | null),
+    totalFixedCosts,
     sum(expenses.filter((row) => !row.is_fixed)),
     sum(bonusResult.data as { amount: number }[] | null),
   );

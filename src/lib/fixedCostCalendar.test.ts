@@ -48,4 +48,18 @@ describe("collectFixedCostChipsInRange", () => {
     const chips = collectFixedCostChipsInRange([cost({ id: "a" })], "2026-09-01", "2026-09-30");
     expect(chips.get("2026-09-27")?.[0].kind).toBe("fixedCost");
   });
+
+  it("年払いは請求月にだけ、無料体験中は終わる日から出す(サブスクの付け足し)", () => {
+    const chips = collectFixedCostChipsInRange(
+      [cost({ id: "y", title: "Amazonプライム", amount: 5_900, dueDay: 15 }), cost({ id: "t", title: "U-NEXT", amount: 2_189, dueDay: 30 })],
+      "2026-09-28",
+      "2026-11-01",
+      [
+        { fixedCostId: "y", cycle: "yearly", billingMonth: 4, createdAt: 0 },
+        { fixedCostId: "t", cycle: "monthly", trialEndDate: "2026-10-30", createdAt: 0 },
+      ],
+    );
+    expect([...chips.keys()]).toEqual(["2026-10-30"]);
+    expect(chips.get("2026-10-30")?.[0].label).toBe("U-NEXT(無料体験おわり) ¥2,189");
+  });
 });

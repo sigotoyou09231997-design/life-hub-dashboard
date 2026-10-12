@@ -1,5 +1,6 @@
 import { getDaysInMonth, parseISO } from "date-fns";
-import type { FixedCost } from "../types";
+import type { FixedCost, SubscriptionDetail } from "../types";
+import { billingDatesInRange, pairSubscriptions } from "./subscriptions";
 import type { DayChip } from "./eventPeople";
 
 /** 固定費の帯の色。お金管理のエリア色(src/lib/areaColors.ts の money)と同じ調子で、
@@ -26,25 +27,32 @@ function yen(n: number): string {
  * 予定(CalendarEvent)としては保存しない — 依頼のとおり、表示のためだけに毎月の
  * 支払日を計算して出す。止めている固定費(active=false)は出さない。
  *
+ * サブスクの付け足し(details、types/index.ts の SubscriptionDetail)があれば、年払いは
+ * 請求月にだけ、無料体験中・開始予定のものは請求が始まる日から出す
+ * (src/lib/subscriptions.ts の billingDatesInRange)。無料体験が終わる日の帯には
+ * そう書き添える — 解約するならその前に、と気づけるように。
+ *
  * 範囲は月表示の枠(前後の月にはみ出す週を含む)なので、またぐ月ぶんを全部見る。
  */
 export function collectFixedCostChipsInRange(
   fixedCosts: FixedCost[],
   rangeStart: string,
   rangeEnd: string,
+  details: SubscriptionDetail[] = [],
 ): Map<string, DayChip[]> {
   const out = new Map<string, DayChip[]>();
-  const active = fixedCosts.filter((cost) => cost.active && Number.isFinite(cost.dueDay));
-  if (active.length === 0) return out;
-
-  for (const monthStart of monthStartsInRange(rangeStart, rangeEnd)) {
-    for (const cost of active) {
-      const date = dueDateInMonth(cost.dueDay, monthStart);
-      if (date < rangeStart || date > rangeEnd) continue;
+  const items = pairSubscriptions(
+    fixedCosts.filter((cost) => cost.active && Number.isFinite(cost.dueDay)),
+    details,
+  );
+  for (const item of items) {
+    const { cost, detail } = item;
+    for (const date of billingDatesInRange(item, rangeStart, rangeEnd)) {
+      const trialEnds = detail?.trialEndDate === date;
       const chips = out.get(date) ?? [];
       chips.push({
         key: `fixed-${cost.id ?? cost.title}-${date}`,
-        label: `${cost.title} ${yen(cost.amount)}`,
+        label: `${cost.title}${trialEnds ? "(無料体験おわり)" : ""} ${yen(cost.amount)}`,
         color: FIXED_COST_CHIP_COLOR,
         kind: "fixedCost",
       });
@@ -52,23 +60,4 @@ export function collectFixedCostChipsInRange(
     }
   }
   return out;
-}
-
-/** 範囲にかかっている月の1日を、古い順に。月表示の枠は最大3か月にまたがる。 */
-function monthStartsInRange(rangeStart: string, rangeEnd: string): string[] {
-  const months: string[] = [];
-  let year = Number(rangeStart.slice(0, 4));
-  let month = Number(rangeStart.slice(5, 7));
-  const endKey = rangeEnd.slice(0, 7);
-  for (let guard = 0; guard < 12; guard++) {
-    const key = `${year}-${String(month).padStart(2, "0")}`;
-    months.push(`${key}-01`);
-    if (key >= endKey) break;
-    month++;
-    if (month > 12) {
-      month = 1;
-      year++;
-    }
-  }
-  return months;
 }

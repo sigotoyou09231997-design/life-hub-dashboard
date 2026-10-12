@@ -79,6 +79,22 @@ const LOCAL_FIELDS: Record<string, { file: string; fields: string[] }> = {
     // types/index.ts の GoogleCalendarLink。026 を本番で流した連絡を受けるまでは登録しない(025 と同じ)。
     fields: ["id", "eventId", "accountEmail", "googleEventId", "googleUpdated", "createdAt", "updatedAt"],
   },
+  subscription_details: {
+    file: "032_subscription_details.sql",
+    // types/index.ts の SubscriptionDetail。032 を本番で流した連絡を受けるまでは登録しない(025 と同じ)。
+    fields: [
+      "id",
+      "fixedCostId",
+      "cycle",
+      "billingMonth",
+      "serviceKey",
+      "startDate",
+      "trialEndDate",
+      "cancelledAt",
+      "createdAt",
+      "updatedAt",
+    ],
+  },
 };
 
 describe("同期テーブルの列名が、アプリ側の項目名と噛み合っている", () => {

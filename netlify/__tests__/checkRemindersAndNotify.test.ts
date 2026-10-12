@@ -77,6 +77,18 @@ describe("fixedCostReminderMonth", () => {
     expect(fixedCostReminderMonth(row, jstMs("2026-09-27T12:00"), 2026, 8)).toBeNull();
     expect(fixedCostReminderMonth({ ...row, active: true, notifyDaysBefore: null }, jstMs("2026-09-27T12:00"), 2026, 8)).toBeNull();
   });
+
+  it("年払いは請求月にだけ通知する(サブスクの付け足し、032)", () => {
+    const row = { dueDay: 27, notifyDaysBefore: 3, lastNotifiedMonth: null, active: true, cycle: "yearly", billingMonth: 3 };
+    expect(fixedCostReminderMonth(row, jstMs("2026-09-27T12:00"), 2026, 8)).toBeNull();
+    expect(fixedCostReminderMonth({ ...row, billingMonth: 9 }, jstMs("2026-09-27T12:00"), 2026, 8)).toBe("2026-09");
+  });
+
+  it("請求が始まる前(無料体験中)の支払日は通知せず、体験が終わる日の前には通知する", () => {
+    const row = { dueDay: 27, notifyDaysBefore: 3, lastNotifiedMonth: null, active: true, firstBillingDate: "2026-10-27" };
+    expect(fixedCostReminderMonth(row, jstMs("2026-09-26T12:00"), 2026, 8)).toBeNull();
+    expect(fixedCostReminderMonth(row, jstMs("2026-10-25T12:00"), 2026, 9)).toBe("2026-10");
+  });
 });
 
 describe("通知文面", () => {
@@ -98,5 +110,14 @@ describe("通知文面", () => {
     expect(payload.title).toContain("家賃");
     expect(payload.body).toBe("毎月27日 ・ ¥80,000");
     expect(payload.url).toBe("/records/expense");
+  });
+
+  it("年払い・無料体験の終わり: 文面を変える", () => {
+    expect(JSON.parse(buildFixedCostReminderPayload("Amazonプライム", 5900, 15, { billingMonth: 4 })).body).toBe(
+      "毎年4月15日 ・ ¥5,900",
+    );
+    const trial = JSON.parse(buildFixedCostReminderPayload("U-NEXT", 2189, 30, { trialEnds: true }));
+    expect(trial.title).toBe("無料体験がもうすぐ終わります: U-NEXT");
+    expect(trial.body).toBe("毎月30日 ・ ¥2,189 の請求が始まります");
   });
 });

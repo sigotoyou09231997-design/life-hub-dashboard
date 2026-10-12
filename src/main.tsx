@@ -20,6 +20,8 @@ import "./styles/event-people.css";
 import "./styles/theme-teal.css";
 // ホームとお金管理の並び（2026-10-12）。theme-teal.css の後に読む。
 import "./styles/layout-teal.css";
+// お金管理の「サブスク」タブ(2026-10-12)。layout-teal.css の行の一覧の上に足す。
+import "./styles/subscriptions.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()

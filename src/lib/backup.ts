@@ -41,6 +41,9 @@ const BACKUP_TABLES = [
   // Googleカレンダーから取り込んだ予定と、Google側の予定のつながり(types/index.ts の
   // GoogleCalendarLink)。これも calendarEvents のidを指す別テーブルなので一緒に戻す。
   "googleCalendarLinks",
+  // サブスクの付け足し(年払い・無料体験・解約日など、types/index.ts の SubscriptionDetail)。
+  // fixedCosts のidを指す別テーブルなので一緒に戻す。
+  "subscriptionDetails",
 ] as const;
 
 export async function exportBackup(): Promise<void> {

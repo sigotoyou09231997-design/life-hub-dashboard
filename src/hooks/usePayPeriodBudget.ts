@@ -1,9 +1,11 @@
+import { subDays } from "date-fns";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/schema";
 import { resolveCurrentPeriod, calculatePayPeriodBudget, type CurrentPayPeriod } from "../lib/payPeriod";
 import { toDateStr, todayStr } from "../lib/date";
 import { unsettledTotal } from "../lib/pendingCardCharges";
 import { sumBonusIncome } from "../lib/bonus";
+import { chargeInPeriod, pairSubscriptions } from "../lib/subscriptions";
 
 export interface PayPeriodBudget {
   period: CurrentPayPeriod;
@@ -20,9 +22,10 @@ export interface PayPeriodBudget {
 
 export function usePayPeriodBudget(): { data: PayPeriodBudget | null; loading: boolean } {
   const result = useLiveQuery(async () => {
-    const [salaries, allFixedCosts, pendingCharges] = await Promise.all([
+    const [salaries, allFixedCosts, subscriptionDetails, pendingCharges] = await Promise.all([
       db.salaries.toArray(),
       db.fixedCosts.toArray(),
+      db.subscriptionDetails.toArray(),
       db.pendingCardCharges.toArray(),
     ]);
 
@@ -41,9 +44,14 @@ export function usePayPeriodBudget(): { data: PayPeriodBudget | null; loading: b
       .reduce((sum, t) => sum + t.amount, 0);
     // その期に入った賞与は給与に足す(src/lib/bonus.ts)。
     const bonusAmount = sumBonusIncome(periodTransactions);
-    const totalFixedCosts = allFixedCosts
-      .filter((f) => f.active)
-      .reduce((sum, f) => sum + f.amount, 0);
+    // 年払いは請求日がこの期に入るときだけ、無料体験中・開始予定のものは請求が
+    // 始まってから数える(src/lib/subscriptions.ts の chargeInPeriod)。付け足しの無い
+    // 固定費は、いままでどおり止めていなければ1期に1回ぶん。
+    const periodEndStr = toDateStr(subDays(period.nextPayday, 1));
+    const totalFixedCosts = pairSubscriptions(allFixedCosts, subscriptionDetails).reduce(
+      (sum, item) => sum + chargeInPeriod(item, periodStartStr, periodEndStr),
+      0,
+    );
 
     // カードで使ったが、まだ支出として記録されていないぶんも先に引く。
     // 突き合わせは期の中だけでなく全支出に対して行う — 利用日が期の中でも、

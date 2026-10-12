@@ -33,6 +33,7 @@ import type {
   TransactionProjectTag,
   EventMailLink,
   GoogleCalendarLink,
+  SubscriptionDetail,
 } from "../types";
 
 /** Local-only outbox for the PC/スマホ同期機能: one row per (table, rowId) pending push to Supabase. */
@@ -139,6 +140,7 @@ const POST_MIGRATION_TABLE_SCHEMAS: TableSchema[] = [
   { name: "transactionProjectTags", indexes: "transactionId, tag", fks: [], hasUpdatedAt: true },
   { name: "eventMailLinks", indexes: "eventId", fks: [], hasUpdatedAt: true },
   { name: "googleCalendarLinks", indexes: "eventId, [accountEmail+googleEventId]", fks: [], hasUpdatedAt: true },
+  { name: "subscriptionDetails", indexes: "fixedCostId", fks: [], hasUpdatedAt: true },
 ];
 
 /** UUID採番・updatedAt付与のフックを張る対象(移行の有無は関係なく全テーブル)。 */
@@ -213,6 +215,7 @@ export class LifeHubDB extends Dexie {
   transactionProjectTags!: EntityTable<TransactionProjectTag, "id">;
   eventMailLinks!: EntityTable<EventMailLink, "id">;
   googleCalendarLinks!: EntityTable<GoogleCalendarLink, "id">;
+  subscriptionDetails!: EntityTable<SubscriptionDetail, "id">;
   syncQueue!: EntityTable<SyncQueueEntry, "id">;
 
   /** DB名はアカウントごとに変える(src/lib/accounts.ts)。同じ端末で2つのアカウントを
@@ -456,6 +459,13 @@ export class LifeHubDB extends Dexie {
     // 既存の予定には触らない。
     this.version(28).stores({
       googleCalendarLinks: "id, eventId, [accountEmail+googleEventId]",
+    });
+
+    // 固定費をサブスクとして扱うための付け足し(types/index.ts の SubscriptionDetail)。
+    // fixed_costs に列を足さないのは v27 と同じ理由。1件の固定費に1行なので fixedCostId に索引。
+    // 既存の固定費には触らない — 行が無いものは「毎月払い」のまま扱う。
+    this.version(29).stores({
+      subscriptionDetails: "id, fixedCostId",
     });
 
     // UUID移行後は主キーが自動採番されないため、明示的にidを渡さなかった.add()呼び出しに

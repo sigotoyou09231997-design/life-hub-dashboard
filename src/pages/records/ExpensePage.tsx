@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
-import type { Transaction, FixedCost, SalaryEntry } from "../../types";
+import type { Transaction, SalaryEntry } from "../../types";
 import { monthRange, todayStr } from "../../lib/date";
 import { EXPENSE_CATEGORIES } from "../../lib/categories";
 import { selectBonuses } from "../../lib/bonus";
@@ -17,8 +17,7 @@ import { ExpenseSummary } from "../../components/expense/ExpenseSummary";
 import { ExpenseList } from "../../components/expense/ExpenseList";
 import { ExpenseForm } from "../../components/expense/ExpenseForm";
 import { ReceiptScanForm } from "../../components/expense/ReceiptScanForm";
-import { FixedCostList } from "../../components/expense/FixedCostList";
-import { FixedCostForm } from "../../components/expense/FixedCostForm";
+import { SubscriptionTab } from "../../components/subscriptions/SubscriptionTab";
 import { SalaryList } from "../../components/expense/SalaryList";
 import { BonusForm } from "../../components/expense/BonusForm";
 import { BonusList } from "../../components/expense/BonusList";
@@ -49,13 +48,14 @@ function receiptToDraftTransaction(receipt: ExtractedReceipt): Transaction {
   };
 }
 
-type Tab = "summary" | "salary" | "fixed" | "history" | "card" | "paypay";
+// 2026-10-12: 固定費のタブを「サブスク」に作り替えて先頭に置いた(参考: サブスクBOX)。
+// 開いたときに最初に出るのもサブスク。固定費の中身はそのまま、サブスクの一覧に並ぶ。
+type Tab = "subs" | "summary" | "salary" | "history" | "card" | "paypay";
 
 export default function ExpensePage() {
   const showToast = useToast();
-  const [tab, setTab] = useState<Tab>("summary");
+  const [tab, setTab] = useState<Tab>("subs");
   const [editingTransaction, setEditingTransaction] = useState<Transaction | "new" | null>(null);
-  const [editingFixedCost, setEditingFixedCost] = useState<FixedCost | "new" | null>(null);
   const [editingSalary, setEditingSalary] = useState<SalaryEntry | "new" | null>(null);
   const [editingBonus, setEditingBonus] = useState<Transaction | "new" | null>(null);
   const [csvImportOpen, setCsvImportOpen] = useState(false);
@@ -86,30 +86,27 @@ export default function ExpensePage() {
     () => db.transactions.where("date").between(start, end, true, true).toArray(),
     [start, end],
   );
-  const fixedCosts = useLiveQuery(() => db.fixedCosts.toArray(), []);
   const salaries = useLiveQuery(() => db.salaries.toArray(), []);
   // 賞与は日付で絞らず全件から拾う。月をまたいで見返すもので、件数も年に数件しかない。
   const bonuses = useLiveQuery(() => db.transactions.toArray().then(selectBonuses), []);
   const showSalarySkeleton = useDelayedFlag(salaries === undefined);
   const showHistorySkeleton = useDelayedFlag(transactions === undefined);
-  const showFixedSkeleton = useDelayedFlag(fixedCosts === undefined);
 
   // 0件のときだけ、作業面を画面の下まで伸ばす(.is-empty-fill、index.css)。読み込み中
   // (undefined)は伸ばさない — 中身が入るかどうかがまだ分からないため。
   const noSalaries = salaries?.length === 0;
   const noTransactions = transactions?.length === 0;
-  const noFixedCosts = fixedCosts?.length === 0;
 
   return (
     <div className="spatial-page finance-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.money}>
-      <PageHeader title="お金管理" subtitle="収支と固定費を管理" backTo="/" />
+      <PageHeader title="お金管理" subtitle="サブスクと収支を管理" backTo="/" />
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[840px]">
         <Tabs
           options={[
+            { value: "subs", label: "サブスク" },
             { value: "summary", label: "サマリー" },
             { value: "salary", label: "給与" },
-            { value: "fixed", label: "固定費" },
             { value: "history", label: "履歴" },
             { value: "card", label: "カード" },
             { value: "paypay", label: "PayPay" },
@@ -120,6 +117,8 @@ export default function ExpensePage() {
       </div>
 
       <div className={`spatial-page-content finance-workspace finance-workspace--${tab} px-5 lg:px-8`}>
+        {tab === "subs" && <SubscriptionTab />}
+
         {tab === "summary" && <ExpenseSummary onAddSalary={() => setEditingSalary("new")} />}
 
         {tab === "salary" && (
@@ -198,26 +197,6 @@ export default function ExpensePage() {
           </div>
         )}
 
-        {tab === "fixed" && (
-          <div className={`finance-ledger-workspace ${noFixedCosts ? "is-empty-fill" : ""}`}>
-            {showFixedSkeleton ? (
-              <ListSkeleton />
-            ) : (
-              <FixedCostList
-                fixedCosts={fixedCosts ?? []}
-                onEdit={(f) => setEditingFixedCost(f)}
-                onDelete={(id) => {
-                  db.fixedCosts.delete(id);
-                  showToast("削除しました");
-                }}
-              />
-            )}
-            <Button className="mt-4 w-full" onClick={() => setEditingFixedCost("new")}>
-              固定費を追加
-            </Button>
-          </div>
-        )}
-
         {tab === "card" && <PendingCardChargeList onImport={() => setCardCsvImportOpen(true)} />}
 
         {tab === "paypay" && <PayPayImport />}
@@ -249,23 +228,6 @@ export default function ExpensePage() {
               setEditingTransaction(receiptToDraftTransaction(receipt));
             }}
             onCancel={() => setReceiptScanOpen(false)}
-          />
-        )}
-      </Sheet>
-
-      <Sheet
-        open={editingFixedCost !== null}
-        onClose={() => setEditingFixedCost(null)}
-        title={editingFixedCost === "new" ? "固定費を追加" : "固定費を編集"}
-      >
-        {editingFixedCost && (
-          <FixedCostForm
-            initial={editingFixedCost === "new" ? undefined : editingFixedCost}
-            onSaved={() => {
-              setEditingFixedCost(null);
-              showToast("保存しました");
-            }}
-            onCancel={() => setEditingFixedCost(null)}
           />
         )}
       </Sheet>

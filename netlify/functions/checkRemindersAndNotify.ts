@@ -46,6 +46,15 @@ interface FixedCostRow {
   last_notified_month: string | null;
 }
 
+/** サブスクの付け足し(supabase/sql/032_subscription_details.sql)。年払い・無料体験など。 */
+interface SubscriptionDetailRow {
+  fixed_cost_id: string;
+  cycle: string | null;
+  billing_month: number | null;
+  start_date: string | null;
+  trial_end_date: string | null;
+}
+
 const ONE_MINUTE_MS = 60_000;
 const ONE_DAY_MS = 24 * 60 * 60_000;
 // 2分おきの実行が多少遅れても、予定・タスクの時刻通知を取りこぼさないための猶予。
@@ -103,9 +112,21 @@ export function jstYearMonth(nowMs: number): { year: number; monthIndex0: number
  * 「10/1の3日前」は9月側から見つける必要があるため。通知すべきなら、その支払いの月
  * (繰り上げ元ではなく実際に支払う月、YYYY-MM)を返す。lastNotifiedMonthと一致する
  * (＝その支払いぶんはもう通知済み)ならnullを返す。
+ *
+ * サブスクの付け足し(032)があれば、年払いは請求月だけ、無料体験中・開始予定のものは
+ * 請求が始まる日(firstBillingDate)より前の支払日を飛ばす。無料体験が終わる日そのものは
+ * 請求日なので通知する(「課金の前に知らせる」)。
  */
 export function fixedCostReminderMonth(
-  row: { dueDay: number; notifyDaysBefore: number | null; lastNotifiedMonth: string | null; active: boolean },
+  row: {
+    dueDay: number;
+    notifyDaysBefore: number | null;
+    lastNotifiedMonth: string | null;
+    active: boolean;
+    cycle?: string | null;
+    billingMonth?: number | null;
+    firstBillingDate?: string | null;
+  },
   nowMs: number,
   todayYear: number,
   todayMonth0: number,
@@ -118,7 +139,9 @@ export function fixedCostReminderMonth(
       monthIndex0 -= 12;
       year += 1;
     }
+    if (row.cycle === "yearly" && monthIndex0 + 1 !== (row.billingMonth ?? 1)) continue;
     const dueMs = clampedDueDateMs(year, monthIndex0, row.dueDay);
+    if (row.firstBillingDate && dueMs < new Date(`${row.firstBillingDate}T00:00:00${JST_OFFSET}`).getTime()) continue;
     const windowStartMs = dueMs - row.notifyDaysBefore * ONE_DAY_MS;
     const windowEndMs = dueMs + ONE_DAY_MS; // 支払日当日いっぱいまで
     if (nowMs < windowStartMs || nowMs >= windowEndMs) continue;
@@ -139,12 +162,52 @@ export function buildTaskReminderPayload(title: string): string {
   return JSON.stringify({ title: `タスクの期限が近づいています: ${title}`, body: "", url: "/schedule?view=today" });
 }
 
-export function buildFixedCostReminderPayload(title: string, amount: number, dueDay: number): string {
+export function buildFixedCostReminderPayload(
+  title: string,
+  amount: number,
+  dueDay: number,
+  options: { billingMonth?: number | null; trialEnds?: boolean } = {},
+): string {
+  const schedule = options.billingMonth ? `毎年${options.billingMonth}月${dueDay}日` : `毎月${dueDay}日`;
+  const price = `¥${Math.round(amount).toLocaleString()}`;
+  if (options.trialEnds) {
+    return JSON.stringify({
+      title: `無料体験がもうすぐ終わります: ${title}`,
+      body: `${schedule} ・ ${price} の請求が始まります`,
+      url: "/records/expense",
+    });
+  }
   return JSON.stringify({
     title: `支払い日が近づいています: ${title}`,
-    body: `毎月${dueDay}日 ・ ¥${Math.round(amount).toLocaleString()}`,
+    body: `${schedule} ・ ${price}`,
     url: "/records/expense",
   });
+}
+
+/** その月(YYYY-MM)の支払日(末日に丸める)。YYYY-MM-DD。 */
+function dueDateOf(forMonth: string, dueDay: number): string {
+  const year = Number(forMonth.slice(0, 4));
+  const monthIndex0 = Number(forMonth.slice(5, 7)) - 1;
+  const day = Math.min(Math.max(dueDay, 1), daysInMonth(year, monthIndex0));
+  return `${forMonth}-${String(day).padStart(2, "0")}`;
+}
+
+/** サブスクの付け足しを固定費の id ごとに引く。032 を流す前(テーブルが無い)や読めない時は
+ * 空で返す — その場合は全部いままでどおり毎月払いとして扱う。 */
+async function loadSubscriptionDetails(
+  supabase: SupabaseClient,
+  fixedCostIds: string[],
+): Promise<Map<string, SubscriptionDetailRow>> {
+  const out = new Map<string, SubscriptionDetailRow>();
+  if (fixedCostIds.length === 0) return out;
+  const { data, error } = await supabase
+    .from("subscription_details")
+    .select("fixed_cost_id, cycle, billing_month, start_date, trial_end_date")
+    .in("fixed_cost_id", fixedCostIds)
+    .is("deleted_at", null);
+  if (error) return out;
+  for (const row of (data ?? []) as SubscriptionDetailRow[]) out.set(row.fixed_cost_id, row);
+  return out;
 }
 
 async function sendToUser(
@@ -250,13 +313,20 @@ async function processFixedCosts(supabase: SupabaseClient, nowMs: number): Promi
     return;
   }
   const { year, monthIndex0 } = jstYearMonth(nowMs);
-  for (const row of (data ?? []) as FixedCostRow[]) {
+  const rows = (data ?? []) as FixedCostRow[];
+  const details = await loadSubscriptionDetails(supabase, rows.map((row) => row.id));
+  for (const row of rows) {
+    const detail = details.get(row.id);
+    const yearly = detail?.cycle === "yearly";
     const forMonth = fixedCostReminderMonth(
       {
         dueDay: row.due_day,
         notifyDaysBefore: row.notify_days_before,
         lastNotifiedMonth: row.last_notified_month,
         active: row.active,
+        cycle: detail?.cycle,
+        billingMonth: detail?.billing_month,
+        firstBillingDate: [detail?.start_date, detail?.trial_end_date].filter((d): d is string => !!d).sort().at(-1),
       },
       nowMs,
       year,
@@ -272,7 +342,10 @@ async function processFixedCosts(supabase: SupabaseClient, nowMs: number): Promi
       supabase,
       row.user_id,
       "fixed_costs",
-      buildFixedCostReminderPayload(row.title, row.amount, row.due_day),
+      buildFixedCostReminderPayload(row.title, row.amount, row.due_day, {
+        billingMonth: yearly ? (detail?.billing_month ?? 1) : null,
+        trialEnds: !!detail?.trial_end_date && detail.trial_end_date === dueDateOf(forMonth, row.due_day),
+      }),
       "[checkRemindersAndNotify:fixedCosts]",
     );
   }
