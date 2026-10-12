@@ -57,7 +57,15 @@ let rememberedView: {
   listScroll: number;
   /** スマホでページ全体(window)がスクロールした位置。 */
   pageScroll: number;
+  /** 一覧に出していた件数(「さらに表示」で増やした分。戻った時に同じ長さにしないとスクロール位置が合わない)。 */
+  shown: number;
 } | null = null;
+
+/** 一覧に一度に並べる件数。2026-10-13、本人「gmailの画面になった時に毎回…画面にメールが表示されずに真っ白」
+ * (iPhone。画面の上の「Gmail 同期済み」は出るが、下の一覧が何も描かれない)。直近30日ぶんを全部1枚に並べると
+ * 数百通=縦に数万pxの1枚になり、iPhoneの描画が追いつかず(1枚の大きさに上限がある)、一覧ごと消えることがある。
+ * 先頭からこれだけ並べ、残りは下の「さらに表示」で足す。検索・絞り込みは全件が相手(出すのだけを区切る)。 */
+const MAIL_PAGE_SIZE = 50;
 
 /** 一覧を開いた時の自動同期を見送る間隔。メールを1通開いて戻るだけで毎回取りに行くと、
  * Gmail APIの1分あたりの上限に近づく(src/lib/gmailSync.ts の絞り込みと同じ理由)。 */
@@ -87,6 +95,16 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
   const restoredRef = useRef(rememberedView?.accountId === account.id ? rememberedView : null);
   const [query, setQuery] = useState(restoredRef.current?.query ?? "");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(restoredRef.current?.statusFilter ?? "all");
+  const [shown, setShown] = useState(restoredRef.current?.shown ?? MAIL_PAGE_SIZE);
+  // 検索語・絞り込みを変えたら、先頭から並べ直す(控えから戻した最初の1回は、控えの件数のまま)。
+  const filterChangedRef = useRef(false);
+  useEffect(() => {
+    if (!filterChangedRef.current) {
+      filterChangedRef.current = true;
+      return;
+    }
+    setShown(MAIL_PAGE_SIZE);
+  }, [query, statusFilter, account.id]);
   const [manageBlockedOpen, setManageBlockedOpen] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
@@ -193,8 +211,8 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
 
   // 離れる時の見え方を控える。最新の値を掴めるよう、描画のたびにrefへ写しておく
   // (片付けの関数は、最初の描画の時の値を掴んだままになるため)。
-  const viewRef = useRef({ query, statusFilter });
-  viewRef.current = { query, statusFilter };
+  const viewRef = useRef({ query, statusFilter, shown });
+  viewRef.current = { query, statusFilter, shown };
   useEffect(
     () => () => {
       rememberedView = {
@@ -203,6 +221,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
         statusFilter: viewRef.current.statusFilter,
         listScroll: listScrollRef.current,
         pageScroll: window.scrollY,
+        shown: viewRef.current.shown,
       };
     },
     [account.id],
@@ -375,7 +394,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
             compact ? "mail-list--compact gap-1" : "gap-2"
           }`}
         >
-          {filteredEmails.map((email) => {
+          {filteredEmails.slice(0, shown).map((email) => {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed" && !email.readAt;
             const snippet = snippetText(email.snippet);
@@ -546,6 +565,15 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
               </SwipeRow>
             );
           })}
+          {filteredEmails.length > shown && (
+            <button
+              type="button"
+              onClick={() => setShown((count) => count + MAIL_PAGE_SIZE)}
+              className="mt-1 min-h-11 w-full rounded-xl py-2.5 text-sm font-semibold text-accent active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+            >
+              さらに表示（残り{filteredEmails.length - shown}件）
+            </button>
+          )}
         </div>
       ) : emails && emails.length > 0 ? (
         <EmptyState title="該当する結果が見つかりませんでした" description="検索条件を変えてみてください。" />
