@@ -4,6 +4,25 @@ import { applyUpdate, subscribeUpdateAvailable } from "../../lib/pwaUpdate";
 
 const PROGRESS_DURATION_MS = 1500;
 
+/**
+ * 2026-10-12、本人「アップデートの通知が何回も来るから一回にまとめて欲しい」。
+ * 前は新しい版が見つかるたびに（60秒ごとに見に行く）帯を出してその場で読み込み直して
+ * いたので、1晩に十数回出すと、使っている最中に十数回切り替わっていた。
+ *
+ * いまは「いつ見つかったか」で分ける:
+ *  - 開いてすぐ（LAUNCH_WINDOW_MS 以内）… まだ何も触っていないので、前と同じくその場で帯を出して切り替える
+ *  - 使っている途中 … 帯も出さず切り替えもしない。ほかのアプリ・タブへ移った（画面が隠れた）時に
+ *    黙って1回だけ切り替える。待っている間に何回出ても、切り替えるのは最後の版への1回だけ
+ *    （待っている版は新しいものに置き換わっていくため）
+ *  - 開きっぱなしで MAX_HOLD_MS たった … 1回だけ帯を出して切り替える（いつまでも古い版のままにしない）
+ * どの場合も、入力のシートを開いている間は切り替えない（書きかけを捨てないため）。
+ */
+const LAUNCH_WINDOW_MS = 15_000;
+const MAX_HOLD_MS = 3 * 60 * 60_000;
+
+/** この画面（タブ）を読み込んだ時刻。「開いてすぐ」かどうかの基準。 */
+const loadedAt = Date.now();
+
 /** True while a Sheet (add/edit form) is open — Sheet.tsx is the only place that
  * locks body scroll, so this doubles as "don't reload mid-edit". */
 function isFormOpen(): boolean {
@@ -11,15 +30,39 @@ function isFormOpen(): boolean {
 }
 
 export function UpdateBanner() {
-  const [phase, setPhase] = useState<"idle" | "updating">("idle");
+  /** idle=更新なし / held=使っている途中に見つかったので、画面を離れるまで待っている / updating=帯を出して切り替え中 */
+  const [phase, setPhase] = useState<"idle" | "held" | "updating">("idle");
   const [filled, setFilled] = useState(false);
   /** フォームを開いているせいで切り替えを待っている間だけ true。 */
   const [waitingForForm, setWaitingForForm] = useState(false);
 
-  // 更新が見つかった時点ですぐ帯を出す。以前は次のタップ/キー入力まで黙って
-  // 待っていたので、画面を開いたまま眺めているだけの人には更新が来たことが
-  // まったく伝わらなかった。触っているかどうかに関係なく知らせる。
-  useEffect(() => subscribeUpdateAvailable(() => setPhase("updating")), []);
+  // 開いてすぐなら、その場で帯を出して切り替える。使っている途中なら待つ（上の説明）。
+  useEffect(
+    () =>
+      subscribeUpdateAvailable(() => {
+        const justOpened = Date.now() - loadedAt <= LAUNCH_WINDOW_MS;
+        setPhase(justOpened ? "updating" : "held");
+      }),
+    [],
+  );
+
+  // 待っている間: 画面が隠れたら黙って切り替える。開きっぱなしで3時間たったら帯を出す。
+  useEffect(() => {
+    if (phase !== "held") return;
+    const handleVisibility = () => {
+      if (document.visibilityState !== "hidden") return;
+      if (isFormOpen()) return; // 書きかけのまま離れた時は、次に離れる時まで待つ
+      void applyUpdate();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    // 裏に回したタブ（PC）で見つかった時は、もう誰も見ていないので今すぐ切り替えてよい。
+    handleVisibility();
+    const fallback = window.setTimeout(() => setPhase("updating"), MAX_HOLD_MS);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.clearTimeout(fallback);
+    };
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "updating") return;
@@ -57,7 +100,7 @@ export function UpdateBanner() {
     };
   }, [phase]);
 
-  if (phase === "idle") return null;
+  if (phase !== "updating") return null;
 
   return (
     <div
