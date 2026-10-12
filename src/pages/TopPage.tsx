@@ -30,6 +30,7 @@ import { PageFab } from "../components/ui/PageFab";
 import { CountingAmount } from "../components/ui/CountingAmount";
 import { openAddChooser, openQuickAdd } from "../components/layout/AddChooser";
 import { EmptyIllustration } from "../components/ui/EmptyIllustration";
+import { InlineExpenseEntry } from "../components/home/InlineExpenseEntry";
 
 const EVENT_PREVIEW_LIMIT = 3;
 const TASK_PREVIEW_LIMIT = 3;
@@ -259,36 +260,42 @@ export default function TopPage() {
       ) : (
         // 給与がまだ無い時。中にリンクが2つあるので、カードそのものはリンクにしない。
         <div className="warm-card lh-money is-unset" data-reveal="1">
-          <span className="lh-money__label">今月の支出</span>
-          <p className="warm-amount">
-            <small>¥</small>
-            {/* ホームの「＋」で支出を入れると、足した額が「+¥1,280」と浮かんでから合計に入り、
-                合計は前の値から数え上がる(UI/UX 調査メモ 第4弾 A-5)。月が替わった時は動かさない。 */}
-            <CountingAmount value={monthSpending?.total} resetKey={monthStart} showDelta />
-          </p>
-          <dl className="lh-money__stats">
-            <div>
-              <dt>記録した数</dt>
-              <dd>{monthSpending?.count ?? 0}件</dd>
-            </div>
-            <div>
-              <dt>今日</dt>
-              <dd>¥{(monthSpending?.today ?? 0).toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>さいごの支出</dt>
-              <dd>{monthSpending?.latest ?? "まだなし"}</dd>
-            </div>
-          </dl>
-          <p className="warm-amount__note">給与を入れると、給料日まで1日いくら使えるかも出ます</p>
-          <div className="lh-money__actions">
-            <Link to="/records/expense?new=salary" className="lh-money__cta">
-              給与を登録する
-            </Link>
-            <Link to="/records/expense?tab=history" className="warm-card__foot">
-              支出を見る <ArrowRight size={14} />
-            </Link>
-          </div>
+          {monthSpending?.count === 0 ? (
+            <InlineExpenseEntry />
+          ) : (
+            <>
+              <span className="lh-money__label">今月の支出</span>
+              <p className="warm-amount">
+                <small>¥</small>
+                {/* ホームの「＋」で支出を入れると、足した額が「+¥1,280」と浮かんでから合計に入り、
+                    合計は前の値から数え上がる(UI/UX 調査メモ 第4弾 A-5)。月が替わった時は動かさない。 */}
+                <CountingAmount value={monthSpending?.total} resetKey={monthStart} showDelta />
+              </p>
+              <dl className="lh-money__stats">
+                <div>
+                  <dt>記録した数</dt>
+                  <dd>{monthSpending?.count ?? 0}件</dd>
+                </div>
+                <div>
+                  <dt>今日</dt>
+                  <dd>¥{(monthSpending?.today ?? 0).toLocaleString()}</dd>
+                </div>
+                <div>
+                  <dt>さいごの支出</dt>
+                  <dd>{monthSpending?.latest ?? "まだなし"}</dd>
+                </div>
+              </dl>
+              <p className="warm-amount__note">給与を入れると、給料日まで1日いくら使えるかも出ます</p>
+              <div className="lh-money__actions">
+                <Link to="/records/expense?new=salary" className="lh-money__cta">
+                  給与を登録する
+                </Link>
+                <Link to="/records/expense?tab=history" className="warm-card__foot">
+                  支出を見る <ArrowRight size={14} />
+                </Link>
+              </div>
+            </>
+          )}
         </div>
       )}
 
