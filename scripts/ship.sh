@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 修正を本番に出すまでを1コマンドで行う(作業場所の中で、変更をコミットしたあとに)。
 #
-#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--from <依頼が来た時刻 epoch 秒>] [--shots] [--keep] [--dry-run] [--push-branch]
+#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--from <依頼が来た時刻 epoch 秒>] [--changelog <ファイル>] [--shots] [--keep] [--dry-run] [--push-branch]
 #
 # やること(todoアプリ/CLAUDE.md の「本番反映」と同じ条件。1つでも落ちたら main に入れずに止まる):
 #   1. 手元の main が公開の main と同じか確かめる(違えば止まる)。ブランチが main に追いついていなければ main を取り込む
@@ -17,12 +17,13 @@ set -euo pipefail
 
 MSG="${1:?何を直したか(統合のメッセージ)を渡してください}"
 shift || true
-DONE_ID=""; SHOTS=0; KEEP=0; DRY=0; PUSH_BRANCH=0; FROM_EPOCH=""
+DONE_ID=""; SHOTS=0; KEEP=0; DRY=0; PUSH_BRANCH=0; FROM_EPOCH=""; CHANGELOG_FILE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --done) DONE_ID="${2:?--done の後に要望のid}"; shift 2 ;;
     --shots) SHOTS=1; shift ;;
     --from) FROM_EPOCH="${2:?--from の後に、依頼が来た時刻(epoch 秒。date +%s)}"; shift 2 ;;
+    --changelog) CHANGELOG_FILE="${2:?--changelog の後に、area/title/description を書いたファイル}"; shift 2 ;;
     --keep) KEEP=1; shift ;;
     --push-branch) PUSH_BRANCH=1; shift ;;
     --dry-run) DRY=1; shift ;;
@@ -32,7 +33,14 @@ done
 
 START=$SECONDS
 E_START=$(date +%s)
-die() { echo "✗ $*" >&2; exit 1; }
+# 止まった時は、.fix-times.log に「失敗」の行を残す(何回やり直したかを、あとで数えられるように)。
+die() {
+  echo "✗ $*" >&2
+  if [ "${DRY:-0}" -eq 0 ] && [ -n "${MAIN_DIR:-}" ]; then
+    printf '%s\t失敗\t-\t%s\t-\t-\t%s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$((SECONDS - START))" "${MSG}(失敗: $*)" >> "$MAIN_DIR/.fix-times.log" 2>/dev/null || true
+  fi
+  exit 1
+}
 step() { echo "▶ $*  (+$((SECONDS - START))秒)"; }
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
@@ -50,6 +58,16 @@ REMOTE_MAIN="$(git ls-remote origin refs/heads/main 2>/dev/null | cut -f1)"
 [ -n "$REMOTE_MAIN" ] || die "公開の main を読めませんでした(通信を確かめてください)"
 [ "$(git rev-parse main)" = "$REMOTE_MAIN" ] || die "手元の main が公開の main と違います(手元 $(git rev-parse --short main) / 公開 ${REMOTE_MAIN:0:7})。手元の main を進めてから"
 git merge-base --is-ancestor main HEAD || { step "ブランチが main に追いついていないので、main を取り込む"; git merge -q --no-edit main || die "main の取り込みで衝突しました"; }
+
+# 更新履歴は、main を取り込んだあとに道具で足す(手で書き換えると、近い時間の別の修正と同じ場所で衝突する。2026-10-13)。
+if [ -n "$CHANGELOG_FILE" ]; then
+  [ -f "$CHANGELOG_FILE" ] || die "--changelog のファイルがありません: $CHANGELOG_FILE"
+  CL_OUT="$(node scripts/changelog-add.mjs "$CHANGELOG_FILE")" || die "更新履歴を足せませんでした: $CL_OUT"
+  echo "   $CL_OUT"
+  git add src/lib/changelog.ts && git commit -q -m "更新履歴: $MSG
+
+Co-Authored-By: $COAUTHOR"
+fi
 
 step "2/6 型チェックと全テストを同時に走らせる"
 LOG_DIR="$(mktemp -d)"
@@ -74,6 +92,28 @@ grep -E "^ +(Test Files|Tests) |^ FAIL" "$LOG_DIR/test.log" || true
 if [ "$TSC_OK" -ne 0 ]; then head -30 "$LOG_DIR/tsc.log" || true; die "型チェックが落ちました。main には入れていません"; fi
 # テストが全部通っても、描き終わった後に起きた未処理のエラー(Errors N errors)で終了コードが 1 になることがある。
 # それも「落ちた」として止める(1 になった理由が見えるよう、該当の行を出す)。
+# 落ちた理由が「時間切れ」だけの時は、落ちたファイルだけを、1つずつ(並列1)静かな状態で再実行する(2026-10-13)。
+# 並列で Mac が混むと、内容は正しいのに5〜15秒を超えて落ちるテストが出て、そのたびに数分かけて出し直していたため。
+# 再実行でも落ちれば、これまでどおり止まる。通ったら「時間切れで落ち、単独では通った」と表示して進む(落ちたテストを飛ばすのではなく、
+# 混み合いが原因だったと確かめる)。時間切れ以外の理由(AssertionError など)が1つでもあれば、再実行せずに止まる。
+if [ "$TEST_OK" -ne 0 ]; then
+  CLEAN_LOG="$(sed 's/\x1b\[[0-9;]*m//g' "$LOG_DIR/test.log")"
+  # 「Failed Tests」の各項目は「 FAIL <ファイル> > <テスト名>」の次の行に原因が出る。1件ずつ、原因が時間切れか数える。
+  # 時間切れ以外(AssertionError・TypeError・未処理のエラーなど)が1件でもあれば、再実行せずに止まる。
+  read -r FAIL_N TIMEOUT_N <<EOF_COUNT
+$(echo "$CLEAN_LOG" | awk '/^⎯+ Failed Tests/{in_fail=1; next} in_fail && /^ FAIL /{n++; want=1; next} in_fail && want && NF{ if ($0 ~ /^Error: (Test|Hook) timed out/) t++; want=0 } END{print n+0, t+0}')
+EOF_COUNT
+  OTHER_N="$(echo "$CLEAN_LOG" | grep -cE 'Unhandled|Errors +[0-9]+ error' || true)"
+  if [ "$FAIL_N" -gt 0 ] && [ "$FAIL_N" -eq "$TIMEOUT_N" ] && [ "$OTHER_N" -eq 0 ]; then
+    FILES="$(echo "$CLEAN_LOG" | grep -E '^ FAIL ' | sed -E 's/^ FAIL +([^ ]+).*/\1/' | sort -u | tr '\n' ' ')"
+    echo "   時間切れだけで落ちたテスト(${FAIL_N}件)があります。落ちたファイルだけを、1つずつ静かな状態で再実行します: $FILES"
+    # shellcheck disable=SC2086
+    if VITEST_MAX_FORKS=1 npx vitest run $FILES >"$LOG_DIR/retry.log" 2>&1; then
+      echo "   ✓ 再実行では全部通りました(混み合いで時間切れになっただけ)。進めます"
+      TEST_OK=0
+    fi
+  fi
+fi
 if [ "$TEST_OK" -ne 0 ]; then
   grep -E "FAIL|×|AssertionError|Errors |Uncaught|This error originated" "$LOG_DIR/test.log" | head -20 || true
   die "テストの終了コードが 0 ではありません(全文: $LOG_DIR/test.log)。main には入れていません"
@@ -123,7 +163,8 @@ echo "Netlify: $NETLIFY"
 
 [ -z "$DONE_ID" ] || node "$MAIN_DIR/scripts/feedback-inbox.mjs" --done "$DONE_ID"
 if [ "$SHOTS" -eq 1 ] && [ -x "$MAIN_DIR/../scripts/lifehub-shots.sh" ]; then
-  nohup bash "$MAIN_DIR/../scripts/lifehub-shots.sh" >/dev/null 2>&1 &
+  # 低い優先度(nice)で走らせる。撮っている間も、次の測定やテストを遅くしないように(2026-10-13)。一連の修正の最後の1回だけ付けること。
+  nohup nice -n 19 bash "$MAIN_DIR/../scripts/lifehub-shots.sh" >/dev/null 2>&1 &
   echo "スクショを裏で撮り直しています(~/Desktop/LIFEHUB画面スクショ.zip)"
 fi
 if [ "$KEEP" -eq 0 ]; then
