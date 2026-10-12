@@ -39,6 +39,7 @@ import { Button } from "../components/ui/Button";
 import { AmountInput, Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { SwitchField } from "../components/ui/SwitchField";
+import { SHEET_DEBUG_KEY } from "../components/ui/Sheet";
 import { useToast } from "../components/ui/ToastProvider";
 import { useConfirm } from "../components/ui/ConfirmProvider";
 
@@ -54,6 +55,13 @@ export default function SettingsPage() {
   }, []);
 
   const [session, setSession] = useState<Session | null>(null);
+  const [sheetDebug, setSheetDebug] = useState(() => {
+    try {
+      return window.localStorage.getItem(SHEET_DEBUG_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -344,6 +352,21 @@ export default function SettingsPage() {
                   className="hidden"
                 />
               </div>
+              {/* 入力画面がキーボードにかぶる時に、iPhone の実際の数字を見るため(2026-10-12)。 */}
+              <SwitchField
+                label="入力画面に、画面の大きさの数字を出す"
+                hint="入力画面がキーボードにかぶる時の調べ用です。入れると、入力画面の見出しの下に小さく数字が出ます。"
+                checked={sheetDebug}
+                onChange={(on) => {
+                  setSheetDebug(on);
+                  try {
+                    if (on) window.localStorage.setItem(SHEET_DEBUG_KEY, "1");
+                    else window.localStorage.removeItem(SHEET_DEBUG_KEY);
+                  } catch {
+                    // 覚えられない環境では、数字は出ないだけ
+                  }
+                }}
+              />
             </Card>
           </SettingsSection>
 

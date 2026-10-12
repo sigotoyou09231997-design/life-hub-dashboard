@@ -172,3 +172,40 @@ export function sheetMaxHeightPx(
   if (keyboardInset > 0) return fits;
   return Math.min(fits, Math.round(visibleHeight * (compact ? 0.55 : 0.88)));
 }
+
+/** いま実際に見えている範囲(レイアウト上の座標)と、キーボードが出ているか。 */
+export interface VisibleArea {
+  /** 見えている範囲の上端。iOS がキーボードを出す時に見えている範囲を下へずらすと、その分だけ大きくなる。 */
+  top: number;
+  height: number;
+  keyboard: boolean;
+}
+
+/**
+ * 入力シートを置く範囲。**見えている範囲(visualViewport)の1つだけ**から決める(2026-10-12)。
+ *
+ * 前は「キーボードで隠れた高さのぶん持ち上げる(keyboardInsetFrom)」と「iOS が画面の高さを
+ * 戻し損ねたぶん下へ伸ばす(--viewport-gap、staleViewportGap)」の2つを、別々の時に測って
+ * 足し引きしていた。iPhone がキーボードを出す途中の値を2つがばらばらに拾うと打ち消し合い、
+ * シートが持ち上がらずに入力欄がキーボードの裏に隠れた(本人のスクショ: シートの上の端は
+ * 見えている範囲に合っているのに、下半分がキーボードの裏)。position:fixed はレイアウト上の
+ * 座標で置かれるので、見えている範囲の上端(offsetTop)と高さをそのまま渡せば、iOS が範囲を
+ * ずらしていても、画面の高さを戻し損ねていても、シートは見えている所に収まる。
+ *
+ * キーボードが出ているかは、文字を入れる部品にフォーカスがあり(opensKeyboard)、かつ見えている
+ * 高さが縮んでいる時。縮み方は、レイアウト上の画面の高さとの差か、端末の画面の高さとの比で見る
+ * (iOS の版によっては、キーボードでレイアウト上の画面の高さまで縮むため)。
+ */
+export function visibleAreaFrom(input: {
+  layoutHeight: number;
+  visualHeight: number;
+  visualOffsetTop: number;
+  screenHeight: number;
+  typing: boolean;
+}): VisibleArea {
+  const height = Math.round(input.visualHeight);
+  const shrunk =
+    input.layoutHeight - input.visualHeight >= KEYBOARD_INSET_THRESHOLD_PX ||
+    (input.screenHeight > 0 && input.visualHeight < input.screenHeight * 0.7);
+  return { top: Math.max(0, Math.round(input.visualOffsetTop)), height, keyboard: input.typing && shrunk };
+}
