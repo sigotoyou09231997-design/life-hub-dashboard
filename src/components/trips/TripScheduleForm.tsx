@@ -7,7 +7,7 @@ import { TRIP_SCHEDULE_TYPES, TRIP_TRANSPORT_MODES } from "../../lib/tripCategor
 import { SegmentedField, type SegmentedOption } from "../ui/SegmentedField";
 import { TRANSPORT_MODE_ICON } from "./transportModes";
 import { ChevronDown, ImagePlus, MapPinned, Trash2 } from "lucide-react";
-import { detailsForSave, hasScheduleDetails, type ScheduleDetailField } from "../../lib/scheduleDetails";
+import { detailsForSave, formatPhone, hasScheduleDetails, type ScheduleDetailField } from "../../lib/scheduleDetails";
 import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
 import { PhotoField } from "../attachments/PhotoField";
 import { AmountInput, Input, Textarea } from "../ui/Input";
@@ -266,7 +266,18 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
         {detailsOpen && (
           <>
             <Input label="住所" optional value={details.address} onChange={setDetail("address")} placeholder="例: 徳島県鳴門市鳴門町土佐泊浦字大毛264-1" />
-            <Input label="電話番号" optional type="tel" inputMode="tel" value={details.phone} onChange={setDetail("phone")} placeholder="例: 088-687-0613" />
+            {/* 電話用のテンキーにはハイフンが無いので、数字だけ打てば、欄を離れた時にハイフンを入れる(formatPhone)。 */}
+            <Input
+              label="電話番号"
+              optional
+              type="tel"
+              inputMode="tel"
+              value={details.phone}
+              onChange={setDetail("phone")}
+              onBlur={() => setDetails((current) => ({ ...current, phone: formatPhone(current.phone) }))}
+              placeholder="例: 088-687-0613"
+              hint="数字だけ打てば、ハイフンは自動で入ります。"
+            />
             <Input label="URL" optional type="text" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={details.url} onChange={setDetail("url")} placeholder="例: https://www.uzusio.com" />
             {type === "lodging" ? (
               <>
