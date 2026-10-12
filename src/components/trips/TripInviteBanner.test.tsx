@@ -60,7 +60,8 @@ describe("TripInviteBanner", () => {
   it("誰から・どの旅行か（行き先と日付）・共有の範囲を出す。参加と断るは別々のボタン", () => {
     mocks.invites = [invite()];
     render(<TripInviteBanner />);
-    expect(screen.getByText(/owner@example.com さんから、旅行「四国旅行」への招待/)).toBeTruthy();
+    expect(screen.getByText(/ow\*\*\*@example.com さんから、旅行「四国旅行」への招待/)).toBeTruthy();
+    expect(document.body.textContent).not.toContain("owner@example.com");
     expect(screen.getByText(/高松 · 12月27日/)).toBeTruthy();
     expect(screen.getByText(/日記・写真・書類は共有されません/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "参加する" })).toBeTruthy();

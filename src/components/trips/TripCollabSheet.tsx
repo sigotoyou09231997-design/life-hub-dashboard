@@ -7,6 +7,7 @@ import {
   inviteMessage,
   isValidInviteEmail,
   leaveSharedTrip,
+  maskEmail,
   removeCollaborator,
   type Collaborator,
 } from "../../lib/tripCollab";
@@ -78,7 +79,7 @@ export function TripCollabSheet({ tripId, tripName, role, onClose, onLeft }: Pro
   async function handleRemove(member: Collaborator) {
     const pending = member.status === "pending";
     const ok = await confirm({
-      title: pending ? "招待を取り消しますか?" : `${member.invitedEmail} を外しますか?`,
+      title: pending ? "招待を取り消しますか?" : `${maskEmail(member.invitedEmail)} を外しますか?`,
       confirmLabel: pending ? "取り消す" : "外す",
       message: pending
         ? "相手に「参加する」が出なくなります。"
@@ -146,19 +147,19 @@ export function TripCollabSheet({ tripId, tripName, role, onClose, onLeft }: Pro
     return (
       <div className="flex flex-col gap-4">
         <p className="text-sm text-slate-700">
-          {ownerEmail ? `${ownerEmail} さんの旅行に参加しています。` : "招かれて参加している旅行です。"}
+          {ownerEmail ? `${maskEmail(ownerEmail)} さんの旅行に参加しています。` : "招かれて参加している旅行です。"}
           日程・持ち物・ルート・費用を、みんなで一緒に編集できます。日記・写真・書類は共有されません。
         </p>
         <ul className="flex flex-col gap-2" aria-label="参加者">
           {ownerEmail && (
             <li className="flex items-center justify-between gap-2 text-sm">
-              <span className="min-w-0 truncate">{ownerEmail}</span>
+              <span className="min-w-0 truncate">{maskEmail(ownerEmail)}</span>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">持ち主</span>
             </li>
           )}
           {accepted.map((member) => (
             <li key={member.id} className="flex items-center justify-between gap-2 text-sm">
-              <span className="min-w-0 truncate">{member.invitedEmail}</span>
+              <span className="min-w-0 truncate">{maskEmail(member.invitedEmail)}</span>
               <StatusChip status={member.status} />
             </li>
           ))}
@@ -200,7 +201,7 @@ export function TripCollabSheet({ tripId, tripName, role, onClose, onLeft }: Pro
           {[...accepted, ...pending].map((member) => (
             <li key={member.id} className="flex flex-col gap-2 border-t border-slate-100 pt-3 first:border-t-0 first:pt-0">
               <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="min-w-0 truncate">{member.invitedEmail}</span>
+                <span className="min-w-0 truncate">{maskEmail(member.invitedEmail)}</span>
                 <StatusChip status={member.status} />
               </div>
               <div className="flex flex-wrap gap-2">

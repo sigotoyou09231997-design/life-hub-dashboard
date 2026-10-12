@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Users } from "lucide-react";
 import { useIncomingInvites } from "../../hooks/useTripCollab";
-import { collabErrorText, respondToInvite, type Collaborator } from "../../lib/tripCollab";
+import { collabErrorText, maskEmail, respondToInvite, type Collaborator } from "../../lib/tripCollab";
 import { formatDisplayDate } from "../../lib/date";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -45,7 +45,7 @@ export function TripInviteBanner({ className = "" }: { className?: string }) {
             <Users size={20} className="mt-0.5 shrink-0" aria-hidden="true" />
             <div className="min-w-0">
               <p className="text-sm font-medium text-slate-800">
-                {invite.ownerEmail ? `${invite.ownerEmail} さんから、` : ""}旅行「{invite.tripName || "名前のない旅行"}」への招待が届いています
+                {invite.ownerEmail ? `${maskEmail(invite.ownerEmail)} さんから、` : ""}旅行「{invite.tripName || "名前のない旅行"}」への招待が届いています
               </p>
               <p className="mt-1 text-xs text-slate-600">
                 {[invite.tripDestination, invitePeriod(invite)].filter(Boolean).join(" · ")}

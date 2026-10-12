@@ -35,6 +35,7 @@ import {
   isValidInviteEmail,
   leaveSharedTrip,
   listCollaborators,
+  maskEmail,
   listIncomingInvites,
   removeCollaborator,
   respondToInvite,
@@ -158,6 +159,22 @@ describe("一覧", () => {
     expect(await listIncomingInvites()).toEqual([]);
     mocks.session = null;
     expect(await listIncomingInvites()).toEqual([]);
+  });
+});
+
+describe("maskEmail", () => {
+  it("頭の2文字と @ のあとだけ見せる。短い名前は1文字だけ", () => {
+    expect(maskEmail("sato.hanako@example.com")).toBe("sa***@example.com");
+    expect(maskEmail("abc@gmail.com")).toBe("ab***@gmail.com");
+    expect(maskEmail("ab@gmail.com")).toBe("a***@gmail.com");
+    expect(maskEmail("a@gmail.com")).toBe("a***@gmail.com");
+  });
+
+  it("@ が無い・名前が空のものは、全部隠す。元のアドレスの文字は残さない", () => {
+    expect(maskEmail("")).toBe("***");
+    expect(maskEmail("friend")).toBe("***");
+    expect(maskEmail("@example.com")).toBe("***");
+    expect(maskEmail("mate.waiting.for.a.long.address@example.com")).not.toContain("waiting");
   });
 });
 
