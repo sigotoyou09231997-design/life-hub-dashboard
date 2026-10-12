@@ -343,11 +343,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
               type="button"
               onClick={() => setStatusFilter(value)}
               aria-pressed={statusFilter === value}
-              className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${
-                statusFilter === value
-                  ? "border-accent bg-accent-light text-accent"
-                  : "border-white/50 text-slate-500 hover:border-white/80"
-              }`}
+              className="lh-chip"
             >
               {label}
             </button>
