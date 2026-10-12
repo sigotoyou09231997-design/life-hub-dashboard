@@ -28,3 +28,5 @@ AGENTS.md
 
 # 要望の受信箱を Mac から読むコード(scripts/feedback-inbox.mjs)。秘密なので入れない。
 .feedback-code
+# 見張り(scripts/feedback-watch.mjs)が、どの依頼を会話へ流したかを覚えるファイル。
+.feedback-seen
