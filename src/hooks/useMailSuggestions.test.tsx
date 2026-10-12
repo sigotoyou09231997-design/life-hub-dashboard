@@ -60,3 +60,34 @@ describe("useMailSuggestions", () => {
     expect(b.result.current).toBeUndefined();
   });
 });
+
+describe("useMailSuggestions — メール1通ごとの判定の控え", () => {
+  it("同じメールは、開き直しても判定をやり直さず、同じ結果になる", async () => {
+    const emails = [
+      mail("c-plan", `面接のご案内 ${NEXT_YEAR}年3月5日 14:00`),
+      mail("c-expense", "ご注文の確認", "合計 ¥1,280 のお支払い"),
+    ];
+    const first = renderHook(() => useMailSuggestions("acc-cache", emails));
+    await waitFor(() => expect(first.result.current).toBeDefined());
+    first.unmount();
+
+    // 中身の同じメールを、別の配列で渡し直す(Dexie は読むたびに新しいオブジェクトを返す)
+    const again = emails.map((email) => ({ ...email }));
+    const second = renderHook(() => useMailSuggestions("acc-cache-2", again));
+    await waitFor(() => expect(second.result.current).toBeDefined());
+    expect(second.result.current?.plan.map((e) => e.id)).toEqual(["c-plan"]);
+    expect(second.result.current?.expense.map((e) => e.id)).toEqual(["c-expense"]);
+  });
+
+  it("本文が変わったメールは、前の結果を使わずに判定し直す", async () => {
+    const before = [mail("c-change", "ただのお知らせ")];
+    const first = renderHook(() => useMailSuggestions("acc-change", before));
+    await waitFor(() => expect(first.result.current).toBeDefined());
+    expect(first.result.current?.plan).toHaveLength(0);
+    first.unmount();
+
+    const after = [mail("c-change", `面接のご案内 ${NEXT_YEAR}年3月5日 14:00`)];
+    const second = renderHook(() => useMailSuggestions("acc-change-2", after));
+    await waitFor(() => expect(second.result.current?.plan).toHaveLength(1));
+  });
+});

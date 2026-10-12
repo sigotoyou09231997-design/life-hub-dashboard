@@ -73,6 +73,10 @@ const MAIL_PAGE_SIZE = 50;
  * 全部の行に付けると、長い一覧が数百の面になって重いので、画面に入る分だけ。残りははじめから出す。 */
 const REVEAL_ROWS = 8;
 
+/** 開いた最初の描画に並べる行の数と、残りを足すまでの時間(ミリ秒。ページが現れる動き 340ms が終わるころ)。 */
+const FIRST_PAINT_ROWS = 12;
+const FIRST_PAINT_SETTLE_MS = 350;
+
 /** 一覧を開いた時の自動同期を見送る間隔。メールを1通開いて戻るだけで毎回取りに行くと、
  * Gmail APIの1分あたりの上限に近づく(src/lib/gmailSync.ts の絞り込みと同じ理由)。 */
 const OPEN_SYNC_COOLDOWN_MS = 60_000;
@@ -102,6 +106,17 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
   const [query, setQuery] = useState(restoredRef.current?.query ?? "");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(restoredRef.current?.statusFilter ?? "all");
   const [shown, setShown] = useState(restoredRef.current?.shown ?? MAIL_PAGE_SIZE);
+  // 開いた最初の描画は、先頭の数行だけにして、画面が現れる動きが終わるころに残りを足す(2026-10-13、本人「若干
+  // Gmail だけ画面の切り替わりが遅い」)。50行を一度に描くと、ほかの画面より約0.1秒長く画面が止まっていた。
+  // スクロール位置を戻す時(メールを読んで戻った時)は、戻す先の行が要るので、最初から全部並べる。
+  const [settled, setSettled] = useState(
+    () => (restoredRef.current?.pageScroll ?? 0) > 0 || (restoredRef.current?.listScroll ?? 0) > 0,
+  );
+  useEffect(() => {
+    if (settled) return;
+    const timer = window.setTimeout(() => setSettled(true), FIRST_PAINT_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [settled]);
   // 検索語・絞り込みを変えたら、先頭から並べ直す(控えから戻した最初の1回は、控えの件数のまま)。
   const filterChangedRef = useRef(false);
   useEffect(() => {
@@ -272,10 +287,12 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
       row.dataset.moreLeft = String(max > 1 && row.scrollLeft > 1);
       row.dataset.moreRight = String(max > 1 && row.scrollLeft < max - 1);
     };
-    mark();
     row.addEventListener("scroll", mark, { passive: true });
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(mark);
-    observer?.observe(row);
+    // ResizeObserver は、観測を始めた直後に1回呼ばれる。ここで先に測ると、50行を並べた直後の画面の
+    // 配置の計算を無理に前倒しすることになり、千通で約50ミリ秒(CPU 4倍遅く)止まっていた。
+    if (observer) observer.observe(row);
+    else mark();
     return () => {
       row.removeEventListener("scroll", mark);
       observer?.disconnect();
@@ -412,7 +429,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
             compact ? "mail-list--compact gap-1" : "gap-2"
           }`}
         >
-          {filteredEmails.slice(0, shown).map((email, rowIndex) => {
+          {filteredEmails.slice(0, settled ? shown : Math.min(shown, FIRST_PAINT_ROWS)).map((email, rowIndex) => {
             const sender = parseSender(email.from);
             const unread = email.status === "unprocessed" && !email.readAt;
             const snippet = snippetText(email.snippet);
@@ -585,7 +602,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
               </SwipeRow>
             );
           })}
-          {filteredEmails.length > shown && (
+          {settled && filteredEmails.length > shown && (
             <button
               type="button"
               onClick={() => setShown((count) => count + MAIL_PAGE_SIZE)}

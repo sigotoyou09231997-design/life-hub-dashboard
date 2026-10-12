@@ -2221,3 +2221,10 @@ body .text-sm { line-height: 1.5; }
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* メールの行1本ごとのぼかしも外す(2026-10-13、本人「Gmail だけ画面の切り替わりが遅い」)。50行ぶんのぼかしの層を
+   iPhone は描くのに時間がかかる。行の背景はほぼ不透明で、ぼかしても見た目は変わらない。 */
+.mail-row {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
