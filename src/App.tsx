@@ -20,6 +20,7 @@ import { AppHeader } from "./components/layout/AppHeader";
 import { DesktopSidebar } from "./components/layout/DesktopSidebar";
 import { QuickActionBar } from "./components/layout/QuickActionBar";
 import { usePageMotion } from "./hooks/usePageMotion";
+import { useDesignMotion } from "./hooks/useDesignMotion";
 import { usePlaceReminderWatch } from "./hooks/usePlaceReminderWatch";
 
 import AuthGatePage from "./pages/AuthGatePage";
@@ -74,6 +75,7 @@ export default function App() {
   const location = useLocation();
   // HOME以外の全ページに、HOMEと同じ出現アニメーションとスクロール連動を与える。
   const pageMotionRef = usePageMotion<HTMLDivElement>(location.pathname);
+  useDesignMotion(location.pathname);
   // 場所リマインドの見張り。下の早期returnより前に置く(フックの数を変えないため)。
   // リマインドが1件も無いうちは位置情報に触らないので、使っていない人には何も起きない。
   usePlaceReminderWatch();
