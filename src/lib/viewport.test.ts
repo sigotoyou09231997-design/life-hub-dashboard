@@ -7,6 +7,7 @@ import {
   staleViewportGap,
   sheetMaxHeightPx,
   SHEET_EDGE_GAP_PX,
+  visibleAreaFrom,
 } from "./viewport";
 
 describe("keyboardInsetFrom", () => {
@@ -90,5 +91,35 @@ describe("sheetMaxHeightPx", () => {
   it("画面がとても低い時も、端の隙間より大きくはしない", () => {
     expect(sheetMaxHeightPx(200, 0, false)).toBe(176);
     expect(sheetMaxHeightPx(4, 300, false)).toBe(0);
+  });
+});
+
+describe("visibleAreaFrom", () => {
+  it("キーボードが無ければ、画面いっぱい・キーボード無し", () => {
+    expect(visibleAreaFrom({ layoutHeight: 926, visualHeight: 926, visualOffsetTop: 0, screenHeight: 926, typing: false })).toEqual({
+      top: 0,
+      height: 926,
+      keyboard: false,
+    });
+  });
+
+  it("キーボードが出たら、見えている範囲(上端のずれも)をそのまま返す", () => {
+    expect(visibleAreaFrom({ layoutHeight: 926, visualHeight: 579, visualOffsetTop: 120, screenHeight: 926, typing: true })).toEqual({
+      top: 120,
+      height: 579,
+      keyboard: true,
+    });
+  });
+
+  it("キーボードでレイアウト上の画面まで縮む端末でも、キーボードが出ていると分かる", () => {
+    expect(visibleAreaFrom({ layoutHeight: 579, visualHeight: 579, visualOffsetTop: 0, screenHeight: 926, typing: true }).keyboard).toBe(true);
+  });
+
+  it("文字を入れる部品にフォーカスが無ければ、縮んでいてもキーボードとはみなさない", () => {
+    expect(visibleAreaFrom({ layoutHeight: 926, visualHeight: 579, visualOffsetTop: 0, screenHeight: 926, typing: false }).keyboard).toBe(false);
+  });
+
+  it("ブラウザのツールバー程度の差は、キーボードとみなさない", () => {
+    expect(visibleAreaFrom({ layoutHeight: 800, visualHeight: 760, visualOffsetTop: 0, screenHeight: 926, typing: true }).keyboard).toBe(false);
   });
 });

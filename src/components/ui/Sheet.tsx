@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef } from "react";
 import { X } from "lucide-react";
-import { keyboardInsetFrom, opensKeyboard, sheetMaxHeightPx } from "../../lib/viewport";
+import { opensKeyboard, sheetMaxHeightPx, visibleAreaFrom, type VisibleArea } from "../../lib/viewport";
 
 interface Props {
   open: boolean;
@@ -60,6 +60,24 @@ const SCROLL_INTENT_PX = 8;
 /** 触れてからこれより後に動き始めた指は、長押し(貼り付け・カーソル移動)とみなしてフォーカスを外さない(ms)。 */
 const LONG_PRESS_MS = 300;
 
+/** キーボードが動いている間、見えている範囲を毎フレーム測り直す時間(ms)。iOS のキーボードの動きは約0.3〜0.5秒。 */
+const FOLLOW_KEYBOARD_MS = 900;
+
+/** 設定の「入力画面の数字を出す」(調べる用)。入れると、シートの見出しの下に見えている範囲の数字が出る。 */
+export const SHEET_DEBUG_KEY = "lifehub.debugSheetViewport";
+
+function readDebugFlag(): boolean {
+  try {
+    return window.localStorage.getItem(SHEET_DEBUG_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function appVersion(): string {
+  return typeof __APP_COMMIT__ === "string" ? __APP_COMMIT__.slice(0, 7) : "?";
+}
+
 /**
  * 指で操作する端末(スマホ・タブレット)か。
  *
@@ -88,12 +106,12 @@ export function revealAboveActions(body: HTMLElement, field: HTMLElement): void 
 
 export function Sheet({ open, onClose, title, children, reserveBottomBar = false, compact = false, autoFocusOnTouch = false }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
-  // キーボードで隠れている高さ。その分だけシートを持ち上げて、入力欄が最初から
-  // キーボードの上に出ている状態にする(src/lib/viewport.ts)。
-  const [keyboardInset, setKeyboardInset] = useState(0);
-  // 実際に見えている高さ。レイアウト上の画面の高さ(vh)より小さいことがあり、
-  // その時はvhに合わせるとシートの下側(操作ボタン)が画面の外に出る。
-  const [visibleHeight, setVisibleHeight] = useState<number | null>(null);
+  // シートを置く外枠(下の JSX)。見えている範囲に合わせて、位置と高さを直接書き込む(下の effect)。
+  const containerRef = useRef<HTMLDivElement>(null);
+  /** 最後に合わせた見えている範囲。同じなら書き込まない・欄の入れ直しもしない。 */
+  const areaRef = useRef<VisibleArea | null>(null);
+  /** 調べる用の表示(設定の「入力画面の数字を出す」)。 */
+  const debugRef = useRef<HTMLPreElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(false);
   // 中身をスクロールする.sheet-body(下のJSXでrefを渡す)。キーボード対応
@@ -183,60 +201,98 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     };
   }, [open, onClose, autoFocusOnTouch]);
 
-  useEffect(() => {
+  // シートを「いま実際に見えている範囲」に置く(src/lib/viewport.ts の visibleAreaFrom)。
+  // 描くたびに React で持つと、キーボードが動く間(毎フレーム)フォーム全体を描き直すことになるので、
+  // 外枠と器の style に直接書き込む。最初の1回は画面に出る前(useLayoutEffect)に合わせる。
+  useLayoutEffect(() => {
     if (!open) return;
     const visual = window.visualViewport;
-    if (!visual) return;
+    const container = containerRef.current;
+    const panel = panelRef.current;
+    if (!visual || !container || !panel) return;
+    const debug = readDebugFlag();
+
     const update = () => {
-      // 文字を入れる部品に focus が無ければキーボードは出ていない。iOSが閉じたことを
-      // 知らせ損ねた時に、シートが浮いたまま戻らなくなるのを防ぐ(src/lib/viewport.ts)。
       const active = document.activeElement as HTMLElement | null;
       const typing = opensKeyboard(active);
-      const hidden = typing ? keyboardInsetFrom(window.innerHeight, visual.height, visual.offsetTop) : 0;
-      if (hidden > 0) liftedRef.current = true;
-      setKeyboardInset(hidden);
-      // キーボードが出て器(.sheet-panel)の高さが縮む(下のsheetMaxHeightPx)と、
-      // .sheet-bodyの見えている範囲の下端がそのぶん上へ後退する。スクロール位置は
-      // 変わらないので、いちばん下の項目(最後の入力欄・その次に貼りつくキャンセル/
-      // 保存ボタン)にフォーカスしたまま器が縮むと、その欄が縮んだ範囲の外(下側)へ
-      // 出てしまい、キーボードを開いてもその欄が見えない・触れないままになる
-      // (2026-09-20の報告、「いちばん下の項目に入力できない」)。
-      // 縮んだ直後にフォーカス中の欄を範囲内へ入れ直す。requestAnimationFrameで
-      // 1拍置くのは、器の高さ(maxHeightPx)の再計算がReactの描画を経てから反映される
-      // ため — 同期で呼ぶと縮む前の高さのまま計算してしまう。
-      if (hidden > 0 && active && bodyRef.current?.contains(active)) {
-        const body = bodyRef.current;
+      const area = visibleAreaFrom({
+        layoutHeight: window.innerHeight,
+        visualHeight: visual.height,
+        visualOffsetTop: visual.offsetTop,
+        screenHeight: window.screen?.height ?? 0,
+        typing,
+      });
+      const previous = areaRef.current;
+      const changed =
+        !previous || previous.top !== area.top || previous.height !== area.height || previous.keyboard !== area.keyboard;
+      if (changed) {
+        areaRef.current = area;
+        container.style.top = `${area.top}px`;
+        container.style.bottom = "auto";
+        // 下のナビを残すシート(reserveBottomBar)は、キーボードが無い時だけ、そのぶん短くする。
+        container.style.height =
+          reserveBottomBar && !area.keyboard
+            ? `calc(${area.height}px - env(safe-area-inset-bottom) - 6.5rem)`
+            : `${area.height}px`;
+        const maxHeight = sheetMaxHeightPx(area.height, area.keyboard ? 1 : 0, compact);
+        panel.style.maxHeight = maxHeight !== null ? `${maxHeight}px` : "";
+        if (area.keyboard) liftedRef.current = true;
+      }
+      // キーボードが出て見えている範囲が縮むと、いちばん下の欄(とその下に貼りつくキャンセル/保存)が
+      // 縮んだ範囲の外に残る(2026-09-20「いちばん下の項目に入力できない」)。縮んだ直後に、
+      // フォーカス中の欄を見える所へ入れ直し、操作の帯の裏からも出す。
+      const body = bodyRef.current;
+      if (changed && area.keyboard && active && body?.contains(active)) {
         requestAnimationFrame(() => {
           active.scrollIntoView({ block: "nearest" });
           revealAboveActions(body, active);
         });
       }
-      // キーボードで持ち上がった後、閉じてもページがずれたままなら開いた時の位置へ戻す。
-      // 持ち上がった後だけにするのは、それ以外で勝手にスクロールさせないため。
+      // キーボードで動いた後、閉じてもページがずれたままなら開いた時の位置へ戻す。
       if (!typing && liftedRef.current) {
         liftedRef.current = false;
         if (window.scrollY !== scrollYRef.current) window.scrollTo(0, scrollYRef.current);
       }
-      // 見えている高さと、レイアウト上の画面の高さが食い違っている時だけ持つ。
-      // 小さい時ははみ出さないように、大きい時(iOSが高さを戻し損ねている時)は
-      // シートが不必要に小さくならないように、どちらもこちらに合わせる。
-      setVisibleHeight(Math.abs(visual.height - window.innerHeight) > 1 ? Math.round(visual.height) : null);
+      if (debug && debugRef.current) {
+        debugRef.current.textContent =
+          `版 ${appVersion()} / 画面 ${window.innerHeight} / 見えている ${Math.round(visual.height)}` +
+          ` 上 ${Math.round(visual.offsetTop)} / 端末 ${window.screen?.height ?? "?"}` +
+          ` / キーボード ${area.keyboard ? "あり" : "なし"} / 置き場 ${area.top}+${area.height}` +
+          ` / 器 ${Math.round(panel.getBoundingClientRect().top)}〜${Math.round(panel.getBoundingClientRect().bottom)}`;
+      }
     };
+
+    // iOS は、キーボードが動いている途中の値を知らせてこないことがある(動き終わりの1回だけ、
+    // あるいは何も来ない)。フォーカスが動いた後のしばらくは、毎フレーム測り直して追いかける。
+    let frame = 0;
+    let followUntil = 0;
+    const follow = () => {
+      followUntil = performance.now() + FOLLOW_KEYBOARD_MS;
+      if (frame) return;
+      const tick = () => {
+        update();
+        frame = performance.now() < followUntil ? requestAnimationFrame(tick) : 0;
+      };
+      frame = requestAnimationFrame(tick);
+    };
+
     update();
     visual.addEventListener("resize", update);
     visual.addEventListener("scroll", update);
-    // focus が移った時にも引き直す。キーボードの開け閉めは focus の移動と一緒に起きる。
-    document.addEventListener("focusin", update);
-    document.addEventListener("focusout", update);
+    window.addEventListener("resize", update);
+    // キーボードの開け閉めは focus の移動と一緒に起きる。
+    document.addEventListener("focusin", follow);
+    document.addEventListener("focusout", follow);
     return () => {
+      if (frame) cancelAnimationFrame(frame);
       visual.removeEventListener("resize", update);
       visual.removeEventListener("scroll", update);
-      document.removeEventListener("focusin", update);
-      document.removeEventListener("focusout", update);
-      setKeyboardInset(0);
-      setVisibleHeight(null);
+      window.removeEventListener("resize", update);
+      document.removeEventListener("focusin", follow);
+      document.removeEventListener("focusout", follow);
+      areaRef.current = null;
     };
-  }, [open]);
+  }, [open, reserveBottomBar, compact]);
 
   useEffect(() => {
     if (!open) return;
@@ -309,20 +365,16 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
     };
   }, [open]);
 
-  const maxHeightPx = sheetMaxHeightPx(visibleHeight, keyboardInset, compact);
-
   if (!open) return null;
 
   return (
     <div
+      ref={containerRef}
       className="fixed inset-x-0 top-0 z-50 flex items-end justify-center lg:items-center lg:p-6"
       style={{
-        // 下端は inline で持つ。--viewport-gap は、iOSが画面の高さを戻し損ねている
-        // 間の足りない分(src/lib/viewport.ts)。そのぶん下へ伸ばさないと、シートが
-        // 画面の途中で止まる。普段は0pxで、これまでと同じ位置。
+        // 見えている範囲が分からない時(visualViewport の無いブラウザ)だけ、この下端で置く。
+        // 分かる時は上の effect が上端と高さを書き込み、下端は auto にする。
         bottom: `calc(${reserveBottomBar ? "env(safe-area-inset-bottom) + 6.5rem" : "0px"} - var(--viewport-gap, 0px))`,
-        // キーボードのぶんを下に空けると、items-end のシートはその上まで持ち上がる。
-        ...(keyboardInset > 0 ? { paddingBottom: keyboardInset } : null),
       }}
       role="dialog"
       aria-modal="true"
@@ -353,17 +405,7 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
         className={`glass-modal spatial-sheet sheet-panel relative z-10 flex w-full max-w-md flex-col outline-none animate-slide-up motion-reduce:animate-none lg:max-w-xl ${
           compact ? "h-[55vh] max-h-[55vh]" : "max-h-[88vh] lg:max-h-[86vh]"
         }`}
-        // キーボードが出ている間は、画面の高さ(88vh等)ではなく「いま実際に見えて
-        // いる高さ」に合わせる。キーボードが無くても、見えている高さがvhより小さい
-        // 時はそちらに合わせる — はみ出すと下の操作ボタンに手が届かない
-        // (どちらも src/lib/viewport.ts の sheetMaxHeightPx)。
-        style={
-          maxHeightPx !== null
-            ? { maxHeight: `${maxHeightPx}px` }
-            : keyboardInset > 0
-              ? { maxHeight: "calc(100% - 0.5rem)" }
-              : undefined
-        }
+        // 高さの上限は、見えている範囲に合わせて上の effect が書き込む(sheetMaxHeightPx)。
       >
         {/* つまみはスマホだけ。PCではダイアログとして画面の真ん中に置くので、
             下から引き上げる部品の名残を残さない(CSSで隠す)。 */}
@@ -376,6 +418,9 @@ export function Sheet({ open, onClose, title, children, reserveBottomBar = false
             <X size={19} />
           </button>
         </div>
+        {readDebugFlag() && (
+          <pre ref={debugRef} className="shrink-0 whitespace-pre-wrap px-4 pb-1 text-[10px] leading-tight text-slate-500" />
+        )}
         <div ref={bodyRef} className={`sheet-body min-h-0 flex-1 overflow-y-auto ${reserveBottomBar ? "!pb-5" : ""}`}>
           {children}
         </div>

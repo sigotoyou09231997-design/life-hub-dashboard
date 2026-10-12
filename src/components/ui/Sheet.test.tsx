@@ -428,3 +428,41 @@ describe("指で操作する端末で開いた時のカーソル", () => {
     }
   });
 });
+
+/**
+ * シートは「いま実際に見えている範囲」(visualViewport)に置く(2026-10-12)。前はキーボードの高さと
+ * 画面の高さの戻し損ねを別々に測って足し引きしていて、iPhone で打ち消し合い、入力欄がキーボードの
+ * 裏に隠れた(本人のスクショ)。
+ */
+describe("見えている範囲に置く", () => {
+  it("キーボードで見えている範囲が縮み・ずれたら、その範囲に外枠と器を合わせる", async () => {
+    Object.defineProperty(window, "innerHeight", { value: 926, configurable: true, writable: true });
+    const visual = installFakeViewport(926);
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = () => {};
+    try {
+      const { getByTestId, getByRole } = render(
+        <Sheet open onClose={() => {}} title="予定を編集">
+          <input data-testid="title" />
+        </Sheet>,
+      );
+      const dialog = getByRole("dialog");
+      expect(dialog.style.top).toBe("0px");
+      expect(dialog.style.height).toBe("926px");
+
+      getByTestId("title").focus();
+      visual.height = 579;
+      (visual as unknown as { offsetTop: number }).offsetTop = 120;
+      visual.dispatchEvent(new Event("resize"));
+
+      await waitFor(() => expect(dialog.style.top).toBe("120px"));
+      expect(dialog.style.height).toBe("579px");
+      expect(dialog.style.bottom).toBe("auto");
+      const panel = dialog.querySelector<HTMLElement>(".sheet-panel")!;
+      // キーボードが出ている間は、見えている高さいっぱい(端の隙間だけ残す)。
+      expect(panel.style.maxHeight).toBe("571px");
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
+});
