@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * - 029: 要望の受信箱(ログインして・共有リンクから送れる・持ち主だけ読める・読み取りコード・連投の上限)。
  * - 030: 要望から足した欄(移動手段・予定の詳細・持ち物の並び順・参加者・支払った人)と、共有したしおりへの反映。
  * - 033: 修正依頼に付ける画像(JPEG だけ・3枚まで・大きさの上限・画像つきは1時間3件まで・対応済みで消える・読み取りコードで1件ずつ読む)。
+ * - 037: 修正依頼の「かかる時間の目安」(修正中にして目安の分を付ける・範囲に収める・状態が変われば消す・終わったあとは残す・送った人が読める)。
  * - 036: 修正依頼の「保留中」(理由つきで保留にする・ほかの状態にしたら理由は消す・見張りには流れない・送った人が自分の分を読める)。
  * - 035: 修正依頼の「修正中」(状態に working を足す・Mac から印を付ける・いつからか・見張りには流れない・送った人が自分の分の状態を読める)。
  * - 034: 旅行を一緒に編集(メールで招く・承認するまで見えない・承認後は持ち主の名前で読み書き・消せない・外す／抜けるで即座に届かなくなる・日記は共有しない)。
@@ -1044,6 +1045,91 @@ describe("036: 修正依頼の「保留中」", () => {
     expect(await asSender(() => rows(`update public.app_feedback set status = 'done' where id = '${mine}' returning id`))).toBe(0);
     await expect(as("authenticated", { sub: OWNER, role: "authenticated" }, () => db.exec(`update public.app_feedback set status_note = '${"あ".repeat(301)}' where id = '${others}'`))).rejects.toThrow();
     await expect(as("authenticated", { sub: OWNER, role: "authenticated" }, () => db.exec(`update public.app_feedback set status = 'paused' where id = '${others}'`))).rejects.toThrow();
+  });
+});
+
+describe("037: 修正依頼の「かかる時間の目安」", () => {
+  const OWNER = USER;
+  const SENDER = "88888888-2222-4333-8444-555555555555";
+  const readCode = "FBESTIMATECODE123456";
+  const start = async (id: string, minutes: number | null) =>
+    (await db.query<{ r: { ok: boolean; reason?: string } }>("select public.app_feedback_start($1, $2, $3) as r", [readCode, id, minutes])).rows[0].r;
+  const setStatus = async (id: string, status: string) =>
+    (await db.query<{ r: { ok: boolean; reason?: string } }>("select public.app_feedback_set_status($1, $2, $3) as r", [readCode, id, status])).rows[0].r;
+  const row = async (id: string) =>
+    (await db.query<{ status: string; estimate_minutes: number | null; working_at: Date | null; status_note: string | null }>("select status, estimate_minutes, working_at, status_note from public.app_feedback where id = $1", [id])).rows[0];
+  let mine = "";
+
+  beforeAll(async () => {
+    await db.exec("delete from public.app_feedback_owner; delete from public.app_feedback_read_codes; delete from public.app_feedback;");
+    await db.query("insert into public.app_feedback_owner (id, user_id) values ('owner', $1)", [OWNER]);
+    await db.query("insert into public.app_feedback_read_codes (id, code_hash) values ('owner', $1)", [createHash("sha256").update(readCode).digest("hex")]);
+    mine = (await db.query<{ id: string }>("insert into public.app_feedback (sender_id, via, message) values ($1, 'app', '日程を直したらルートにも反映して') returning id", [SENDER])).rows[0].id;
+  });
+
+  it("修正中にして、目安の分を付けられる。いつから修正中かも入る", async () => {
+    expect(await start(mine, 6)).toEqual({ ok: true });
+    const r = await row(mine);
+    expect(r).toMatchObject({ status: "working", estimate_minutes: 6 });
+    expect(r.working_at).not.toBeNull();
+  });
+
+  it("目安は1〜600分に収める(0・負の数は1、大きすぎれば600)。空なら目安なしの修正中", async () => {
+    await start(mine, 0);
+    expect((await row(mine)).estimate_minutes).toBe(1);
+    await start(mine, 5000);
+    expect((await row(mine)).estimate_minutes).toBe(600);
+    await start(mine, -3);
+    expect((await row(mine)).estimate_minutes).toBe(1);
+    expect(await start(mine, null)).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "working", estimate_minutes: null });
+  });
+
+  it("未対応・保留中・目安なしの修正中にしたら、目安は消える。保留の理由も、修正中にしたら消える", async () => {
+    await start(mine, 8);
+    expect(await setStatus(mine, "hold")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "hold", estimate_minutes: null });
+    await start(mine, 8);
+    expect(await setStatus(mine, "new")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "new", estimate_minutes: null });
+    await start(mine, 8);
+    expect(await setStatus(mine, "working")).toEqual({ ok: true });
+    expect((await row(mine)).estimate_minutes).toBeNull();
+  });
+
+  it("対応済み・見送りにしても、目安は残す(あとから、目安と実際を比べられる)", async () => {
+    await start(mine, 12);
+    expect(await setStatus(mine, "done")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "done", estimate_minutes: 12 });
+    await start(mine, 12);
+    expect(await setStatus(mine, "dismissed")).toEqual({ ok: true });
+    expect((await row(mine)).estimate_minutes).toBe(12);
+  });
+
+  it("違う読み取りコード・無い依頼は断る。送った人は、自分の依頼の目安を読める(ほかの人の分は読めない)", async () => {
+    expect((await db.query<{ r: unknown }>("select public.app_feedback_start('違うコード', $1, 5) as r", [mine])).rows[0].r).toEqual({ ok: false, reason: "invalid_code" });
+    expect(await start("00000000-0000-4000-8000-000000000000", 5)).toEqual({ ok: false, reason: "not_found" });
+    await start(mine, 9);
+    expect(await as("authenticated", { sub: SENDER, role: "authenticated" }, async () => (await db.query<{ estimate_minutes: number }>("select estimate_minutes from public.app_feedback")).rows)).toEqual([{ estimate_minutes: 9 }]);
+    expect(await as("authenticated", { sub: "77777777-2222-4333-8444-555555555555", role: "authenticated" }, () => count("select count(*)::int as n from public.app_feedback"))).toBe(0);
+  });
+
+  it("035・036 が先に流れていなければ、037 は何も変えずに止まる(流れていないまま状態の関数だけ入れ替わって、状態が変えられなくなるのを防ぐ)", async () => {
+    const sql037 = readFileSync(new URL("037_feedback_estimate.sql", SQL_DIR), "utf8");
+    await db.exec("begin");
+    try {
+      await db.exec("alter table public.app_feedback rename column status_note to status_note_hidden");
+      await expect(db.exec(sql037)).rejects.toThrow(/035_feedback_working\.sql と 036_feedback_hold\.sql/);
+    } finally {
+      await db.exec("rollback");
+    }
+    // 取り消したあとは、元どおり流せて、関数も生きている。
+    expect(await setStatus(mine, "new")).toEqual({ ok: true });
+  });
+
+  it("目安が範囲の外(0・601)の行は、表そのものが受け付けない", async () => {
+    await expect(as("authenticated", { sub: OWNER, role: "authenticated" }, () => db.exec(`update public.app_feedback set estimate_minutes = 0 where id = '${mine}'`))).rejects.toThrow();
+    await expect(as("authenticated", { sub: OWNER, role: "authenticated" }, () => db.exec(`update public.app_feedback set estimate_minutes = 601 where id = '${mine}'`))).rejects.toThrow();
   });
 });
 

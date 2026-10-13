@@ -104,6 +104,22 @@ describe("修正ボタンの「修正中」", () => {
   });
 });
 
+describe("かかる時間の目安とゲージ(2026-10-14、本人「どれくらいかかるか時間も出して、ゲージ表示もあると便利」)", () => {
+  it("目安が付いた修正中の依頼には、ゲージと「目安 約○分」が出る。目安が無い依頼には出ない", async () => {
+    const user = userEvent.setup();
+    mocks.recent = [
+      item("a", "working", { workingAt: new Date(Date.now() - 2 * 60_000).toISOString(), estimateMinutes: 6, message: "地図が出ない" }),
+      item("b", "working", { workingAt: new Date(Date.now() - 2 * 60_000).toISOString(), message: "文字が小さい" }),
+      item("c", "new", { estimateMinutes: 6, message: "色が見にくい" }),
+    ];
+    renderApp(<FeedbackButton />);
+    await user.click(await screen.findByRole("button", { name: "修正中です。直してほしいことを送る" }));
+    const list = await screen.findByRole("region", { name: "送った依頼の状況" });
+    expect(list.querySelectorAll('[role="progressbar"]')).toHaveLength(1);
+    expect(list.textContent).toMatch(/目安 約6分・経過 [12]分・あと約[45]分/);
+  });
+});
+
 describe("保留中(2026-10-14、本人「保留中というラベルをつけたい」)", () => {
   it("保留中の依頼があって、修正中が無い間は、ボタンが「保留中」になる", async () => {
     mocks.recent = [item("a", "hold", { statusNote: "どの画面か教えてください" })];

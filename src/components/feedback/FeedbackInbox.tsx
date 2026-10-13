@@ -12,6 +12,7 @@ import { formatDisplayDate } from "../../lib/date";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { FeedbackGauge } from "./FeedbackGauge";
 import { useToast } from "../ui/ToastProvider";
 
 function fromLabel(item: FeedbackItem): string {
@@ -141,6 +142,7 @@ export function FeedbackInbox() {
               {item.status === "hold" && item.statusNote && (
                 <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900">保留の理由: {item.statusNote}</p>
               )}
+              <FeedbackGauge item={item} />
               {(item.imageCount ?? 0) > 0 && (
                 <div className="mt-2">
                   <Button variant="ghost" disabled={busyId === item.id} onClick={() => void showImages(item)}>

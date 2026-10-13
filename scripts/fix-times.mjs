@@ -4,31 +4,42 @@
 //   node scripts/fix-times.mjs 10         直近 10 件
 //
 // 列: 日時 / 版 / 依頼→開始(見つけて・調べて・直す) / テスト・統合 / 公開待ち / 依頼→公開(依頼の時刻が分かる時だけ) / 内容
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-const file = join(dirname(fileURLToPath(import.meta.url)), "..", ".fix-times.log");
+// 記録は、作業場所(git worktree)の中ではなく、本体のフォルダに1つだけある(ship.sh が書く場所)。どこから走らせても、そこを見る。
+function findLog() {
+  const here = join(dirname(fileURLToPath(import.meta.url)), "..");
+  try {
+    const common = execFileSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: here, encoding: "utf8" }).trim();
+    return join(dirname(common), ".fix-times.log");
+  } catch {
+    return join(here, ".fix-times.log");
+  }
+}
+const file = findLog();
 if (!existsSync(file)) {
   console.log("まだ記録がありません(scripts/ship.sh で出すと、1行ずつ溜まります)");
   process.exit(0);
 }
 const limit = Number(process.argv[2]) || Infinity;
 const rows = readFileSync(file, "utf8").split("\n").filter(Boolean).map((line) => {
-  const [at, sha, wait, test, live, total, ...msg] = line.split("\t");
+  const [at, sha, wait, test, live, total, msg, size] = line.split("\t");
   const n = (v) => (v === "-" || v === undefined ? null : Number(v));
-  return { at, sha, wait: n(wait), test: n(test), live: n(live), total: n(total), msg: msg.join("\t"), failed: sha === "失敗" };
+  return { at, sha, wait: n(wait), test: n(test), live: n(live), total: n(total), msg: msg ?? "", size: size?.trim() || "", failed: sha === "失敗" };
 }).slice(-limit);
 
 const fmt = (sec) => (sec === null || Number.isNaN(sec) ? "   -  " : sec >= 90 ? `${Math.floor(sec / 60)}分${String(sec % 60).padStart(2, "0")}秒` : `${sec}秒`).padStart(7);
-console.log("日時                 版       依頼→開始  テスト・統合  公開待ち  依頼→公開  内容");
+console.log("日時                 版       依頼→開始  テスト・統合  公開待ち  依頼→公開  大きさ  内容");
 for (const r of rows) {
   if (r.failed) {
     // 止まった反映。test 列に、開始から止まるまでの秒数が入っている。
     console.log(`${r.at}  ✗失敗     (反映が止まった: ${fmt(r.test).trim()}で)                          ${r.msg.slice(0, 50)}`);
     continue;
   }
-  console.log(`${r.at}  ${r.sha}  ${fmt(r.wait)}   ${fmt(r.test)}     ${fmt(r.live)}  ${fmt(r.wait === null ? null : r.total)}   ${r.msg.slice(0, 40)}`);
+  console.log(`${r.at}  ${r.sha}  ${fmt(r.wait)}   ${fmt(r.test)}     ${fmt(r.live)}  ${fmt(r.wait === null ? null : r.total)}  ${(r.size || "-").padEnd(5, "　")} ${r.msg.slice(0, 40)}`);
 }
 const okRows = rows.filter((r) => !r.failed);
 const avg = (key) => {
