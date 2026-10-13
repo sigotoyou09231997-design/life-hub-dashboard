@@ -5,6 +5,8 @@ import { AllFeaturesSheet } from "./AllFeaturesSheet";
 import { getQuickAction, loadQuickActionKeys, saveQuickActionKeys, type QuickActionKey } from "./quickActions";
 import { pushQuickActions, supabaseQuickActionRemote, syncQuickActions } from "./quickActionsSync";
 import { useToast } from "../ui/ToastProvider";
+import { useHiddenFeatures } from "../../hooks/useHiddenFeatures";
+import { isPathHidden } from "../../lib/hiddenFeatures";
 
 function useActiveQuickActionKey(): QuickActionKey | null {
   const { pathname } = useLocation();
@@ -23,11 +25,14 @@ export function QuickActionBar() {
   const [selectedKeys, setSelectedKeys] = useState(loadQuickActionKeys);
   const activeKey = useActiveQuickActionKey();
   const showToast = useToast();
-  const actions = selectedKeys.map(getQuickAction);
+  // 設定の「使う機能」で隠した機能は、並びに残したまま出さない(オンに戻せば、元の位置に出る)。全部隠れたら、ホームだけ出す。
+  const hidden = useHiddenFeatures();
+  const visibleKeys = selectedKeys.filter((key) => !isPathHidden(getQuickAction(key).to, hidden));
+  const actions = (visibleKeys.length > 0 ? visibleKeys : (["home"] as QuickActionKey[])).map(getQuickAction);
   // 今いる画面がナビに無い時(ナビから外したメモ・ふりかえり・設定など)は「すべて」を
   // 光らせる。どれも光らないと現在地が分からなかった(UI/UX 調査メモ A-2)。
   // ホームだけは別 — ナビに無ければヘッダーの家の印が光る(AppHeader.tsx、第2弾 S-2)。
-  const allActive = activeKey !== "home" && (activeKey === null || !selectedKeys.includes(activeKey));
+  const allActive = activeKey !== "home" && (activeKey === null || !visibleKeys.includes(activeKey));
 
   // 並びはアカウントに紐づけて、別の端末にも同じにする(quickActionsSync.ts)。開いた時と、
   // アプリに戻った時に、サーバーの並びと突き合わせる。通信できない時は、端末の中の並びのまま。

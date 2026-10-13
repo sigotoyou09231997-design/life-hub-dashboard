@@ -72,3 +72,29 @@ describe("始め方のチェックリスト — 出す・出さない", () => {
     expect(isSetupChecklistSuppressed(NOW)).toBe(false);
   });
 });
+
+describe("始め方のチェックリスト — 隠した機能(設定の「使う機能」)", () => {
+  it("お金管理を隠したら、給与・支出の項目を出さず、数えにも入れない", () => {
+    const progress = computeSetupProgress({ ...NONE, event: true }, ["money"]);
+    expect(progress.items.map((item) => item.id)).toEqual(["event", "homeAddress", "googleCalendar"]);
+    expect(progress.total).toBe(3);
+    expect(progress.doneCount).toBe(1);
+  });
+
+  it("予定・タスクを隠したら予定と Google カレンダー、旅行計画を隠したら自宅の住所を出さない", () => {
+    expect(computeSetupProgress(NONE, ["schedule"]).items.map((item) => item.id)).toEqual(["salary", "expense", "homeAddress"]);
+    expect(computeSetupProgress(NONE, ["trips"]).items.map((item) => item.id)).toEqual(["salary", "expense", "event", "googleCalendar"]);
+  });
+
+  it("Gmail・メモ・ふりかえりを隠しても、項目は変わらない", () => {
+    expect(computeSetupProgress(NONE, ["gmail", "notes", "review"]).total).toBe(5);
+  });
+
+  it("項目が1つも残らなければ、出さない(complete 扱い。0 で割らない)", () => {
+    const progress = computeSetupProgress(NONE, ["money", "schedule", "trips"]);
+    expect(progress.total).toBe(0);
+    expect(progress.complete).toBe(true);
+    expect(Number.isFinite(progress.ratio)).toBe(true);
+  });
+});
+

@@ -18,6 +18,8 @@ interface Props {
   gmail: BriefingGmail | undefined;
   /** 返信待ち(src/lib/replyWaiting.ts)。待っている日数の長い順。 */
   waiting: ReplyWaitingItem[] | undefined;
+  /** 設定の「使う機能」で予定・タスクを隠している時。「今日の予定」の箱を出さない(メールだけのまとめになる)。 */
+  hideEvents?: boolean;
 }
 
 /**
@@ -28,7 +30,7 @@ interface Props {
  * 3つは1つずつ別の箱にして、押せばその画面へ行く(ボタンを1つの溝に詰めない、本人の好み)。
  * Gmailを連携していない時は、メールの2つは出さない。
  */
-export function BriefingCard({ eventCount, nextEvent, gmail, waiting }: Props) {
+export function BriefingCard({ eventCount, nextEvent, gmail, waiting, hideEvents = false }: Props) {
   const longestWait = waiting?.[0]?.waitingDays ?? 0;
   const eventNote = nextEvent
     ? `次は ${nextEvent.time ? `${nextEvent.time} ` : ""}${nextEvent.title}`
@@ -39,7 +41,7 @@ export function BriefingCard({ eventCount, nextEvent, gmail, waiting }: Props) {
   // 全部0件の日は、大きな「0件」を3つ並べずに1行にまとめて場所を譲る(UI/UX 調査メモ C-6)。
   // 読み込み中(undefined)はまとめない — 0件と決まる前に1行へ縮むと、あとで3枚に戻って跳ねる。
   const gmailClear = !gmail?.connected || (gmail.importantUnread === 0 && waiting !== undefined && waiting.length === 0);
-  if (eventCount === 0 && gmail !== undefined && gmailClear) {
+  if (!hideEvents && eventCount === 0 && gmail !== undefined && gmailClear) {
     return (
       <section className="warm-card warm-brief is-clear" data-reveal="1" aria-label="今日のまとめ">
         <Link to="/schedule?view=today" className="warm-brief__clear">
@@ -57,17 +59,19 @@ export function BriefingCard({ eventCount, nextEvent, gmail, waiting }: Props) {
         <h2 className="warm-card__title">今日のまとめ</h2>
       </div>
       <div className="warm-brief__grid">
-        <Link to="/schedule?view=today" className="warm-brief__item">
-          <span className="warm-brief__label">
-            <CalendarDays size={13} />
-            今日の予定
-          </span>
-          <strong className="warm-brief__count">
-            {eventCount ?? "—"}
-            <small>件</small>
-          </strong>
-          <span className="warm-brief__note">{eventNote}</span>
-        </Link>
+        {!hideEvents && (
+          <Link to="/schedule?view=today" className="warm-brief__item">
+            <span className="warm-brief__label">
+              <CalendarDays size={13} />
+              今日の予定
+            </span>
+            <strong className="warm-brief__count">
+              {eventCount ?? "—"}
+              <small>件</small>
+            </strong>
+            <span className="warm-brief__note">{eventNote}</span>
+          </Link>
+        )}
 
         {gmail?.connected && (
           <Link to="/gmail" className={`warm-brief__item ${gmail.importantUnread > 0 ? "is-alert" : ""}`}>

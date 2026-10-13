@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
 import { Link } from "react-router-dom";
-import { Bell, CalendarArrowUp, CalendarDays, Database, Image as ImageIcon, Mail, PiggyBank, Sparkles, Wallet } from "lucide-react";
+import { Bell, CalendarArrowUp, CalendarDays, Database, Image as ImageIcon, LayoutGrid, Mail, PiggyBank, Sparkles, Wallet } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
@@ -41,6 +41,7 @@ import { Button } from "../components/ui/Button";
 import { AmountInput, Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { SwitchField } from "../components/ui/SwitchField";
+import { HiddenFeaturesCard } from "../components/settings/HiddenFeaturesCard";
 import { SHEET_DEBUG_KEY } from "../components/ui/Sheet";
 import { useToast } from "../components/ui/ToastProvider";
 import { useConfirm } from "../components/ui/ConfirmProvider";
@@ -296,6 +297,7 @@ export default function SettingsPage() {
   const showNotify = isSupabaseConfigured && isPushConfigured && Boolean(session);
   const tocItems: SettingsTocItem[] = [
     { id: "settings-news", label: "お知らせ", icon: Sparkles },
+    { id: "settings-features", label: "使う機能", icon: LayoutGrid },
     { id: "settings-data", label: "データ", icon: Database },
     { id: "settings-schedule", label: "予定", icon: CalendarDays },
     { id: "settings-trip", label: "旅行", icon: ImageIcon },
@@ -346,6 +348,10 @@ export default function SettingsPage() {
             </Card>
 
             <FeedbackInbox />
+          </SettingsSection>
+
+          <SettingsSection id="settings-features" label="使う機能">
+            <HiddenFeaturesCard />
           </SettingsSection>
 
           <SettingsSection id="settings-data" label="データ">

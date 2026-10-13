@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { CalendarDays, ChevronLeft, ChevronRight, Home, LineChart, Mail, Pencil, Plane, Plus, RotateCcw, Settings as SettingsIcon, StickyNote, Trash2, Wallet, type LucideIcon } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
+import { useHiddenFeatures } from "../../hooks/useHiddenFeatures";
+import { isPathHidden } from "../../lib/hiddenFeatures";
 import {
   DEFAULT_QUICK_ACTION_KEYS,
   QUICK_ACTION_LIMIT,
@@ -44,6 +46,11 @@ const FEATURES: FeatureLink[] = [
 export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<QuickActionKey[]>(selectedKeys);
+  // 設定の「使う機能」で隠した機能は、一覧にも、ナビの編集にも出さない。保存する並びには残す(オンに戻せば、元の位置に出る)。
+  const hidden = useHiddenFeatures();
+  const isShown = (key: QuickActionKey) => !isPathHidden(getQuickAction(key).to, hidden);
+  const shownDraft = draft.filter(isShown);
+  const features = FEATURES.filter((feature) => !isPathHidden(feature.to, hidden));
 
   useEffect(() => {
     if (!open) return;
@@ -53,9 +60,12 @@ export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props)
 
   function move(key: QuickActionKey, offset: -1 | 1) {
     setDraft((current) => {
+      // 隣は、見えている並びの中の隣(隠した機能は飛ばす)。
+      const shown = current.filter(isShown);
+      const neighbor = shown[shown.indexOf(key) + offset];
       const index = current.indexOf(key);
-      const destination = index + offset;
-      if (index < 0 || destination < 0 || destination >= current.length) return current;
+      const destination = neighbor ? current.indexOf(neighbor) : -1;
+      if (index < 0 || destination < 0) return current;
       const next = [...current];
       [next[index], next[destination]] = [next[destination], next[index]];
       return next;
@@ -70,7 +80,7 @@ export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props)
     setDraft((current) => current.length < QUICK_ACTION_LIMIT && !current.includes(key) ? [...current, key] : current);
   }
 
-  const available = QUICK_ACTIONS.filter(({ key }) => !draft.includes(key));
+  const available = QUICK_ACTIONS.filter(({ key }) => !draft.includes(key) && isShown(key));
 
   return (
     <Sheet open={open} onClose={onClose} title={editing ? "下のナビの並びを編集" : "すべての機能"}>
@@ -82,15 +92,15 @@ export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props)
           </div>
 
           <div className="space-y-2">
-            {draft.map((key, index) => {
+            {shownDraft.map((key, index) => {
               const { label, icon: Icon, color } = getQuickAction(key);
               return (
                 <div key={key} className="glass-row flex min-h-14 items-center gap-3 rounded-xl px-3 py-2">
                   <Icon size={19} className={color} />
                   <span className="min-w-0 flex-1 text-sm font-medium text-slate-800">{label}</span>
                   <button type="button" onClick={() => move(key, -1)} disabled={index === 0} aria-label={`${label}を左へ`} className="rounded-lg p-2 text-slate-500 disabled:opacity-25"><ChevronLeft size={17} /></button>
-                  <button type="button" onClick={() => move(key, 1)} disabled={index === draft.length - 1} aria-label={`${label}を右へ`} className="rounded-lg p-2 text-slate-500 disabled:opacity-25"><ChevronRight size={17} /></button>
-                  <button type="button" onClick={() => remove(key)} disabled={draft.length === 1} aria-label={`${label}を外す`} className="rounded-lg p-2 text-slate-400 disabled:opacity-25"><Trash2 size={16} /></button>
+                  <button type="button" onClick={() => move(key, 1)} disabled={index === shownDraft.length - 1} aria-label={`${label}を右へ`} className="rounded-lg p-2 text-slate-500 disabled:opacity-25"><ChevronRight size={17} /></button>
+                  <button type="button" onClick={() => remove(key)} disabled={shownDraft.length === 1} aria-label={`${label}を外す`} className="rounded-lg p-2 text-slate-400 disabled:opacity-25"><Trash2 size={16} /></button>
                 </div>
               );
             })}
@@ -121,7 +131,7 @@ export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props)
               並びとの間が大きく空いていた(UI/UX 調査メモ 第2弾 S-8)。並びをすぐ出し、
               ナビの編集は下に置く。 */}
           <div className="grid grid-cols-3 gap-3">
-            {FEATURES.map(({ to, label, icon: Icon, color, bg }) => (
+            {features.map(({ to, label, icon: Icon, color, bg }) => (
               <Link key={to} to={to} onClick={onClose} className="glass-row flex flex-col items-center gap-2 rounded-2xl py-5 text-center transition-colors active:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${bg} ${color}`}><Icon size={20} /></div>
                 <span className="text-xs font-medium text-slate-700">{label}</span>

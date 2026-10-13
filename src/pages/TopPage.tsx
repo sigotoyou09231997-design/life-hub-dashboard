@@ -33,6 +33,8 @@ import { EmptyIllustration } from "../components/ui/EmptyIllustration";
 import { InlineExpenseEntry } from "../components/home/InlineExpenseEntry";
 import { SetupChecklist } from "../components/home/SetupChecklist";
 import { TripInviteBanner } from "../components/trips/TripInviteBanner";
+import { useHiddenFeatures } from "../hooks/useHiddenFeatures";
+import type { HideableFeature } from "../lib/hiddenFeatures";
 
 const EVENT_PREVIEW_LIMIT = 3;
 const TASK_PREVIEW_LIMIT = 3;
@@ -145,6 +147,16 @@ export default function TopPage() {
   }, [monthStart, today]);
   // 使われなくなった機能のお知らせ。ある月だけ、上段と4分割のカードの間に1枚出す。
   const usageAlerts = useUsageAlerts();
+  // 設定の「使う機能」で隠した機能は、ホームのカードも出さない(src/lib/hiddenFeatures.ts)。
+  const hiddenFeatures = useHiddenFeatures();
+  const hide = {
+    schedule: hiddenFeatures.includes("schedule"),
+    money: hiddenFeatures.includes("money"),
+    gmail: hiddenFeatures.includes("gmail"),
+    trips: hiddenFeatures.includes("trips"),
+  };
+  const GROUP_FEATURE: Record<string, HideableFeature> = { 予定: "schedule", お金: "money", メモ: "notes", 旅行: "trips", Gmail: "gmail" };
+  const shownUsageAlerts = usageAlerts.alerts.filter((alert) => !hiddenFeatures.includes(GROUP_FEATURE[alert.usage.feature.group]));
   // 「今日のまとめ」に出す返信待ち(src/lib/replyWaiting.ts)。
   const replyWaiting = useReplyWaiting();
   // Googleカレンダーの取り込みを入にしてあれば、開いた時に取り込む(10分に1回まで)。
@@ -226,11 +238,11 @@ export default function TopPage() {
   //  - 見出しはカードの外に出し、カードの中は区切り線つきの行の一覧にする
   //  - DOM の順番はスマホの並び順。PC の並びは home-teal.css のグリッドが決める
   return (
-    <div className="warm-home lh-home" ref={motionRef}>
+    <div className={`warm-home lh-home${hide.money ? " lh-home--no-money" : ""}`} ref={motionRef}>
       {/* 見出しは画面の読み上げ用に残す(見た目には出さない)。 */}
       <h1 className="sr-only">ホーム</h1>
 
-      {budget ? (
+      {hide.money ? null : budget ? (
         <Link to="/records/expense" className="warm-card lh-money" data-reveal="1">
           <span className="lh-money__label">今月のお金</span>
           <p className={`warm-amount ${budget.remaining < 0 ? "is-negative" : ""}`}>
@@ -308,14 +320,17 @@ export default function TopPage() {
       <SetupChecklist />
 
       {/* 今日のまとめ(2026-09-16)。予定・重要な未読・返信待ちを、画面を回らずに1枚で。 */}
-      <BriefingCard
-        eventCount={eventsResult ? allTodayEvents.length : undefined}
-        nextEvent={nextEvent ? { title: nextEvent.title, time: timeToday(nextEvent) } : undefined}
-        gmail={gmailPreview}
-        waiting={replyWaiting}
-      />
+      {!(hide.schedule && hide.gmail) && (
+        <BriefingCard
+          eventCount={eventsResult ? allTodayEvents.length : undefined}
+          nextEvent={nextEvent ? { title: nextEvent.title, time: timeToday(nextEvent) } : undefined}
+          gmail={hide.gmail ? { connected: false, importantUnread: 0, total: 0 } : gmailPreview}
+          waiting={replyWaiting}
+          hideEvents={hide.schedule}
+        />
+      )}
 
-      {todayIsEmpty ? (
+      {hide.schedule ? null : todayIsEmpty ? (
         <section className="lh-section lh-section--today-empty" data-reveal="3">
           <SectionHead title="今日の予定・タスク" />
           <div className="warm-card lh-today-empty">
@@ -439,77 +454,81 @@ export default function TopPage() {
         </>
       )}
 
-      <section className="lh-section lh-section--trip" data-reveal="2">
-        <SectionHead title="旅行" />
-        <Link to="/trips" className="warm-trip">
-          <div
-            className="warm-trip__photo"
-            style={featuredTrip ? { backgroundImage: `url('${tripCover.url}')` } : undefined}
-            aria-hidden="true"
-          />
-          <div className="warm-trip__veil" aria-hidden="true" />
-          <span className="warm-trip__kicker">
-            <Plane size={13} strokeWidth={2.2} />
-            {featuredTrip ? TRIP_STATUS_LABEL[featuredTrip.status] : "次の旅"}
-          </span>
-          <p className="warm-trip__place">{featuredTrip ? featuredTrip.destination || featuredTrip.name : "次はどこへ"}</p>
-          <p className="warm-trip__when">
-            {featuredTrip
-              ? `${formatDisplayDate(featuredTrip.startDate)} 〜 ${formatDisplayDate(featuredTrip.endDate)}${
-                  tripDays !== null && tripDays >= 0 ? `（${tripDays === 0 ? "本日出発" : `あと ${tripDays} 日`}）` : ""
-                }`
-              : "旅の計画を立てましょう"}
-          </p>
-        </Link>
-      </section>
-
-      <section className="lh-section lh-section--gmail" data-reveal="5">
-        <SectionHead
-          title="Gmail"
-          to={gmailPreview?.total ? undefined : "/gmail"}
-          trailing={
-            gmailPreview?.total ? <span className="warm-card__badge">{gmailPreview.total}件の未処理</span> : undefined
-          }
-        />
-        <div className="warm-card lh-group">
-          {gmailPreview?.emails.length ? (
-            gmailPreview.emails.map((email) => {
-              const sender = parseSender(email.from);
-              return (
-                <Link key={email.id} to={`/gmail/mail/${email.id}`} className="lh-row">
-                  <span className={`warm-avatar lh-row__icon ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</span>
-                  <span className="lh-row__copy">
-                    <strong>{sender.name}</strong>
-                    <small>{email.subject}</small>
-                  </span>
-                  <span className="lh-row__aside">{formatGmailTimestamp(email.receivedAt)}</span>
-                </Link>
-              );
-            })
-          ) : (
-            <div className="warm-empty">
-              <span className="warm-empty__icon">
-                <Mail size={18} />
-              </span>
-              <div className="min-w-0">
-                <strong>{gmailPreview?.connected ? "未処理のメールはありません" : "Gmailを接続"}</strong>
-                <p>{gmailPreview?.connected ? "既読・返信済みは受信トレイで見られます" : "最新メールと返信案をここで確認"}</p>
-              </div>
-            </div>
-          )}
-          <Link to="/gmail" className="lh-row lh-row--foot">
-            <span className="lh-row__copy">
-              <strong>{gmailPreview?.connected ? "すべてのメールを見る" : "接続画面を開く"}</strong>
+      {!hide.trips && (
+        <section className="lh-section lh-section--trip" data-reveal="2">
+          <SectionHead title="旅行" />
+          <Link to="/trips" className="warm-trip">
+            <div
+              className="warm-trip__photo"
+              style={featuredTrip ? { backgroundImage: `url('${tripCover.url}')` } : undefined}
+              aria-hidden="true"
+            />
+            <div className="warm-trip__veil" aria-hidden="true" />
+            <span className="warm-trip__kicker">
+              <Plane size={13} strokeWidth={2.2} />
+              {featuredTrip ? TRIP_STATUS_LABEL[featuredTrip.status] : "次の旅"}
             </span>
-            <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+            <p className="warm-trip__place">{featuredTrip ? featuredTrip.destination || featuredTrip.name : "次はどこへ"}</p>
+            <p className="warm-trip__when">
+              {featuredTrip
+                ? `${formatDisplayDate(featuredTrip.startDate)} 〜 ${formatDisplayDate(featuredTrip.endDate)}${
+                    tripDays !== null && tripDays >= 0 ? `（${tripDays === 0 ? "本日出発" : `あと ${tripDays} 日`}）` : ""
+                  }`
+                : "旅の計画を立てましょう"}
+            </p>
           </Link>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {!hide.gmail && (
+        <section className="lh-section lh-section--gmail" data-reveal="5">
+          <SectionHead
+            title="Gmail"
+            to={gmailPreview?.total ? undefined : "/gmail"}
+            trailing={
+              gmailPreview?.total ? <span className="warm-card__badge">{gmailPreview.total}件の未処理</span> : undefined
+            }
+          />
+          <div className="warm-card lh-group">
+            {gmailPreview?.emails.length ? (
+              gmailPreview.emails.map((email) => {
+                const sender = parseSender(email.from);
+                return (
+                  <Link key={email.id} to={`/gmail/mail/${email.id}`} className="lh-row">
+                    <span className={`warm-avatar lh-row__icon ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</span>
+                    <span className="lh-row__copy">
+                      <strong>{sender.name}</strong>
+                      <small>{email.subject}</small>
+                    </span>
+                    <span className="lh-row__aside">{formatGmailTimestamp(email.receivedAt)}</span>
+                  </Link>
+                );
+              })
+            ) : (
+              <div className="warm-empty">
+                <span className="warm-empty__icon">
+                  <Mail size={18} />
+                </span>
+                <div className="min-w-0">
+                  <strong>{gmailPreview?.connected ? "未処理のメールはありません" : "Gmailを接続"}</strong>
+                  <p>{gmailPreview?.connected ? "既読・返信済みは受信トレイで見られます" : "最新メールと返信案をここで確認"}</p>
+                </div>
+              </div>
+            )}
+            <Link to="/gmail" className="lh-row lh-row--foot">
+              <span className="lh-row__copy">
+                <strong>{gmailPreview?.connected ? "すべてのメールを見る" : "接続画面を開く"}</strong>
+              </span>
+              <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* 今週これから(PC幅だけ)。上の「次の予定」は今日ぶんしか出さないので、
           ここが明日から先を受け持つ。1件も無い週はカードごと出さない — 空の枠が
           7列並ぶだけになり、かえって画面が寂しくなるため。 */}
-      {isDesktop && hasWeekAheadItems(weekDays) && (
+      {isDesktop && !hide.schedule && hasWeekAheadItems(weekDays) && (
         <section className="lh-section lh-section--week" data-reveal="6">
           <SectionHead title="今週これから" to="/schedule?view=calendar" />
           <div className="warm-card warm-week">
@@ -558,7 +577,7 @@ export default function TopPage() {
       {/* 使われなくなった機能のお知らせ。前は「今日のまとめ」のすぐ下(次の予定より上)に
           カード1枚で出ていたが、毎日の行動とは関係が薄いので、いちばん下の1行に縮めた
           (UI/UX 調査メモ A-5)。 */}
-      <UsageAlertCard alerts={usageAlerts.alerts} onDismiss={usageAlerts.dismiss} compact />
+      <UsageAlertCard alerts={shownUsageAlerts} onDismiss={usageAlerts.dismiss} compact />
 
       {/* 追加の入口(UI/UX 調査メモ A-3)。ホームは何を足すか決まらないので、選ぶシートを開く。 */}
       <PageFab onClick={openAddChooser} label="追加する">

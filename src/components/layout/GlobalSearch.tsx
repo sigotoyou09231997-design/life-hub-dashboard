@@ -19,6 +19,8 @@ import { parseQuickExpense, resolveQuickCategory } from "../../lib/quickExpense"
 import { showToast } from "../ui/toastStore";
 import type { Transaction } from "../../types";
 import { countHits, searchEverything, type SearchGroup, type SearchHit, type SearchKind } from "../../lib/globalSearch";
+import { useHiddenFeatures } from "../../hooks/useHiddenFeatures";
+import { isPathHidden } from "../../lib/hiddenFeatures";
 import {
   isPaletteShortcut,
   isTypingTarget,
@@ -282,7 +284,19 @@ export function GlobalSearch({ open, onClose }: Props) {
     [open, searching, recentKey],
   );
 
-  const groups = source ? searchEverything(query, source) : EMPTY_GROUPS;
+  // 設定の「使う機能」で隠した機能は、探す相手にも、候補(操作・最近見たもの)にも出さない(src/lib/hiddenFeatures.ts)。
+  const hiddenFeatures = useHiddenFeatures();
+  const visibleSource = source
+    ? {
+        events: hiddenFeatures.includes("schedule") ? [] : source.events,
+        tasks: hiddenFeatures.includes("schedule") ? [] : source.tasks,
+        notes: hiddenFeatures.includes("notes") ? [] : source.notes,
+        trips: hiddenFeatures.includes("trips") ? [] : source.trips,
+        tripSchedule: hiddenFeatures.includes("trips") ? [] : source.tripSchedule,
+        emails: hiddenFeatures.includes("gmail") ? [] : source.emails,
+      }
+    : source;
+  const groups = visibleSource ? searchEverything(query, visibleSource) : EMPTY_GROUPS;
   const total = countHits(groups);
 
   const recentItems = useMemo(
@@ -290,19 +304,22 @@ export function GlobalSearch({ open, onClose }: Props) {
     [recentEntries, recentRows, pathname],
   );
 
-  const matchedActions = useMemo(() => (searching ? matchActions(query) : []), [searching, query]);
+  const matchedActions = useMemo(
+    () => (searching ? matchActions(query).filter((action) => !isPathHidden(action.to, hiddenFeatures)) : []),
+    [searching, query, hiddenFeatures],
+  );
 
   // 「ランチ 1200」のような、店・品名と金額だけの文字は、支出の記録の候補にもする(第5弾 B-1)。
   // 過去の支出(店名からのカテゴリの推測に使う)は、この形の語を打った時だけ読む。
   const quick = useMemo(() => (searching ? parseQuickExpense(query) : null), [searching, query]);
   const pastForQuick = useLiveQuery(async () => (quick ? db.transactions.toArray() : []), [quick !== null]);
   const quickPlan = useMemo<QuickExpensePlan | null>(() => {
-    if (!quick || pastForQuick === undefined) return null;
+    if (!quick || pastForQuick === undefined || hiddenFeatures.includes("money")) return null;
     const ordered = orderCategoriesByUsage(EXPENSE_CATEGORIES, pastForQuick, "expense", todayStr());
     return { ...quick, ...resolveQuickCategory(quick.store, pastForQuick, ordered) };
-  }, [quick, pastForQuick]);
+  }, [quick, pastForQuick, hiddenFeatures]);
 
-  const sections: PaletteSection[] = searching
+  const allSections: PaletteSection[] = searching
     ? [
         // 探している最中(source が来る前)は、Enter を受け付けない: 当たりがあるかどうかが分からないうちに記録してしまわないように。
         ...(quickPlan
@@ -326,6 +343,10 @@ export function GlobalSearch({ open, onClose }: Props) {
         { id: "pinned", label: "よく使う操作", grid: true, options: pinnedActions().map(actionOption) },
         ...(recentItems.length > 0 ? [{ id: "recent", label: "最近見たもの", options: recentItems.map(recentOption) }] : []),
       ];
+  const sections = allSections.map((section) => ({
+    ...section,
+    options: section.options.filter((option) => !option.to || !isPathHidden(option.to, hiddenFeatures)),
+  }));
   const flat = sections.flatMap((section) => section.options);
   // 既定の行: 記録の行が先頭にあっても、探した当たり(予定・メモなど)や操作がある時は、その次の行。
   // 「ランチ 1200」で探しただけの人が、Enter でうっかり記録しないため。当たりが何も無い時だけ、記録の行が既定。

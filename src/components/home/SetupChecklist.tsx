@@ -14,6 +14,7 @@ import {
   type SetupItem,
 } from "../../lib/setupChecklist";
 import { openQuickAdd } from "../layout/AddChooser";
+import { useHiddenFeatures } from "../../hooks/useHiddenFeatures";
 import { showToast } from "../ui/toastStore";
 
 const RING_RADIUS = 15;
@@ -37,7 +38,9 @@ export function SetupChecklist() {
     return { salary: salaries > 0, expense: expenses > 0, event: events > 0, googleCalendar: accounts.some(isCalendarSyncEnabled) };
   }, []);
 
-  const progress = facts ? computeSetupProgress({ ...facts, homeAddress: homeAddress.trim().length > 0 }) : null;
+  // 設定の「使う機能」で隠した機能の項目は、数えにも出さない(給与・支出=お金管理、予定・Google カレンダー=予定・タスク、自宅の住所=旅行計画)。
+  const hiddenFeatures = useHiddenFeatures();
+  const progress = facts ? computeSetupProgress({ ...facts, homeAddress: homeAddress.trim().length > 0 }, hiddenFeatures) : null;
   const complete = progress?.complete ?? false;
 
   // 全部済んだら、その印を残す(あとで給与や支出を消しても、もう出さない)。

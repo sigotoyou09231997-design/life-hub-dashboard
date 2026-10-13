@@ -1,4 +1,5 @@
 import { scopedKey } from "./accounts";
+import type { HideableFeature } from "./hiddenFeatures";
 
 /**
  * ホームの「LIFE HUB をそろえる」(始め方のチェックリスト)。UI/UX 調査メモ 第5弾 A-4(2026-10-13)。
@@ -86,9 +87,20 @@ export interface SetupProgress {
   ratio: number;
 }
 
-export function computeSetupProgress(facts: SetupFacts): SetupProgress {
-  const items = buildSetupItems(facts);
+/** 項目が、どの機能に属すか。設定の「使う機能」で隠した機能の項目は出さない(src/lib/hiddenFeatures.ts)。 */
+const ITEM_FEATURE: Record<SetupItemId, HideableFeature> = {
+  salary: "money",
+  expense: "money",
+  event: "schedule",
+  googleCalendar: "schedule",
+  homeAddress: "trips",
+};
+
+export function computeSetupProgress(facts: SetupFacts, hiddenFeatures: readonly HideableFeature[] = []): SetupProgress {
+  const items = buildSetupItems(facts).filter((item) => !hiddenFeatures.includes(ITEM_FEATURE[item.id]));
   const doneCount = items.filter((item) => item.done).length;
+  // 項目が1つも残らなければ、「全部済んだ」扱いにして出さない(0 で割らない)。
+  if (items.length === 0) return { items, doneCount: 0, total: 0, complete: true, ratio: 1 };
   return { items, doneCount, total: items.length, complete: doneCount === items.length, ratio: doneCount / items.length };
 }
 

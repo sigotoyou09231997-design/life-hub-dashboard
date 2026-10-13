@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { CalendarDays, CheckSquare, StickyNote, Wallet, type LucideIcon } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import type { QuickAddKind } from "./QuickAddForms";
+import { useHiddenFeatures } from "../../hooks/useHiddenFeatures";
+import type { HideableFeature } from "../../lib/hiddenFeatures";
 
 // 入力のフォームは選ばれた時に初めて読む(各画面のフォームと同じ部品なので、最初の読み込みに入れない)。
 const QuickAddForms = lazy(() => import("./QuickAddForms"));
@@ -39,6 +41,9 @@ const CHOICES: Choice[] = [
   { label: "メモ", note: "メモ・リスト", icon: StickyNote, kind: "note" },
 ];
 
+/** 追加の種類が、どの機能に属すか。設定の「使う機能」で隠した機能の選択肢は出さない。 */
+const KIND_FEATURE: Record<QuickAddKind, HideableFeature> = { expense: "money", event: "schedule", task: "schedule", note: "notes" };
+
 /**
  * 「何を追加しますか?」のシート。App に1つだけ置き、openAddChooser() で開く。
  * 予定画面の「＋」が出すシート(SchedulePage.tsx)と同じ見た目(choice-grid)にしてある。
@@ -49,6 +54,8 @@ export function AddChooserHost() {
   const [kind, setKind] = useState<QuickAddKind | null>(null);
   /** 一度でも選んだら入力の部品を置いたままにする(閉じる時の動きを途中で切らないため)。 */
   const [formsLoaded, setFormsLoaded] = useState(false);
+  const hidden = useHiddenFeatures();
+  const choices = CHOICES.filter((choice) => !hidden.includes(KIND_FEATURE[choice.kind]));
 
   useEffect(() => {
     const handleOpen = () => setOpen(true);
@@ -69,7 +76,10 @@ export function AddChooserHost() {
     <>
       <Sheet open={open} onClose={() => setOpen(false)} title="何を追加しますか?">
         <div className="choice-grid">
-          {CHOICES.map(({ label, note, icon: Icon, kind: choice }) => (
+          {choices.length === 0 && (
+            <p className="col-span-full text-sm text-slate-500">追加できる機能がありません。設定の「使う機能」で、オンに戻せます。</p>
+          )}
+          {choices.map(({ label, note, icon: Icon, kind: choice }) => (
             <button
               key={label}
               type="button"

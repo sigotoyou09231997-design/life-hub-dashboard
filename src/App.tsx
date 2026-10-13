@@ -25,6 +25,7 @@ import { QuickActionBar } from "./components/layout/QuickActionBar";
 import { usePageMotion } from "./hooks/usePageMotion";
 import { useDesignMotion } from "./hooks/useDesignMotion";
 import { usePlaceReminderWatch } from "./hooks/usePlaceReminderWatch";
+import { HiddenFeaturesSync } from "./components/layout/HiddenFeaturesSync";
 
 import AuthGatePage from "./pages/AuthGatePage";
 import { markLoggedIn } from "./lib/loginMemory";
@@ -353,6 +354,8 @@ export default function App() {
             <AddChooserHost />
           </div>
           <QuickActionBar />
+          {/* 設定の「使う機能」(隠す機能)を、アカウントに紐づけて別の端末とそろえる。ログインして同期の準備が済んだ後の画面にだけ置く。 */}
+          <HiddenFeaturesSync />
         </div>
       </div>
     </AppProviders>
