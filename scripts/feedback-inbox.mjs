@@ -4,6 +4,7 @@
 //   node scripts/feedback-inbox.mjs              未対応の要望を並べる
 //   node scripts/feedback-inbox.mjs --all        対応済み・見送りも並べる
 //   node scripts/feedback-inbox.mjs --json       そのまま JSON で出す
+//   node scripts/feedback-inbox.mjs --working <id>  修正中にする(直し始めた時。アプリの「修正」が「修正中」になる。035 を流した後)
 //   node scripts/feedback-inbox.mjs --done <id>  対応済みにする(--dismiss で見送り、--reopen で未対応に戻す)
 //   node scripts/feedback-inbox.mjs --created <id>  届いた時刻(epoch 秒)だけを出す(ship.sh の所要時間の計測用)
 //   node scripts/feedback-inbox.mjs --images <id>  付いている画像を todoアプリ/.feedback-images/ に保存して、パスを出す(画像を開いて見る)
@@ -93,14 +94,19 @@ async function main() {
     return;
   }
 
-  const statusFlag = { "--done": "done", "--dismiss": "dismissed", "--reopen": "new" };
+  const statusFlag = { "--working": "working", "--done": "done", "--dismiss": "dismissed", "--reopen": "new" };
   const flag = args.find((arg) => arg in statusFlag);
   if (flag) {
     const id = args[args.indexOf(flag) + 1];
     if (!id) throw new Error(`${flag} のあとに要望の id を付けてください`);
     const result = await rpc(env, "app_feedback_set_status", { p_code: code, p_id: id, p_status: statusFlag[flag] });
+    if (!result.ok && flag === "--working" && result.reason === "invalid_status") {
+      // 035 をまだ流していない。修正中の印は付けられないだけで、直す作業は止めない(アプリには「修正中」が出ない)。
+      console.error("「修正中」の印は付けられませんでした(supabase/sql/035_feedback_working.sql がまだ本番で流れていません)。修正はそのまま進めてください");
+      return;
+    }
     if (!result.ok) throw new Error(`変えられませんでした(${result.reason})`);
-    console.log(`${id} を「${{ done: "対応済み", dismissed: "見送り", new: "未対応" }[statusFlag[flag]]}」にしました`);
+    console.log(`${id} を「${{ working: "修正中", done: "対応済み", dismissed: "見送り", new: "未対応" }[statusFlag[flag]]}」にしました`);
     return;
   }
 

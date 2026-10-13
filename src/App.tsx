@@ -15,7 +15,7 @@ import { hasInterruptedDeletes } from "./lib/deferredDelete";
 import { replayInterruptedDeletes } from "./lib/undoableDeletes";
 import { ToastProvider } from "./components/ui/ToastProvider";
 import { ConfirmProvider } from "./components/ui/ConfirmProvider";
-import { InAppFeedbackButton } from "./components/feedback/FeedbackButton";
+import { InAppFeedbackButton, InAppFeedbackProgress } from "./components/feedback/FeedbackButton";
 import { AddChooserHost } from "./components/layout/AddChooser";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AmbientBackground } from "./components/layout/AmbientBackground";
@@ -349,6 +349,8 @@ export default function App() {
             {/* 「ここ直した方がいい」を送る入口。右下の「＋」の真上(src/components/feedback/FeedbackButton.tsx)。
                 持ち主(本人)には出さない。 */}
             <InAppFeedbackButton />
+            {/* 持ち主の画面にだけ、直している最中の「修正中 N件」(同じ場所)。 */}
+            <InAppFeedbackProgress />
             {/* 「何を追加しますか?」(ホームの「＋」・PCの上の帯の「＋追加」から開く)。 */}
             <AddChooserHost />
           </div>
