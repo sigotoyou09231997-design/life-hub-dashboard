@@ -138,3 +138,14 @@ describe("canAttachImages(033 を流した後だけ「画像を付ける」を�
     expect(await canAttach()).toBe(false);
   });
 });
+
+describe("feedbackStatusLabel(状態の名前)", () => {
+  it("受け付け済み・修正中・対応済み・見送り。知らない状態は受け付け済みとして出す", async () => {
+    const { feedbackStatusLabel } = await import("./appFeedback");
+    expect(feedbackStatusLabel("new")).toBe("受け付け済み");
+    expect(feedbackStatusLabel("working")).toBe("修正中");
+    expect(feedbackStatusLabel("done")).toBe("対応済み");
+    expect(feedbackStatusLabel("dismissed")).toBe("見送り");
+    expect(feedbackStatusLabel("something-new")).toBe("受け付け済み");
+  });
+});

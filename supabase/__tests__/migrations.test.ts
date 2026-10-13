@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * - 029: 要望の受信箱(ログインして・共有リンクから送れる・持ち主だけ読める・読み取りコード・連投の上限)。
  * - 030: 要望から足した欄(移動手段・予定の詳細・持ち物の並び順・参加者・支払った人)と、共有したしおりへの反映。
  * - 033: 修正依頼に付ける画像(JPEG だけ・3枚まで・大きさの上限・画像つきは1時間3件まで・対応済みで消える・読み取りコードで1件ずつ読む)。
+ * - 035: 修正依頼の「修正中」(状態に working を足す・Mac から印を付ける・いつからか・見張りには流れない・送った人が自分の分の状態を読める)。
  * - 034: 旅行を一緒に編集(メールで招く・承認するまで見えない・承認後は持ち主の名前で読み書き・消せない・外す／抜けるで即座に届かなくなる・日記は共有しない)。
  */
 
@@ -878,5 +879,86 @@ describe("034: 旅行を一緒に編集", () => {
       await expect(asUser(FRIEND, () => db.query("select public.leave_trip($1)", [T_SHARED]), { client_id: "chatgpt-client" })).rejects.toThrow(/not_allowed/);
       await expect(asUser(USER, () => db.query("select public.remove_trip_member($1)", [T_SHARED]), { client_id: "chatgpt-client" })).rejects.toThrow(/not_allowed/);
     });
+  });
+});
+
+describe("035: 修正依頼の「修正中」", () => {
+  const OWNER = USER;
+  const SENDER = "88888888-2222-4333-8444-555555555555";
+  const OTHER_SENDER = "99999999-2222-4333-8444-555555555555";
+  const readCode = "FBWORKINGCODE1234567";
+  const asSender = <T,>(fn: () => Promise<T>) => as("authenticated", { sub: SENDER, role: "authenticated" }, fn);
+  const setStatus = async (id: string, status: string) =>
+    (await db.query<{ r: { ok: boolean; reason?: string } }>("select public.app_feedback_set_status($1, $2, $3) as r", [readCode, id, status])).rows[0].r;
+  const inbox = async (all = false) =>
+    (await db.query<{ r: { ok: boolean; items: { id: string; status: string }[] } }>("select public.app_feedback_inbox($1, $2) as r", [readCode, all])).rows[0].r;
+  const row = async (id: string) =>
+    (await db.query<{ status: string; working_at: Date | null; resolved_at: Date | null }>("select status, working_at, resolved_at from public.app_feedback where id = $1", [id])).rows[0];
+  let mine = "";
+  let others = "";
+
+  beforeAll(async () => {
+    await db.exec("delete from public.app_feedback_owner; delete from public.app_feedback_read_codes; delete from public.app_feedback;");
+    await db.query("insert into public.app_feedback_owner (id, user_id) values ('owner', $1)", [OWNER]);
+    await db.query("insert into public.app_feedback_read_codes (id, code_hash) values ('owner', $1)", [createHash("sha256").update(readCode).digest("hex")]);
+    mine = (await db.query<{ id: string }>("insert into public.app_feedback (sender_id, via, message) values ($1, 'app', 'ここを直して') returning id", [SENDER])).rows[0].id;
+    others = (await db.query<{ id: string }>("insert into public.app_feedback (sender_id, via, message) values ($1, 'app', '別の人の依頼') returning id", [OTHER_SENDER])).rows[0].id;
+  });
+
+  it("Mac から「修正中」の印を付けられる。いつからかが残り、見張りの既定(未対応だけ)には流れない", async () => {
+    expect(await setStatus(mine, "working")).toEqual({ ok: true });
+    const working = await row(mine);
+    expect(working.status).toBe("working");
+    expect(working.working_at).not.toBeNull();
+    expect(working.resolved_at).toBeNull();
+    // 既定の受信箱(見張りが見る)は未対応だけ。修正中にした依頼は、もう流れてこない。
+    expect((await inbox()).items.map((item) => item.id)).toEqual([others]);
+    // 全部を見る時は、修正中も出る。
+    const all = (await inbox(true)).items;
+    expect(all.find((item) => item.id === mine)?.status).toBe("working");
+  });
+
+  it("修正中から対応済みにしても、いつから直していたかは残る。未対応に戻すと消える", async () => {
+    expect(await setStatus(mine, "done")).toEqual({ ok: true });
+    const done = await row(mine);
+    expect(done.status).toBe("done");
+    expect(done.working_at).not.toBeNull();
+    expect(done.resolved_at).not.toBeNull();
+    expect(await setStatus(mine, "new")).toEqual({ ok: true });
+    const back = await row(mine);
+    expect(back).toMatchObject({ status: "new", working_at: null, resolved_at: null });
+    expect((await inbox()).items.map((item) => item.id).sort()).toEqual([mine, others].sort());
+  });
+
+  it("知らない状態・違う読み取りコード・無い依頼は断る", async () => {
+    expect(await setStatus(mine, "fixing")).toEqual({ ok: false, reason: "invalid_status" });
+    expect((await db.query<{ r: unknown }>("select public.app_feedback_set_status('違うコード', $1, 'working') as r", [mine])).rows[0].r).toEqual({ ok: false, reason: "invalid_code" });
+    expect(await setStatus("00000000-0000-4000-8000-000000000000", "working")).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("送った人は、自分の依頼の状態(修正中・いつから)を読める。ほかの人の依頼は読めない", async () => {
+    expect(await setStatus(mine, "working")).toEqual({ ok: true });
+    await asSender(async () => {
+      const seen = (await db.query<{ id: string; status: string; working_at: Date | null }>("select id, status, working_at from public.app_feedback")).rows;
+      expect(seen.map((item) => item.id)).toEqual([mine]);
+      expect(seen[0].status).toBe("working");
+      expect(seen[0].working_at).not.toBeNull();
+    });
+    expect(await as("authenticated", { sub: OTHER_SENDER, role: "authenticated" }, () => count(`select count(*)::int as n from public.app_feedback where id = '${mine}'`))).toBe(0);
+  });
+
+  it("持ち主はアプリからも状態を変えられる(修正中も)。持ち主でない人・ChatGPT のトークンは変えられない", async () => {
+    expect(await as("authenticated", { sub: OWNER, role: "authenticated" }, () => rows(`update public.app_feedback set status = 'working' where id = '${others}' returning id`))).toBe(1);
+    expect(await asSender(() => rows(`update public.app_feedback set status = 'done' where id = '${mine}' returning id`))).toBe(0);
+    expect(await as("authenticated", { sub: OWNER, role: "authenticated", client_id: "chatgpt-client" }, () => rows(`update public.app_feedback set status = 'done' where id = '${others}' returning id`))).toBe(0);
+    await expect(as("authenticated", { sub: OWNER, role: "authenticated" }, () => db.exec(`update public.app_feedback set status = 'fixing' where id = '${others}'`))).rejects.toThrow();
+  });
+
+  it("修正中の間は画像を残す。対応済みにすると消える(033 のまま)", async () => {
+    await db.query("update public.app_feedback set images = $1::jsonb where id = $2", [JSON.stringify(["data:image/jpeg;base64,AAAA"]), mine]);
+    expect(await setStatus(mine, "working")).toEqual({ ok: true });
+    expect(await count(`select count(*)::int as n from public.app_feedback where id = '${mine}' and images is not null`)).toBe(1);
+    expect(await setStatus(mine, "done")).toEqual({ ok: true });
+    expect(await count(`select count(*)::int as n from public.app_feedback where id = '${mine}' and images is null`)).toBe(1);
   });
 });

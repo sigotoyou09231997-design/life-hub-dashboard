@@ -98,7 +98,9 @@ export function FeedbackInbox() {
   }
 
   const newCount = items?.filter((item) => item.status === "new").length ?? 0;
-  const visible = items?.filter((item) => showResolved || item.status === "new") ?? [];
+  const workingCount = items?.filter((item) => item.status === "working").length ?? 0;
+  // 修正中も、未対応と同じく「まだ終わっていない」ものとして、既定の一覧に出す。
+  const visible = items?.filter((item) => showResolved || item.status === "new" || item.status === "working") ?? [];
 
   return (
     <Card className="system-section system-section--feedback lg:col-span-2">
@@ -111,7 +113,10 @@ export function FeedbackInbox() {
             <h2>届いた要望</h2>
           </div>
         </div>
-        {newCount > 0 && <Badge tone="accent">未対応 {newCount}件</Badge>}
+        <div className="flex flex-wrap gap-1.5">
+          {workingCount > 0 && <Badge tone="accent">修正中 {workingCount}件</Badge>}
+          {newCount > 0 && <Badge tone="accent">未対応 {newCount}件</Badge>}
+        </div>
       </div>
       <p className="system-section__description text-xs text-slate-500">
         ほかの人が右下の「修正」から送った「ここ直した方がいい」です。あなたにだけ見えます。
@@ -121,7 +126,7 @@ export function FeedbackInbox() {
       ) : items === null ? (
         <p className="text-sm text-slate-400">読み込み中…</p>
       ) : visible.length === 0 ? (
-        <p className="text-sm text-slate-500">{showResolved ? "まだ届いていません。" : "未対応の要望はありません。"}</p>
+        <p className="text-sm text-slate-500">{showResolved ? "まだ届いていません。" : "未対応・修正中の要望はありません。"}</p>
       ) : (
         <ul className="flex flex-col gap-3" aria-label="届いた要望の一覧">
           {visible.map((item) => (
@@ -164,6 +169,16 @@ export function FeedbackInbox() {
                     </Button>
                     <Button variant="ghost" disabled={busyId === item.id} onClick={() => void change(item, "dismissed")}>
                       見送る
+                    </Button>
+                  </>
+                ) : item.status === "working" ? (
+                  <>
+                    <Badge tone="accent">{item.workingAt ? `修正中（${whenLabel(item.workingAt).split(" ")[1]}から）` : "修正中"}</Badge>
+                    <Button variant="secondary" disabled={busyId === item.id} onClick={() => void change(item, "done")}>
+                      対応済みにする
+                    </Button>
+                    <Button variant="ghost" disabled={busyId === item.id} onClick={() => void change(item, "new")}>
+                      未対応に戻す
                     </Button>
                   </>
                 ) : (

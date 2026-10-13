@@ -12,7 +12,20 @@ import { isMissingTable } from "./chatgptInbox";
  * 表は同期しない(端末の Dexie を経由せず、Supabase を直接読み書きする)。通信できない時は送れない。
  */
 
-export type FeedbackStatus = "new" | "done" | "dismissed";
+/** new=受け付け済み(まだ手を付けていない) / working=修正中(035) / done=対応済み / dismissed=見送り。 */
+export type FeedbackStatus = "new" | "working" | "done" | "dismissed";
+
+const STATUS_LABEL: Record<FeedbackStatus, string> = {
+  new: "受け付け済み",
+  working: "修正中",
+  done: "対応済み",
+  dismissed: "見送り",
+};
+
+/** 画面に出す状態の名前。知らない状態(新しく足された後の古い版)は、受け付け済みとして扱う。 */
+export function feedbackStatusLabel(status: string): string {
+  return STATUS_LABEL[status as FeedbackStatus] ?? STATUS_LABEL.new;
+}
 
 export interface FeedbackItem {
   id: string;
@@ -26,6 +39,8 @@ export interface FeedbackItem {
   createdAt: string;
   /** 付いている画像の枚数(033 を流す前は無い)。画像そのものは loadFeedbackImages で1件ずつ読む。 */
   imageCount?: number;
+  /** いつから修正中か(035 を流す前は無い)。status が working の時だけ意味がある。 */
+  workingAt?: string;
 }
 
 export type FeedbackFailure =
@@ -114,6 +129,7 @@ export async function sendFeedback(input: SendInput): Promise<void> {
   }
   const result = (await response.json().catch(() => null)) as { ok?: boolean; reason?: string } | null;
   if (!result?.ok) throw new FeedbackError(knownFailure(result?.reason));
+  notifyFeedbackChanged();
 }
 
 let imagesEnabled: Promise<boolean> | undefined;
@@ -165,6 +181,7 @@ interface FeedbackRow {
   status: FeedbackStatus;
   created_at: string;
   image_count?: number | null;
+  working_at?: string | null;
 }
 
 export function rowToFeedback(row: FeedbackRow): FeedbackItem {
@@ -179,28 +196,61 @@ export function rowToFeedback(row: FeedbackRow): FeedbackItem {
     status: row.status,
     createdAt: row.created_at,
     imageCount: row.image_count ?? undefined,
+    workingAt: row.working_at ?? undefined,
   };
+}
+
+/** あとから足された列(033 の画像の枚数・035 の修正中の時刻)。流す前の本番には無いので、無ければ外して読み直す。 */
+const OPTIONAL_COLUMNS = ["image_count", "working_at"];
+const BASE_COLUMNS = "id, via, sender_name, trip_name, page, message, app_version, status, created_at";
+
+type FeedbackQuery = (columns: string) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>;
+
+/** 列を全部付けて読み、「その列は無い」と返されたら、その列だけ外して読み直す(受信箱が読めなくならないように)。
+ * 列が無い時のエラー(code 42703)は、無い列の名前を message に含む。名前が見つからない失敗は、そのまま投げる。 */
+async function selectWithOptionalColumns(query: FeedbackQuery): Promise<FeedbackRow[]> {
+  const optional = [...OPTIONAL_COLUMNS];
+  for (;;) {
+    const result = await query([BASE_COLUMNS, ...optional].join(", "));
+    if (!result.error) return (result.data ?? []) as FeedbackRow[];
+    const message = result.error.message ?? "";
+    const missing = optional.find((column) => message.includes(column));
+    if (!missing) throw result.error;
+    optional.splice(optional.indexOf(missing), 1);
+  }
 }
 
 /** 届いた要望(持ち主だけが読める)。新しい順。 */
 export async function loadFeedback(): Promise<FeedbackItem[]> {
   const client = await getSupabaseDataClient();
-  const columns = "id, via, sender_name, trip_name, page, message, app_version, status, created_at";
-  // 画像の枚数の列(033)は、流す前は無い。無ければ、今までの列だけで読む(受信箱が読めなくならないように)。
-  const withCount = await client
-    .from("app_feedback")
-    .select(`${columns}, image_count`)
-    .order("created_at", { ascending: false })
-    .limit(200);
-  let rows: unknown = withCount.data;
-  let error = withCount.error;
-  if (error && (error.code === "42703" || /image_count/.test(error.message ?? ""))) {
-    const without = await client.from("app_feedback").select(columns).order("created_at", { ascending: false }).limit(200);
-    rows = without.data;
-    error = without.error;
+  const rows = await selectWithOptionalColumns((columns) =>
+    client.from("app_feedback").select(columns).order("created_at", { ascending: false }).limit(200),
+  );
+  return rows.map(rowToFeedback);
+}
+
+/** 画面で状況を見せる範囲(日)。これより古い依頼は、状況の一覧に出さない。 */
+const PROGRESS_DAYS = 14;
+
+/**
+ * 自分が見られる依頼の、最近のもの(新しい順)。送った人には自分が送ったものだけ、持ち主には全部が返る(RLS)。
+ * 「修正中です」を出すために、アプリを開いている間、続けて読み直す(src/lib/feedbackProgress.ts)。
+ * ログインしていない・表が無い・通信できない時は空(画面には何も出さない)。
+ */
+export async function loadRecentFeedback(limit = 10): Promise<FeedbackItem[]> {
+  if (!isSupabaseConfigured) return [];
+  try {
+    const userId = (await auth.getSession()).data.session?.user.id;
+    if (!userId) return [];
+    const client = await getSupabaseDataClient();
+    const since = new Date(Date.now() - PROGRESS_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const rows = await selectWithOptionalColumns((columns) =>
+      client.from("app_feedback").select(columns).gte("created_at", since).order("created_at", { ascending: false }).limit(limit),
+    );
+    return rows.map(rowToFeedback);
+  } catch {
+    return [];
   }
-  if (error) throw error;
-  return ((rows ?? []) as FeedbackRow[]).map(rowToFeedback);
 }
 
 /** 1件の依頼に付いている画像(JPEG のデータ URL)。持ち主だけが読める。 */
@@ -216,9 +266,24 @@ export async function setFeedbackStatus(id: string, status: FeedbackStatus): Pro
   const client = await getSupabaseDataClient();
   const { error } = await client
     .from("app_feedback")
-    .update({ status, resolved_at: status === "new" ? null : new Date().toISOString() })
+    .update({ status, resolved_at: status === "new" || status === "working" ? null : new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
+  notifyFeedbackChanged();
+}
+
+const changeListeners = new Set<() => void>();
+
+/** 依頼を送った・状態を変えた時に呼ばれる。状況の表示(src/lib/feedbackProgress.ts)が、すぐ読み直す。 */
+export function subscribeFeedbackChanged(listener: () => void): () => void {
+  changeListeners.add(listener);
+  return () => {
+    changeListeners.delete(listener);
+  };
+}
+
+export function notifyFeedbackChanged(): void {
+  for (const listener of changeListeners) listener();
 }
 
 /** 名乗りは端末に覚えておく(毎回打たせない)。 */

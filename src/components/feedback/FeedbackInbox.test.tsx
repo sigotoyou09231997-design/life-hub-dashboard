@@ -107,3 +107,43 @@ describe("届いた要望", () => {
     expect(screen.queryByAltText("付いている画像1")).toBeNull();
   });
 });
+
+describe("修正中(035)", () => {
+  beforeEach(() => {
+    mocks.owner = true;
+  });
+
+  it("修正中の依頼は、未対応と同じく既定の一覧に出て、いつから直しているかと「修正中 N件」が見える", async () => {
+    mocks.items = [
+      item({ id: "w1", message: "地図が出ない", status: "working", workingAt: "2026-10-13T03:10:00Z" }),
+      item({ id: "n1", message: "文字が小さい", status: "new" }),
+      item({ id: "d1", message: "もう直した", status: "done" }),
+    ];
+    renderInbox();
+    expect(await screen.findByText("地図が出ない")).toBeTruthy();
+    expect(screen.getByText("文字が小さい")).toBeTruthy();
+    expect(screen.queryByText("もう直した")).toBeNull();
+    expect(screen.getByText("修正中 1件")).toBeTruthy();
+    expect(screen.getByText("未対応 1件")).toBeTruthy();
+    expect(screen.getByText(/修正中（\d+:\d{2}から）/)).toBeTruthy();
+  });
+
+  it("修正中の依頼は、対応済みにする・未対応に戻す、ができる", async () => {
+    const user = userEvent.setup();
+    mocks.items = [item({ id: "w1", message: "地図が出ない", status: "working" })];
+    renderInbox();
+    await screen.findByText("地図が出ない");
+    await user.click(screen.getByRole("button", { name: "対応済みにする" }));
+    await waitFor(() => expect(mocks.changed).toEqual([["w1", "done"]]));
+  });
+
+  it("修正中を未対応に戻せる(止めた時に「修正中」のまま嘘にならないように)", async () => {
+    const user = userEvent.setup();
+    mocks.items = [item({ id: "w1", message: "地図が出ない", status: "working" })];
+    renderInbox();
+    await screen.findByText("地図が出ない");
+    await user.click(screen.getByRole("button", { name: "未対応に戻す" }));
+    await waitFor(() => expect(mocks.changed).toEqual([["w1", "new"]]));
+  });
+});
+
