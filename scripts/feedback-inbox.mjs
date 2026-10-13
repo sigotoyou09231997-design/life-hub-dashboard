@@ -20,6 +20,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { saveFeedbackImages } from "./feedbackImages.mjs";
+import { startWithEstimate } from "./feedbackStart.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -59,7 +60,15 @@ async function rpc(env, name, body) {
   const text = await res.text();
   if (!res.ok) {
     if (res.status === 404 || /PGRST202|does not exist|schema cache/.test(text)) {
-      throw new Error("受信箱がまだありません(supabase/sql/029_app_feedback.sql を本番で流していない)");
+      // 「その関数が本番に無い」。どの関数かで言い方を変え、呼んだ側が「流していない SQL がある」と見分けられるように印を付ける。
+      const err = new Error(
+        ["app_feedback_inbox", "app_feedback_set_status"].includes(name)
+          ? "受信箱がまだありません(supabase/sql/029_app_feedback.sql を本番で流していない)"
+          : `${name} がまだ本番にありません(対応する SQL を流していない)`,
+      );
+      err.notFound = true;
+      err.rpcName = name;
+      throw err;
     }
     throw new Error(`${name} が失敗しました(${res.status}): ${text.slice(0, 200)}`);
   }
@@ -107,7 +116,7 @@ async function main() {
       console.log(`${id} を「保留中」にしました${note ? `(理由: ${note})` : ""}`);
     } catch (err) {
       // 036 をまだ流していない。保留中の印は付けられないだけで、作業は止めない(アプリでは「受け付け済み」のまま)。
-      if (/app_feedback_hold|404|PGRST202|does not exist|schema cache/.test(String(err?.message ?? err))) {
+      if (err?.notFound && err.rpcName === "app_feedback_hold") {
         console.error("「保留中」の印は付けられませんでした(supabase/sql/036_feedback_hold.sql がまだ本番で流れていません)。理由は会話で本人に伝えてください");
         return;
       }
@@ -120,16 +129,13 @@ async function main() {
     const id = args[args.indexOf("--working") + 1];
     const minutes = Number(args[args.indexOf("--estimate") + 1]);
     if (!id || id.startsWith("--") || !Number.isFinite(minutes) || minutes <= 0) throw new Error("--working <id> --estimate <分(1以上の数)> の形で書いてください");
-    try {
-      const result = await rpc(env, "app_feedback_start", { p_code: code, p_id: id, p_minutes: Math.round(minutes) });
-      if (!result.ok) throw new Error(`修正中にできませんでした(${result.reason})`);
-      console.log(`${id} を「修正中」にしました(かかる時間の目安: 約${Math.round(minutes)}分)`);
+    const started = await startWithEstimate((name, body) => rpc(env, name, body), { code, id, minutes });
+    if (started.ok) {
+      console.log(`${id} を「修正中」にしました(かかる時間の目安: 約${started.minutes}分)`);
       return;
-    } catch (err) {
-      // 037 をまだ流していない。目安は付けられないので、目安なしの「修正中」にして進める(アプリにゲージは出ない)。
-      if (!/app_feedback_start|404|PGRST202|does not exist|schema cache/.test(String(err?.message ?? err))) throw err;
-      console.error("かかる時間の目安は付けられませんでした(supabase/sql/037_feedback_estimate.sql がまだ本番で流れていません)。「修正中」だけ付けます");
     }
+    // 037 をまだ流していない。目安は付けられないので、目安なしの「修正中」にして進める(アプリにゲージは出ない)。
+    console.error("かかる時間の目安は付けられませんでした(supabase/sql/037_feedback_estimate.sql がまだ本番で流れていません)。「修正中」だけ付けます");
   }
 
   const statusFlag = { "--working": "working", "--done": "done", "--dismiss": "dismissed", "--reopen": "new" };
