@@ -20,7 +20,7 @@ vi.mock("../../hooks/useIsFeedbackOwner", () => ({ useIsFeedbackOwner: () => moc
 
 import { notifyFeedbackChanged } from "../../lib/appFeedback";
 import { resetFeedbackProgressForTests } from "../../lib/feedbackProgress";
-import { FeedbackButton, InAppFeedbackButton, InAppFeedbackProgress } from "./FeedbackButton";
+import { FeedbackButton, InAppFeedbackButton } from "./FeedbackButton";
 
 const item = (id: string, status: FeedbackItem["status"], extra: Partial<FeedbackItem> = {}): FeedbackItem => ({
   id,
@@ -104,53 +104,34 @@ describe("修正ボタンの「修正中」", () => {
   });
 });
 
-describe("持ち主の画面の「修正中 N件」", () => {
-  it("持ち主で、修正中の依頼がある時だけ出る。押すと設定の「届いた要望」へ", async () => {
-    mocks.owner = true;
-    mocks.recent = [item("a", "working"), item("b", "working"), item("c", "new")];
-    renderApp(<InAppFeedbackProgress />);
-    const link = await screen.findByRole("link", { name: /修正中が2件あります/ });
-    expect(link.getAttribute("href")).toBe("/settings");
-    expect(link.textContent).toContain("修正中 2件");
-  });
-
-  it("修正中が無い・持ち主でない・まだ分からない時は、何も出さない", async () => {
-    mocks.owner = true;
-    mocks.recent = [item("a", "new")];
-    const { container } = renderApp(<InAppFeedbackProgress />);
-    await act(async () => {});
-    expect(container.querySelector("a")).toBeNull();
-    cleanup();
-    mocks.owner = false;
-    mocks.recent = [item("a", "working")];
-    const second = renderApp(<InAppFeedbackProgress />);
-    await act(async () => {});
-    expect(second.container.querySelector("a")).toBeNull();
-    cleanup();
-    mocks.owner = undefined;
-    const third = renderApp(<InAppFeedbackProgress />);
-    await act(async () => {});
-    expect(third.container.querySelector("a")).toBeNull();
-  });
-
-  it("設定(届いた要望)を開いている間は、札を出さない(一覧に修正中が出ているため)", async () => {
-    mocks.owner = true;
-    mocks.recent = [item("a", "working")];
-    render(
-      <MemoryRouter initialEntries={["/settings"]}>
-        <ToastProvider>
-          <InAppFeedbackProgress />
-        </ToastProvider>
-      </MemoryRouter>,
-    );
-    await act(async () => {});
-    expect(screen.queryByRole("link", { name: /修正中が/ })).toBeNull();
-  });
-
-  it("持ち主には、いつもの「修正」ボタンは出さない(従来どおり)", async () => {
+describe("持ち主の画面(2026-10-13、本人「修正を送るボタンが消えてる」)", () => {
+  it("持ち主にも、アプリの「修正」ボタンを出す", async () => {
     mocks.owner = true;
     renderApp(<InAppFeedbackButton />);
-    await act(async () => {});
-    expect(screen.queryByRole("button", { name: /直してほしいことを送る/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "直してほしいことを送る" }).textContent).toBe("修正");
+  });
+
+  it("持ち主でない人にも、持ち主かまだ分からない間も、出す", async () => {
+    mocks.owner = false;
+    renderApp(<InAppFeedbackButton />);
+    expect(screen.getByRole("button", { name: "直してほしいことを送る" })).toBeTruthy();
+    cleanup();
+    mocks.owner = undefined;
+    renderApp(<InAppFeedbackButton />);
+    expect(screen.getByRole("button", { name: "直してほしいことを送る" })).toBeTruthy();
+  });
+
+  it("持ち主の「修正」も、誰かの依頼を直している間は「修正中」になる。開くと、届いている依頼の状況が出る", async () => {
+    const user = userEvent.setup();
+    mocks.owner = true;
+    mocks.recent = [item("a", "working", { workingAt: "2026-10-13T03:10:00Z", message: "地図が出ない" }), item("b", "new", { message: "文字が小さい" })];
+    renderApp(<InAppFeedbackButton />);
+    const button = await screen.findByRole("button", { name: "修正中です。直してほしいことを送る" });
+    expect(button.textContent).toBe("修正中");
+    await user.click(button);
+    const list = await screen.findByRole("region", { name: "届いている依頼の状況" });
+    expect(list.textContent).toContain("地図が出ない");
+    expect(list.textContent).toContain("文字が小さい");
+    expect(screen.queryByRole("region", { name: "送った依頼の状況" })).toBeNull();
   });
 });
