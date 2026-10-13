@@ -99,8 +99,9 @@ export function FeedbackInbox() {
 
   const newCount = items?.filter((item) => item.status === "new").length ?? 0;
   const workingCount = items?.filter((item) => item.status === "working").length ?? 0;
-  // 修正中も、未対応と同じく「まだ終わっていない」ものとして、既定の一覧に出す。
-  const visible = items?.filter((item) => showResolved || item.status === "new" || item.status === "working") ?? [];
+  const holdCount = items?.filter((item) => item.status === "hold").length ?? 0;
+  // 修正中・保留中も、未対応と同じく「まだ終わっていない」ものとして、既定の一覧に出す。
+  const visible = items?.filter((item) => showResolved || item.status === "new" || item.status === "working" || item.status === "hold") ?? [];
 
   return (
     <Card className="system-section system-section--feedback lg:col-span-2">
@@ -115,6 +116,7 @@ export function FeedbackInbox() {
         </div>
         <div className="flex flex-wrap gap-1.5">
           {workingCount > 0 && <Badge tone="accent">修正中 {workingCount}件</Badge>}
+          {holdCount > 0 && <Badge tone="warning">保留中 {holdCount}件</Badge>}
           {newCount > 0 && <Badge tone="accent">未対応 {newCount}件</Badge>}
         </div>
       </div>
@@ -126,7 +128,7 @@ export function FeedbackInbox() {
       ) : items === null ? (
         <p className="text-sm text-slate-400">読み込み中…</p>
       ) : visible.length === 0 ? (
-        <p className="text-sm text-slate-500">{showResolved ? "まだ届いていません。" : "未対応・修正中の要望はありません。"}</p>
+        <p className="text-sm text-slate-500">{showResolved ? "まだ届いていません。" : "未対応・修正中・保留中の要望はありません。"}</p>
       ) : (
         <ul className="flex flex-col gap-3" aria-label="届いた要望の一覧">
           {visible.map((item) => (
@@ -136,6 +138,9 @@ export function FeedbackInbox() {
                 {item.page ? ` ・ ${item.page}` : ""}
               </p>
               <p className="mt-1 whitespace-pre-wrap">{item.message}</p>
+              {item.status === "hold" && item.statusNote && (
+                <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900">保留の理由: {item.statusNote}</p>
+              )}
               {(item.imageCount ?? 0) > 0 && (
                 <div className="mt-2">
                   <Button variant="ghost" disabled={busyId === item.id} onClick={() => void showImages(item)}>
@@ -166,6 +171,19 @@ export function FeedbackInbox() {
                   <>
                     <Button variant="secondary" disabled={busyId === item.id} onClick={() => void change(item, "done")}>
                       対応済みにする
+                    </Button>
+                    <Button variant="ghost" disabled={busyId === item.id} onClick={() => void change(item, "dismissed")}>
+                      見送る
+                    </Button>
+                  </>
+                ) : item.status === "hold" ? (
+                  <>
+                    <Badge tone="warning">保留中</Badge>
+                    <Button variant="secondary" disabled={busyId === item.id} onClick={() => void change(item, "done")}>
+                      対応済みにする
+                    </Button>
+                    <Button variant="ghost" disabled={busyId === item.id} onClick={() => void change(item, "new")}>
+                      未対応に戻す
                     </Button>
                     <Button variant="ghost" disabled={busyId === item.id} onClick={() => void change(item, "dismissed")}>
                       見送る

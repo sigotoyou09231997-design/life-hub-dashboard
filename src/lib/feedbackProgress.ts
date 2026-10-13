@@ -25,12 +25,13 @@ export function getFeedbackProgressSnapshot(): readonly FeedbackItem[] {
   return snapshot;
 }
 
+/** まだ終わっていない依頼(受け付け済み・修正中・保留中)。 */
 export function isActiveFeedback(item: FeedbackItem): boolean {
-  return item.status === "new" || item.status === "working";
+  return item.status === "new" || item.status === "working" || item.status === "hold";
 }
 
 function sign(items: readonly FeedbackItem[]): string {
-  return items.map((item) => `${item.id}:${item.status}:${item.workingAt ?? ""}`).join("|");
+  return items.map((item) => `${item.id}:${item.status}:${item.workingAt ?? ""}:${item.statusNote ?? ""}`).join("|");
 }
 
 async function refresh(): Promise<void> {

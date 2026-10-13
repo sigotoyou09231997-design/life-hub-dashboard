@@ -12,12 +12,13 @@ import { isMissingTable } from "./chatgptInbox";
  * 表は同期しない(端末の Dexie を経由せず、Supabase を直接読み書きする)。通信できない時は送れない。
  */
 
-/** new=受け付け済み(まだ手を付けていない) / working=修正中(035) / done=対応済み / dismissed=見送り。 */
-export type FeedbackStatus = "new" | "working" | "done" | "dismissed";
+/** new=受け付け済み(まだ手を付けていない) / working=修正中(035) / hold=保留中(036。聞き返している・判断待ち) / done=対応済み / dismissed=見送り。 */
+export type FeedbackStatus = "new" | "working" | "hold" | "done" | "dismissed";
 
 const STATUS_LABEL: Record<FeedbackStatus, string> = {
   new: "受け付け済み",
   working: "修正中",
+  hold: "保留中",
   done: "対応済み",
   dismissed: "見送り",
 };
@@ -41,6 +42,8 @@ export interface FeedbackItem {
   imageCount?: number;
   /** いつから修正中か(035 を流す前は無い)。status が working の時だけ意味がある。 */
   workingAt?: string;
+  /** 保留中の理由・聞きたいこと(036 を流す前は無い)。status が hold の時だけ意味がある。 */
+  statusNote?: string;
 }
 
 export type FeedbackFailure =
@@ -182,6 +185,7 @@ interface FeedbackRow {
   created_at: string;
   image_count?: number | null;
   working_at?: string | null;
+  status_note?: string | null;
 }
 
 export function rowToFeedback(row: FeedbackRow): FeedbackItem {
@@ -197,11 +201,12 @@ export function rowToFeedback(row: FeedbackRow): FeedbackItem {
     createdAt: row.created_at,
     imageCount: row.image_count ?? undefined,
     workingAt: row.working_at ?? undefined,
+    statusNote: row.status_note ?? undefined,
   };
 }
 
 /** あとから足された列(033 の画像の枚数・035 の修正中の時刻)。流す前の本番には無いので、無ければ外して読み直す。 */
-const OPTIONAL_COLUMNS = ["image_count", "working_at"];
+const OPTIONAL_COLUMNS = ["image_count", "working_at", "status_note"];
 const BASE_COLUMNS = "id, via, sender_name, trip_name, page, message, app_version, status, created_at";
 
 type FeedbackQuery = (columns: string) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>;
@@ -264,10 +269,12 @@ export async function loadFeedbackImages(id: string): Promise<string[]> {
 
 export async function setFeedbackStatus(id: string, status: FeedbackStatus): Promise<void> {
   const client = await getSupabaseDataClient();
-  const { error } = await client
-    .from("app_feedback")
-    .update({ status, resolved_at: status === "new" || status === "working" ? null : new Date().toISOString() })
-    .eq("id", id);
+  const patch = { status, resolved_at: status === "new" || status === "working" || status === "hold" ? null : new Date().toISOString() };
+  // 保留の理由は、保留の間だけ。ほかの状態にしたら消す(036)。036 を流す前は理由の列が無いので、その時は理由なしで更新する。
+  let { error } = await client.from("app_feedback").update(status === "hold" ? patch : { ...patch, status_note: null }).eq("id", id);
+  if (error && /status_note/.test(error.message ?? "")) {
+    ({ error } = await client.from("app_feedback").update(patch).eq("id", id));
+  }
   if (error) throw error;
   notifyFeedbackChanged();
 }

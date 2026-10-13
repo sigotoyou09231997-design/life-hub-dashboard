@@ -40,8 +40,10 @@ export function FeedbackProgressList() {
             <span className="min-w-0">
               <span className="block truncate">{summary(item.message)}</span>
               <span className="text-xs text-slate-500">{subText(item)}</span>
+              {/* 保留中の理由・聞きたいこと(あれば)。送った人が、何を答えればいいか分かるように。 */}
+              {item.status === "hold" && item.statusNote && <span className="mt-0.5 block text-xs text-amber-800">{item.statusNote}</span>}
             </span>
-            <Badge tone={item.status === "working" ? "accent" : "neutral"} className="shrink-0 whitespace-nowrap">
+            <Badge tone={item.status === "working" ? "accent" : item.status === "hold" ? "warning" : "neutral"} className="shrink-0 whitespace-nowrap">
               {feedbackStatusLabel(item.status)}
             </Badge>
           </li>

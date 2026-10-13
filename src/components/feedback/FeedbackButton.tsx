@@ -5,7 +5,7 @@ import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 import { FeedbackForm } from "./FeedbackForm";
 import { FeedbackProgressList } from "./FeedbackProgressList";
-import { useWorkingFeedback } from "../../hooks/useFeedbackProgress";
+import { useHeldFeedback, useWorkingFeedback } from "../../hooks/useFeedbackProgress";
 
 /** 「＋」(下端から5.5rem・高さ3.5rem)の上に0.75rem空けて重ねる。PCは「＋」が下端から2rem。 */
 const IN_APP_POSITION = "bottom-[calc(env(safe-area-inset-bottom)+9.75rem-var(--viewport-gap,0px))] right-5 lg:bottom-[6.25rem] lg:right-8";
@@ -40,17 +40,19 @@ export function FeedbackButton({ shareToken, standalone = false }: Props) {
   const position = standalone ? "bottom-[calc(env(safe-area-inset-bottom)+1.25rem)] right-5 lg:bottom-8 lg:right-8" : IN_APP_POSITION;
   // 直してもらっている最中は、「修正」が「修正中」になる(2026-10-13、本人「本当に直してるか分からない」)。
   const working = useWorkingFeedback().length > 0;
+  // 保留中(聞き返している・判断待ち)の依頼がある時は、直している最中でなければ、「保留中」と出す。修正中のほうを先に出す。
+  const held = useHeldFeedback().length > 0 && !working;
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={working ? "修正中です。直してほしいことを送る" : "直してほしいことを送る"}
-        className={`feedback-button fixed ${position} z-40 flex transform-gpu items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3.5 py-2 text-xs font-semibold shadow-lg backdrop-blur transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${working ? "text-accent" : "text-slate-600"}`}
+        aria-label={working ? "修正中です。直してほしいことを送る" : held ? "保留中の依頼があります。直してほしいことを送る" : "直してほしいことを送る"}
+        className={`feedback-button fixed ${position} z-40 flex transform-gpu items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3.5 py-2 text-xs font-semibold shadow-lg backdrop-blur transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${working ? "text-accent" : held ? "text-amber-700" : "text-slate-600"}`}
       >
-        {working ? <WorkingDot /> : <MessageSquarePlus size={15} aria-hidden="true" />}
-        {working ? "修正中" : "修正"}
+        {working ? <WorkingDot /> : held ? <span className="h-2.5 w-2.5 rounded-full bg-amber-500" aria-hidden="true" /> : <MessageSquarePlus size={15} aria-hidden="true" />}
+        {working ? "修正中" : held ? "保留中" : "修正"}
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="直してほしいことを送る">
         {open && (
