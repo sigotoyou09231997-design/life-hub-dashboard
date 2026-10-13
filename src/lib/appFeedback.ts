@@ -12,18 +12,22 @@ import { isMissingTable } from "./chatgptInbox";
  * 表は同期しない(端末の Dexie を経由せず、Supabase を直接読み書きする)。通信できない時は送れない。
  */
 
-/** new=受け付け済み(まだ手を付けていない) / working=修正中(035) / hold=保留中(036。聞き返している・判断待ち) / done=対応済み / dismissed=見送り。 */
+/**
+ * new=対応待ち(まだ手を付けていない) / working=対応中(035) / hold=保留中(036。聞き返している・判断待ち) / done=対応済み / dismissed=見送り。
+ * 名前は 2026-10-14 に変えた(本人「『受付済み』だと、対応してるのか分からないから、対応待ち・対応中にしたい」)。
+ * 中身の値(new / working …)と、Mac の道具・SQL は変えていない。
+ */
 export type FeedbackStatus = "new" | "working" | "hold" | "done" | "dismissed";
 
 const STATUS_LABEL: Record<FeedbackStatus, string> = {
-  new: "受け付け済み",
-  working: "修正中",
+  new: "対応待ち",
+  working: "対応中",
   hold: "保留中",
   done: "対応済み",
   dismissed: "見送り",
 };
 
-/** 画面に出す状態の名前。知らない状態(新しく足された後の古い版)は、受け付け済みとして扱う。 */
+/** 画面に出す状態の名前。知らない状態(新しく足された後の古い版)は、対応待ちとして扱う。 */
 export function feedbackStatusLabel(status: string): string {
   return STATUS_LABEL[status as FeedbackStatus] ?? STATUS_LABEL.new;
 }
@@ -40,7 +44,7 @@ export interface FeedbackItem {
   createdAt: string;
   /** 付いている画像の枚数(033 を流す前は無い)。画像そのものは loadFeedbackImages で1件ずつ読む。 */
   imageCount?: number;
-  /** いつから修正中か(035 を流す前は無い)。status が working の時だけ意味がある。 */
+  /** いつから対応中か(035 を流す前は無い)。status が working の時だけ意味がある。 */
   workingAt?: string;
   /** 保留中の理由・聞きたいこと(036 を流す前は無い)。status が hold の時だけ意味がある。 */
   statusNote?: string;

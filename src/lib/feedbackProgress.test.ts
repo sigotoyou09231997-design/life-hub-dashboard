@@ -61,7 +61,7 @@ describe("feedbackProgress(修正依頼の状況を、開いている間、読�
     stop();
   });
 
-  it("終わっていない依頼(受け付け済み・修正中)がある間は、30秒ごとに読み直し、状態が変わったら知らせる", async () => {
+  it("終わっていない依頼(対応待ち・対応中)がある間は、30秒ごとに読み直し、状態が変わったら知らせる", async () => {
     mocks.items = [item("a", "new")];
     const listener = vi.fn();
     const stop = subscribeFeedbackProgress(listener);

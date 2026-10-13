@@ -348,7 +348,7 @@ export default function App() {
                 見えるので、その外側に出す(src/components/ui/PageFab.tsx)。 */}
             <div id="page-fab-root" />
             {/* 「ここ直した方がいい」を送る入口。右下の「＋」の真上(src/components/feedback/FeedbackButton.tsx)。
-                直している最中は「修正中」になる。持ち主(本人)にも出す。 */}
+                直している最中は「対応中」になる。持ち主(本人)にも出す。 */}
             <InAppFeedbackButton />
             {/* 「何を追加しますか?」(ホームの「＋」・PCの上の帯の「＋追加」から開く)。 */}
             <AddChooserHost />

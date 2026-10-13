@@ -18,7 +18,7 @@ finish_feedback() {
       node "$main_dir/scripts/feedback-inbox.mjs" --done "$id"
     fi
   else
-    echo "⚠ 本番(Vercel)で新しい版を確かめられなかったので、要望 $id は「修正中」のままにしました。本番に出たのを確かめてから: node scripts/feedback-inbox.mjs --done $id"
+    echo "⚠ 本番(Vercel)で新しい版を確かめられなかったので、要望 $id は「対応中」のままにしました。本番に出たのを確かめてから: node scripts/feedback-inbox.mjs --done $id"
   fi
 }
 

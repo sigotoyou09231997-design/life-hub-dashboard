@@ -58,7 +58,7 @@ describe("届いた要望", () => {
     expect(screen.queryByText("届いた要望")).toBeNull();
   });
 
-  it("持ち主には、未対応の要望を誰から・どの画面かと一緒に並べる", async () => {
+  it("持ち主には、対応待ちの要望を誰から・どの画面かと一緒に並べる", async () => {
     mocks.owner = true;
     mocks.items = [
       item({ id: "a", senderName: "友人A", page: "/trips/x", message: "並び順が戻らない" }),
@@ -66,7 +66,7 @@ describe("届いた要望", () => {
       item({ id: "c", status: "done", message: "直したもの" }),
     ];
     renderInbox();
-    expect(await screen.findByText("未対応 2件")).toBeTruthy();
+    expect(await screen.findByText("対応待ち 2件")).toBeTruthy();
     expect(screen.getByText("並び順が戻らない")).toBeTruthy();
     expect(screen.getByText(/友人A ・ \/trips\/x/)).toBeTruthy();
     expect(screen.getByText(/しおりを見た人\(「四国旅行」のしおりから\)/)).toBeTruthy();
@@ -83,7 +83,7 @@ describe("届いた要望", () => {
     await waitFor(() => expect(screen.queryByText("並び順が戻らない")).toBeNull());
     await user.click(screen.getByRole("button", { name: "対応済み・見送りも見る" }));
     expect(screen.getByText("並び順が戻らない")).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "未対応に戻す" }));
+    await user.click(screen.getByRole("button", { name: "対応待ちに戻す" }));
     expect(mocks.changed).toEqual([["a", "done"], ["a", "new"]]);
   });
 
@@ -108,12 +108,12 @@ describe("届いた要望", () => {
   });
 });
 
-describe("修正中(035)", () => {
+describe("対応中(035)", () => {
   beforeEach(() => {
     mocks.owner = true;
   });
 
-  it("修正中の依頼は、未対応と同じく既定の一覧に出て、いつから直しているかと「修正中 N件」が見える", async () => {
+  it("対応中の依頼は、対応待ちと同じく既定の一覧に出て、いつから直しているかと「対応中 N件」が見える", async () => {
     mocks.items = [
       item({ id: "w1", message: "地図が出ない", status: "working", workingAt: "2026-10-13T03:10:00Z" }),
       item({ id: "n1", message: "文字が小さい", status: "new" }),
@@ -123,12 +123,12 @@ describe("修正中(035)", () => {
     expect(await screen.findByText("地図が出ない")).toBeTruthy();
     expect(screen.getByText("文字が小さい")).toBeTruthy();
     expect(screen.queryByText("もう直した")).toBeNull();
-    expect(screen.getByText("修正中 1件")).toBeTruthy();
-    expect(screen.getByText("未対応 1件")).toBeTruthy();
-    expect(screen.getByText(/修正中（\d+:\d{2}から）/)).toBeTruthy();
+    expect(screen.getByText("対応中 1件")).toBeTruthy();
+    expect(screen.getByText("対応待ち 1件")).toBeTruthy();
+    expect(screen.getByText(/対応中（\d+:\d{2}から）/)).toBeTruthy();
   });
 
-  it("修正中の依頼は、対応済みにする・未対応に戻す、ができる", async () => {
+  it("対応中の依頼は、対応済みにする・対応待ちに戻す、ができる", async () => {
     const user = userEvent.setup();
     mocks.items = [item({ id: "w1", message: "地図が出ない", status: "working" })];
     renderInbox();
@@ -137,12 +137,12 @@ describe("修正中(035)", () => {
     await waitFor(() => expect(mocks.changed).toEqual([["w1", "done"]]));
   });
 
-  it("修正中を未対応に戻せる(止めた時に「修正中」のまま嘘にならないように)", async () => {
+  it("対応中を未対応に戻せる(止めた時に「対応中」のまま嘘にならないように)", async () => {
     const user = userEvent.setup();
     mocks.items = [item({ id: "w1", message: "地図が出ない", status: "working" })];
     renderInbox();
     await screen.findByText("地図が出ない");
-    await user.click(screen.getByRole("button", { name: "未対応に戻す" }));
+    await user.click(screen.getByRole("button", { name: "対応待ちに戻す" }));
     await waitFor(() => expect(mocks.changed).toEqual([["w1", "new"]]));
   });
 });
@@ -152,7 +152,7 @@ describe("保留中(036)", () => {
     mocks.owner = true;
   });
 
-  it("保留中の依頼は、既定の一覧に出て、理由と「保留中 N件」が見える。対応済み・未対応に戻す・見送るができる", async () => {
+  it("保留中の依頼は、既定の一覧に出て、理由と「保留中 N件」が見える。対応済み・対応待ちに戻す・見送るができる", async () => {
     const user = userEvent.setup();
     mocks.items = [item({ id: "h1", message: "ルートの候補を選びたい", status: "hold", statusNote: "どの「候補」のことか教えてください" }), item({ id: "d1", message: "もう直した", status: "done" })];
     renderInbox();
@@ -160,7 +160,7 @@ describe("保留中(036)", () => {
     expect(screen.queryByText("もう直した")).toBeNull();
     expect(screen.getByText("保留中 1件")).toBeTruthy();
     expect(screen.getByText(/保留の理由: どの「候補」のことか教えてください/)).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "未対応に戻す" }));
+    await user.click(screen.getByRole("button", { name: "対応待ちに戻す" }));
     await waitFor(() => expect(mocks.changed).toEqual([["h1", "new"]]));
     await user.click(screen.getByRole("button", { name: "見送る" }));
     await waitFor(() => expect(mocks.changed.at(-1)).toEqual(["h1", "dismissed"]));
