@@ -6,7 +6,7 @@ import { deleteCurrencyFor } from "../../lib/currency";
 import { TRIP_SCHEDULE_TYPES, TRIP_TRANSPORT_MODES } from "../../lib/tripCategories";
 import { SegmentedField, type SegmentedOption } from "../ui/SegmentedField";
 import { TRANSPORT_MODE_ICON } from "./transportModes";
-import { ChevronDown, ImagePlus, MapPinned, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, ImagePlus, MapPinned, Trash2 } from "lucide-react";
 import { detailsForSave, formatPhone, formatPhoneTyping, hasScheduleDetails, type ScheduleDetailField } from "../../lib/scheduleDetails";
 import { loadAttachmentDrafts, saveAttachmentDrafts, type PhotoDraft } from "../../lib/attachments";
 import { PhotoField } from "../attachments/PhotoField";
@@ -32,6 +32,20 @@ interface Props {
    * 2026-10-12 に日程の行からゴミ箱をなくし、削除はここだけにした(スクロールの途中で押しかけるため)。
    */
   onDelete?: () => void | Promise<void>;
+  /**
+   * この予定を、そのまま写して新しい予定にする(2026-10-13、要望の受信箱「予定をコピーする機能があるといい」)。
+   * 編集の時だけ渡す。押すと、いま打ってある内容(直しかけでも)を、新しい予定の入力画面に引き継ぐ。
+   */
+  onCopy?: (draft: ScheduleCopyDraft) => void;
+  /** コピーして開いた時の金額・支払った人(元の予定の費用)。コピーは新しい予定なので、費用も新しく作る。 */
+  prefill?: { amount?: string; paidBy?: string };
+}
+
+/** 「コピーして追加」で、新しい予定の入力画面へ渡す中身。id と作った時刻は引き継がない(新しい予定になる)。 */
+export interface ScheduleCopyDraft {
+  item: TripScheduleItem;
+  amount: string;
+  paidBy: string;
 }
 
 /** 「未定」は空の値。選び直して消せるように、手段と同じ並びに置く。 */
@@ -40,7 +54,7 @@ const TRANSPORT_OPTIONS: SegmentedOption<TripTransportMode | "">[] = [
   { value: "", label: "未定" },
 ];
 
-export function TripScheduleForm({ tripId, initial, members: membersProp, defaultDate, onSaved, onCancel, onDelete }: Props) {
+export function TripScheduleForm({ tripId, initial, members: membersProp, defaultDate, onSaved, onCancel, onDelete, onCopy, prefill }: Props) {
   const confirm = useConfirm();
   // 同期で降りてきた旅行は、参加者の列が空だと null になる。引数の既定値(= [])は undefined にしか
   // 効かないので、ここで空にそろえる(2026-10-11、null のまま .length を読んで予定を押すと真っ白になった)。
@@ -71,8 +85,8 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
   const [photos, setPhotos] = useState<PhotoDraft[]>([]);
   // この予定の費用(TripExpense.scheduleId がこの予定)。金額を入れると作り、消すと消す。費用タブにも出る。
   const [linkedExpense, setLinkedExpense] = useState<TripExpense>();
-  const [amount, setAmount] = useState("");
-  const [paidBy, setPaidBy] = useState("");
+  const [amount, setAmount] = useState(prefill?.amount ?? "");
+  const [paidBy, setPaidBy] = useState(prefill?.paidBy ?? "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -137,12 +151,9 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
     setDate(next);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!title.trim()) return;
-
-    setSaving(true);
-    const record: TripScheduleItem = {
+  /** いま入力画面に入っている内容から、保存する1件を作る(保存と、コピーの両方が使う)。 */
+  function buildRecord(): TripScheduleItem {
+    return {
       tripId,
       date,
       endDate: normalizeEndDate(date, endDate),
@@ -156,9 +167,23 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
       ...detailsForSave(type, details),
       // 日付か開始時刻を直したら、入れ替えた並びから外して、時刻の位置へ差し込み直す(src/lib/scheduleOrder.ts)。
       // undefined だと同期で送られず、ほかの端末に古い番号が残るので null にする。
-      ...(initial && (initial.date !== date || (initial.startTime ?? "") !== startTime) ? { sortOrder: null } : {}),
+      ...(initial?.id && (initial.date !== date || (initial.startTime ?? "") !== startTime) ? { sortOrder: null } : {}),
       createdAt: initial?.createdAt ?? Date.now(),
     };
+  }
+
+  /** この予定を写して、新しい予定として開き直す。いま打ってある内容(保存前の直しも)を引き継ぐ。写真は引き継がない。 */
+  function handleCopy() {
+    if (!onCopy || !title.trim()) return;
+    onCopy({ item: { ...buildRecord(), sortOrder: undefined, createdAt: Date.now() }, amount, paidBy });
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+
+    setSaving(true);
+    const record = buildRecord();
 
     // 新しい予定にはまだ id が無く、写真の貼り先を決められない。保存して得た id に向けて、あとで写真を書く。
     let scheduleId: string;
@@ -318,6 +343,13 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
       </FormPanel>
 
       {/* 保存・キャンセルの帯とは離して、フォームのいちばん下に1つだけ置く。 */}
+      {/* 「コピーして追加」と「削除」は別々のボタン(2026-09-06 の本人の好み: ボタンは詰めない)。コピーは編集の時だけ。 */}
+      {initial?.id && onCopy && (
+        <Button type="button" variant="secondary" className="w-full" disabled={saving || deleting || !title.trim()} onClick={handleCopy}>
+          <Copy size={16} aria-hidden="true" />
+          この予定をコピーして追加
+        </Button>
+      )}
       {initial && onDelete && (
         <Button type="button" variant="danger" className="w-full" disabled={saving || deleting} onClick={() => void handleDelete()}>
           <Trash2 size={16} aria-hidden="true" />
@@ -330,7 +362,7 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
           キャンセル
         </Button>
         <Button type="submit" disabled={saving}>
-          {initial ? "変更を保存" : "予定を追加"}
+          {initial?.id ? "変更を保存" : "予定を追加"}
         </Button>
       </FormActions>
     </form>

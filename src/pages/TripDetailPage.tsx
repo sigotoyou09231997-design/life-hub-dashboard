@@ -111,8 +111,15 @@ export default function TripDetailPage() {
   const [scanOpen, setScanOpen] = useState(false);
   /** 日程の「予定を追加」の画面の切り替え(入力して追加 / 文章・写真から)。 */
   const [scheduleAddMethod, setScheduleAddMethod] = useState<AddMethod>("form");
+  /** 「この予定をコピーして追加」で開いた時の、元の予定の金額・支払った人(src/components/trips/TripScheduleForm.tsx)。 */
+  const [copyPrefill, setCopyPrefill] = useState<{ amount: string; paidBy: string } | null>(null);
+  /** コピーを重ねても入力画面を作り直すための番号(同じ「コピー」の鍵のままだと、前の中身が残る)。 */
+  const [copyCount, setCopyCount] = useState(0);
   useEffect(() => {
-    if (editingSchedule === null) setScheduleAddMethod("form");
+    if (editingSchedule === null) {
+      setScheduleAddMethod("form");
+      setCopyPrefill(null);
+    }
   }, [editingSchedule]);
   // 日程の場所からルートを起こすとき、追加フォームに渡して埋めておく値。
   const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
@@ -654,7 +661,7 @@ export default function TripDetailPage() {
           setEditingSchedule(null);
           setScheduleDatePreset(null);
         }}
-        title={editingSchedule === "new" ? "予定を追加" : "予定を編集"}
+        title={editingSchedule === "new" ? "予定を追加" : editingSchedule?.id ? "予定を編集" : "予定をコピーして追加"}
       >
         {editingSchedule === "new" && (
           <Tabs className="mb-4" options={ADD_METHOD_OPTIONS} value={scheduleAddMethod} onChange={setScheduleAddMethod} />
@@ -676,9 +683,17 @@ export default function TripDetailPage() {
         ) : (
           editingSchedule && (
             <TripScheduleForm
+              key={editingSchedule === "new" ? "new" : (editingSchedule.id ?? `copy-${copyCount}`)}
               tripId={tripId}
               members={trip.members}
               initial={editingSchedule === "new" ? undefined : editingSchedule}
+              prefill={editingSchedule !== "new" && !editingSchedule.id ? (copyPrefill ?? undefined) : undefined}
+              onCopy={(draft) => {
+                // 元の予定の費用(金額・支払った人)も写す。コピーは新しい予定なので、費用も新しく作られる。
+                setCopyPrefill({ amount: draft.amount, paidBy: draft.paidBy });
+                setCopyCount((count) => count + 1);
+                setEditingSchedule(draft.item);
+              }}
               defaultDate={scheduleDatePreset ?? scheduleDefaultDate}
               onDelete={editingSchedule !== "new" && editingSchedule.id ? () => deleteSchedule(editingSchedule.id!) : undefined}
               onSaved={(date) => {
