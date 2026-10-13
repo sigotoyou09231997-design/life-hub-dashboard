@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { TripRoutePlace, TripScheduleItem } from "../../types";
 import type { RouteSuggestion } from "../../lib/tripRouteSuggestions";
@@ -399,3 +399,151 @@ describe("日程の場所を押して来た時", () => {
     }
   });
 });
+
+describe("旅行のルート: 候補を選んで入れる(要望「候補がいくつかあるなら選択させて」)", () => {
+  const sug = (id: string, name: string): RouteSuggestion => ({ scheduleId: id, date: "2026-09-19", startTime: "09:30", name, address: name, memo: "", title: `${name}へ`, type: "transport" });
+  const three = [sug("s1", "岡山駅"), sug("s2", "高松駅"), sug("s3", "丸亀城")];
+
+  function renderPicks(suggestions: RouteSuggestion[], onAdd: (picked: RouteSuggestion[]) => void) {
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="香川"
+        places={[place("p9", "既にある場所", 1, "2026-09-19")]}
+        dayList={["2026-09-19", "2026-09-20"]}
+        suggestions={suggestions}
+        onAddSuggestions={onAdd}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+  }
+
+  it("候補が2つ以上ある時、それぞれにチェックが付く。選んだものだけをルートに入れられる", async () => {
+    const user = userEvent.setup();
+    const added: RouteSuggestion[][] = [];
+    renderPicks(three, (picked) => added.push(picked));
+    await user.click(screen.getByRole("button", { name: /1日目/ }));
+
+    // 何も選んでいない間は、これまでどおり「すべてルートに入れる」
+    expect(screen.getByRole("button", { name: "すべてルートに入れる" })).toBeTruthy();
+
+    await user.click(screen.getByRole("checkbox", { name: "岡山駅を選ぶ" }));
+    await user.click(screen.getByRole("checkbox", { name: "丸亀城を選ぶ" }));
+    expect(screen.queryByRole("button", { name: "すべてルートに入れる" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "選んだ2件をルートに入れる" }));
+    expect(added).toEqual([[three[0], three[2]]]);
+    // 入れたあとは、選びを空に戻す
+    expect((screen.getByRole("checkbox", { name: "岡山駅を選ぶ" }) as HTMLInputElement).checked).toBe(false);
+  });
+
+  it("「すべて選ぶ」で全部にチェックが付き、もう一度押すと外れる。1件ずつの「入れる」も残る", async () => {
+    const user = userEvent.setup();
+    const added: RouteSuggestion[][] = [];
+    renderPicks(three, (picked) => added.push(picked));
+    await user.click(screen.getByRole("button", { name: /1日目/ }));
+    await user.click(screen.getByRole("button", { name: "すべて選ぶ" }));
+    expect(screen.getAllByRole("checkbox").filter((box) => (box as HTMLInputElement).checked && box.getAttribute("aria-label")?.endsWith("を選ぶ"))).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "選んだ3件をルートに入れる" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "選びをやめる" }));
+    expect(screen.getByRole("button", { name: "すべてルートに入れる" })).toBeTruthy();
+    await user.click(screen.getAllByRole("button", { name: "入れる" })[1]);
+    expect(added).toEqual([[three[1]]]);
+  });
+
+  it("候補が1つだけの時は、チェックは出さない(「入れる」だけ)", async () => {
+    const user = userEvent.setup();
+    renderPicks([three[0]], () => {});
+    await user.click(screen.getByRole("button", { name: /1日目/ }));
+    expect(screen.queryByRole("checkbox", { name: /を選ぶ/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "入れる" })).toBeTruthy();
+  });
+});
+
+describe("旅行のルート: 地図に出す場所を選ぶ", () => {
+  it("2つ以上あれば、選ぶ一覧を開ける。外した場所は地図(鎖)から消え、件数が変わる。ルートには残る", async () => {
+    const user = userEvent.setup();
+    renderView();
+    expect(screen.getByText("3/3件を表示中")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /地図に出す場所を選ぶ/ }));
+    await user.click(screen.getByRole("checkbox", { name: "新横浜駅を地図に出す" }));
+
+    expect(screen.getByText("2/3件を表示中")).toBeTruthy();
+    // 鎖に出ているのは、選んだ場所だけ。区間は、残った場所のあいだでつなぎ直る。
+    expect(screen.getByText("岡山駅 → 東京駅")).toBeTruthy();
+    expect(screen.queryByText("岡山駅 → 新横浜駅")).toBeNull();
+    // 外した場所も、選ぶ一覧には残る(戻せる)
+    expect((screen.getByRole("checkbox", { name: "新横浜駅を地図に出す" }) as HTMLInputElement).checked).toBe(false);
+    // 「全地点をGoogleマップで開く」には、選んだ場所だけを渡す
+    const link = screen.getByRole("link", { name: /全地点をGoogleマップで開く/ });
+    const href = decodeURIComponent(link.getAttribute("href") ?? "");
+    expect(href).toContain("岡山駅の住所");
+    expect(href).toContain("東京駅の住所");
+    expect(href).not.toContain("新横浜駅の住所");
+  });
+
+  it("選びはこの端末に覚えていて、開き直しても外したまま。「すべて表示する」で戻る", async () => {
+    const user = userEvent.setup();
+    const { unmount } = (() => {
+      renderView();
+      return { unmount: cleanup };
+    })();
+    await user.click(screen.getByRole("button", { name: /地図に出す場所を選ぶ/ }));
+    await user.click(screen.getByRole("checkbox", { name: "岡山駅を地図に出す" }));
+    unmount();
+
+    renderView();
+    expect(screen.getByText("2/3件を表示中")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /地図に出す場所を選ぶ/ }));
+    await user.click(screen.getByRole("button", { name: "すべて表示する" }));
+    expect(screen.getByText("3/3件を表示中")).toBeTruthy();
+    expect(JSON.parse(window.localStorage.getItem("lifeHubRouteHidden:t1") ?? "[]")).toEqual([]);
+  });
+
+  it("全部外すと、その旨と「すべて表示する」を出す(空の画面にしない)", async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(screen.getByRole("button", { name: /地図に出す場所を選ぶ/ }));
+    for (const name of ["岡山駅", "新横浜駅", "東京駅"]) await user.click(screen.getByRole("checkbox", { name: `${name}を地図に出す` }));
+    expect(screen.getByText(/地図に出す場所が選ばれていません/)).toBeTruthy();
+    expect(screen.queryByText("この日に回る場所はまだ入っていません。")).toBeNull();
+    const buttons = screen.getAllByRole("button", { name: "すべて表示する" });
+    await user.click(buttons[0]);
+    expect(screen.getByText("3/3件を表示中")).toBeTruthy();
+  });
+
+  it("場所が1つだけの日には、選ぶ一覧を出さない", () => {
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="横浜"
+        places={[place("p1", "岡山駅", 1)]}
+        dayList={["2026-09-19"]}
+        suggestions={[]}
+        onAddSuggestions={() => {}}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+    expect(screen.queryByRole("button", { name: /地図に出す場所を選ぶ/ })).toBeNull();
+  });
+
+  it("時間で見る方にも、外した場所は出さない", async () => {
+    const user = userEvent.setup();
+    renderView();
+    await user.click(screen.getByRole("button", { name: /地図に出す場所を選ぶ/ }));
+    await user.click(screen.getByRole("checkbox", { name: "東京駅を地図に出す" }));
+    await user.click(screen.getByRole("button", { name: "時間で見る" }));
+    // 選ぶ一覧には外した場所も残る(戻せるように)ので、時間の並びの中だけを見る。
+    const timeline = document.querySelector<HTMLElement>(".trip-route__time")!;
+    expect(within(timeline).queryByText("東京駅")).toBeNull();
+    expect(within(timeline).getByText("岡山駅")).toBeTruthy();
+  });
+});
+
