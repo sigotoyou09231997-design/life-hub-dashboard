@@ -34,6 +34,11 @@ const title = titleMatch[1].trim();
 const description = text.slice(descIndex).replace(/^description:\s*/, "").trim().replace(/\n+/g, "");
 
 const source = readFileSync(target, "utf8");
+// すでに同じ題名の履歴があれば、足さない(事前の確認 scripts/preflight.sh --changelog が先に足していても、ship.sh が二重に足さないため)。
+if (source.includes(`    title: ${JSON.stringify(title)},\n`)) {
+  console.log(`更新履歴にすでにあります: 「${title}」`);
+  process.exit(0);
+}
 const serials = [...source.matchAll(/id:\s*"\d{4}-\d{2}-\d{2}-(\d+)"/g)].map((m) => Number(m[1]));
 const next = (serials.length ? Math.max(...serials) : 0) + 1;
 const now = new Date(Date.now() + 9 * 3600_000); // 日本時間の日付
