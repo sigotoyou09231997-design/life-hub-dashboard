@@ -1,11 +1,10 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { MessageSquarePlus } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { useToast } from "../ui/ToastProvider";
 import { FeedbackForm } from "./FeedbackForm";
 import { FeedbackProgressList } from "./FeedbackProgressList";
-import { useIsFeedbackOwner } from "../../hooks/useIsFeedbackOwner";
 import { useWorkingFeedback } from "../../hooks/useFeedbackProgress";
 
 /** 「＋」(下端から5.5rem・高さ3.5rem)の上に0.75rem空けて重ねる。PCは「＋」が下端から2rem。 */
@@ -75,36 +74,13 @@ export function FeedbackButton({ shareToken, standalone = false }: Props) {
 }
 
 /**
- * アプリの中(右下の「＋」の上)に出す「修正」。**持ち主(本人)には出さない**(2026-10-12、
- * UI/UX 調査メモ A-1)。本人は要望を設定の「届いた要望」で読むので送る側の入口は要らず、
- * 出ていると「＋タスクを追加」「CSVで書き出す」などの上に重なって邪魔になっていた。
- * 持ち主かどうか分かるまでは出さない — 本人の画面で一瞬出てから消えるのを避けるため
- * (ほかの人には、問い合わせが返った時点で出る)。
+ * アプリの中(右下の「＋」の上)に出す「修正」。持ち主(本人)にも出す。
+ *
+ * 2026-10-12 から持ち主には出していなかった(UI/UX 調査メモ A-1。本人は要望を設定の「届いた要望」で読むので、
+ * 送る側の入口は要らず、「＋タスクを追加」などの上に重なって邪魔、という理由)。ところが、持ち主のアカウントで
+ * 開くと「修正を送るボタンが消えてる」(2026-10-13、本人)。持ち主のアカウントでも、アプリの画面から依頼を送れて、
+ * 直している最中は「修正中」と出るようにするため、全員に出す。
  */
 export function InAppFeedbackButton() {
-  const isOwner = useIsFeedbackOwner();
-  if (isOwner !== false) return null;
   return <FeedbackButton />;
-}
-
-/**
- * 持ち主(本人)の画面の「修正中 N件」。持ち主には「修正」ボタンを出さない(上)ので、直している最中だけ、同じ場所に出す。
- * 押すと、設定の「届いた要望」へ。直し終わる(対応済み・見送り・未対応に戻す)と消える。
- */
-export function InAppFeedbackProgress() {
-  const isOwner = useIsFeedbackOwner();
-  const working = useWorkingFeedback();
-  const location = useLocation();
-  // 「届いた要望」(設定)を開いている間は、その一覧に「修正中」が出ているので、札は出さない。
-  if (isOwner !== true || working.length === 0 || location.pathname === "/settings") return null;
-  return (
-    <Link
-      to="/settings"
-      aria-label={`修正中が${working.length}件あります。届いた要望を開く`}
-      className={`feedback-button fixed ${IN_APP_POSITION} z-40 flex transform-gpu items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3.5 py-2 text-xs font-semibold text-accent shadow-lg backdrop-blur transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50`}
-    >
-      <WorkingDot />
-      修正中 {working.length}件
-    </Link>
-  );
 }

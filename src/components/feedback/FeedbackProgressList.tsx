@@ -1,5 +1,6 @@
 import { feedbackStatusLabel, type FeedbackItem } from "../../lib/appFeedback";
 import { useFeedbackProgress } from "../../hooks/useFeedbackProgress";
+import { useIsFeedbackOwner } from "../../hooks/useIsFeedbackOwner";
 import { Badge } from "../ui/Badge";
 
 /** 「M/d H:mm」(日本時間ではなく、この端末の時刻)。 */
@@ -26,10 +27,13 @@ function subText(item: FeedbackItem): string {
  */
 export function FeedbackProgressList() {
   const items = useFeedbackProgress();
+  // 持ち主には、ほかの人が送った依頼も含めて全部が返る(RLS)ので、「送った」とは言わない。
+  const owner = useIsFeedbackOwner() === true;
+  const heading = owner ? "届いている依頼の状況" : "送った依頼の状況";
   if (items.length === 0) return null;
   return (
-    <section aria-label="送った依頼の状況">
-      <h3 className="text-xs font-semibold text-slate-600">送った依頼の状況</h3>
+    <section aria-label={heading}>
+      <h3 className="text-xs font-semibold text-slate-600">{heading}</h3>
       <ul className="mt-2 flex flex-col gap-2">
         {items.slice(0, 5).map((item) => (
           <li key={item.id} className="flex items-start justify-between gap-2 text-sm text-slate-700">
