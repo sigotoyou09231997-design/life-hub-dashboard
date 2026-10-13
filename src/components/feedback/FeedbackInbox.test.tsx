@@ -73,6 +73,22 @@ describe("届いた要望", () => {
     expect(screen.queryByText("直したもの")).toBeNull();
   });
 
+  it("いつ届いたかが出る。まだ終わっていない依頼には、届いてからの経過も付く(2026-10-14)", async () => {
+    mocks.owner = true;
+    const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+    mocks.items = [
+      item({ id: "a", message: "待っている依頼", createdAt: ago(18) }),
+      item({ id: "b", status: "done", message: "終わった依頼", createdAt: ago(18) }),
+    ];
+    const user = userEvent.setup();
+    renderInbox();
+    expect(await screen.findByText(/に届きました（18分前）/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "対応済み・見送りも見る" }));
+    // 終わった依頼は、届いた時刻だけ(「○分前」は付けない)。
+    expect(screen.getAllByText(/に届きました/)).toHaveLength(2);
+    expect(screen.getAllByText(/に届きました（/)).toHaveLength(1);
+  });
+
   it("対応済みにすると一覧から外れ、「対応済みも見る」で見られる", async () => {
     mocks.owner = true;
     mocks.items = [item({ id: "a", message: "並び順が戻らない" })];

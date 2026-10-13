@@ -13,6 +13,9 @@ import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { FeedbackGauge } from "./FeedbackGauge";
+import { agoLabel } from "../../lib/feedbackTime";
+import { isActiveFeedback } from "../../lib/feedbackProgress";
+import { useNow } from "../../hooks/useNow";
 import { useToast } from "../ui/ToastProvider";
 
 function fromLabel(item: FeedbackItem): string {
@@ -38,6 +41,8 @@ export function FeedbackInbox() {
   const [failed, setFailed] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
   const [busyId, setBusyId] = useState<string>();
+  /** 「○分前」を、開いたまま進める。 */
+  const now = useNow(30_000);
   /** 開いて読み込んだ画像(依頼のid → データ URL)。重いので、押した時だけ読む。 */
   const [images, setImages] = useState<Record<string, string[]>>({});
   /** 大きく出している画像(「依頼のid:番号」)。 */
@@ -135,7 +140,7 @@ export function FeedbackInbox() {
           {visible.map((item) => (
             <li key={item.id} className="glass-row rounded-xl p-3 text-sm text-slate-700">
               <p className="text-xs text-slate-500">
-                {whenLabel(item.createdAt)} ・ {fromLabel(item)}
+                {whenLabel(item.createdAt)} に届きました{isActiveFeedback(item) ? `（${agoLabel(item.createdAt, now)}）` : ""} ・ {fromLabel(item)}
                 {item.page ? ` ・ ${item.page}` : ""}
               </p>
               <p className="mt-1 whitespace-pre-wrap">{item.message}</p>
