@@ -1772,6 +1772,82 @@ a.trip-leg-mode--link {
   font-weight: 600;
 }
 
+/* チェックを付けて選ぶ(候補が2つ以上ある時)。本文を広げて、チェックは左、「入れる」は右に寄せる。 */
+.trip-route-picks__list li .trip-route-picks__body {
+  flex: 1 1 auto;
+}
+
+.trip-route-picks__check {
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--accent, var(--hub-blue));
+}
+
+.trip-route-picks__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.trip-route-picks__all--primary {
+  background: var(--accent, var(--hub-blue));
+  color: #fff;
+}
+
+/* 地図に出す場所を選ぶ(外した場所はルートに残る)。畳んでいる間は1行。 */
+.trip-route-show {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--hub-r-sm);
+  background: var(--hub-inset);
+}
+
+.trip-route-show__toggle {
+  display: flex;
+  min-height: 2.1rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  color: var(--hub-ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: left;
+}
+
+.trip-route-show__toggle small {
+  color: var(--hub-ink-2);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.trip-route-show__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip-route-show__list label {
+  display: flex;
+  min-height: 2.4rem;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--hub-ink);
+  font-size: 0.88rem;
+}
+
+.trip-route-show__list input {
+  flex-shrink: 0;
+  width: 1.15rem;
+  height: 1.15rem;
+  accent-color: var(--accent, var(--hub-blue));
+}
+
 .trip-route-picks__all {
   align-self: flex-start;
   min-height: 2.1rem;

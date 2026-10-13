@@ -31,6 +31,7 @@ import { TripLegRoute } from "./TripLegRoute";
 import { TripRouteTimeline } from "./TripRouteTimeline";
 import { buildRouteTimeline } from "../../lib/tripRouteTimeline";
 import { TripPlaceStation } from "./TripPlaceStation";
+import { readHiddenPlaceIds, toggleHiddenPlace, writeHiddenPlaceIds } from "../../lib/tripRouteSelection";
 
 interface Props {
   tripId: string;
@@ -90,7 +91,16 @@ function TripRoutePicks({
   suggestions: RouteSuggestion[];
   onAdd: (suggestions: RouteSuggestion[]) => void;
 }) {
+  /** チェックを付けた候補(日程の予定の id)。 */
+  const [selected, setSelected] = useState<string[]>([]);
   if (suggestions.length === 0) return null;
+
+  // 日にちを切り替えた・ルートに入れた後に、もう候補に無いものの選びは外す。
+  const chosen = suggestions.filter((suggestion) => selected.includes(suggestion.scheduleId));
+  const canSelect = suggestions.length > 1;
+  const allSelected = chosen.length === suggestions.length;
+  const toggle = (scheduleId: string) =>
+    setSelected((current) => (current.includes(scheduleId) ? current.filter((id) => id !== scheduleId) : [...current, scheduleId]));
 
   return (
     <section className="trip-route-picks">
@@ -101,10 +111,20 @@ function TripRoutePicks({
       </header>
       <p className="trip-route-picks__lead">
         日程にはあるのに、ルートにはまだ入っていない場所です。入れると地図と経路が並びます。
+        {canSelect && "いくつかあるときは、チェックして、選んだものだけを入れられます。"}
       </p>
       <ul className="trip-route-picks__list">
         {suggestions.map((suggestion) => (
           <li key={suggestion.scheduleId}>
+            {canSelect && (
+              <input
+                type="checkbox"
+                className="trip-route-picks__check"
+                checked={selected.includes(suggestion.scheduleId)}
+                onChange={() => toggle(suggestion.scheduleId)}
+                aria-label={`${suggestion.name}を選ぶ`}
+              />
+            )}
             <div className="trip-route-picks__body">
               <p className="trip-route-picks__name" title={suggestion.address}>{suggestion.name}</p>
               <small>
@@ -119,10 +139,32 @@ function TripRoutePicks({
           </li>
         ))}
       </ul>
-      {suggestions.length > 1 && (
-        <button type="button" className="trip-route-picks__all" onClick={() => onAdd(suggestions)}>
-          すべてルートに入れる
-        </button>
+      {canSelect && (
+        <div className="trip-route-picks__actions">
+          <button
+            type="button"
+            className="trip-route-picks__all"
+            onClick={() => setSelected(allSelected ? [] : suggestions.map((suggestion) => suggestion.scheduleId))}
+          >
+            {allSelected ? "選びをやめる" : "すべて選ぶ"}
+          </button>
+          {chosen.length > 0 ? (
+            <button
+              type="button"
+              className="trip-route-picks__all trip-route-picks__all--primary"
+              onClick={() => {
+                onAdd(chosen);
+                setSelected([]);
+              }}
+            >
+              選んだ{chosen.length}件をルートに入れる
+            </button>
+          ) : (
+            <button type="button" className="trip-route-picks__all" onClick={() => onAdd(suggestions)}>
+              すべてルートに入れる
+            </button>
+          )}
+        </div>
       )}
     </section>
   );
@@ -172,6 +214,10 @@ export function TripRouteView({
    * 日をまたいだ場所を1本の鎖に並べると、その日に回る順として読めないため。
    * 日にちの切り替えを出さない旅行(1日で終わる)だけ、内部的に全件表示のままにする。 */
   const [day, setDay] = useState<string>(ALL_DAYS);
+  /** 地図・時間の並びに出さない場所(ルートには残る)。旅行ごとに、この端末の中だけに覚える(src/lib/tripRouteSelection.ts)。 */
+  const [hiddenIds, setHiddenIds] = useState<string[]>(() => readHiddenPlaceIds(tripId));
+  /** 「地図に出す場所を選ぶ」の一覧を開いているか。 */
+  const [pickingPlaces, setPickingPlaces] = useState(false);
   /** 検索は絞り込まず、一致した場所を鎖の中で光らせるだけにする(src/styles/trips.css
    * の.trip-route-card--match) — 間を抜くと区間(誰から誰まで)の意味が崩れるため。 */
   const [query, setQuery] = useState("");
@@ -181,11 +227,32 @@ export function TripRouteView({
   const [here, setHere] = useState<string | null>(null);
   const [hereState, setHereState] = useState<"asking" | "ready" | "denied">("asking");
 
-  const shown = places.filter((place) => {
+  /** いま見ている日の場所(外してあるものも含む)。 */
+  const dayPlaces = places.filter((place) => {
     if (day === ALL_DAYS) return true;
     if (day === NO_DAY) return !place.date;
     return place.date === day;
   });
+  /** 地図・時間の並び・「全地点をGoogleマップで開く」に出す場所。外した場所は出さない。 */
+  const shown = dayPlaces.filter((place) => !place.id || !hiddenIds.includes(place.id));
+  const hiddenInDay = dayPlaces.length - shown.length;
+
+  function setPlaceShown(placeId: string, show: boolean) {
+    setHiddenIds((current) =>
+      writeHiddenPlaceIds(tripId, toggleHiddenPlace(current, placeId, show), places.flatMap((place) => (place.id ? [place.id] : []))),
+    );
+  }
+
+  function showAllPlaces() {
+    const dayIds = new Set(dayPlaces.flatMap((place) => (place.id ? [place.id] : [])));
+    setHiddenIds((current) =>
+      writeHiddenPlaceIds(
+        tripId,
+        current.filter((id) => !dayIds.has(id)),
+        places.flatMap((place) => (place.id ? [place.id] : [])),
+      ),
+    );
+  }
   /** いま見ている日の、日程から来た候補。日付なしの場所を見ている時は出さない —
    * 候補はどれも日程の行なので、必ず日付を持っている。 */
   const shownSuggestions = suggestions.filter((suggestion) => {
@@ -392,14 +459,64 @@ export function TripRouteView({
 
           <TripRoutePicks suggestions={shownSuggestions} onAdd={onAddSuggestions} />
 
-          {shown.length === 0 ? (
-            <div className="trip-route__day-empty">
-              <p>この日に回る場所はまだ入っていません。</p>
-              <button type="button" onClick={onAdd}>
-                <Plus size={16} />
-                場所を追加
+          {/* 見たい場所だけを地図に出す。外した場所はルートに残り、ここでいつでも戻せる。 */}
+          {dayPlaces.length > 1 && (
+            <section className="trip-route-show" aria-label="地図に出す場所">
+              <button
+                type="button"
+                className="trip-route-show__toggle"
+                aria-expanded={pickingPlaces}
+                onClick={() => setPickingPlaces((open) => !open)}
+              >
+                地図に出す場所を選ぶ
+                <small>
+                  {shown.length}/{dayPlaces.length}件を表示中
+                </small>
               </button>
-            </div>
+              {pickingPlaces && (
+                <>
+                  <ul className="trip-route-show__list">
+                    {dayPlaces.map((place) => (
+                      <li key={place.id}>
+                        <label>
+                          <input
+                            type="checkbox"
+                            checked={!place.id || !hiddenIds.includes(place.id)}
+                            onChange={(e) => place.id && setPlaceShown(place.id, e.target.checked)}
+                            aria-label={`${place.name}を地図に出す`}
+                          />
+                          <span>{place.name}</span>
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                  {hiddenInDay > 0 && (
+                    <button type="button" className="trip-route-picks__all" onClick={showAllPlaces}>
+                      すべて表示する
+                    </button>
+                  )}
+                </>
+              )}
+            </section>
+          )}
+
+          {shown.length === 0 ? (
+            dayPlaces.length > 0 ? (
+              <div className="trip-route__day-empty">
+                <p>地図に出す場所が選ばれていません。上の「地図に出す場所を選ぶ」で選ぶか、すべて表示に戻せます。</p>
+                <button type="button" onClick={showAllPlaces}>
+                  すべて表示する
+                </button>
+              </div>
+            ) : (
+              <div className="trip-route__day-empty">
+                <p>この日に回る場所はまだ入っていません。</p>
+                <button type="button" onClick={onAdd}>
+                  <Plus size={16} />
+                  場所を追加
+                </button>
+              </div>
+            )
           ) : view === "time" ? (
             <div className="trip-route__time">
               <TripRouteTimeline
