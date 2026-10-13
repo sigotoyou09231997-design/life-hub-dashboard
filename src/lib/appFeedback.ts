@@ -44,6 +44,8 @@ export interface FeedbackItem {
   workingAt?: string;
   /** 保留中の理由・聞きたいこと(036 を流す前は無い)。status が hold の時だけ意味がある。 */
   statusNote?: string;
+  /** かかる時間の目安(分。037 を流す前は無い)。直し始める時に付く。ゲージに使う(src/lib/feedbackGauge.ts)。 */
+  estimateMinutes?: number;
 }
 
 export type FeedbackFailure =
@@ -186,6 +188,7 @@ interface FeedbackRow {
   image_count?: number | null;
   working_at?: string | null;
   status_note?: string | null;
+  estimate_minutes?: number | null;
 }
 
 export function rowToFeedback(row: FeedbackRow): FeedbackItem {
@@ -202,11 +205,12 @@ export function rowToFeedback(row: FeedbackRow): FeedbackItem {
     imageCount: row.image_count ?? undefined,
     workingAt: row.working_at ?? undefined,
     statusNote: row.status_note ?? undefined,
+    estimateMinutes: row.estimate_minutes ?? undefined,
   };
 }
 
 /** あとから足された列(033 の画像の枚数・035 の修正中の時刻)。流す前の本番には無いので、無ければ外して読み直す。 */
-const OPTIONAL_COLUMNS = ["image_count", "working_at", "status_note"];
+const OPTIONAL_COLUMNS = ["image_count", "working_at", "status_note", "estimate_minutes"];
 const BASE_COLUMNS = "id, via, sender_name, trip_name, page, message, app_version, status, created_at";
 
 type FeedbackQuery = (columns: string) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>;
@@ -269,13 +273,20 @@ export async function loadFeedbackImages(id: string): Promise<string[]> {
 
 export async function setFeedbackStatus(id: string, status: FeedbackStatus): Promise<void> {
   const client = await getSupabaseDataClient();
-  const patch = { status, resolved_at: status === "new" || status === "working" || status === "hold" ? null : new Date().toISOString() };
-  // 保留の理由は、保留の間だけ。ほかの状態にしたら消す(036)。036 を流す前は理由の列が無いので、その時は理由なしで更新する。
-  let { error } = await client.from("app_feedback").update(status === "hold" ? patch : { ...patch, status_note: null }).eq("id", id);
-  if (error && /status_note/.test(error.message ?? "")) {
-    ({ error } = await client.from("app_feedback").update(patch).eq("id", id));
+  const inProgress = status === "new" || status === "working" || status === "hold";
+  const patch: Record<string, unknown> = { status, resolved_at: inProgress ? null : new Date().toISOString() };
+  // 保留の理由は、保留の間だけ。ほかの状態にしたら消す(036)。かかる時間の目安も、進めている間だけ意味があるので、
+  // 未対応・保留中・修正中にしたら消す(古い目安のゲージを出さない。終わったあとは、実績と比べるために残す)(037)。
+  // どちらも、流す前の本番には列が無い。その時は、無いと言われた列だけ外して更新し直す。
+  if (status !== "hold") patch.status_note = null;
+  if (inProgress) patch.estimate_minutes = null;
+  for (;;) {
+    const { error } = await client.from("app_feedback").update(patch).eq("id", id);
+    if (!error) break;
+    const missing = ["status_note", "estimate_minutes"].find((column) => column in patch && (error.message ?? "").includes(column));
+    if (!missing) throw error;
+    delete patch[missing];
   }
-  if (error) throw error;
   notifyFeedbackChanged();
 }
 

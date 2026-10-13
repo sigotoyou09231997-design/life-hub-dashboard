@@ -2,6 +2,7 @@ import { feedbackStatusLabel, type FeedbackItem } from "../../lib/appFeedback";
 import { useFeedbackProgress } from "../../hooks/useFeedbackProgress";
 import { useIsFeedbackOwner } from "../../hooks/useIsFeedbackOwner";
 import { Badge } from "../ui/Badge";
+import { FeedbackGauge } from "./FeedbackGauge";
 
 /** 「M/d H:mm」(日本時間ではなく、この端末の時刻)。 */
 function timeLabel(iso: string): string {
@@ -37,12 +38,14 @@ export function FeedbackProgressList() {
       <ul className="mt-2 flex flex-col gap-2">
         {items.slice(0, 5).map((item) => (
           <li key={item.id} className="flex items-start justify-between gap-2 text-sm text-slate-700">
-            <span className="min-w-0">
+            <div className="min-w-0 flex-1">
               <span className="block truncate">{summary(item.message)}</span>
               <span className="text-xs text-slate-500">{subText(item)}</span>
               {/* 保留中の理由・聞きたいこと(あれば)。送った人が、何を答えればいいか分かるように。 */}
               {item.status === "hold" && item.statusNote && <span className="mt-0.5 block text-xs text-amber-800">{item.statusNote}</span>}
-            </span>
+              {/* 修正中の依頼の、かかる時間の目安と経過のゲージ(目安が付いている時だけ)。 */}
+              <FeedbackGauge item={item} />
+            </div>
             <Badge tone={item.status === "working" ? "accent" : item.status === "hold" ? "warning" : "neutral"} className="shrink-0 whitespace-nowrap">
               {feedbackStatusLabel(item.status)}
             </Badge>

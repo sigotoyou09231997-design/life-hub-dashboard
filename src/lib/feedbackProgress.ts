@@ -31,7 +31,7 @@ export function isActiveFeedback(item: FeedbackItem): boolean {
 }
 
 function sign(items: readonly FeedbackItem[]): string {
-  return items.map((item) => `${item.id}:${item.status}:${item.workingAt ?? ""}:${item.statusNote ?? ""}`).join("|");
+  return items.map((item) => `${item.id}:${item.status}:${item.workingAt ?? ""}:${item.statusNote ?? ""}:${item.estimateMinutes ?? ""}`).join("|");
 }
 
 async function refresh(): Promise<void> {

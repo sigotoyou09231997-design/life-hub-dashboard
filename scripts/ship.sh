@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 修正を本番に出すまでを1コマンドで行う(作業場所の中で、変更をコミットしたあとに)。
 #
-#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--from <依頼が来た時刻 epoch 秒>] [--changelog <ファイル>] [--shots] [--keep] [--dry-run] [--push-branch]
+#   bash scripts/ship.sh "<何を直したか>" [--done <要望のid>] [--from <依頼が来た時刻 epoch 秒>] [--changelog <ファイル>] [--size <大きさ>] [--shots] [--keep] [--dry-run] [--push-branch]
 #
 # やること(todoアプリ/CLAUDE.md の「本番反映」と同じ条件。1つでも落ちたら main に入れずに止まる):
 #   1. 手元の main が公開の main と同じか確かめる(違えば止まる)。ブランチが main に追いついていなければ main を取り込む
@@ -17,13 +17,14 @@ set -euo pipefail
 
 MSG="${1:?何を直したか(統合のメッセージ)を渡してください}"
 shift || true
-DONE_ID=""; SHOTS=0; KEEP=0; DRY=0; PUSH_BRANCH=0; FROM_EPOCH=""; CHANGELOG_FILE=""
+DONE_ID=""; SHOTS=0; KEEP=0; DRY=0; PUSH_BRANCH=0; FROM_EPOCH=""; CHANGELOG_FILE=""; SIZE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --done) DONE_ID="${2:?--done の後に要望のid}"; shift 2 ;;
     --shots) SHOTS=1; shift ;;
     --from) FROM_EPOCH="${2:?--from の後に、依頼が来た時刻(epoch 秒。date +%s)}"; shift 2 ;;
     --changelog) CHANGELOG_FILE="${2:?--changelog の後に、area/title/description を書いたファイル}"; shift 2 ;;
+    --size) SIZE="${2:?--size の後に、内容の大きさ(出し直し/小/中/広い見た目/大/道具)}"; shift 2 ;;
     --keep) KEEP=1; shift ;;
     --push-branch) PUSH_BRANCH=1; shift ;;
     --dry-run) DRY=1; shift ;;
@@ -151,7 +152,8 @@ if [ "$DRY" -eq 0 ]; then
     W0=""; TOTAL=$((${E_LIVE:-$(date +%s)} - E_START))
     echo "計測: テスト・統合 ${A}秒 / 公開待ち ${B}秒 / 開始→公開 ${TOTAL}秒(依頼の時刻が分からないので、依頼→開始は無し)"
   fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "${SHA:0:7}" "${W0:--}" "$A" "$B" "$TOTAL" "$MSG" >> "$MAIN_DIR/.fix-times.log" || true
+  # 8列目は内容の大きさ(修正の見積もりの材料。scripts/estimate-fix.mjs)。付けなければ空。
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "${SHA:0:7}" "${W0:--}" "$A" "$B" "$TOTAL" "$MSG" "$SIZE" >> "$MAIN_DIR/.fix-times.log" || true
 fi
 echo "完了: ${SHA:0:7}  Vercel=$([ "$LIVE" -eq 1 ] && echo 公開済み || echo 未確認)  Netlify=$NETLIFY  所要 $((SECONDS - START))秒"
 [ "$LIVE" -eq 1 ]
