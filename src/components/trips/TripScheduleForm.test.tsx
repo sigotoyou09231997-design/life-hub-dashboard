@@ -65,10 +65,10 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-function renderForm(initial?: TripScheduleItem, members?: string[] | null, onDelete?: () => void) {
+function renderForm(initial?: TripScheduleItem, members?: string[] | null, onDelete?: () => void, extra: Partial<React.ComponentProps<typeof TripScheduleForm>> = {}) {
   const saved = vi.fn();
   render(
-    <TripScheduleForm tripId="t1" initial={initial} members={members} defaultDate="2026-12-27" onSaved={saved} onCancel={() => {}} onDelete={onDelete} />,
+    <TripScheduleForm tripId="t1" initial={initial} members={members} defaultDate="2026-12-27" onSaved={saved} onCancel={() => {}} onDelete={onDelete} {...extra} />,
     { wrapper: ConfirmProvider },
   );
   return saved;
@@ -260,5 +260,89 @@ describe("旅行の予定の入力: 削除", () => {
     expect(onDelete).toHaveBeenCalledTimes(1);
     // 消すだけで、保存はしない。
     expect(mocks.updated).toEqual([]);
+  });
+});
+
+describe("旅行の予定の入力: コピーして追加(要望の受信箱「予定をコピーする機能があるといい」)", () => {
+  const existing: TripScheduleItem = {
+    id: "s1",
+    tripId: "t1",
+    date: "2026-12-27",
+    startTime: "12:00",
+    title: "昼食 うどん",
+    location: "高松市",
+    memo: "予約済み",
+    type: "meal",
+    createdAt: 1,
+    sortOrder: 3,
+  };
+
+  it("編集の時だけ「この予定をコピーして追加」が出る。新しい予定の入力・場所を選ぶ画面には出さない", () => {
+    renderForm(existing, null, undefined, { onCopy: () => {} });
+    expect(screen.getByRole("button", { name: "この予定をコピーして追加" })).toBeTruthy();
+    cleanup();
+    renderForm(undefined, null, undefined, { onCopy: () => {} });
+    expect(screen.queryByRole("button", { name: "この予定をコピーして追加" })).toBeNull();
+    cleanup();
+    renderForm(existing);
+    expect(screen.queryByRole("button", { name: "この予定をコピーして追加" })).toBeNull();
+  });
+
+  it("押すと、元の予定の内容を新しい予定(id・作った時刻・並び順は引き継がない)として渡す。保存はしない", async () => {
+    const user = userEvent.setup();
+    const onCopy = vi.fn();
+    renderForm(existing, null, undefined, { onCopy });
+    await user.click(screen.getByRole("button", { name: "この予定をコピーして追加" }));
+    expect(onCopy).toHaveBeenCalledOnce();
+    const { item, amount, paidBy } = onCopy.mock.calls[0][0];
+    expect(item).toMatchObject({ tripId: "t1", date: "2026-12-27", startTime: "12:00", title: "昼食 うどん", location: "高松市", memo: "予約済み", type: "meal" });
+    expect(item.id).toBeUndefined();
+    expect(item.sortOrder).toBeUndefined();
+    expect(item.createdAt).toBeGreaterThan(1);
+    expect({ amount, paidBy }).toEqual({ amount: "", paidBy: "" });
+    expect(mocks.added).toEqual([]);
+    expect(mocks.updated).toEqual([]);
+  });
+
+  it("保存前に直していた内容(題名・時刻)も、そのままコピーに引き継ぐ。元の予定は変わらない", async () => {
+    const user = userEvent.setup();
+    const onCopy = vi.fn();
+    renderForm(existing, null, undefined, { onCopy });
+    const title = screen.getByPlaceholderText("例: 五稜郭");
+    await user.clear(title);
+    await user.type(title, "夕食 うどん");
+    await user.click(screen.getByRole("button", { name: "この予定をコピーして追加" }));
+    expect(onCopy.mock.calls[0][0].item.title).toBe("夕食 うどん");
+    expect(mocks.updated).toEqual([]);
+  });
+
+  it("元の予定の費用(金額)も、コピーに引き継ぐ", async () => {
+    mocks.linkedExpense = { id: "e1", tripId: "t1", title: "昼食 うどん", amount: 1200, category: "food", paid: false, createdAt: 1, scheduleId: "s1" };
+    const user = userEvent.setup();
+    const onCopy = vi.fn();
+    renderForm(existing, null, undefined, { onCopy });
+    await waitFor(() => expect((screen.getByPlaceholderText("0") as HTMLInputElement).value).toBe("1200"));
+    await user.click(screen.getByRole("button", { name: "この予定をコピーして追加" }));
+    expect(onCopy.mock.calls[0][0].amount).toBe("1200");
+  });
+
+  it("題名が空のままでは押せない", () => {
+    renderForm({ ...existing, title: "" }, null, undefined, { onCopy: () => {} });
+    expect((screen.getByRole("button", { name: "この予定をコピーして追加" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("コピーとして開いた画面(id なしの内容+金額)は、新しい予定として保存し、費用も新しく作る。ボタンの名前は「予定を追加」", async () => {
+    const user = userEvent.setup();
+    const { id: _id, ...draft } = existing;
+    const saved = renderForm({ ...draft, createdAt: 99 }, null, undefined, { prefill: { amount: "1200", paidBy: "" } });
+    expect(screen.queryByRole("button", { name: "この予定をコピーして追加" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "変更を保存" })).toBeNull();
+    expect((screen.getByPlaceholderText("0") as HTMLInputElement).value).toBe("1200");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(mocks.updated).toEqual([]);
+    expect(mocks.added).toHaveLength(1);
+    expect(mocks.added[0]).toMatchObject({ title: "昼食 うどん", date: "2026-12-27", startTime: "12:00", createdAt: 99 });
+    expect(mocks.expenseAdded).toEqual([expect.objectContaining({ amount: 1200, scheduleId: "new-schedule-id", title: "昼食 うどん" })]);
+    expect(saved).toHaveBeenCalledWith("2026-12-27");
   });
 });
