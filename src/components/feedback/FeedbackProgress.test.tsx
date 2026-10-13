@@ -104,6 +104,41 @@ describe("修正ボタンの「修正中」", () => {
   });
 });
 
+describe("保留中(2026-10-14、本人「保留中というラベルをつけたい」)", () => {
+  it("保留中の依頼があって、修正中が無い間は、ボタンが「保留中」になる", async () => {
+    mocks.recent = [item("a", "hold", { statusNote: "どの画面か教えてください" })];
+    renderApp(<FeedbackButton />);
+    const button = await screen.findByRole("button", { name: "保留中の依頼があります。直してほしいことを送る" });
+    expect(button.textContent).toBe("保留中");
+  });
+
+  it("修正中と保留中が両方あれば、修正中を先に出す", async () => {
+    mocks.recent = [item("a", "hold"), item("b", "working")];
+    renderApp(<FeedbackButton />);
+    expect((await screen.findByRole("button", { name: "修正中です。直してほしいことを送る" })).textContent).toBe("修正中");
+  });
+
+  it("開くと、保留中の依頼に「保留中」の札と、理由(聞きたいこと)が出る", async () => {
+    const user = userEvent.setup();
+    mocks.recent = [item("a", "hold", { message: "ルートの候補を選びたい", statusNote: "どの「候補」のことか教えてください" }), item("b", "new", { message: "文字が小さい" })];
+    renderApp(<FeedbackButton />);
+    await user.click(await screen.findByRole("button", { name: "保留中の依頼があります。直してほしいことを送る" }));
+    const list = await screen.findByRole("region", { name: "送った依頼の状況" });
+    expect(list.textContent).toContain("保留中");
+    expect(list.textContent).toContain("どの「候補」のことか教えてください");
+    expect(list.textContent).toContain("受け付け済み");
+  });
+
+  it("理由が無い保留中も、「保留中」の札だけは出る", async () => {
+    const user = userEvent.setup();
+    mocks.recent = [item("a", "hold", { message: "ルートの候補を選びたい" })];
+    renderApp(<FeedbackButton />);
+    await user.click(await screen.findByRole("button", { name: "保留中の依頼があります。直してほしいことを送る" }));
+    const list = await screen.findByRole("region", { name: "送った依頼の状況" });
+    expect(list.textContent).toContain("保留中");
+  });
+});
+
 describe("持ち主の画面(2026-10-13、本人「修正を送るボタンが消えてる」)", () => {
   it("持ち主にも、アプリの「修正」ボタンを出す", async () => {
     mocks.owner = true;

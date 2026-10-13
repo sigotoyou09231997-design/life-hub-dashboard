@@ -4,6 +4,7 @@
 //   node scripts/feedback-inbox.mjs              未対応の要望を並べる
 //   node scripts/feedback-inbox.mjs --all        対応済み・見送りも並べる
 //   node scripts/feedback-inbox.mjs --json       そのまま JSON で出す
+//   node scripts/feedback-inbox.mjs --hold <id> "理由"  保留中にする(直さずに止める時。理由・聞きたいことの一言をアプリに出す。036 を流した後)
 //   node scripts/feedback-inbox.mjs --working <id>  修正中にする(直し始めた時。アプリの「修正」が「修正中」になる。035 を流した後)
 //   node scripts/feedback-inbox.mjs --done <id>  対応済みにする(--dismiss で見送り、--reopen で未対応に戻す)
 //   node scripts/feedback-inbox.mjs --created <id>  届いた時刻(epoch 秒)だけを出す(ship.sh の所要時間の計測用)
@@ -91,6 +92,26 @@ async function main() {
     const item = (all.items ?? []).find((entry) => entry.id === id);
     if (!item) throw new Error("その id の要望が見つかりません");
     console.log(Math.floor(new Date(item.createdAt).getTime() / 1000));
+    return;
+  }
+
+  if (args.includes("--hold")) {
+    const index = args.indexOf("--hold");
+    const id = args[index + 1];
+    const note = args[index + 2] ?? "";
+    if (!id) throw new Error('--hold のあとに要望の id と、理由(任意)を付けてください: --hold <id> "理由"');
+    try {
+      const result = await rpc(env, "app_feedback_hold", { p_code: code, p_id: id, p_note: note });
+      if (!result.ok) throw new Error(`保留中にできませんでした(${result.reason})`);
+      console.log(`${id} を「保留中」にしました${note ? `(理由: ${note})` : ""}`);
+    } catch (err) {
+      // 036 をまだ流していない。保留中の印は付けられないだけで、作業は止めない(アプリでは「受け付け済み」のまま)。
+      if (/app_feedback_hold|404|PGRST202|does not exist|schema cache/.test(String(err?.message ?? err))) {
+        console.error("「保留中」の印は付けられませんでした(supabase/sql/036_feedback_hold.sql がまだ本番で流れていません)。理由は会話で本人に伝えてください");
+        return;
+      }
+      throw err;
+    }
     return;
   }
 

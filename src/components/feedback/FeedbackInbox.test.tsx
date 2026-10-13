@@ -147,3 +147,31 @@ describe("修正中(035)", () => {
   });
 });
 
+describe("保留中(036)", () => {
+  beforeEach(() => {
+    mocks.owner = true;
+  });
+
+  it("保留中の依頼は、既定の一覧に出て、理由と「保留中 N件」が見える。対応済み・未対応に戻す・見送るができる", async () => {
+    const user = userEvent.setup();
+    mocks.items = [item({ id: "h1", message: "ルートの候補を選びたい", status: "hold", statusNote: "どの「候補」のことか教えてください" }), item({ id: "d1", message: "もう直した", status: "done" })];
+    renderInbox();
+    expect(await screen.findByText("ルートの候補を選びたい")).toBeTruthy();
+    expect(screen.queryByText("もう直した")).toBeNull();
+    expect(screen.getByText("保留中 1件")).toBeTruthy();
+    expect(screen.getByText(/保留の理由: どの「候補」のことか教えてください/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "未対応に戻す" }));
+    await waitFor(() => expect(mocks.changed).toEqual([["h1", "new"]]));
+    await user.click(screen.getByRole("button", { name: "見送る" }));
+    await waitFor(() => expect(mocks.changed.at(-1)).toEqual(["h1", "dismissed"]));
+  });
+
+  it("理由が無い保留中は、札だけ出る", async () => {
+    mocks.items = [item({ id: "h1", message: "相談", status: "hold" })];
+    renderInbox();
+    await screen.findByText("相談");
+    expect(screen.queryByText(/保留の理由/)).toBeNull();
+    expect(screen.getAllByText("保留中").length).toBeGreaterThan(0);
+  });
+});
+

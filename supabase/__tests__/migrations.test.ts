@@ -17,6 +17,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * - 029: 要望の受信箱(ログインして・共有リンクから送れる・持ち主だけ読める・読み取りコード・連投の上限)。
  * - 030: 要望から足した欄(移動手段・予定の詳細・持ち物の並び順・参加者・支払った人)と、共有したしおりへの反映。
  * - 033: 修正依頼に付ける画像(JPEG だけ・3枚まで・大きさの上限・画像つきは1時間3件まで・対応済みで消える・読み取りコードで1件ずつ読む)。
+ * - 036: 修正依頼の「保留中」(理由つきで保留にする・ほかの状態にしたら理由は消す・見張りには流れない・送った人が自分の分を読める)。
  * - 035: 修正依頼の「修正中」(状態に working を足す・Mac から印を付ける・いつからか・見張りには流れない・送った人が自分の分の状態を読める)。
  * - 034: 旅行を一緒に編集(メールで招く・承認するまで見えない・承認後は持ち主の名前で読み書き・消せない・外す／抜けるで即座に届かなくなる・日記は共有しない)。
  */
@@ -962,3 +963,87 @@ describe("035: 修正依頼の「修正中」", () => {
     expect(await count(`select count(*)::int as n from public.app_feedback where id = '${mine}' and images is null`)).toBe(1);
   });
 });
+
+describe("036: 修正依頼の「保留中」", () => {
+  const OWNER = USER;
+  const SENDER = "88888888-2222-4333-8444-555555555555";
+  const OTHER_SENDER = "99999999-2222-4333-8444-555555555555";
+  const readCode = "FBHOLDCODE1234567890";
+  const asSender = <T,>(fn: () => Promise<T>) => as("authenticated", { sub: SENDER, role: "authenticated" }, fn);
+  const setStatus = async (id: string, status: string) =>
+    (await db.query<{ r: { ok: boolean; reason?: string } }>("select public.app_feedback_set_status($1, $2, $3) as r", [readCode, id, status])).rows[0].r;
+  const hold = async (id: string, note: string | null) =>
+    (await db.query<{ r: { ok: boolean; reason?: string } }>("select public.app_feedback_hold($1, $2, $3) as r", [readCode, id, note])).rows[0].r;
+  const inbox = async (all = false) =>
+    (await db.query<{ r: { items: { id: string; status: string }[] } }>("select public.app_feedback_inbox($1, $2) as r", [readCode, all])).rows[0].r;
+  const row = async (id: string) =>
+    (await db.query<{ status: string; status_note: string | null; resolved_at: Date | null; working_at: Date | null }>("select status, status_note, resolved_at, working_at from public.app_feedback where id = $1", [id])).rows[0];
+  let mine = "";
+  let others = "";
+
+  beforeAll(async () => {
+    await db.exec("delete from public.app_feedback_owner; delete from public.app_feedback_read_codes; delete from public.app_feedback;");
+    await db.query("insert into public.app_feedback_owner (id, user_id) values ('owner', $1)", [OWNER]);
+    await db.query("insert into public.app_feedback_read_codes (id, code_hash) values ('owner', $1)", [createHash("sha256").update(readCode).digest("hex")]);
+    mine = (await db.query<{ id: string }>("insert into public.app_feedback (sender_id, via, message) values ($1, 'app', 'ルートの候補を選びたい') returning id", [SENDER])).rows[0].id;
+    others = (await db.query<{ id: string }>("insert into public.app_feedback (sender_id, via, message) values ($1, 'app', '別の人の依頼') returning id", [OTHER_SENDER])).rows[0].id;
+  });
+
+  it("理由つきで保留中にできる。前後の空白は落とし、300字までに切る。未対応(見張りが見るもの)からは外れる", async () => {
+    expect(await hold(mine, "  どの「候補」のことか教えてください  ")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "hold", status_note: "どの「候補」のことか教えてください", resolved_at: null });
+    expect((await inbox()).items.map((item) => item.id)).toEqual([others]);
+    expect((await inbox(true)).items.find((item) => item.id === mine)?.status).toBe("hold");
+    expect(await hold(mine, "あ".repeat(400))).toEqual({ ok: true });
+    expect((await row(mine)).status_note).toHaveLength(300);
+  });
+
+  it("理由が空なら、理由なしの保留中(古い理由は残さない)", async () => {
+    await hold(mine, "前の理由");
+    expect(await hold(mine, "   ")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "hold", status_note: null });
+  });
+
+  it("ほかの状態にすると、理由は消える。理由なしの set_status で保留中にもできる", async () => {
+    await hold(mine, "聞きたいこと");
+    expect(await setStatus(mine, "working")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "working", status_note: null });
+    expect(await setStatus(mine, "hold")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "hold", status_note: null });
+    await hold(mine, "また聞く");
+    expect(await setStatus(mine, "hold")).toEqual({ ok: true }); // 保留のまま呼び直しても、理由は消さない
+    expect((await row(mine)).status_note).toBe("また聞く");
+    expect(await setStatus(mine, "done")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "done", status_note: null });
+  });
+
+  it("035 までの状態(修正中・いつから)は、そのまま働く", async () => {
+    expect(await setStatus(mine, "working")).toEqual({ ok: true });
+    expect((await row(mine)).working_at).not.toBeNull();
+    expect(await setStatus(mine, "new")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "new", working_at: null });
+  });
+
+  it("違う読み取りコード・知らない状態・無い依頼は断る", async () => {
+    expect(await setStatus(mine, "paused")).toEqual({ ok: false, reason: "invalid_status" });
+    expect((await db.query<{ r: unknown }>("select public.app_feedback_hold('違うコード', $1, '理由') as r", [mine])).rows[0].r).toEqual({ ok: false, reason: "invalid_code" });
+    expect(await hold("00000000-0000-4000-8000-000000000000", "理由")).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("送った人は、自分の依頼の保留中と理由を読める。ほかの人の依頼は読めない", async () => {
+    await hold(mine, "どの画面のことか教えてください");
+    await asSender(async () => {
+      const seen = (await db.query<{ id: string; status: string; status_note: string | null }>("select id, status, status_note from public.app_feedback")).rows;
+      expect(seen).toEqual([{ id: mine, status: "hold", status_note: "どの画面のことか教えてください" }]);
+    });
+    expect(await as("authenticated", { sub: OTHER_SENDER, role: "authenticated" }, () => count(`select count(*)::int as n from public.app_feedback where id = '${mine}'`))).toBe(0);
+  });
+
+  it("持ち主はアプリからも保留中にできる。持ち主でない人は変えられない。理由は300字を超えて入れられない。知らない状態は入れられない", async () => {
+    expect(await as("authenticated", { sub: OWNER, role: "authenticated" }, () => rows(`update public.app_feedback set status = 'hold', status_note = '待ち' where id = '${others}' returning id`))).toBe(1);
+    expect(await asSender(() => rows(`update public.app_feedback set status = 'done' where id = '${mine}' returning id`))).toBe(0);
+    await expect(as("authenticated", { sub: OWNER, role: "authenticated" }, () => db.exec(`update public.app_feedback set status_note = '${"あ".repeat(301)}' where id = '${others}'`))).rejects.toThrow();
+    await expect(as("authenticated", { sub: OWNER, role: "authenticated" }, () => db.exec(`update public.app_feedback set status = 'paused' where id = '${others}'`))).rejects.toThrow();
+  });
+});
+

@@ -81,6 +81,19 @@ describe("feedbackProgress(修正依頼の状況を、開いている間、読�
     stop();
   });
 
+  it("保留中の依頼も「終わっていない」ので、読み直し続ける(保留が解けたら、すぐ追いつく)", async () => {
+    mocks.items = [item("a", "hold", { statusNote: "どの画面か教えてください" })];
+    const stop = subscribeFeedbackProgress(() => {});
+    await settle();
+    await vi.advanceTimersByTimeAsync(FEEDBACK_POLL_MS * 2);
+    expect(mocks.loads).toBe(3);
+    expect(getFeedbackProgressSnapshot()[0].statusNote).toBe("どの画面か教えてください");
+    mocks.items = [item("a", "working")];
+    await vi.advanceTimersByTimeAsync(FEEDBACK_POLL_MS);
+    expect(getFeedbackProgressSnapshot()[0].status).toBe("working");
+    stop();
+  });
+
   it("全部終わっている(対応済み・見送り)か、何も送っていなければ、読み直し続けない", async () => {
     mocks.items = [item("a", "done"), item("b", "dismissed")];
     const stop = subscribeFeedbackProgress(() => {});

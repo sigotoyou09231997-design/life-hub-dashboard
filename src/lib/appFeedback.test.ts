@@ -144,6 +144,7 @@ describe("feedbackStatusLabel(状態の名前)", () => {
     const { feedbackStatusLabel } = await import("./appFeedback");
     expect(feedbackStatusLabel("new")).toBe("受け付け済み");
     expect(feedbackStatusLabel("working")).toBe("修正中");
+    expect(feedbackStatusLabel("hold")).toBe("保留中");
     expect(feedbackStatusLabel("done")).toBe("対応済み");
     expect(feedbackStatusLabel("dismissed")).toBe("見送り");
     expect(feedbackStatusLabel("something-new")).toBe("受け付け済み");

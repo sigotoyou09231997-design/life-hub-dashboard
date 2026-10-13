@@ -11,3 +11,8 @@ export function useFeedbackProgress(): readonly FeedbackItem[] {
 export function useWorkingFeedback(): FeedbackItem[] {
   return useFeedbackProgress().filter((item) => item.status === "working");
 }
+
+/** いま保留中の依頼(聞き返している・判断待ち)。 */
+export function useHeldFeedback(): FeedbackItem[] {
+  return useFeedbackProgress().filter((item) => item.status === "hold");
+}

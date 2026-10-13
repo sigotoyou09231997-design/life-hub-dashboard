@@ -6,6 +6,9 @@ const mocks = vi.hoisted(() => ({
   missing: new Set<string>(),
   failWith: null as null | { code?: string; message: string },
   selects: [] as string[],
+  /** 更新に渡された中身。status_note の列が無い時は、その列を付けた更新が失敗する。 */
+  updates: [] as Record<string, unknown>[],
+  noNoteColumn: false,
 }));
 
 vi.mock("./supabase", () => ({
@@ -17,6 +20,13 @@ vi.mock("./supabase", () => ({
 vi.mock("./supabaseData", () => ({
   getSupabaseDataClient: async () => ({
     from: () => ({
+      update: (patch: Record<string, unknown>) => ({
+        eq: async () => {
+          mocks.updates.push(patch);
+          if (mocks.noNoteColumn && "status_note" in patch) return { error: { code: "42703", message: "column app_feedback.status_note does not exist" } };
+          return { error: null };
+        },
+      }),
       select: (columns: string) => {
         mocks.selects.push(columns);
         const q: Record<string, unknown> = {
@@ -28,7 +38,7 @@ vi.mock("./supabaseData", () => ({
             const gone = columns.split(",").map((c) => c.trim()).find((c) => mocks.missing.has(c));
             if (gone) return resolve({ data: null, error: { code: "42703", message: `column app_feedback.${gone} does not exist` } });
             return resolve({
-              data: [{ id: "f1", via: "app", message: "直して", status: "working", created_at: "2026-10-13T03:00:00Z", working_at: "2026-10-13T03:10:00Z", image_count: 2 }],
+              data: [{ id: "f1", via: "app", message: "直して", status: "working", created_at: "2026-10-13T03:00:00Z", working_at: "2026-10-13T03:10:00Z", image_count: 2, status_note: null }],
               error: null,
             });
           },
@@ -39,13 +49,15 @@ vi.mock("./supabaseData", () => ({
   }),
 }));
 
-import { loadFeedback, loadRecentFeedback } from "./appFeedback";
+import { loadFeedback, loadRecentFeedback, setFeedbackStatus } from "./appFeedback";
 
 beforeEach(() => {
   mocks.session = { access_token: "t", user: { id: "u1" } };
   mocks.missing = new Set();
   mocks.failWith = null;
   mocks.selects = [];
+  mocks.updates = [];
+  mocks.noNoteColumn = false;
 });
 
 describe("loadFeedback(あとから足された列が、本番に無くても読める)", () => {
@@ -64,12 +76,28 @@ describe("loadFeedback(あとから足された列が、本番に無くても読
     expect(items[0].id).toBe("f1");
   });
 
-  it("033 も 035 も流す前でも、元の列だけで読める", async () => {
+  it("033 も 035 も流す前でも、残っている列(保留の理由)つきで読める", async () => {
     mocks.missing = new Set(["working_at", "image_count"]);
     const items = await loadFeedback();
     expect(mocks.selects).toHaveLength(3);
-    expect(mocks.selects[2]).toBe("id, via, sender_name, trip_name, page, message, app_version, status, created_at");
+    expect(mocks.selects[2]).toBe("id, via, sender_name, trip_name, page, message, app_version, status, created_at, status_note");
     expect(items).toHaveLength(1);
+  });
+
+  it("033・035・036 のどれも流す前なら、元の列だけで読める", async () => {
+    mocks.missing = new Set(["working_at", "image_count", "status_note"]);
+    const items = await loadFeedback();
+    expect(mocks.selects).toHaveLength(4);
+    expect(mocks.selects[3]).toBe("id, via, sender_name, trip_name, page, message, app_version, status, created_at");
+    expect(items).toHaveLength(1);
+  });
+
+  it("036 を流す前(status_note が無い)でも、ほかの列で読み直す。保留の理由は読めた時だけ付く", async () => {
+    mocks.missing = new Set(["status_note"]);
+    const items = await loadFeedback();
+    expect(mocks.selects).toHaveLength(2);
+    expect(mocks.selects[1]).not.toContain("status_note");
+    expect(items[0].statusNote).toBeUndefined();
   });
 
   it("列が無いのとは関係ない失敗は、そのまま投げる(読めたふりをしない)", async () => {
@@ -95,3 +123,26 @@ describe("loadRecentFeedback(「修正中です」を出すための、自分が
     expect(await loadRecentFeedback()).toEqual([]);
   });
 });
+
+describe("setFeedbackStatus(保留の理由は、保留の間だけ)", () => {
+  it("保留中にする時は、理由を触らない。ほかの状態にする時は、理由を消す", async () => {
+    await setFeedbackStatus("f1", "hold");
+    await setFeedbackStatus("f1", "done");
+    expect(mocks.updates[0]).toEqual({ status: "hold", resolved_at: null });
+    expect(mocks.updates[1]).toMatchObject({ status: "done", status_note: null, resolved_at: expect.any(String) });
+  });
+
+  it("未対応・修正中・保留中は、終わった時刻(resolved_at)を空にする", async () => {
+    for (const status of ["new", "working", "hold"] as const) await setFeedbackStatus("f1", status);
+    expect(mocks.updates.map((patch) => patch.resolved_at)).toEqual([null, null, null]);
+  });
+
+  it("036 を流す前(status_note の列が無い)でも、状態は変えられる(理由なしで更新し直す)", async () => {
+    mocks.noNoteColumn = true;
+    await setFeedbackStatus("f1", "done");
+    expect(mocks.updates).toHaveLength(2);
+    expect(mocks.updates[1]).not.toHaveProperty("status_note");
+    expect(mocks.updates[1]).toMatchObject({ status: "done" });
+  });
+});
+

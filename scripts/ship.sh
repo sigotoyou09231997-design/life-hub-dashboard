@@ -12,7 +12,7 @@
 #   4. 手元の main を進める
 #   5. Vercel が公開するのを待つ(/version.json)。「Git information retrieval failed」で落ちていたら、1回だけ作り直す
 #   6. Netlify の状態を見る
-#   7. --done なら要望を対応済みに、--shots ならスクショを裏で撮り直す、最後に作業場所を片付ける(--keep で残す)
+#   7. --done なら要望を対応済みに(**Vercel で新しい版を確かめた時だけ**。確かめられなければ「修正中」のまま)、--shots ならスクショを裏で撮り直す、最後に作業場所を片付ける(--keep で残す)
 set -euo pipefail
 
 MSG="${1:?何を直したか(統合のメッセージ)を渡してください}"
@@ -47,6 +47,9 @@ BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 [ "$BRANCH" != "HEAD" ] && [ "$BRANCH" != "main" ] || die "作業ブランチの中で実行してください(いまは $BRANCH)"
 WT="$(git rev-parse --show-toplevel)"
 MAIN_DIR="$(cd "$(dirname "$(git rev-parse --git-common-dir)")" && pwd)"
+# 部品(要望を対応済みにするのは、本番で新しい版を確かめた時だけ。試験できるよう別ファイル)。
+# shellcheck source=scripts/ship-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ship-lib.sh"
 SITE_URL="${SHIP_SITE_URL:-https://life-hub-dashboard.vercel.app}"
 NETLIFY_SITE_ID="${SHIP_NETLIFY_SITE_ID:-cda189e4-fff5-470b-afbb-42664f5507fb}"
 COAUTHOR="${SHIP_COAUTHOR:-Claude Sonnet 5.5 <noreply@anthropic.com>}"
@@ -161,7 +164,7 @@ if echo "$OUT" | grep -q "${SHA:0:7}"; then
 fi
 echo "Netlify: $NETLIFY"
 
-[ -z "$DONE_ID" ] || node "$MAIN_DIR/scripts/feedback-inbox.mjs" --done "$DONE_ID"
+finish_feedback "$LIVE" "$DONE_ID" "$MAIN_DIR"
 if [ "$SHOTS" -eq 1 ] && [ -x "$MAIN_DIR/../scripts/lifehub-shots.sh" ]; then
   # 低い優先度(nice)で走らせる。撮っている間も、次の測定やテストを遅くしないように(2026-10-13)。一連の修正の最後の1回だけ付けること。
   nohup nice -n 19 bash "$MAIN_DIR/../scripts/lifehub-shots.sh" >/dev/null 2>&1 &
