@@ -148,6 +148,30 @@ describe("修正ボタンの「対応中」", () => {
   });
 });
 
+describe("いつ届いたか(2026-10-14、本人「いつ修正依頼が届いたかの時間も出して欲しい」)", () => {
+  it("届いた時刻が出る。終わっていない依頼には、届いてからの経過も付く。対応済みには付けない", async () => {
+    const user = userEvent.setup();
+    const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+    mocks.recent = [
+      item("a", "new", { message: "待っている依頼", createdAt: ago(18) }),
+      item("b", "working", { message: "直している依頼", createdAt: ago(125), workingAt: ago(5) }),
+      item("c", "done", { message: "終わった依頼", createdAt: ago(3 * 24 * 60) }),
+    ];
+    renderApp(<FeedbackButton />);
+    await user.click(await screen.findByRole("button", { name: /^対応中です/ }));
+    const list = await screen.findByRole("region", { name: "送った依頼の状況" });
+    const rows = within(list).getAllByRole("listitem");
+    // 終わっていない依頼が先(古い順に並ぶのではなく、届いた順のまま)。
+    expect(rows[0].textContent).toContain("待っている依頼");
+    expect(rows[0].textContent).toMatch(/に届きました（18分前）/);
+    expect(rows[1].textContent).toContain("直している依頼");
+    expect(rows[1].textContent).toMatch(/\d+\/\d+ \d+:\d{2} に届きました（2時間前）\d+\/\d+ \d+:\d{2} から対応中/);
+    expect(rows[2].textContent).toContain("終わった依頼");
+    expect(rows[2].textContent).toMatch(/に届きました/);
+    expect(rows[2].textContent).not.toMatch(/前）/);
+  });
+});
+
 describe("かかる時間の目安とゲージ(2026-10-14、本人「どれくらいかかるか時間も出して、ゲージ表示もあると便利」)", () => {
   it("目安が付いた対応中の依頼には、ゲージと「目安 約○分」が出る。目安が無い依頼には出ない", async () => {
     const user = userEvent.setup();
