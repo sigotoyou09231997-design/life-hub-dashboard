@@ -17,6 +17,7 @@ import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { isMultiDay, normalizeEndDate, shiftEndDate, spanDays } from "../../lib/eventSpan";
+import { followRouteAfterEdit } from "../../lib/tripRouteFollow";
 
 interface Props {
   tripId: string;
@@ -24,8 +25,11 @@ interface Props {
   /** 旅行の参加者。いれば、予定の費用の「支払った人」を選べる(src/lib/tripMembers.ts)。 */
   members?: string[] | null;
   defaultDate: string;
-  /** 保存した予定の日(開始日)。旅行の画面が、その日へ表示を切り替えるのに使う。 */
-  onSaved: (date: string) => void;
+  /**
+   * 保存した予定の日(開始日)。旅行の画面が、その日へ表示を切り替えるのに使う。
+   * routeNote は、日程を直したのに合わせてルートの場所も直した時の知らせ(2026-10-14。src/lib/tripRouteFollow.ts)。
+   */
+  onSaved: (date: string, routeNote?: string) => void;
   onCancel: () => void;
   /**
    * 予定を消す(確認はこのフォームが取る)。編集の時だけ渡す。
@@ -187,16 +191,20 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
 
     // 新しい予定にはまだ id が無く、写真の貼り先を決められない。保存して得た id に向けて、あとで写真を書く。
     let scheduleId: string;
+    let routeNote: string | null = null;
     if (initial?.id) {
       scheduleId = initial.id;
       await db.tripSchedule.update(initial.id, record);
+      // 日程の場所・日にち・題名を直したら、そこから作られたルートの場所も追いかける。
+      routeNote = await followRouteAfterEdit(initial, record);
     } else {
       scheduleId = String(await db.tripSchedule.add(record));
     }
     await saveAttachmentDrafts("tripSchedule", scheduleId, photos);
     await saveLinkedExpense(scheduleId, record.title);
     setSaving(false);
-    onSaved(date);
+    if (routeNote) onSaved(date, routeNote);
+    else onSaved(date);
   }
 
   async function handleDelete() {

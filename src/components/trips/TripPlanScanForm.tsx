@@ -34,6 +34,7 @@ import { PlanSourceFields, usePickedPhotos } from "../plan/PlanSourceFields";
 import { ChatGptInbox } from "./ChatGptInbox";
 import { ChatGptPlanGuide } from "./ChatGptPlanGuide";
 import { deleteInboxEntry, type InboxEntry } from "../../lib/chatgptInbox";
+import { followRouteAfterEdit } from "../../lib/tripRouteFollow";
 import { Button } from "../ui/Button";
 import { FormActions } from "../ui/FormActions";
 import { EmptyState } from "../ui/EmptyState";
@@ -215,11 +216,15 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
     setSaving(true);
     try {
       const now = Date.now();
+      let routeCount = 0;
       for (const entry of savable) {
         const { row } = entry;
         if (entry.updating && entry.target) {
           // 更新は、変わる項目だけを書く。文章に無かった項目は、いまの値のまま残す。
-          await db.tripSchedule.update(entry.target.id!, diffAgainstSchedule(entry.target, row, { allowRename: row.matchBySlot }).patch);
+          const { patch } = diffAgainstSchedule(entry.target, row, { allowRename: row.matchBySlot });
+          await db.tripSchedule.update(entry.target.id!, patch);
+          // 場所・題名が変わったら、そこから作られたルートの場所も追いかける(日程フォームで直した時と同じ。src/lib/tripRouteFollow.ts)。
+          if (await followRouteAfterEdit(entry.target, { ...entry.target, ...patch })) routeCount += 1;
           continue;
         }
         const scheduleId = String(await db.tripSchedule.add(toTripScheduleRecord(row, tripId, now)));
@@ -235,7 +240,8 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
       // 受信箱から入れた旅程は、入れ終わったら受信箱から消す(同じ旅程が残り続けないように)。
       // 消せなくても日程には入っているので、失敗は黙って流す(次に開いた時にまた並ぶだけ)。
       if (inboxId) void deleteInboxEntry(inboxId).catch((err) => console.warn("[chatgptInbox] failed to clear the entry:", err));
-      onSaved(describeScanSaved(addCount, updateCount, expenseCount, deleteCount));
+      const saved = describeScanSaved(addCount, updateCount, expenseCount, deleteCount);
+      onSaved(routeCount > 0 ? `${saved}。ルートの場所も${routeCount}件一緒に直しました` : saved);
     } catch (err) {
       console.error("[tripPlanScan] failed to save:", err);
       setError("入れられませんでした。もう一度お試しください");
