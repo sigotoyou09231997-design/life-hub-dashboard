@@ -1,13 +1,19 @@
-import { useSyncExternalStore } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { FeedbackItem } from "../lib/appFeedback";
-import { getFeedbackProgressSnapshot, subscribeFeedbackProgress } from "../lib/feedbackProgress";
+import { countFeedback, getFeedbackProgressSnapshot, subscribeFeedbackProgress, type FeedbackCounts } from "../lib/feedbackProgress";
 
 /** 自分が見られる、最近の修正依頼(送った人は自分の分、持ち主は全部)。状態は開いている間、新しくなる。 */
 export function useFeedbackProgress(): readonly FeedbackItem[] {
   return useSyncExternalStore(subscribeFeedbackProgress, getFeedbackProgressSnapshot, getFeedbackProgressSnapshot);
 }
 
-/** いま修正中の依頼。 */
+/** 対応待ち・対応中・保留中の件数。 */
+export function useFeedbackCounts(): FeedbackCounts {
+  const items = useFeedbackProgress();
+  return useMemo(() => countFeedback(items), [items]);
+}
+
+/** いま対応中の依頼。 */
 export function useWorkingFeedback(): FeedbackItem[] {
   return useFeedbackProgress().filter((item) => item.status === "working");
 }

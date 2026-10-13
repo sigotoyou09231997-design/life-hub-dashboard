@@ -14,6 +14,16 @@ const mocks = vi.hoisted(() => ({
   expenseAdded: [] as unknown[],
   expenseUpdated: [] as [string, unknown][],
   expenseDeleted: [] as string[],
+  routeFollow: [] as [TripScheduleItem, TripScheduleItem][],
+  routeNote: null as string | null,
+}));
+
+// ルートの場所を追いかける処理(src/lib/tripRouteFollow.ts)は別のテストで見る。ここでは「保存のあとに、直す前と後を渡して呼ぶ」ことだけ見る。
+vi.mock("../../lib/tripRouteFollow", () => ({
+  followRouteAfterEdit: async (before: TripScheduleItem, after: TripScheduleItem) => {
+    mocks.routeFollow.push([before, after]);
+    return mocks.routeNote;
+  },
 }));
 
 vi.mock("../../lib/currency", async () => {
@@ -62,6 +72,8 @@ beforeEach(() => {
   mocks.expenseAdded = [];
   mocks.expenseUpdated = [];
   mocks.expenseDeleted = [];
+  mocks.routeFollow = [];
+  mocks.routeNote = null;
 });
 afterEach(cleanup);
 
@@ -344,5 +356,37 @@ describe("旅行の予定の入力: コピーして追加(要望の受信箱「�
     expect(mocks.added[0]).toMatchObject({ title: "昼食 うどん", date: "2026-12-27", startTime: "12:00", createdAt: 99 });
     expect(mocks.expenseAdded).toEqual([expect.objectContaining({ amount: 1200, scheduleId: "new-schedule-id", title: "昼食 うどん" })]);
     expect(saved).toHaveBeenCalledWith("2026-12-27");
+  });
+});
+
+describe("旅行の予定の入力: ルートへの反映(2026-10-14、要望「日程を直したらルートにも反映して欲しい」)", () => {
+  const spot: TripScheduleItem = { id: "s1", tripId: "t1", date: "2026-12-28", title: "桂浜", location: "桂浜", type: "sightseeing", createdAt: 1 };
+
+  it("今ある予定を直して保存すると、直す前と直した後を渡して、ルートの場所を追いかけさせる。直したら、その知らせを保存の知らせに載せる", async () => {
+    mocks.routeNote = "ルートの「桂浜」も一緒に直しました(場所)";
+    const user = userEvent.setup();
+    const saved = renderForm(spot);
+    const location = screen.getByPlaceholderText("例: 函館市元町");
+    await user.clear(location);
+    await user.type(location, "桂浜 高知県高知市");
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.routeFollow).toHaveLength(1);
+    expect(mocks.routeFollow[0][0]).toBe(spot);
+    expect(mocks.routeFollow[0][1]).toMatchObject({ title: "桂浜", location: "桂浜 高知県高知市" });
+    expect(saved).toHaveBeenCalledWith("2026-12-28", "ルートの「桂浜」も一緒に直しました(場所)");
+  });
+
+  it("ルートを直さなかった時は、いつもどおりの保存(知らせなし)。新しい予定は、追いかける元が無いので呼ばない", async () => {
+    const user = userEvent.setup();
+    const saved = renderForm(spot);
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(saved).toHaveBeenCalledWith("2026-12-28");
+    cleanup();
+    mocks.routeFollow = [];
+    const savedNew = renderForm();
+    await user.type(screen.getByPlaceholderText("例: 五稜郭"), "霊山寺");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(mocks.routeFollow).toEqual([]);
+    expect(savedNew).toHaveBeenCalledWith("2026-12-27");
   });
 });

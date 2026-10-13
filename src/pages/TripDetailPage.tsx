@@ -696,12 +696,13 @@ export default function TripDetailPage() {
               }}
               defaultDate={scheduleDatePreset ?? scheduleDefaultDate}
               onDelete={editingSchedule !== "new" && editingSchedule.id ? () => deleteSchedule(editingSchedule.id!) : undefined}
-              onSaved={(date) => {
+              onSaved={(date, routeNote) => {
                 setEditingSchedule(null);
                 setScheduleDatePreset(null);
                 // 別の日に保存した予定が、消えたように見えないよう、その日へ切り替える。
                 if (dayList.includes(date)) setScheduleDay(date);
-                showToast("保存しました");
+                // 日程に合わせてルートの場所も直した時は、そう伝える(黙って書き換えない)。
+                showToast(routeNote ? `保存しました。${routeNote}` : "保存しました");
               }}
               onCancel={() => {
                 setEditingSchedule(null);

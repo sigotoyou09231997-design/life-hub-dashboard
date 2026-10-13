@@ -103,7 +103,7 @@ async function poll(env, code, { replay }) {
   const items = await fetchNewItems(env, code);
   if (replay) {
     for (const item of items) await printItem(item, env, code);
-    if (items.length === 0) console.log("未対応の依頼はありません");
+    if (items.length === 0) console.log("対応待ちの依頼はありません");
     return;
   }
   const seen = readSeen();

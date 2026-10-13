@@ -18,6 +18,16 @@ const mocks = vi.hoisted(() => ({
   deletedInbox: [] as string[],
   createdCodes: 0,
   revokedCodes: 0,
+  // ルートの場所の追いかけ(src/lib/tripRouteFollow.ts)に渡された「直す前・直した後」と、それが返す知らせ。
+  routeFollow: [] as [Record<string, unknown>, Record<string, unknown>][],
+  routeNote: null as string | null,
+}));
+
+vi.mock("../../lib/tripRouteFollow", () => ({
+  followRouteAfterEdit: async (before: Record<string, unknown>, after: Record<string, unknown>) => {
+    mocks.routeFollow.push([before, after]);
+    return mocks.routeNote;
+  },
 }));
 
 vi.mock("../../db/schema", () => ({
@@ -110,6 +120,8 @@ beforeEach(() => {
   mocks.existingTripSchedule = [];
   mocks.saved = { tripSchedule: [], tripExpenses: [], updated: [], deleted: [] };
   mocks.deletedPhotosFor = [];
+  mocks.routeFollow = [];
+  mocks.routeNote = null;
   mocks.sent = [];
   mocks.inbox = [];
   mocks.sendCodeState = { kind: "unavailable" };
@@ -375,6 +387,32 @@ describe("写真・文章から日程を読み取る画面", () => {
       expect(mocks.saved.tripSchedule).toEqual([]);
       // 同じ予定の費用が二重にならないよう、更新では費用を積まない。
       expect(mocks.saved.tripExpenses).toEqual([]);
+      expect(saved).toHaveBeenCalledWith("日程を1件更新しました");
+    });
+
+    it("場所が変わる更新は、ルートの場所も追いかけさせる。直したぶんの件数を知らせに載せる(2026-10-14)", async () => {
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", location: "土庄港", type: "other" }];
+      mocks.items = [{ date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", location: "土庄港 香川県小豆郡土庄町", type: "other" }];
+      mocks.routeNote = "ルートの「レンタカー受取」も一緒に直しました(場所)";
+      const saved = vi.fn();
+      const user = userEvent.setup();
+      renderForm(saved);
+      await readFromText(user);
+      await user.click(screen.getByRole("button", { name: "1件を更新する" }));
+      expect(mocks.routeFollow).toHaveLength(1);
+      expect(mocks.routeFollow[0][0]).toMatchObject({ id: "a", location: "土庄港" });
+      expect(mocks.routeFollow[0][1]).toMatchObject({ id: "a", location: "土庄港 香川県小豆郡土庄町" });
+      expect(saved).toHaveBeenCalledWith("日程を1件更新しました。ルートの場所も1件一緒に直しました");
+    });
+
+    it("ルートを直さなかった更新・追加だけの保存は、知らせを変えない", async () => {
+      mocks.existingTripSchedule = [{ id: "a", date: "2026-09-12", startTime: "10:00", title: "レンタカー受取", location: "土庄港", type: "other" }];
+      mocks.items = [{ date: "2026-09-12", startTime: "11:00", title: "レンタカー受取", location: "土庄港", type: "other" }];
+      const saved = vi.fn();
+      const user = userEvent.setup();
+      renderForm(saved);
+      await readFromText(user);
+      await user.click(screen.getByRole("button", { name: "1件を更新する" }));
       expect(saved).toHaveBeenCalledWith("日程を1件更新しました");
     });
 

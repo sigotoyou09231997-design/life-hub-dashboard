@@ -22,10 +22,10 @@ describe("ship.sh: 要望を対応済みにする条件", () => {
     expect(run(1, "abc-123")).toBe("道具が呼ばれた: --done abc-123");
   });
 
-  it("確かめられなかった時は、道具を呼ばない(修正中のまま)。本人に、あとでどうすればいいかを伝える", () => {
+  it("確かめられなかった時は、道具を呼ばない(対応中のまま)。本人に、あとでどうすればいいかを伝える", () => {
     const out = run(0, "abc-123");
     expect(out).not.toContain("道具が呼ばれた");
-    expect(out).toContain("「修正中」のままにしました");
+    expect(out).toContain("「対応中」のままにしました");
     expect(out).toContain("--done abc-123");
   });
 

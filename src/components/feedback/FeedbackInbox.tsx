@@ -101,7 +101,7 @@ export function FeedbackInbox() {
   const newCount = items?.filter((item) => item.status === "new").length ?? 0;
   const workingCount = items?.filter((item) => item.status === "working").length ?? 0;
   const holdCount = items?.filter((item) => item.status === "hold").length ?? 0;
-  // 修正中・保留中も、未対応と同じく「まだ終わっていない」ものとして、既定の一覧に出す。
+  // 対応中・保留中も、対応待ちと同じく「まだ終わっていない」ものとして、既定の一覧に出す。
   const visible = items?.filter((item) => showResolved || item.status === "new" || item.status === "working" || item.status === "hold") ?? [];
 
   return (
@@ -116,9 +116,9 @@ export function FeedbackInbox() {
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
-          {workingCount > 0 && <Badge tone="accent">修正中 {workingCount}件</Badge>}
+          {workingCount > 0 && <Badge tone="accent">対応中 {workingCount}件</Badge>}
           {holdCount > 0 && <Badge tone="warning">保留中 {holdCount}件</Badge>}
-          {newCount > 0 && <Badge tone="accent">未対応 {newCount}件</Badge>}
+          {newCount > 0 && <Badge tone="accent">対応待ち {newCount}件</Badge>}
         </div>
       </div>
       <p className="system-section__description text-xs text-slate-500">
@@ -129,7 +129,7 @@ export function FeedbackInbox() {
       ) : items === null ? (
         <p className="text-sm text-slate-400">読み込み中…</p>
       ) : visible.length === 0 ? (
-        <p className="text-sm text-slate-500">{showResolved ? "まだ届いていません。" : "未対応・修正中・保留中の要望はありません。"}</p>
+        <p className="text-sm text-slate-500">{showResolved ? "まだ届いていません。" : "対応待ち・対応中・保留中の要望はありません。"}</p>
       ) : (
         <ul className="flex flex-col gap-3" aria-label="届いた要望の一覧">
           {visible.map((item) => (
@@ -185,7 +185,7 @@ export function FeedbackInbox() {
                       対応済みにする
                     </Button>
                     <Button variant="ghost" disabled={busyId === item.id} onClick={() => void change(item, "new")}>
-                      未対応に戻す
+                      対応待ちに戻す
                     </Button>
                     <Button variant="ghost" disabled={busyId === item.id} onClick={() => void change(item, "dismissed")}>
                       見送る
@@ -193,19 +193,19 @@ export function FeedbackInbox() {
                   </>
                 ) : item.status === "working" ? (
                   <>
-                    <Badge tone="accent">{item.workingAt ? `修正中（${whenLabel(item.workingAt).split(" ")[1]}から）` : "修正中"}</Badge>
+                    <Badge tone="accent">{item.workingAt ? `対応中（${whenLabel(item.workingAt).split(" ")[1]}から）` : "対応中"}</Badge>
                     <Button variant="secondary" disabled={busyId === item.id} onClick={() => void change(item, "done")}>
                       対応済みにする
                     </Button>
                     <Button variant="ghost" disabled={busyId === item.id} onClick={() => void change(item, "new")}>
-                      未対応に戻す
+                      対応待ちに戻す
                     </Button>
                   </>
                 ) : (
                   <>
                     <Badge tone="neutral">{item.status === "done" ? "対応済み" : "見送り"}</Badge>
                     <Button variant="ghost" disabled={busyId === item.id} onClick={() => void change(item, "new")}>
-                      未対応に戻す
+                      対応待ちに戻す
                     </Button>
                   </>
                 )}
@@ -215,7 +215,7 @@ export function FeedbackInbox() {
         </ul>
       )}
       <button type="button" className="mt-2 text-xs font-medium text-accent" onClick={() => setShowResolved((value) => !value)}>
-        {showResolved ? "未対応だけを見る" : "対応済み・見送りも見る"}
+        {showResolved ? "終わっていないものだけを見る" : "対応済み・見送りも見る"}
       </button>
     </Card>
   );
