@@ -5,7 +5,7 @@
 #
 # やること(todoアプリ/CLAUDE.md の「本番反映」と同じ条件。1つでも落ちたら main に入れずに止まる):
 #   1. 手元の main が公開の main と同じか確かめる(違えば止まる)。ブランチが main に追いついていなければ main を取り込む
-#   2. 型チェックと全テストを**同時に**走らせる
+#   2. 型チェックと全テストを**同時に**走らせる(同じ内容の事前の確認 scripts/preflight.sh が済んでいれば、それを使って待たない)
 #   3. main へ統合 → main をプッシュ(強制プッシュはしない)。作業ブランチは**プッシュしない**(--push-branch で送る):
 #      プッシュするたびに Vercel の待ち行列に1件入り、本番のビルドを待たせるため(2026-10-13 の夜、27分待った)。
 #      作業の履歴は main への統合でそのまま入るので、失われない
@@ -67,61 +67,22 @@ if [ -n "$CHANGELOG_FILE" ]; then
   [ -f "$CHANGELOG_FILE" ] || die "--changelog のファイルがありません: $CHANGELOG_FILE"
   CL_OUT="$(node scripts/changelog-add.mjs "$CHANGELOG_FILE")" || die "更新履歴を足せませんでした: $CL_OUT"
   echo "   $CL_OUT"
-  git add src/lib/changelog.ts && git commit -q -m "更新履歴: $MSG
+  # 事前の確認(scripts/preflight.sh --changelog)が、もう足してコミットしてあれば、変更は無い(二重に足さない)。
+  git add src/lib/changelog.ts
+  git diff --cached --quiet || git commit -q -m "更新履歴: $MSG
 
 Co-Authored-By: $COAUTHOR"
 fi
 
 step "2/6 型チェックと全テストを同時に走らせる"
-LOG_DIR="$(mktemp -d)"
-# 全テストは、いつもの2個ではなく4個で走らせる(約110秒 → 約75秒。5個だと混み合って時間切れで落ちるテストが出た)。そのかわり、同時に走らせる ship.sh は1つだけにする —
-# 重なると作業用プロセスが何十個にもなり、Mac 全体が止まった(2026-10-12。vitest.config.ts の説明)。順番待ちの札は、
-# 10分たったら古いものとして捨てる(落ちた実行の札が残っても詰まらないように)。
-LOCK_DIR="${TMPDIR:-/tmp}/lifehub-ship-tests.lock"
-waited=0
-until mkdir "$LOCK_DIR" 2>/dev/null; do
-  if [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then rmdir "$LOCK_DIR" 2>/dev/null || true; continue; fi
-  [ "$waited" -eq 0 ] && echo "   (ほかの ship.sh がテスト中です。終わるのを待ちます)"
-  waited=1; sleep 3
-done
-trap 'rmdir "$LOCK_DIR" 2>/dev/null || true' EXIT
-npx tsc --noEmit >"$LOG_DIR/tsc.log" 2>&1 & TSC_PID=$!
-VITEST_MAX_FORKS="${SHIP_TEST_FORKS:-4}" npm test >"$LOG_DIR/test.log" 2>&1 & TEST_PID=$!
-TSC_OK=0; TEST_OK=0
-wait "$TSC_PID" || TSC_OK=1
-wait "$TEST_PID" || TEST_OK=1
-rmdir "$LOCK_DIR" 2>/dev/null || true
-grep -E "^ +(Test Files|Tests) |^ FAIL" "$LOG_DIR/test.log" || true
-if [ "$TSC_OK" -ne 0 ]; then head -30 "$LOG_DIR/tsc.log" || true; die "型チェックが落ちました。main には入れていません"; fi
-# テストが全部通っても、描き終わった後に起きた未処理のエラー(Errors N errors)で終了コードが 1 になることがある。
-# それも「落ちた」として止める(1 になった理由が見えるよう、該当の行を出す)。
-# 落ちた理由が「時間切れ」だけの時は、落ちたファイルだけを、1つずつ(並列1)静かな状態で再実行する(2026-10-13)。
-# 並列で Mac が混むと、内容は正しいのに5〜15秒を超えて落ちるテストが出て、そのたびに数分かけて出し直していたため。
-# 再実行でも落ちれば、これまでどおり止まる。通ったら「時間切れで落ち、単独では通った」と表示して進む(落ちたテストを飛ばすのではなく、
-# 混み合いが原因だったと確かめる)。時間切れ以外の理由(AssertionError など)が1つでもあれば、再実行せずに止まる。
-if [ "$TEST_OK" -ne 0 ]; then
-  CLEAN_LOG="$(sed 's/\x1b\[[0-9;]*m//g' "$LOG_DIR/test.log")"
-  # 「Failed Tests」の各項目は「 FAIL <ファイル> > <テスト名>」の次の行に原因が出る。1件ずつ、原因が時間切れか数える。
-  # 時間切れ以外(AssertionError・TypeError・未処理のエラーなど)が1件でもあれば、再実行せずに止まる。
-  read -r FAIL_N TIMEOUT_N <<EOF_COUNT
-$(echo "$CLEAN_LOG" | awk '/^⎯+ Failed Tests/{in_fail=1; next} in_fail && /^ FAIL /{n++; want=1; next} in_fail && want && NF{ if ($0 ~ /^Error: (Test|Hook) timed out/) t++; want=0 } END{print n+0, t+0}')
-EOF_COUNT
-  OTHER_N="$(echo "$CLEAN_LOG" | grep -cE 'Unhandled|Errors +[0-9]+ error' || true)"
-  if [ "$FAIL_N" -gt 0 ] && [ "$FAIL_N" -eq "$TIMEOUT_N" ] && [ "$OTHER_N" -eq 0 ]; then
-    FILES="$(echo "$CLEAN_LOG" | grep -E '^ FAIL ' | sed -E 's/^ FAIL +([^ ]+).*/\1/' | sort -u | tr '\n' ' ')"
-    echo "   時間切れだけで落ちたテスト(${FAIL_N}件)があります。落ちたファイルだけを、1つずつ静かな状態で再実行します: $FILES"
-    # shellcheck disable=SC2086
-    if VITEST_MAX_FORKS=1 npx vitest run $FILES >"$LOG_DIR/retry.log" 2>&1; then
-      echo "   ✓ 再実行では全部通りました(混み合いで時間切れになっただけ)。進めます"
-      TEST_OK=0
-    fi
-  fi
+# 同じ内容(同じ木)の確認が、もう済んでいるか・走っている最中なら、それを使う(scripts/preflight.sh。2026-10-14)。
+# 実画面の確認と重ねて、先に走らせておけるので、ここで待たなくて済む。内容が変わっていれば、いつもどおり走らせる。
+TREE="$(git rev-parse 'HEAD^{tree}')"
+if preflight_reuse "$TREE"; then
+  echo "   ✓ 同じ内容の事前の確認(型チェックと全テスト)が通っています。待たずに進みます"
+else
+  run_checks || die "$CHECK_FAIL"
 fi
-if [ "$TEST_OK" -ne 0 ]; then
-  grep -E "FAIL|×|AssertionError|Errors |Uncaught|This error originated" "$LOG_DIR/test.log" | head -20 || true
-  die "テストの終了コードが 0 ではありません(全文: $LOG_DIR/test.log)。main には入れていません"
-fi
-rm -rf "$LOG_DIR"
 [ "$DRY" -eq 0 ] || { echo "(--dry-run) 型チェックとテストが通ったので、ここで止めます。main には入れていません"; exit 0; }
 
 step "3/6 main へ統合してプッシュ"
