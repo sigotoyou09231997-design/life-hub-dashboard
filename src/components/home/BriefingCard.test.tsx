@@ -63,3 +63,19 @@ describe("ホームの「今日のまとめ」", () => {
     expect(tile(/重要な未読/).className).not.toContain("is-alert");
   });
 });
+
+describe("ホームの「今日のまとめ」— 予定・タスクを隠している時(設定の「使う機能」)", () => {
+  it("「今日の予定」の箱は出さず、メールの箱だけ出す", () => {
+    renderCard({ hideEvents: true, waiting: [waitingItem(2)] });
+    expect(screen.queryByRole("link", { name: /今日の予定/ })).toBeNull();
+    expect(tile(/重要な未読/)).toBeTruthy();
+    expect(tile(/返信待ち/)).toBeTruthy();
+  });
+
+  it("予定が0件でメールも何も無い日でも、予定の「今日は予定…ありません」の1行にはしない(予定を隠しているため)", () => {
+    renderCard({ hideEvents: true, eventCount: 0, gmail: { connected: true, importantUnread: 0, total: 0 }, waiting: [] });
+    expect(screen.queryByText(/今日は予定・重要な未読・返信待ちはありません/)).toBeNull();
+    expect(screen.queryByRole("link", { name: /今日の予定/ })).toBeNull();
+  });
+});
+

@@ -12,6 +12,8 @@ import {
   Settings,
   UserRound,
 } from "lucide-react";
+import { useHiddenFeatures } from "../../hooks/useHiddenFeatures";
+import { isPathHidden } from "../../lib/hiddenFeatures";
 
 const PRIMARY_NAV = [
   { to: "/", label: "ホーム", icon: Home },
@@ -46,6 +48,10 @@ function SidebarLink({ to, label, icon: Icon }: (typeof PRIMARY_NAV)[number]) {
 }
 
 export function DesktopSidebar() {
+  // 設定の「使う機能」で隠した機能は、メニューに出さない(src/lib/hiddenFeatures.ts)。ホームと設定は隠せない。
+  const hidden = useHiddenFeatures();
+  const primary = PRIMARY_NAV.filter((item) => !isPathHidden(item.to, hidden));
+  const secondary = SECONDARY_NAV.filter((item) => !isPathHidden(item.to, hidden));
   return (
     <aside className="desktop-sidebar" aria-label="メインナビゲーション">
       <NavLink to="/" className="sidebar-brand" aria-label="LIFE HUB ホーム">
@@ -59,11 +65,11 @@ export function DesktopSidebar() {
 
       <nav className="sidebar-nav">
         <div className="sidebar-nav__group sidebar-nav__group--secondary">
-          {PRIMARY_NAV.map((item) => <SidebarLink key={item.to} {...item} />)}
+          {primary.map((item) => <SidebarLink key={item.to} {...item} />)}
         </div>
         <div className="sidebar-nav__divider" />
         <div className="sidebar-nav__group">
-          {SECONDARY_NAV.map((item) => <SidebarLink key={item.to} {...item} />)}
+          {secondary.map((item) => <SidebarLink key={item.to} {...item} />)}
         </div>
       </nav>
 

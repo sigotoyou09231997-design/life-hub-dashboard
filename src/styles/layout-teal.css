@@ -319,6 +319,11 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
     grid-row: 1;
     grid-column: 3;
   }
+  /* 「お金管理」を隠している時(設定の「使う機能」)は、上段の黒いカードが無い。旅行のカードを、右上に孤立させず、全幅の1段にする。 */
+  .lh-home--no-money .lh-section--trip {
+    grid-row: auto;
+    grid-column: 1 / -1;
+  }
   .lh-section--trip .warm-trip { flex: 1; min-height: 0; }
 
   .lh-section--events { grid-column: 1; }

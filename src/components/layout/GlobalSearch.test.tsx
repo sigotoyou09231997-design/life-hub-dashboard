@@ -71,6 +71,7 @@ vi.mock("dexie-react-hooks", async () => {
 
 import { GlobalSearch, usePaletteShortcut } from "./GlobalSearch";
 import { RECENT_STORAGE_KEY } from "../../lib/recentItems";
+import { saveHiddenFeatures } from "../../lib/hiddenFeatures";
 
 function CurrentLocation() {
   const location = useLocation();
@@ -374,3 +375,44 @@ describe("まとめて検索から、支出を記録する(「ランチ 1200」)
     expect(row.textContent).toContain("娯楽");
   });
 });
+
+describe("まとめて検索 — 隠した機能(設定の「使う機能」)", () => {
+  it("何も打っていない時: よく使う操作・最近見たものから、隠した機能のものを外す", async () => {
+    saveHiddenFeatures(["money", "gmail"]);
+    localStorage.setItem(
+      RECENT_STORAGE_KEY,
+      JSON.stringify([
+        { kind: "email", id: "m1", at: 3 },
+        { kind: "trip", id: "trip1", at: 1 },
+      ]),
+    );
+    renderPalette();
+    const actions = screen.getByRole("group", { name: "よく使う操作" });
+    expect(within(actions).queryByRole("option", { name: /支出を追加/ })).toBeNull();
+    expect(within(actions).queryByRole("option", { name: /サブスクを見る/ })).toBeNull();
+    expect(within(actions).getByRole("option", { name: /予定を追加/ })).toBeTruthy();
+    const recent = await screen.findByRole("group", { name: "最近見たもの" });
+    expect(within(recent).getAllByRole("option").map((row) => row.textContent)).toEqual([expect.stringContaining("夏の京都")]);
+  });
+
+  it("探す時: 隠した機能のメール・旅行は、当たりに出さない。隠していない機能は今までどおり", async () => {
+    const user = userEvent.setup();
+    saveHiddenFeatures(["gmail"]);
+    mocks.trips = [{ id: "trip1", name: "ご予約の旅", destination: "京都", startDate: "2026-09-01", endDate: "2026-09-03", status: "planning", createdAt: 1 }];
+    renderPalette();
+    await user.type(screen.getByRole("combobox"), "ご予約");
+    await screen.findByRole("option", { name: /ご予約の旅/ });
+    expect(screen.queryByRole("option", { name: /ご予約の確認/ })).toBeNull();
+  });
+
+  it("「ランチ 1200」の支出の記録の候補は、お金管理を隠している間は出さない", async () => {
+    const user = userEvent.setup();
+    saveHiddenFeatures(["money"]);
+    renderPalette();
+    await user.type(screen.getByRole("combobox"), "ランチ 1200");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByRole("option", { name: /支出として記録|を記録/ })).toBeNull();
+    expect(mocks.added).toEqual([]);
+  });
+});
+
