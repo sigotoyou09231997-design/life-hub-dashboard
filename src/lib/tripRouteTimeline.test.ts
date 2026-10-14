@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TripRoutePlace, TripScheduleItem } from "../types";
-import { buildRouteTimeline, estimateArrival, gapMinutes, toClock, toMinutes, type TimelineStop } from "./tripRouteTimeline";
+import { buildRouteTimeline, estimateArrival, findSourceSchedule, gapMinutes, toClock, toMinutes, type TimelineStop } from "./tripRouteTimeline";
 
 function place(id: string, name: string, address: string, date?: string): TripRoutePlace {
   return { id, tripId: "t1", name, address, sortOrder: 1, date, visited: false, createdAt: 1 };
@@ -118,5 +118,33 @@ describe("gapMinutes / estimateArrival", () => {
     expect(estimateArrival(stop("23:30", "23:50"), 30 * 60)).toBe("翌00:20");
     expect(estimateArrival(stop("10:00"), 35 * 60)).toBeUndefined();
     expect(estimateArrival(stop("10:00", "11:00"), undefined)).toBeUndefined();
+  });
+});
+
+describe("findSourceSchedule / source(元になった日程、2026-10-14)", () => {
+  const DAY = "2026-09-19";
+  const p = (over: Partial<TripRoutePlace>): TripRoutePlace => ({ id: "p1", tripId: "t1", name: "霊山寺", address: "霊山寺", sortOrder: 1, date: DAY, visited: false, createdAt: 1, ...over });
+  const s = (over: Partial<TripScheduleItem> & { id: string }): TripScheduleItem => ({ tripId: "t1", date: DAY, title: "霊山寺", type: "sightseeing", createdAt: 1, ...over });
+
+  it("同じ日・同じ場所の日程を返す。日程の場所でも、詳細の住所でも、移動の目的地でも見つける", () => {
+    const byLocation = s({ id: "a", location: "霊山寺" });
+    expect(findSourceSchedule(p({}), [byLocation])).toBe(byLocation);
+    const byAddress = s({ id: "b", location: "霊山寺", address: "徳島県鳴門市大麻町板東塚鼻126" });
+    expect(findSourceSchedule(p({ address: "徳島県鳴門市大麻町板東塚鼻126" }), [byAddress])).toBe(byAddress);
+    const move = s({ id: "m", title: "のぞみ13号", type: "transport", location: "東京駅", endLocation: "京都駅" });
+    expect(findSourceSchedule(p({ name: "京都駅", address: "京都駅" }), [move])).toBe(move);
+  });
+
+  it("日にちが違う・場所が違う・部分一致だけの日程は返さない。見つからなければ undefined", () => {
+    expect(findSourceSchedule(p({}), [s({ id: "a", location: "霊山寺", date: "2026-09-20", title: "別" })])).toBeUndefined();
+    expect(findSourceSchedule(p({}), [s({ id: "b", location: "霊山寺の駐車場", title: "駐車場" })])).toBeUndefined();
+    expect(findSourceSchedule(p({}), [])).toBeUndefined();
+  });
+
+  it("buildRouteTimeline の各場所に、元の日程(source)が付く。見つからない場所は付かない", () => {
+    const a = s({ id: "a", location: "霊山寺", startTime: "09:00" });
+    const stops = buildRouteTimeline([p({}), p({ id: "p2", name: "どこか", address: "どこか" })], [a]);
+    expect(stops[0].source).toBe(a);
+    expect(stops[1].source).toBeUndefined();
   });
 });

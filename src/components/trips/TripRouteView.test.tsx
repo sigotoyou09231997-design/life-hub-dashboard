@@ -660,3 +660,53 @@ describe("日程に住所が入っているのに、ルートの場所が名前�
     expect(screen.queryByRole("button", { name: "日程の住所を反映" })).toBeNull();
   });
 });
+
+describe("ルートの場所から、元になった日程を開く(2026-10-14)", () => {
+  const DAY1 = "2026-09-19";
+  const spots = [{ ...place("p1", "霊山寺", 1, DAY1), address: "霊山寺" }, { ...place("p2", "どこにも無い場所", 2, DAY1), address: "どこにも無い場所" }];
+  const source: TripScheduleItem = { id: "s1", tripId: "t1", date: DAY1, title: "霊山寺", location: "霊山寺", startTime: "09:00", type: "sightseeing", createdAt: 1 };
+
+  function renderWith(onOpenSchedule?: (item: TripScheduleItem) => void) {
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="四国"
+        places={spots}
+        dayList={[DAY1, "2026-09-20"]}
+        schedule={[source]}
+        suggestions={[]}
+        onAddSuggestions={() => {}}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+        onOpenSchedule={onOpenSchedule}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+  }
+
+  it("日程に元の予定が見つかった場所だけ、「元の予定を開く」が出る。押すと、その日程を渡す", async () => {
+    const onOpenSchedule = vi.fn();
+    const user = userEvent.setup();
+    renderWith(onOpenSchedule);
+    expect(screen.queryByRole("button", { name: "どこにも無い場所の元の予定を開く" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "霊山寺の元の予定を開く" }));
+    expect(onOpenSchedule).toHaveBeenCalledWith(source);
+  });
+
+  it("開く先を渡していなければ(共有しおりなど)、ボタンは出さない", () => {
+    renderWith(undefined);
+    expect(screen.queryByRole("button", { name: /元の予定を開く/ })).toBeNull();
+  });
+
+  it("「時間で見る」でも、元の予定が見つかった場所に出る", async () => {
+    const onOpenSchedule = vi.fn();
+    const user = userEvent.setup();
+    renderWith(onOpenSchedule);
+    await user.click(screen.getByRole("button", { name: "時間で見る" }));
+    await user.click(screen.getByRole("button", { name: "霊山寺の元の予定を開く" }));
+    expect(onOpenSchedule).toHaveBeenCalledWith(source);
+    expect(screen.queryByRole("button", { name: "どこにも無い場所の元の予定を開く" })).toBeNull();
+  });
+});

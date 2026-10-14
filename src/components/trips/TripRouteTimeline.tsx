@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { Car, Footprints, Train, type LucideIcon } from "lucide-react";
 import { fetchRouteInfo, formatDuration, type RouteInfoResponse, type RouteMode } from "../../lib/routeInfo";
 import { estimateArrival, gapMinutes, type TimelineStop } from "../../lib/tripRouteTimeline";
+import type { TripScheduleItem } from "../../types";
 
 const MODE_LABEL: Record<RouteMode, { label: string; icon: LucideIcon }> = {
   walking: { label: "徒歩", icon: Footprints },
@@ -16,6 +17,8 @@ interface Props {
   modeOf: (placeId: string) => RouteMode;
   /** 日程の場所を押して来た時に、光らせる場所。 */
   focusedId?: string | null;
+  /** 元になった日程を開く(2026-10-14)。渡さなければ、ボタンは出さない。 */
+  onOpenSchedule?: (item: TripScheduleItem) => void;
 }
 
 /**
@@ -25,7 +28,7 @@ interface Props {
  * 移動時間はサーバー側のGoogleのキーで取れた時だけ出る(キーが無い・取れない時は
  * 時刻だけの並びになる)。数字が出ないことを理由に、この見方ごと消さない。
  */
-export function TripRouteTimeline({ stops, modeOf, focusedId }: Props) {
+export function TripRouteTimeline({ stops, modeOf, focusedId, onOpenSchedule }: Props) {
   return (
     <ol className="trip-rtime">
       {stops.map((stop, i) => {
@@ -44,6 +47,16 @@ export function TripRouteTimeline({ stops, modeOf, focusedId }: Props) {
                 {stop.title && <p className="trip-rtime__title">{stop.title}</p>}
                 <p className="trip-rtime__address" title={place.address}>{place.address}</p>
                 {place.memo && <p className="trip-rtime__memo">{place.memo}</p>}
+                {stop.source && onOpenSchedule && (
+                  <button
+                    type="button"
+                    className="trip-rtime__source"
+                    onClick={() => onOpenSchedule(stop.source!)}
+                    aria-label={`${place.name}の元の予定を開く`}
+                  >
+                    元の予定を開く
+                  </button>
+                )}
               </div>
             </li>
             {next && <TimelineMove from={stop} to={next} mode={modeOf(place.id ?? "")} />}
