@@ -30,6 +30,7 @@ import { TripRouteForm } from "./TripRouteForm";
 import { TripLegRoute } from "./TripLegRoute";
 import { TripRouteTimeline } from "./TripRouteTimeline";
 import { buildRouteTimeline } from "../../lib/tripRouteTimeline";
+import { dayModeFromTransports, hintFor, transportHints } from "../../lib/tripDayRoute";
 import { TripPlaceStation } from "./TripPlaceStation";
 import { readHiddenPlaceIds, toggleHiddenPlace, writeHiddenPlaceIds } from "../../lib/tripRouteSelection";
 
@@ -204,7 +205,7 @@ export function TripRouteView({
   const [legModes, setLegModes] = useState<Record<string, TravelMode>>({});
   /** 「全地点をGoogleマップで開く」に渡す手段。ここだけは区間ではなくルート全体
    * なので、最後に選んだものを使う。 */
-  const [lastMode, setLastMode] = useState<TravelMode>(DEFAULT_MODE);
+  const [lastMode, setLastMode] = useState<TravelMode | null>(null);
   /** 経路を畳んだ区間の、始点の場所id。最初はどの区間も開いている — 「岡山駅 →
    * 新横浜駅」のような区間こそ、ルートを開いた時にいちばん知りたいところなのに、
    * 矢印を押すまで所要時間も移動手段も出てこなかった(2026-08-26の指摘)。
@@ -329,8 +330,26 @@ export function TripRouteView({
     };
   }, [hasPlaces, here]);
 
+  /**
+   * 触っていない区間の手段は、日程でその移動に選んだ手段を基本にする(2026-10-14、要望「ルートでは日程で選択された移動手段を
+   * 基本的に示して欲しい」)。区間の始点の場所から出る移動の予定があれば、その手段。無ければ、その日の移動の予定のいちばん多い手段。
+   * どちらも決まらなければ、これまでどおり公共交通機関。本人が選び直した区間は、そちらが先(legModes)。
+   */
+  function scheduleLegMode(place: TripRoutePlace | undefined): TravelMode | undefined {
+    if (!place?.date) return undefined;
+    return hintFor(transportHints(schedule, place.date), place.address) ?? dayModeFromTransports(schedule, place.date);
+  }
+
   function legMode(legKey: string): TravelMode {
-    return legModes[legKey] ?? DEFAULT_MODE;
+    const picked = legModes[legKey];
+    if (picked) return picked;
+    return scheduleLegMode(places.find((place) => place.id === legKey)) ?? DEFAULT_MODE;
+  }
+
+  /** 「全地点をGoogleマップで開く」の手段。本人が最後に選んだ手段が先、無ければ、見ている日の日程の手段。 */
+  function openAllMode(): TravelMode {
+    if (lastMode) return lastMode;
+    return (day !== ALL_DAYS && day !== NO_DAY ? dayModeFromTransports(schedule, day) : undefined) ?? DEFAULT_MODE;
   }
 
   function changeLegMode(legKey: string, next: TravelMode) {
@@ -368,7 +387,7 @@ export function TripRouteView({
         <div className="trip-route__head">
           <a
             className="trip-route__open"
-            href={buildRouteSearchUrl(queries, lastMode)}
+            href={buildRouteSearchUrl(queries, openAllMode())}
             target="_blank"
             rel="noreferrer"
           >

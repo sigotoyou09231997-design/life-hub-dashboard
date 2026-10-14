@@ -547,3 +547,70 @@ describe("旅行のルート: 地図に出す場所を選ぶ", () => {
   });
 });
 
+
+describe("区間の移動手段は、日程の移動手段を基本にする(2026-10-14)", () => {
+  const DAY1 = "2026-09-19";
+  const dayPlaces = [place("p1", "岡山駅", 1, DAY1), place("p2", "新横浜駅", 2, DAY1), place("p3", "東京駅", 3, DAY1)];
+  const move = (location: string, startTime: string, transportMode: TripScheduleItem["transportMode"]): TripScheduleItem => ({
+    id: `${location}${startTime}`,
+    tripId: "t1",
+    date: DAY1,
+    title: "移動",
+    location,
+    startTime,
+    type: "transport",
+    transportMode,
+    createdAt: 1,
+  });
+
+  function renderWith(schedule: TripScheduleItem[]) {
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="横浜"
+        places={dayPlaces}
+        dayList={[DAY1, "2026-09-20"]}
+        schedule={schedule}
+        suggestions={[]}
+        onAddSuggestions={() => {}}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+  }
+  const leg1 = () => (screen.getByTitle("岡山駅から新横浜駅までの経路") as HTMLIFrameElement).src;
+  const leg2 = () => (screen.getByTitle("新横浜駅から東京駅までの経路") as HTMLIFrameElement).src;
+
+  it("その区間の始点から出る移動の予定の手段を、最初から選んでおく。ほかの区間は、その日のいちばん多い手段", async () => {
+    // 岡山駅から出る移動は車。新横浜駅から出る移動は無いので、その日で多い手段(車2・徒歩1 → 車)。
+    renderWith([move("岡山駅の住所", "08:00", "car"), move("どこか", "09:00", "car"), move("あそこ", "10:00", "walk")]);
+    await screen.findAllByText("公共交通機関");
+    expect(leg1()).toContain("dirflg=d");
+    expect(leg2()).toContain("dirflg=d");
+  });
+
+  it("区間ごとに違う手段が日程にあれば、区間ごとに違う手段になる", () => {
+    renderWith([move("岡山駅の住所", "08:00", "train"), move("新横浜駅の住所", "10:00", "walk")]);
+    expect(leg1()).toContain("dirflg=r");
+    expect(leg2()).toContain("dirflg=w");
+  });
+
+  it("日程に移動手段が無ければ、これまでどおり公共交通機関", () => {
+    renderWith([]);
+    expect(leg1()).toContain("dirflg=r");
+    expect(leg2()).toContain("dirflg=r");
+  });
+
+  it("本人が選び直した区間は、日程の手段より先。ほかの区間はつられない", async () => {
+    const user = userEvent.setup();
+    renderWith([move("岡山駅の住所", "08:00", "car"), move("新横浜駅の住所", "10:00", "car")]);
+    expect(leg1()).toContain("dirflg=d");
+    const walks = await screen.findAllByText("徒歩");
+    await user.click(walks[0]);
+    expect(leg1()).toContain("dirflg=w");
+    expect(leg2()).toContain("dirflg=d");
+  });
+});

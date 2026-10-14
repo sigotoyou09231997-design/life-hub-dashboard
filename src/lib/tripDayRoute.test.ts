@@ -3,6 +3,7 @@ import type { TripScheduleItem } from "../types";
 import {
   buildDayRoute,
   buildSegmentLinks,
+  dayModeFromTransports,
   dayRouteStops,
   legKey,
   legModeForTransport,
@@ -244,3 +245,24 @@ describe("予定の移動手段から、区間の手段を決める", () => {
   });
 });
 
+
+describe("dayModeFromTransports(その日の経路の手段を、日程の移動手段から決める)", () => {
+  const move = (location: string, startTime: string, transportMode: TripScheduleItem["transportMode"], date = DAY) =>
+    item(location, startTime, { type: "transport", transportMode, date });
+
+  it("その日の移動の予定のうち、いちばん多い手段(経路の手段に読み替えて)", () => {
+    expect(dayModeFromTransports([move("A", "08:00", "train"), move("B", "09:00", "shinkansen"), move("C", "10:00", "car")], DAY)).toBe("transit");
+    expect(dayModeFromTransports([move("A", "08:00", "car"), move("B", "09:00", "taxi"), move("C", "10:00", "walk")], DAY)).toBe("driving");
+  });
+
+  it("同数なら、その日に先に出てくる手段", () => {
+    expect(dayModeFromTransports([move("B", "10:00", "car"), move("A", "08:00", "walk")], DAY)).toBe("walking");
+  });
+
+  it("経路で引けない手段(飛行機・自転車)・手段を決めていない移動・移動でない予定・ほかの日は数えない。決まらなければ undefined", () => {
+    expect(dayModeFromTransports([move("A", "08:00", "plane"), move("B", "09:00", "bicycle"), move("C", "10:00", undefined)], DAY)).toBeUndefined();
+    expect(dayModeFromTransports([item("D", "11:00", { transportMode: "car" }), move("E", "12:00", "car", "2026-12-29")], DAY)).toBeUndefined();
+    expect(dayModeFromTransports([move("A", "08:00", "plane"), move("B", "09:00", "car")], DAY)).toBe("driving");
+    expect(dayModeFromTransports([], DAY)).toBeUndefined();
+  });
+});
