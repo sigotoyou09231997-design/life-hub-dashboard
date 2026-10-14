@@ -147,6 +147,11 @@ export function FeedbackInbox() {
               {item.status === "hold" && item.statusNote && (
                 <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-900">保留の理由: {item.statusNote}</p>
               )}
+              {/* 質問(選ぶボタン)を送って返事を待っている間は、選択肢を見せる。答えが届いたら、答えを見せる。 */}
+              {item.status === "hold" && item.questionOptions && (
+                <p className="mt-1 text-xs text-slate-600">選択肢(返事待ち): {item.questionOptions.join(" / ")}</p>
+              )}
+              {item.answer && <p className="mt-1 rounded-lg bg-accent/10 px-2 py-1 text-xs text-slate-800">答え: {item.answer}</p>}
               <FeedbackGauge item={item} />
               {(item.imageCount ?? 0) > 0 && (
                 <div className="mt-2">

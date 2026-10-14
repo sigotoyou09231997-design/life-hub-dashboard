@@ -52,7 +52,7 @@ export function countFeedback(items: readonly FeedbackItem[]): FeedbackCounts {
 }
 
 function sign(items: readonly FeedbackItem[]): string {
-  return items.map((item) => `${item.id}:${item.status}:${item.workingAt ?? ""}:${item.statusNote ?? ""}:${item.estimateMinutes ?? ""}`).join("|");
+  return items.map((item) => `${item.id}:${item.status}:${item.workingAt ?? ""}:${item.statusNote ?? ""}:${item.estimateMinutes ?? ""}:${item.questionOptions?.join("/") ?? ""}:${item.answer ?? ""}`).join("|");
 }
 
 async function refresh(): Promise<void> {

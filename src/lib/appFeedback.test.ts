@@ -20,7 +20,7 @@ vi.mock("./supabaseData", () => ({
   }),
 }));
 
-import { FeedbackError, loadIsFeedbackOwner, sendFeedback } from "./appFeedback";
+import { FeedbackError, answerFeedback, loadIsFeedbackOwner, rowToFeedback, sendFeedback, subscribeFeedbackChanged } from "./appFeedback";
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -148,5 +148,48 @@ describe("feedbackStatusLabel(状態の名前)", () => {
     expect(feedbackStatusLabel("done")).toBe("対応済み");
     expect(feedbackStatusLabel("dismissed")).toBe("見送り");
     expect(feedbackStatusLabel("something-new")).toBe("対応待ち");
+  });
+});
+
+describe("answerFeedback(保留中の質問に、ボタンで答える。2026-10-14)", () => {
+  it("ログインしている人の鍵で、依頼の id と答えを送る。通ったら、状況の読み直しを呼ぶ", async () => {
+    mocks.session = { access_token: "user-token", user: { id: "u1" } };
+    reply({ ok: true });
+    let changed = 0;
+    const stop = subscribeFeedbackChanged(() => (changed += 1));
+    await answerFeedback("f1", "PCで左右に並べる");
+    stop();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://example.supabase.co/rest/v1/rpc/app_feedback_answer");
+    expect(init.headers.Authorization).toBe("Bearer user-token");
+    expect(JSON.parse(init.body)).toEqual({ p_id: "f1", p_answer: "PCで左右に並べる" });
+    expect(changed).toBe(1);
+  });
+
+  it("ログインしていない・サーバーが断った・関数が無い(039 を流す前)・通信できない時は、FeedbackError", async () => {
+    await expect(answerFeedback("f1", "A")).rejects.toMatchObject({ reason: "failed" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    mocks.session = { access_token: "user-token", user: { id: "u1" } };
+    reply({ ok: false, reason: "not_asking" });
+    await expect(answerFeedback("f1", "A")).rejects.toBeInstanceOf(FeedbackError);
+    reply({ code: "PGRST202", message: "function not found" }, 404);
+    await expect(answerFeedback("f1", "A")).rejects.toMatchObject({ reason: "unavailable" });
+    fetchMock.mockRejectedValueOnce(new TypeError("offline"));
+    await expect(answerFeedback("f1", "A")).rejects.toMatchObject({ reason: "failed" });
+  });
+});
+
+describe("rowToFeedback: 質問と答え(039)", () => {
+  const base = { id: "f1", via: "app" as const, sender_name: null, trip_name: null, page: null, message: "m", app_version: null, status: "hold" as const, created_at: "2026-10-14T00:00:00Z" };
+
+  it("選択肢・答え・答えた時刻を読む。文字でない選択肢は捨てる。無ければ未設定", () => {
+    expect(rowToFeedback({ ...base, question_options: ["A", 5, "B"], answer: "A", answered_at: "2026-10-14T01:00:00Z" })).toMatchObject({
+      questionOptions: ["A", "B"],
+      answer: "A",
+      answeredAt: "2026-10-14T01:00:00Z",
+    });
+    const plain = rowToFeedback(base);
+    expect(plain.questionOptions).toBeUndefined();
+    expect(plain.answer).toBeUndefined();
   });
 });

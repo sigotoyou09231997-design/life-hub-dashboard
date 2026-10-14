@@ -191,3 +191,15 @@ describe("保留中(036)", () => {
   });
 });
 
+describe("質問(選ぶボタン)と答え(2026-10-14)", () => {
+  it("質問を送って返事を待つ依頼には、選択肢を出す。答えが届いた依頼には、答えを出す", async () => {
+    mocks.owner = true;
+    mocks.items = [
+      item({ id: "w", status: "hold", message: "待っている", statusNote: "どれ?", questionOptions: ["A案", "B案"] }),
+      item({ id: "r", status: "new", message: "答えが届いた", answer: "B案", questionOptions: ["A案", "B案"] }),
+    ];
+    renderInbox();
+    expect(await screen.findByText(/選択肢\(返事待ち\): A案 \/ B案/)).toBeTruthy();
+    expect(screen.getByText("答え: B案")).toBeTruthy();
+  });
+});
