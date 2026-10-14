@@ -84,15 +84,16 @@ describe("loadFeedback(あとから足された列が、本番に無くても読
     mocks.missing = new Set(["working_at", "image_count"]);
     const items = await loadFeedback();
     expect(mocks.selects).toHaveLength(3);
-    expect(mocks.selects[2]).toBe("id, via, sender_name, trip_name, page, message, app_version, status, created_at, status_note, estimate_minutes");
+    expect(mocks.selects[2]).toBe("id, via, sender_name, trip_name, page, message, app_version, status, created_at, status_note, estimate_minutes, question_options, answer, answered_at");
     expect(items).toHaveLength(1);
   });
 
-  it("033・035・036・037 のどれも流す前なら、元の列だけで読める", async () => {
-    mocks.missing = new Set(["working_at", "image_count", "status_note", "estimate_minutes"]);
+  it("033・035・036・037・039 のどれも流す前なら、元の列だけで読める", async () => {
+    mocks.missing = new Set(["working_at", "image_count", "status_note", "estimate_minutes", "question_options", "answer", "answered_at"]);
     const items = await loadFeedback();
-    expect(mocks.selects).toHaveLength(5);
-    expect(mocks.selects[4]).toBe("id, via, sender_name, trip_name, page, message, app_version, status, created_at");
+    // 全部付けた1回目と、無い列を1つずつ外す7回。
+    expect(mocks.selects).toHaveLength(8);
+    expect(mocks.selects[7]).toBe("id, via, sender_name, trip_name, page, message, app_version, status, created_at");
     expect(items).toHaveLength(1);
   });
 
