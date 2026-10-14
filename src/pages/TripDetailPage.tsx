@@ -641,7 +641,15 @@ export default function TripDetailPage() {
       </Sheet>
 
       <Sheet open={remapOpen} onClose={() => setRemapOpen(false)} title="場所をまとめて直す">
-        {remapOpen && <TripLocationRemapSheet schedule={schedule} routePlaces={routePlaces} onClose={() => setRemapOpen(false)} />}
+        {remapOpen && (
+          <TripLocationRemapSheet
+            tripName={trip?.name}
+            destination={trip?.destination}
+            schedule={schedule}
+            routePlaces={routePlaces}
+            onClose={() => setRemapOpen(false)}
+          />
+        )}
       </Sheet>
 
       <Sheet open={editingTrip} onClose={() => setEditingTrip(false)} title="旅行を編集">

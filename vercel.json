@@ -25,6 +25,9 @@
     },
     "api/extractReceipt.ts": {
       "maxDuration": 60
+    },
+    "api/suggestPlaces.ts": {
+      "maxDuration": 60
     }
   }
 }

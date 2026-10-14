@@ -5,9 +5,13 @@ import { parseLocationRemap, planLocationRemap } from "../../lib/tripLocationRem
 import { Button } from "../ui/Button";
 import { Textarea } from "../ui/Input";
 import { useConfirm } from "../ui/ConfirmProvider";
+import { PlaceSuggestPanel } from "./PlaceSuggestPanel";
 import { useToast } from "../ui/ToastProvider";
 
 interface Props {
+  /** AI の提案(旅行の名前・行き先を手がかりにする)。 */
+  tripName?: string;
+  destination?: string;
   schedule: TripScheduleItem[];
   routePlaces: TripRoutePlace[];
   onClose: () => void;
@@ -21,7 +25,7 @@ const PLACEHOLDER = "霊山寺 → 霊山寺 徳島県鳴門市大麻町\n小金
  * 書き換える前に、どの行が何件に当たるかを見せる。当たらない行(綴りの違いなど)は
  * 黙って捨てず「当たりません」と出す — 直したつもりで直っていないのが一番気づきにくいため。
  */
-export function TripLocationRemapSheet({ schedule, routePlaces, onClose }: Props) {
+export function TripLocationRemapSheet({ tripName = "", destination = "", schedule, routePlaces, onClose }: Props) {
   const confirm = useConfirm();
   const showToast = useToast();
   const [text, setText] = useState("");
@@ -60,8 +64,18 @@ export function TripLocationRemapSheet({ schedule, routePlaces, onClose }: Props
     }
   }
 
+  /** AI の提案から選んだ行を、対応表に足す(同じ元の場所が先にあれば、その行を置き換える)。 */
+  function addLines(lines: string) {
+    const incoming = lines.split("\n").filter(Boolean);
+    const fromOf = (line: string) => line.split("→")[0].trim();
+    const replaced = new Set(incoming.map(fromOf));
+    const kept = text.split(/\r\n|\r|\n/).filter((line) => line.trim() && !replaced.has(fromOf(line)));
+    setText([...kept, ...incoming].join("\n"));
+  }
+
   return (
     <div className="flex flex-col gap-4">
+      <PlaceSuggestPanel tripName={tripName} destination={destination} schedule={schedule} routePlaces={routePlaces} onUse={addLines} />
       <p className="text-sm text-slate-600">
         「元の場所 → 新しい場所」を1行ずつ貼ってください。この旅行の日程とルートの場所のうち、元の場所と
         <span className="font-semibold text-slate-800">ぴったり同じ</span>
