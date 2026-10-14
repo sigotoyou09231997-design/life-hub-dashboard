@@ -62,11 +62,12 @@ import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
 import { toRouteSuggestions, findRoutePlaceFor } from "../lib/tripRouteSuggestions";
 import { mapQueryFor } from "../lib/scheduleDetails";
+import { TRIP_TAB_OPTIONS, VALID_TRIP_TABS, type TripTab } from "../lib/tripTabs";
 import type { RouteSuggestion } from "../lib/tripRouteSuggestions";
 
-type Tab = "schedule" | "expense" | "packing" | "route" | "diary" | "documents";
+type Tab = TripTab;
 
-const VALID_TABS: Tab[] = ["schedule", "expense", "packing", "route", "diary", "documents"];
+const VALID_TABS: Tab[] = VALID_TRIP_TABS;
 
 /** 右下の＋(まとめて追加)を出すタブ。 */
 const QUICK_PLAN_TABS: Tab[] = ["schedule", "expense", "route"];
@@ -365,14 +366,7 @@ export default function TripDetailPage() {
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-5">
         <Tabs
-          options={[
-            { value: "schedule", label: "日程" },
-            { value: "expense", label: "費用" },
-            { value: "packing", label: "持ち物" },
-            { value: "route", label: "ルート" },
-            { value: "diary", label: "日記" },
-            { value: "documents", label: "書類" },
-          ]}
+          options={TRIP_TAB_OPTIONS}
           value={tab}
           onChange={setTab}
         />
