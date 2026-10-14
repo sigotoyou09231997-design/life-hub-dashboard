@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { detailsForSave, formatPhone, formatPhoneTyping, hasScheduleDetails, mapQueryFor, normalizeUrl, phoneLabel, telHref, urlLabel } from "./scheduleDetails";
+import { cleanAddress, detailsForSave, endMapQueryFor, formatPhone, formatPhoneTyping, hasScheduleDetails, mapQueryFor, normalizeUrl, phoneLabel, telHref, urlLabel } from "./scheduleDetails";
 
-const empty = { address: "", phone: "", url: "", openingHours: "", checkInTime: "", checkOutTime: "" };
+const empty = { address: "", endAddress: "", phone: "", url: "", openingHours: "", checkInTime: "", checkOutTime: "" };
 
 describe("予定の詳細", () => {
   it("URL の頭が無ければ https:// を付ける(付いていればそのまま、空は無し)", () => {
@@ -60,7 +60,7 @@ describe("formatPhone(電話用のテンキーにはハイフンが無いので�
   });
 
   it("保存する時にも入れる(欄を離れずに保存を押した時のため)", () => {
-    expect(detailsForSave("sightseeing", { address: "", phone: "0886870613", url: "", openingHours: "", checkInTime: "", checkOutTime: "" }).phone).toBe(
+    expect(detailsForSave("sightseeing", { address: "", endAddress: "", phone: "0886870613", url: "", openingHours: "", checkInTime: "", checkOutTime: "" }).phone).toBe(
       "088-687-0613",
     );
   });
@@ -114,5 +114,27 @@ describe("mapQueryFor(地図・経路に渡す文字。住所が入っていれ�
     expect(mapQueryFor({ address: "〒779-0230 徳島県鳴門市大麻町  板東塚鼻126" })).toBe("徳島県鳴門市大麻町 板東塚鼻126");
     expect(mapQueryFor({ address: "7790230 徳島県鳴門市" })).toBe("徳島県鳴門市");
     expect(mapQueryFor({ address: "〒 779-0230\u3000徳島県鳴門市" })).toBe("徳島県鳴門市");
+  });
+});
+
+describe("移動の目的地の住所(2026-10-15、要望「出発地と目的地は住所もそれぞれ入れられると間違えがなくていい」)", () => {
+  it("endMapQueryFor: 移動なら、目的地の住所があれば住所、無ければ目的地の名前。移動でなければ使わない。何も無ければ undefined", () => {
+    expect(endMapQueryFor({ type: "transport", endLocation: "京都駅", endAddress: "京都府京都市下京区烏丸通塩小路下る東塩小路町" })).toBe("京都府京都市下京区烏丸通塩小路下る東塩小路町");
+    expect(endMapQueryFor({ type: "transport", endLocation: " 京都駅 ", endAddress: "  " })).toBe("京都駅");
+    expect(endMapQueryFor({ type: "transport", endAddress: "〒600-8216 京都府京都市下京区" })).toBe("京都府京都市下京区");
+    expect(endMapQueryFor({ type: "sightseeing", endLocation: "どこか", endAddress: "どこかの住所" })).toBeUndefined();
+    expect(endMapQueryFor({ type: "transport" })).toBeUndefined();
+  });
+
+  it("cleanAddress: 先頭の郵便番号と余計な空白を外す。空は空", () => {
+    expect(cleanAddress("〒779-0230  徳島県鳴門市")).toBe("徳島県鳴門市");
+    expect(cleanAddress(null)).toBe("");
+  });
+
+  it("保存する形: 目的地の住所は、移動の時だけ。詳細があるかどうかにも数える", () => {
+    const values = { ...empty, endAddress: " 京都府京都市下京区 " };
+    expect(detailsForSave("transport", values).endAddress).toBe("京都府京都市下京区");
+    expect(detailsForSave("sightseeing", values).endAddress).toBeUndefined();
+    expect(hasScheduleDetails({ endAddress: "京都府京都市" })).toBe(true);
   });
 });

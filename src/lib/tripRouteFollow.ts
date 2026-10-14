@@ -1,7 +1,7 @@
 import { db } from "../db/schema";
 import type { TripRoutePlace, TripScheduleItem } from "../types";
 import { routeKey } from "./mailPlanImport";
-import { mapQueryFor } from "./scheduleDetails";
+import { endMapQueryFor, mapQueryFor } from "./scheduleDetails";
 import { isRouteLinked } from "./routeLink";
 
 /**
@@ -48,7 +48,7 @@ export function planRouteFollow(
   // 直す前のルートの場所は、住所で作られていても、住所を入れる前の場所の名前のままでも、見つける。
   const oldKeys = new Set([routeKey(oldQuery), ...(before.location?.trim() ? [routeKey(before.location)] : [])]);
   const keysOf = (item: TripScheduleItem): string[] =>
-    [mapQueryFor(item), item.location?.trim(), item.type === "transport" ? item.endLocation?.trim() : undefined].filter((v): v is string => Boolean(v)).map(routeKey);
+    [mapQueryFor(item), item.location?.trim(), endMapQueryFor(item), item.type === "transport" ? item.endLocation?.trim() : undefined].filter((v): v is string => Boolean(v)).map(routeKey);
 
   const place = places
     .filter((p) => p.id && oldKeys.has(routeKey(p.address)) && p.date === before.date)
@@ -106,12 +106,22 @@ export function planAddressReflect(schedule: TripScheduleItem[], places: TripRou
   for (const place of places) {
     if (!place.id || !place.date) continue;
     const key = routeKey(place.address);
-    const item = schedule.find((entry) => {
-      if (entry.date !== place.date || !entry.address?.trim() || !entry.location?.trim() || routeKey(entry.location) !== key) return false;
-      const query = mapQueryFor(entry);
-      return Boolean(query) && routeKey(query!) !== key;
-    });
-    const query = item ? mapQueryFor(item) : undefined;
+    // 同じ日・同じ場所(名前)の日程に、住所が入っていれば、その住所。出発地(住所)と、移動の目的地(目的地の住所)のどちらも見る。
+    const query = schedule
+      .filter((entry) => entry.date === place.date)
+      .flatMap((entry) => {
+        const found: string[] = [];
+        if (entry.address?.trim() && entry.location?.trim() && routeKey(entry.location) === key) {
+          const start = mapQueryFor(entry);
+          if (start) found.push(start);
+        }
+        if (entry.type === "transport" && entry.endAddress?.trim() && entry.endLocation?.trim() && routeKey(entry.endLocation) === key) {
+          const end = endMapQueryFor(entry);
+          if (end) found.push(end);
+        }
+        return found;
+      })
+      .find((candidate) => routeKey(candidate) !== key);
     if (!query || taken.has(routeKey(query))) continue;
     taken.add(routeKey(query));
     result.push({ id: place.id, placeName: place.name, address: query });
@@ -138,8 +148,10 @@ export function planRouteFollowAll(
       ...item,
       type: "transport",
       location: item.type === "transport" ? (item.endLocation ?? undefined) : undefined,
-      address: undefined,
+      // 目的地の住所が入っていれば、それが地図に渡る文字(出発地と同じ決まり)。
+      address: item.type === "transport" ? (item.endAddress ?? undefined) : undefined,
       endLocation: undefined,
+      endAddress: undefined,
     });
     // 出発地の分を直したあとの状態で、目的地を探す(出発地と目的地が同じ場所でも、2回直さない)。
     const end = planRouteFollow(asPlace(before), asPlace(after), others, places.filter((place) => place.id !== start?.id));

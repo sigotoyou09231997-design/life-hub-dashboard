@@ -378,6 +378,9 @@ export interface TripScheduleItem {
   /** 移動の目的地(2026-10-14、要望の受信箱「日程で経路の場合、出発地と目的地を入れられるといい」。supabase/sql/038)。
    * 種類が「移動」の時だけ。出発地は location。消した値は null(同期は undefined を送らず、ほかの端末に古い値が残るため)。 */
   endLocation?: string | null;
+  /** 移動の目的地の住所(2026-10-15、要望「出発地と目的地は住所もそれぞれ入れられると間違えがなくていい」。supabase/sql/040)。
+   * 出発地の住所は address。種類が「移動」の時だけ。消した値は null。 */
+  endAddress?: string | null;
   memo?: string;
   type: TripScheduleType;
   /** 何で移動するか。種類が「移動」の時だけ(2026-10-11、要望の受信箱から)。 */

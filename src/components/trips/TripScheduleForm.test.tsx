@@ -476,3 +476,36 @@ describe("旅行の予定の入力: 足した予定の場所をルートにも�
     expect(mocks.routeAdds).toEqual([]);
   });
 });
+
+describe("旅行の予定の入力: 出発地と目的地の住所(2026-10-15、要望「出発地と目的地は住所もそれぞれ入れられると間違えがなくていい」)", () => {
+  it("移動の時は、詳細に「出発地の住所」と「目的地の住所」が出る。移動以外は「住所」だけ", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.click(screen.getByRole("button", { name: /住所・電話・URL・営業時間/ }));
+    expect(screen.getByLabelText(/^住所/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^目的地の住所/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "移動" }));
+    expect(screen.getByLabelText(/^出発地の住所/)).toBeTruthy();
+    expect(screen.getByLabelText(/^目的地の住所/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^住所/)).toBeNull();
+  });
+
+  it("両方の住所を入れて保存すると、住所と目的地の住所に入る。消したら null", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByPlaceholderText("例: 五稜郭"), "のぞみ13号");
+    await user.click(screen.getByRole("button", { name: "移動" }));
+    await user.click(screen.getByRole("button", { name: /出発地・目的地の住所/ }));
+    await user.type(screen.getByLabelText(/^出発地の住所/), "東京都千代田区丸の内1-9-1");
+    await user.type(screen.getByLabelText(/^目的地の住所/), " 京都府京都市下京区 ");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(mocks.added).toEqual([expect.objectContaining({ type: "transport", address: "東京都千代田区丸の内1-9-1", endAddress: "京都府京都市下京区" })]);
+
+    cleanup();
+    mocks.updated = [];
+    renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "のぞみ", type: "transport", location: "東京駅", endLocation: "京都駅", endAddress: "京都府京都市下京区", createdAt: 1 });
+    await user.clear(screen.getByLabelText(/^目的地の住所/));
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.updated[0][1]).toMatchObject({ endAddress: null });
+  });
+});

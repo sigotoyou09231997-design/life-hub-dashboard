@@ -81,6 +81,7 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
   // 詳細(住所・電話・URL・営業時間・チェックイン/アウト)。ふだんは畳み、どれかが入っている予定では開いて出す。
   const [details, setDetails] = useState<Record<ScheduleDetailField, string>>({
     address: initial?.address ?? "",
+    endAddress: initial?.endAddress ?? "",
     phone: initial?.phone ?? "",
     url: initial?.url ?? "",
     openingHours: initial?.openingHours ?? "",
@@ -175,6 +176,8 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
       type,
       transportMode: type === "transport" && transportMode ? transportMode : undefined,
       ...detailsForSave(type, details),
+      // 移動の目的地の住所。空にした時、前に入っていたなら null(同期は undefined を送らず、ほかの端末に古い値が残るため)。
+      endAddress: type === "transport" && details.endAddress.trim() ? details.endAddress.trim() : initial?.endAddress ? null : undefined,
       // 日付か開始時刻を直したら、入れ替えた並びから外して、時刻の位置へ差し込み直す(src/lib/scheduleOrder.ts)。
       // undefined だと同期で送られず、ほかの端末に古い番号が残るので null にする。
       ...(initial?.id && (initial.date !== date || (initial.startTime ?? "") !== startTime) ? { sortOrder: null } : {}),
@@ -312,12 +315,28 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
           aria-expanded={detailsOpen}
           onClick={() => setDetailsOpen((open) => !open)}
         >
-          <span>{type === "lodging" ? "住所・電話・URL・チェックイン/アウト" : "住所・電話・URL・営業時間"}</span>
+          <span>{type === "lodging" ? "住所・電話・URL・チェックイン/アウト" : type === "transport" ? "出発地・目的地の住所・電話・URL" : "住所・電話・URL・営業時間"}</span>
           <ChevronDown size={16} className={`transition-transform ${detailsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
         </button>
         {detailsOpen && (
           <>
-            <Input label="住所" optional value={details.address} onChange={setDetail("address")} placeholder="例: 徳島県鳴門市鳴門町土佐泊浦字大毛264-1" />
+            {/* 移動では、住所は出発地の住所。目的地の住所もそれぞれ入れられる(2026-10-15)。住所を入れると、地図・経路に場所の名前ではなく住所が渡る。 */}
+            <Input
+              label={type === "transport" ? "出発地の住所" : "住所"}
+              optional
+              value={details.address}
+              onChange={setDetail("address")}
+              placeholder="例: 徳島県鳴門市鳴門町土佐泊浦字大毛264-1"
+            />
+            {type === "transport" && (
+              <Input
+                label="目的地の住所"
+                optional
+                value={details.endAddress}
+                onChange={setDetail("endAddress")}
+                placeholder="例: 京都府京都市下京区烏丸通塩小路下る東塩小路町"
+              />
+            )}
             {/* 電話用のテンキーにはハイフンが無いので、数字だけ打てば、打っている間にハイフンを入れる(formatPhoneTyping)。
                 途中を直している時(カーソルが最後でない時)は触らない — 整えるとカーソルが最後へ飛ぶため。欄を離れた時にも整える。 */}
             <Input

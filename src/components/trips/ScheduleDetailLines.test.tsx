@@ -41,3 +41,19 @@ describe("予定の詳細の表示", () => {
     expect(container.textContent).toBe("");
   });
 });
+
+describe("ScheduleDetailLines: 移動の目的地の住所(2026-10-15)", () => {
+  it("移動なら、出発地の住所と目的地の住所を、それぞれ地図のリンクで出す(両方あれば「出発」「到着」を添える)", () => {
+    render(<ScheduleDetailLines item={{ type: "transport", address: "東京都千代田区丸の内1-9-1", endAddress: "京都府京都市下京区" }} />);
+    expect(screen.getByRole("link", { name: /出発 東京都千代田区丸の内1-9-1/ })).toBeTruthy();
+    expect(screen.getByRole("link", { name: /到着 京都府京都市下京区/ })).toBeTruthy();
+  });
+
+  it("目的地の住所だけなら、そのまま出す。移動でない予定の目的地の住所は出さない", () => {
+    const { rerender } = render(<ScheduleDetailLines item={{ type: "transport", endAddress: "京都府京都市下京区" }} />);
+    expect(screen.getByRole("link", { name: /京都府京都市下京区/ }).textContent).toBe("京都府京都市下京区");
+    rerender(<ScheduleDetailLines item={{ type: "sightseeing", endAddress: "京都府京都市下京区" }} />);
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+});
+

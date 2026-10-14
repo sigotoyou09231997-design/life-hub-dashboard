@@ -148,3 +148,12 @@ describe("findSourceSchedule / source(元になった日程、2026-10-14)", () =
     expect(stops[1].source).toBeUndefined();
   });
 });
+
+describe("元の日程: 移動の目的地の住所(2026-10-15)", () => {
+  it("目的地の住所で作ったルートの場所からも、その移動の日程を見つける", () => {
+    const ADDR = "京都府京都市下京区烏丸通塩小路下る東塩小路町";
+    const move: TripScheduleItem = { id: "m", tripId: "t1", date: "2026-09-19", title: "のぞみ13号", type: "transport", location: "東京駅", endLocation: "京都駅", endAddress: ADDR, createdAt: 1 };
+    const dest: TripRoutePlace = { id: "p", tripId: "t1", name: "京都駅", address: ADDR, sortOrder: 1, date: "2026-09-19", visited: false, createdAt: 1 };
+    expect(findSourceSchedule(dest, [move])).toBe(move);
+  });
+});
