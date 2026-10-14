@@ -9,6 +9,7 @@ import {
   MoveUp,
   Pencil,
   Plus,
+  CalendarDays,
   CalendarPlus,
   Clock,
   Search,
@@ -29,7 +30,7 @@ import { formatShortDate } from "../../lib/date";
 import { TripRouteForm } from "./TripRouteForm";
 import { TripLegRoute } from "./TripLegRoute";
 import { TripRouteTimeline } from "./TripRouteTimeline";
-import { buildRouteTimeline } from "../../lib/tripRouteTimeline";
+import { buildRouteTimeline, findSourceSchedule } from "../../lib/tripRouteTimeline";
 import { dayModeFromTransports, hintFor, transportHints } from "../../lib/tripDayRoute";
 import { planAddressReflect } from "../../lib/tripRouteFollow";
 import { TripPlaceStation } from "./TripPlaceStation";
@@ -57,6 +58,9 @@ interface Props {
   onFirstSaved: () => void;
   onEdit: (place: TripRoutePlace) => void;
   onDelete: (id: string) => void;
+  /** ルートの場所の元になった日程を開く(2026-10-14、要望「ルートの予定を選択して元になった予定を開くことができると効率的」)。
+   * 渡さなければ、ボタンは出さない。 */
+  onOpenSchedule?: (item: TripScheduleItem) => void;
 }
 
 /** 現在地から1つ目の場所までの区間につける鍵。場所idと混ざらない名前にしてある。 */
@@ -198,6 +202,7 @@ export function TripRouteView({
   onFirstSaved,
   onEdit,
   onDelete,
+  onOpenSchedule,
 }: Props) {
   /** 区間ごとの移動手段。1つにまとめて持っていた頃は、どこかで「車」に変えると
    * ほかの地図まで全部つられて変わり、「この区間は電車・ここは車」という見方が
@@ -569,6 +574,7 @@ export function TripRouteView({
                 stops={buildRouteTimeline(shown, schedule)}
                 modeOf={(placeId) => legMode(placeId)}
                 focusedId={focusedId}
+                onOpenSchedule={onOpenSchedule}
               />
               <p className="trip-route__time-note">
                 時刻は日程に入れた時刻です。変えるときは日程を直してください。移動時間は、地図の画面で選んだ移動手段のものです。
@@ -671,6 +677,15 @@ export function TripRouteView({
                             >
                               <MoveDown size={15} />
                             </button>
+                            {/* 元になった日程を開く。日程にその場所(同じ日・同じ場所)が見つかった時だけ。 */}
+                            {onOpenSchedule && (() => {
+                              const source = findSourceSchedule(place, schedule);
+                              return source ? (
+                                <button type="button" onClick={() => onOpenSchedule(source)} aria-label={`${place.name}の元の予定を開く`}>
+                                  <CalendarDays size={15} />
+                                </button>
+                              ) : null;
+                            })()}
                             <button type="button" onClick={() => onEdit(place)} aria-label={`${place.name}を編集`}>
                               <Pencil size={15} />
                             </button>

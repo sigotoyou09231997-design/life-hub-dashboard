@@ -1,5 +1,6 @@
 import type { TripRoutePlace, TripScheduleItem } from "../types";
 import { routeKey } from "./mailPlanImport";
+import { mapQueryFor } from "./scheduleDetails";
 
 /**
  * ルートの「時間で見る」並び(src/components/trips/TripRouteTimeline.tsx)の材料。
@@ -17,6 +18,8 @@ export interface TimelineStop {
   endTime?: string;
   /** 日程側の見出し(「ランチ」「はやぶさ13号」)。場所の名前と同じなら付けない。 */
   title?: string;
+  /** 元になった日程(2026-10-14、要望「ルートの予定を選択して元になった予定を開くことができると効率的」)。見つからなければ無い。 */
+  source?: TripScheduleItem;
 }
 
 /** "HH:mm" を、0時からの分にする。形が違えば undefined。 */
@@ -42,9 +45,17 @@ export function toClock(totalMinutes: number): string {
 function isSamePlace(place: TripRoutePlace, item: TripScheduleItem): boolean {
   const address = routeKey(place.address);
   const name = routeKey(place.name);
-  const location = item.location ? routeKey(item.location) : "";
-  if (location && (location === address || location === name)) return true;
+  // 日程の「場所」のほか、詳細の住所(地図には住所が渡る)と、移動の目的地も、ルートの場所になる(2026-10-14)。
+  const spots = [item.location, mapQueryFor(item), item.type === "transport" ? item.endLocation : undefined]
+    .filter((spot): spot is string => Boolean(spot?.trim()))
+    .map(routeKey);
+  if (spots.some((spot) => spot === address || spot === name)) return true;
   return routeKey(item.title) === name || routeKey(item.title) === address;
+}
+
+/** ルートの場所の元になった日程。日にちと場所(または名前)が同じ予定。見つからなければ undefined。 */
+export function findSourceSchedule(place: TripRoutePlace, schedule: TripScheduleItem[]): TripScheduleItem | undefined {
+  return pickScheduleItem(place, schedule);
 }
 
 function pickScheduleItem(place: TripRoutePlace, schedule: TripScheduleItem[]): TripScheduleItem | undefined {
@@ -70,6 +81,7 @@ export function buildRouteTimeline(places: TripRoutePlace[], schedule: TripSched
       startTime: item?.startTime,
       endTime: item?.endTime,
       title: title && title !== place.name.trim() ? title : undefined,
+      source: item,
     };
   });
 }

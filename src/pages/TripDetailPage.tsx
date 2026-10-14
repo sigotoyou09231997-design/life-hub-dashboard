@@ -533,6 +533,8 @@ export default function TripDetailPage() {
               setEditingRoute("new");
             }}
             onFirstSaved={() => showToast("保存しました")}
+            // ルートの場所から、元になった日程の編集を開く(日程のタブへ移らず、その場で開く)。
+            onOpenSchedule={(item) => setEditingSchedule(item)}
             onEdit={(place) => {
               setRoutePreset(undefined);
               setEditingRoute(place);

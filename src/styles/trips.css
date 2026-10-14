@@ -2343,6 +2343,19 @@ a.trip-leg-mode--link {
   white-space: normal;
 }
 
+/* 元になった日程を開く(「時間で見る」の各場所の下)。 */
+.trip-rtime__source {
+  align-self: flex-start;
+  min-height: 1.9rem;
+  margin-top: 0.15rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: var(--r-pill);
+  background: var(--hub-inset);
+  color: var(--accent, var(--hub-blue));
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
 .trip-rtime__move p {
   display: flex;
   flex-wrap: wrap;
