@@ -731,3 +731,81 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   .subs-total__top,
   .subs-legend__items { transition: none; animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   Claude の編集シートの「Anthropic の料金(月ごと)」(2026-10-14)
+   --------------------------------------------------------------------------- */
+.subs-billing {
+  display: grid;
+  gap: 0.7rem;
+  margin-bottom: 1.1rem;
+  padding: 0.95rem 1rem;
+  border: 1px solid var(--warm-line);
+  border-radius: 1rem;
+  background: var(--warm-surface-soft);
+}
+.subs-billing__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.6rem;
+}
+.subs-billing__head small { color: var(--warm-ink-2); font-size: 0.74rem; }
+.subs-billing__list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.subs-billing__month {
+  display: grid;
+  gap: 0.2rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid var(--warm-line);
+}
+.subs-billing__month:last-child { border-bottom: 0; padding-bottom: 0; }
+.subs-billing__line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.92rem;
+}
+.subs-billing__line strong,
+.subs-billing__split span,
+.subs-billing__total strong { font-variant-numeric: tabular-nums; }
+.subs-billing small { margin-left: 0.35rem; color: var(--warm-ink-2); font-size: 0.74rem; font-weight: 500; }
+.subs-billing__split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.1rem 0.9rem;
+  color: var(--warm-ink-2);
+  font-size: 0.8rem;
+}
+.subs-billing__total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.subs-billing__empty,
+.subs-billing__note {
+  margin: 0;
+  color: var(--warm-ink-2);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+.subs-billing__alert {
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.7rem;
+  background: #fdeaea;
+  color: #9b2c2c;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.5;
+}

@@ -440,6 +440,13 @@ export async function listRecentMessageIds(accessToken: string, sinceEpochSec: n
   return { ids, complete: false };
 }
 
+/** 検索の式に当たるメールの id(新しい順)。領収書のように、決まった差出人のメールだけを拾う時に使う。 */
+export async function listMessageIdsByQuery(accessToken: string, query: string, limit = 50): Promise<string[]> {
+  const params = new URLSearchParams({ q: query, maxResults: String(Math.min(limit, 100)) });
+  const data = await gmailFetch(accessToken, `/messages?${params.toString()}`);
+  return ((data.messages ?? []) as { id: string }[]).map((m) => m.id).slice(0, limit);
+}
+
 async function listRecentSentMessageIds(accessToken: string, limit: number): Promise<string[]> {
   const params = new URLSearchParams({ q: "in:sent", maxResults: String(limit) });
   const data = await gmailFetch(accessToken, `/messages?${params.toString()}`);

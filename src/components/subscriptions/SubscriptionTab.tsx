@@ -29,6 +29,8 @@ import { SubscriptionActions } from "./SubscriptionActions";
 import { SubscriptionRow, type AmountUnit } from "./SubscriptionRow";
 import { SubscriptionCalendar } from "./SubscriptionCalendar";
 import { SubscriptionAnalysis } from "./SubscriptionAnalysis";
+import { AnthropicBillingPanel } from "./AnthropicBillingPanel";
+import { isClaudeSubscription } from "../../lib/anthropicBilling";
 
 type View = "list" | "calendar" | "analysis";
 
@@ -356,6 +358,8 @@ export function SubscriptionTab() {
       <Sheet open={editing !== undefined} onClose={() => setEditingId(null)} title="サブスクを編集">
         {editing && (
           <>
+            {/* Claude のサブスクだけ、Anthropic の料金(サブスク+API クレジット)を月ごとに出す(Gmail の領収書から)。 */}
+            {isClaudeSubscription(editing.cost.title, editing.detail?.serviceKey) && <AnthropicBillingPanel />}
             <SubscriptionForm
               key={editing.cost.id}
               initial={editing}
