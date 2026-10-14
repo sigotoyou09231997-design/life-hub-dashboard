@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detailsForSave, formatPhone, formatPhoneTyping, hasScheduleDetails, normalizeUrl, phoneLabel, telHref, urlLabel } from "./scheduleDetails";
+import { detailsForSave, formatPhone, formatPhoneTyping, hasScheduleDetails, mapQueryFor, normalizeUrl, phoneLabel, telHref, urlLabel } from "./scheduleDetails";
 
 const empty = { address: "", phone: "", url: "", openingHours: "", checkInTime: "", checkOutTime: "" };
 
@@ -97,5 +97,22 @@ describe("phoneLabel(一覧に出す電話番号)", () => {
   it("番号として読めなければ、保存してあるまま", () => {
     expect(phoneLabel("088-687-0613(代表)")).toBe("088-687-0613(代表)");
     expect(phoneLabel("088687")).toBe("088687");
+  });
+});
+
+describe("mapQueryFor(地図・経路に渡す文字。住所が入っていれば住所)", () => {
+  it("詳細の住所があれば住所、無ければ場所。どちらも無ければ undefined", () => {
+    expect(mapQueryFor({ location: "霊山寺", address: "徳島県鳴門市大麻町板東塚鼻126" })).toBe("徳島県鳴門市大麻町板東塚鼻126");
+    expect(mapQueryFor({ location: "霊山寺", address: "  " })).toBe("霊山寺");
+    expect(mapQueryFor({ location: " 霊山寺 " })).toBe("霊山寺");
+    expect(mapQueryFor({ address: "徳島県鳴門市" })).toBe("徳島県鳴門市");
+    expect(mapQueryFor({})).toBeUndefined();
+    expect(mapQueryFor({ location: "  ", address: "" })).toBeUndefined();
+  });
+
+  it("先頭の郵便番号・余計な空白は外す", () => {
+    expect(mapQueryFor({ address: "〒779-0230 徳島県鳴門市大麻町  板東塚鼻126" })).toBe("徳島県鳴門市大麻町 板東塚鼻126");
+    expect(mapQueryFor({ address: "7790230 徳島県鳴門市" })).toBe("徳島県鳴門市");
+    expect(mapQueryFor({ address: "〒 779-0230\u3000徳島県鳴門市" })).toBe("徳島県鳴門市");
   });
 });

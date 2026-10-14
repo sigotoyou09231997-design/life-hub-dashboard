@@ -140,3 +140,12 @@ describe("費用の目安・表の行", () => {
     expect(buildRemapLines(suggestions, { 霊山寺: 5, 児島駅: null })).toBe("");
   });
 });
+
+describe("collectPlaces: 日程に住所が入っている場所は、名前を聞かない(2026-10-14)", () => {
+  it("住所つきの日程は、住所を手がかりに回し、場所の名前は AI に聞かない", () => {
+    const withAddress = { ...item("霊山寺"), address: "徳島県鳴門市大麻町板東塚鼻126" };
+    const result = collectPlaces([withAddress, item("児島駅")], []);
+    expect(result.places).toEqual(["児島駅"]);
+    expect(result.context).toEqual(["徳島県鳴門市大麻町板東塚鼻126"]);
+  });
+});

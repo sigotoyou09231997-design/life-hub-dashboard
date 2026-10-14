@@ -7,8 +7,9 @@ import type { RouteSuggestion } from "../../lib/tripRouteSuggestions";
 import { TripRouteView } from "./TripRouteView";
 import { ConfirmProvider } from "../ui/ConfirmProvider";
 
+const dbCalls = vi.hoisted(() => ({ updates: [] as [string, unknown][] }));
 vi.mock("../../db/schema", () => ({
-  db: { tripRoutePlaces: { update: async () => {} } },
+  db: { tripRoutePlaces: { update: async (id: string, patch: unknown) => void dbCalls.updates.push([id, patch]) } },
 }));
 
 // 所要時間はサーバー(Googleのキー)頼みなので、ここでは呼ばせない。
@@ -47,6 +48,7 @@ function renderView() {
 }
 
 afterEach(() => {
+  dbCalls.updates = [];
   cleanup();
   // 「時間で見る」を選ぶと端末に覚えるので、次のテストへ持ち越さない。
   window.localStorage.clear();
@@ -612,5 +614,49 @@ describe("区間の移動手段は、日程の移動手段を基本にする(202
     await user.click(walks[0]);
     expect(leg1()).toContain("dirflg=w");
     expect(leg2()).toContain("dirflg=d");
+  });
+});
+
+describe("日程に住所が入っているのに、ルートの場所が名前のままの時(2026-10-14)", () => {
+  const DAY1 = "2026-09-19";
+  const ADDRESS = "徳島県鳴門市大麻町板東塚鼻126";
+  const named = [{ ...place("p1", "霊山寺", 1, DAY1), address: "霊山寺" }, place("p2", "児島駅", 2, DAY1)];
+  const schedule: TripScheduleItem[] = [
+    { id: "s1", tripId: "t1", date: DAY1, title: "霊山寺", location: "霊山寺", address: ADDRESS, type: "sightseeing", createdAt: 1 },
+  ];
+
+  function renderWith(items: TripScheduleItem[], routePlaces = named) {
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="四国"
+        places={routePlaces}
+        dayList={[DAY1, "2026-09-20"]}
+        schedule={items}
+        suggestions={[]}
+        onAddSuggestions={() => {}}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+  }
+
+  it("知らせを出し、押すと、ルートの場所の住所を日程の住所に直す(押すまでは何も書き換えない)", async () => {
+    const user = userEvent.setup();
+    renderWith(schedule);
+    const notice = screen.getByRole("status");
+    expect(notice.textContent).toContain("日程に住所が入っている場所が1件あります");
+    expect(dbCalls.updates).toEqual([]);
+
+    await user.click(screen.getByRole("button", { name: "日程の住所を反映" }));
+    expect(dbCalls.updates).toEqual([["p1", { address: ADDRESS }]]);
+  });
+
+  it("反映するものが無ければ、知らせは出さない", () => {
+    renderWith([{ ...schedule[0], address: undefined }]);
+    expect(screen.queryByRole("button", { name: "日程の住所を反映" })).toBeNull();
   });
 });

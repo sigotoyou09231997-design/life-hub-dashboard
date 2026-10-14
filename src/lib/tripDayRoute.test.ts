@@ -266,3 +266,18 @@ describe("dayModeFromTransports(その日の経路の手段を、日程の移動
     expect(dayModeFromTransports([], DAY)).toBeUndefined();
   });
 });
+
+describe("dayRouteStops: 住所が入っている場所は住所を渡す(2026-10-14)", () => {
+  it("詳細の住所があれば住所、無ければ場所。同じ場所が続いたら1つにまとめる", () => {
+    const stops = dayRouteStops(
+      [
+        item("霊山寺", "09:00", { address: "徳島県鳴門市大麻町板東塚鼻126" }),
+        item("霊山寺", "09:30", { address: "徳島県鳴門市大麻町板東塚鼻126" }),
+        item("大麻比古神社", "11:00"),
+        item(undefined, "12:00", { address: "徳島県鳴門市大麻町板野字西山田" }),
+      ],
+      DAY,
+    );
+    expect(stops).toEqual(["徳島県鳴門市大麻町板東塚鼻126", "大麻比古神社", "徳島県鳴門市大麻町板野字西山田"]);
+  });
+});

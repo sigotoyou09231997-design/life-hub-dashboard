@@ -13,6 +13,21 @@ export function hasScheduleDetails(item: Partial<Pick<TripScheduleItem, Schedule
   return Boolean(item.address || item.phone || item.url || item.openingHours || item.checkInTime || item.checkOutTime);
 }
 
+/**
+ * 地図・経路に渡す文字(2026-10-14、要望「日程で施設の住所が入れられているのであればルートで反映してほしい」)。
+ * 日程の詳細に住所が入っていれば、その住所。無ければ、これまでどおり「場所」。
+ * 「霊山寺」のような名前だけの場所は、地図が同じ名前の別の場所に置いてしまうが、住所なら迷わない。
+ * 先頭の郵便番号(〒770-0851)は外す(住所の検索に要らず、書き方の違いで外れることがあるため)。
+ * 場所も住所も無ければ undefined。
+ */
+export function mapQueryFor(item: Pick<TripScheduleItem, "location" | "address">): string | undefined {
+  const address = (item.address ?? "")
+    .replace(/^[\s　]*〒?[\s　]*\d{3}[-ー−]?\d{4}[\s　]*/, "")
+    .replace(/[\s　]+/g, " ")
+    .trim();
+  return address || item.location?.trim() || undefined;
+}
+
 /** URL の頭に http(s):// が無ければ https:// を付ける(「example.com」と打っても開けるように)。空は空。 */
 export function normalizeUrl(raw: string): string | undefined {
   const value = raw.trim();

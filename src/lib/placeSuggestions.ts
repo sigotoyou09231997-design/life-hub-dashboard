@@ -1,5 +1,6 @@
 import { auth } from "./supabase";
 import type { TripRoutePlace, TripScheduleItem } from "../types";
+import { mapQueryFor } from "./scheduleDetails";
 
 /**
  * 日程の「場所」に都道府県・市区町村を補う、AI の提案(2026-10-14。サーバー側は api/suggestPlaces.ts)。
@@ -66,7 +67,8 @@ export function collectPlaces(schedule: TripScheduleItem[], routePlaces: TripRou
   const places: string[] = [];
   const context: string[] = [];
   let truncated = false;
-  const all = [...schedule.map((item) => item.location), ...routePlaces.map((place) => place.address)];
+  // 日程に住所が入っている場所は、地図には住所が渡る(mapQueryFor)ので、場所の名前は聞かない(住所のほうを手がかりに回す)。
+  const all = [...schedule.map((item) => (item.address?.trim() ? mapQueryFor(item) : item.location)), ...routePlaces.map((place) => place.address)];
   for (const raw of all) {
     const text = raw?.trim();
     if (!text || seen.has(text)) continue;
