@@ -479,6 +479,7 @@ export default function TripDetailPage() {
             <TripExpenseList
               budget={trip.budget}
               members={trip.members}
+              onEditMembers={() => setEditingTrip(true)}
               expenses={expenses}
               currencies={expenseCurrencies}
               onEdit={(expense) => setEditingExpense(expense)}
