@@ -54,27 +54,43 @@ export function toRouteSuggestions(schedule: TripScheduleItem[], places: TripRou
   const sorted = orderSchedule(schedule);
 
   for (const item of sorted) {
+    // 移動の目的地(2026-10-14)。出発地とは別の場所として、候補にする(同じ場所がもうルートにあれば出さない)。
+    const destination = item.type === "transport" ? item.endLocation?.trim() : undefined;
     // 地図に渡す文字は、住所が入っていれば住所(mapQueryFor)。まだ場所のままルートに入っている場所も「入っている」と数える
     // (住所を足したあと、同じ場所が候補にまた出ないように。入っているものの住所の直しは、ルートの「日程の住所を反映」)。
     const address = mapQueryFor(item);
-    if (!item.id || !address) continue;
-    const key = routeKey(address);
-    const locationKey = item.location?.trim() ? routeKey(item.location) : key;
-    if (seen.has(key) || seen.has(locationKey)) continue;
-    seen.add(key);
-    seen.add(locationKey);
-
     const isTransport = item.type === "transport";
-    suggestions.push({
-      scheduleId: item.id,
-      date: item.date,
-      startTime: item.startTime,
-      name: isTransport ? (item.location?.trim() || address) : item.title.trim(),
-      address,
-      memo: isTransport ? item.title.trim() : item.memo?.trim() || undefined,
-      title: item.title.trim(),
-      type: item.type,
-    });
+    if (item.id && address) {
+      const key = routeKey(address);
+      const locationKey = item.location?.trim() ? routeKey(item.location) : key;
+      if (!seen.has(key) && !seen.has(locationKey)) {
+        seen.add(key);
+        seen.add(locationKey);
+        suggestions.push({
+          scheduleId: item.id,
+          date: item.date,
+          startTime: item.startTime,
+          name: isTransport ? (item.location?.trim() || address) : item.title.trim(),
+          address,
+          memo: isTransport ? item.title.trim() : item.memo?.trim() || undefined,
+          title: item.title.trim(),
+          type: item.type,
+        });
+      }
+    }
+    if (item.id && destination && !seen.has(routeKey(destination))) {
+      seen.add(routeKey(destination));
+      suggestions.push({
+        scheduleId: `${item.id}#end`,
+        date: item.date,
+        startTime: item.endTime ?? item.startTime,
+        name: destination,
+        address: destination,
+        memo: item.title.trim(),
+        title: item.title.trim(),
+        type: item.type,
+      });
+    }
   }
 
   return suggestions;

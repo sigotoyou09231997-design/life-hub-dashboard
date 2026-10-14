@@ -170,10 +170,10 @@ export default function SharedTripPage() {
                                   <TransportModeChip mode={item.transportMode} />
                                 )}
                               </span>
-                              {item.location && (
+                              {(item.location || item.endLocation) && (
                                 <span className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
                                   <MapPin size={12} />
-                                  {item.location}
+                                  {item.location && item.endLocation ? `${item.location} → ${item.endLocation}` : (item.location ?? item.endLocation)}
                                 </span>
                               )}
                               <ScheduleDetailLines item={item} />

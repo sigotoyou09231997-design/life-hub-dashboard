@@ -506,3 +506,26 @@ describe("予定の並べ替え(長押しして動かす)", () => {
     expect(screen.queryByRole("button", { name: "並べ替え" })).toBeNull();
   });
 });
+
+describe("移動の出発地と目的地(2026-10-14)", () => {
+  it("移動に目的地があれば「出発地 → 目的地」と出る。どちらを押しても、その場所の操作", async () => {
+    const onLocationTap = vi.fn();
+    const user = userEvent.setup();
+    renderList([item({ id: "m", title: "のぞみ13号", type: "transport", startTime: "08:00", location: "東京駅", endLocation: "京都駅" })], { onLocationTap });
+    expect(screen.getByText("→")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "東京駅" }));
+    expect(onLocationTap).toHaveBeenLastCalledWith("東京駅", "のぞみ13号", "2026-12-27");
+    await user.click(screen.getByRole("button", { name: "目的地 京都駅" }));
+    expect(onLocationTap).toHaveBeenLastCalledWith("京都駅", "のぞみ13号", "2026-12-27");
+  });
+
+  it("出発地が無く目的地だけなら、目的地だけ出す(矢印なし)。目的地が無ければ、これまでどおり場所だけ", () => {
+    renderList([
+      item({ id: "a", title: "移動A", type: "transport", startTime: "08:00", endLocation: "京都駅" }),
+      item({ id: "b", title: "移動B", type: "transport", startTime: "09:00", location: "大阪駅" }),
+    ]);
+    expect(screen.queryByText("→")).toBeNull();
+    expect(screen.getByRole("button", { name: "目的地 京都駅" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "大阪駅" })).toBeTruthy();
+  });
+});

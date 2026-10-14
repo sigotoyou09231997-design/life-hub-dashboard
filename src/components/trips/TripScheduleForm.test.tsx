@@ -390,3 +390,51 @@ describe("旅行の予定の入力: ルートへの反映(2026-10-14、要望「
     expect(savedNew).toHaveBeenCalledWith("2026-12-27");
   });
 });
+
+describe("旅行の予定の入力: 移動の出発地と目的地(2026-10-14、要望「日程で経路の場合、出発地と目的地を入れられるといい」)", () => {
+  it("種類が「移動」の時だけ、「出発地」と「目的地」の欄が出る(それ以外は、これまでどおり「場所」だけ)", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    expect(screen.getByLabelText(/^場所/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^目的地/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "移動" }));
+    expect(screen.getByLabelText(/^出発地/)).toBeTruthy();
+    expect(screen.getByLabelText(/^目的地/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^場所/)).toBeNull();
+  });
+
+  it("出発地と目的地を入れて保存すると、場所と目的地に入る。移動でなくなれば目的地は残さない", async () => {
+    const user = userEvent.setup();
+    renderForm();
+    await user.type(screen.getByPlaceholderText("例: 五稜郭"), "のぞみ13号");
+    await user.click(screen.getByRole("button", { name: "移動" }));
+    await user.type(screen.getByLabelText(/^出発地/), "東京駅");
+    await user.type(screen.getByLabelText(/^目的地/), " 京都駅 ");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(mocks.added).toEqual([expect.objectContaining({ type: "transport", location: "東京駅", endLocation: "京都駅" })]);
+
+    cleanup();
+    mocks.added = [];
+    const saved = renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "のぞみ13号", type: "transport", location: "東京駅", endLocation: "京都駅", createdAt: 1 });
+    expect((screen.getByLabelText(/^目的地/) as HTMLInputElement).value).toBe("京都駅");
+    await user.click(screen.getByRole("button", { name: "観光" }));
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    // 前に入っていた目的地を消す時は null(同期は undefined を送らず、ほかの端末に古い値が残るため)。
+    expect(mocks.updated[0][1]).toMatchObject({ type: "sightseeing", location: "東京駅", endLocation: null });
+    expect(saved).toHaveBeenCalled();
+  });
+
+  it("目的地を空にして保存したら null。もともと無かった時は、何も付けない(undefined)", async () => {
+    const user = userEvent.setup();
+    renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "移動", type: "transport", location: "東京駅", endLocation: "京都駅", createdAt: 1 });
+    await user.clear(screen.getByLabelText(/^目的地/));
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.updated[0][1]).toMatchObject({ endLocation: null });
+
+    cleanup();
+    mocks.updated = [];
+    renderForm({ id: "s2", tripId: "t1", date: "2026-12-27", title: "移動", type: "transport", location: "東京駅", createdAt: 1 });
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.updated[0][1]).toMatchObject({ endLocation: undefined });
+  });
+});

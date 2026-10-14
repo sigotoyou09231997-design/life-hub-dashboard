@@ -33,6 +33,8 @@ export interface ParsedRemap {
 export interface PlannedRule {
   rule: RemapRule;
   scheduleIds: string[];
+  /** 移動の目的地(endLocation)が、元の場所とぴったり同じ日程(2026-10-14)。 */
+  endIds: string[];
   routeIds: string[];
 }
 
@@ -87,11 +89,12 @@ export function planLocationRemap(
   const planned = rules.map((rule) => ({
     rule,
     scheduleIds: schedule.filter((item) => item.id && item.location?.trim() === rule.from).map((item) => item.id!),
+    endIds: schedule.filter((item) => item.id && item.type === "transport" && item.endLocation?.trim() === rule.from).map((item) => item.id!),
     routeIds: routePlaces.filter((place) => place.id && place.address.trim() === rule.from).map((place) => place.id!),
   }));
   return {
     rules: planned,
-    scheduleCount: planned.reduce((sum, p) => sum + p.scheduleIds.length, 0),
+    scheduleCount: planned.reduce((sum, p) => sum + p.scheduleIds.length + p.endIds.length, 0),
     routeCount: planned.reduce((sum, p) => sum + p.routeIds.length, 0),
   };
 }

@@ -61,8 +61,9 @@ export function maxWaypointsForDevice(): number {
 export function dayRouteStops(items: TripScheduleItem[], date: string): string[] {
   // 並びは日程と同じ(入れ替えた日はその順)。場所の無い予定も並びには効くので、並べてから絞る。
   // 場所の代わりに、詳細の住所が入っていれば住所を渡す(mapQueryFor)。名前だけの場所が別の場所に置かれるのを防ぐ。
+  // 移動に目的地が入っていれば、出発地のあとに目的地も1つの地点として並べる(2026-10-14)。
   const places = orderScheduleDay(items.filter((item) => item.date === date))
-    .map((item) => mapQueryFor(item))
+    .flatMap((item) => [mapQueryFor(item), item.type === "transport" ? item.endLocation?.trim() : undefined])
     .filter((place): place is string => Boolean(place));
   return places.filter((place, index) => index === 0 || routeKey(place) !== routeKey(places[index - 1]));
 }

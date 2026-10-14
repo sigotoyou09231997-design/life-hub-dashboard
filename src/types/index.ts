@@ -373,7 +373,11 @@ export interface TripScheduleItem {
   /** 終了時刻(移動なら到着時刻)。分かる時だけ。予定(CalendarEvent)のendTimeに揃えている。 */
   endTime?: string; // HH:mm
   title: string;
+  /** 場所。移動(type: transport)では出発地。 */
   location?: string;
+  /** 移動の目的地(2026-10-14、要望の受信箱「日程で経路の場合、出発地と目的地を入れられるといい」。supabase/sql/038)。
+   * 種類が「移動」の時だけ。出発地は location。消した値は null(同期は undefined を送らず、ほかの端末に古い値が残るため)。 */
+  endLocation?: string | null;
   memo?: string;
   type: TripScheduleType;
   /** 何で移動するか。種類が「移動」の時だけ(2026-10-11、要望の受信箱から)。 */

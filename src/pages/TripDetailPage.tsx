@@ -411,6 +411,7 @@ export default function TripDetailPage() {
                   // 部分に飛んで欲しいのに、違うところに飛んでる」— タブを替えるだけで、開いていた日の先頭が出ていた)。
                   // 日程に住所が入っていれば、ルートの場所は住所で作られている(mapQueryFor)。住所でも探す。
                   const tapped = schedule.find((entry) => entry.date === date && entry.location?.trim() === location.trim());
+                  // 移動の目的地を押した時は、目的地の文字そのものでルートの場所を探す。
                   const mapQuery = tapped ? mapQueryFor(tapped) : undefined;
                   const place = findRoutePlaceFor(routePlaces, location, date, mapQuery);
                   if (place?.id) {

@@ -149,3 +149,11 @@ describe("collectPlaces: 日程に住所が入っている場所は、名前を�
     expect(result.context).toEqual(["徳島県鳴門市大麻町板東塚鼻126"]);
   });
 });
+
+describe("collectPlaces: 移動の目的地も集める(2026-10-14)", () => {
+  it("移動の目的地は、出発地と同じように AI に聞く(移動でない予定の目的地欄は見ない)", () => {
+    const move = { ...item("東京駅"), type: "transport" as const, endLocation: "児島駅" };
+    const sight = { ...item("清水寺"), endLocation: "どこか" };
+    expect(collectPlaces([move, sight], []).places).toEqual(["東京駅", "児島駅", "清水寺"]);
+  });
+});

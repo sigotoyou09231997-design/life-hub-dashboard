@@ -582,3 +582,12 @@ describe("場所が別の所なら、題名が似ていてもまとめない", (
   });
 });
 
+describe("toTripScheduleRecord: 移動の目的地(2026-10-14)", () => {
+  it("移動なら、読み取った目的地を日程に持たせる(出発地は location)。移動でなければ持たせない", () => {
+    const move = toTripScheduleRecord(row({ location: "東京駅", endLocation: " 新函館北斗駅 " }), "trip-1", 1);
+    expect(move).toMatchObject({ location: "東京駅", endLocation: "新函館北斗駅", type: "transport" });
+    const sight = toTripScheduleRecord(row({ type: "sightseeing" as never, location: "五稜郭", endLocation: "どこか" }), "trip-1", 1);
+    expect(sight.endLocation).toBeUndefined();
+    expect(toTripScheduleRecord(row({ location: "東京駅" }), "trip-1", 1).endLocation).toBeUndefined();
+  });
+});

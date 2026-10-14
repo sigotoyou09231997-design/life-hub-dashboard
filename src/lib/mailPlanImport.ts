@@ -384,6 +384,8 @@ export function toTripScheduleRecord(row: TripImportRow, tripId: string, now: nu
     endTime: row.endTime || undefined,
     title: row.title.trim(),
     location: row.location || undefined,
+    // 移動の目的地(出発地は location)。移動以外には付けない。
+    endLocation: row.type === "transport" && row.endLocation?.trim() ? row.endLocation.trim() : undefined,
     memo: row.memo || undefined,
     type: row.type,
     createdAt: now,

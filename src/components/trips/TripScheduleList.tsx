@@ -221,15 +221,34 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                             <p className="trip-timeline__title line-clamp-2" title={item.title}>
                               {item.title}
                             </p>
-                            {item.location && (
-                              <button
-                                type="button"
-                                onClick={() => onLocationTap(item.location!, item.title, item.date)}
-                                className="pointer-events-auto mt-0.5 flex items-center gap-1 text-xs text-accent active:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-                              >
-                                <MapPin size={12} />
-                                {item.location}
-                              </button>
+                            {(item.location || item.endLocation) && (
+                              <div className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-accent">
+                                {item.location && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onLocationTap(item.location!, item.title, item.date)}
+                                    className="pointer-events-auto flex items-center gap-1 active:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                                  >
+                                    <MapPin size={12} />
+                                    {item.location}
+                                  </button>
+                                )}
+                                {/* 移動の目的地(出発地 → 目的地)。押すと、ルートのその場所へ飛ぶ。 */}
+                                {item.endLocation && (
+                                  <>
+                                    {item.location && <span aria-hidden="true">→</span>}
+                                    <button
+                                      type="button"
+                                      onClick={() => onLocationTap(item.endLocation!, item.title, item.date)}
+                                      aria-label={`目的地 ${item.endLocation}`}
+                                      className="pointer-events-auto flex items-center gap-1 active:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                                    >
+                                      {!item.location && <MapPin size={12} />}
+                                      {item.endLocation}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             )}
                             <div className="pointer-events-auto">
                               <ScheduleDetailLines item={item} />
