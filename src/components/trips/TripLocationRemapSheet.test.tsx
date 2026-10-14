@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { TripRoutePlace, TripScheduleItem } from "../../types";
 import { ConfirmProvider } from "../ui/ConfirmProvider";
 import { ToastProvider } from "../ui/ToastProvider";
@@ -9,7 +10,15 @@ import { TripLocationRemapSheet } from "./TripLocationRemapSheet";
 const mocks = vi.hoisted(() => ({
   scheduleUpdate: vi.fn(async () => 1),
   routeUpdate: vi.fn(async () => 1),
+  request: vi.fn(),
 }));
+
+// AI の提案(src/lib/placeSuggestions.ts)は別のテストで見る。ここでは、選んだ行が対応表に入るところだけ見る。
+vi.mock("../../lib/supabase", () => ({ auth: { getSession: async () => ({ data: { session: null } }) } }));
+vi.mock("../../lib/placeSuggestions", async () => {
+  const actual = await vi.importActual<typeof import("../../lib/placeSuggestions")>("../../lib/placeSuggestions");
+  return { ...actual, requestPlaceSuggestions: mocks.request };
+});
 
 vi.mock("../../db/schema", () => ({
   db: {
@@ -44,6 +53,7 @@ function paste(value: string) {
 }
 
 afterEach(() => {
+  mocks.request.mockReset();
   cleanup();
   mocks.scheduleUpdate.mockClear();
   mocks.routeUpdate.mockClear();
@@ -89,5 +99,38 @@ describe("TripLocationRemapSheet", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "キャンセル" })).toBeNull());
     expect(mocks.scheduleUpdate).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe("AI の提案を対応表に入れる(2026-10-14)", () => {
+  it("選んだ行が対応表に入り、何件に当たるかが出る。書き換えは、そのあと本人が押した時だけ", async () => {
+    mocks.request.mockResolvedValue({
+      suggestions: [{ from: "霊山寺", candidates: [{ to: "霊山寺 徳島県鳴門市" }], sure: true }],
+      truncated: false,
+    });
+    const user = userEvent.setup();
+    renderSheet();
+    await user.click(screen.getByRole("button", { name: /AIに聞く/ }));
+    await user.click(await screen.findByRole("button", { name: "選んだ内容を対応表に入れる（1件）" }));
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("霊山寺 → 霊山寺 徳島県鳴門市");
+    expect(screen.getByText("日程2件・ルート1件")).toBeTruthy();
+    // まだ書き換えていない。
+    expect(mocks.scheduleUpdate).not.toHaveBeenCalled();
+    expect(mocks.routeUpdate).not.toHaveBeenCalled();
+  });
+
+  it("すでに対応表にある行は残し、同じ元の場所は新しい行に置き換える。コメント行も残す", async () => {
+    mocks.request.mockResolvedValue({
+      suggestions: [{ from: "霊山寺", candidates: [{ to: "霊山寺 徳島県鳴門市" }], sure: true }],
+      truncated: false,
+    });
+    const user = userEvent.setup();
+    renderSheet();
+    paste("# 四国\n大麻比古神社 → 大麻比古神社 徳島県鳴門市\n霊山寺 → 霊山寺 奈良県奈良市");
+    await user.click(screen.getByRole("button", { name: /AIに聞く/ }));
+    await user.click(await screen.findByRole("button", { name: "選んだ内容を対応表に入れる（1件）" }));
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe(
+      "# 四国\n大麻比古神社 → 大麻比古神社 徳島県鳴門市\n霊山寺 → 霊山寺 徳島県鳴門市",
+    );
   });
 });

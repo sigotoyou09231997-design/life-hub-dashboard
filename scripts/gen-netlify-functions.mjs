@@ -40,6 +40,13 @@ export const handler: Handler = async (event) => {
 };
 `,
 
+  suggestPlaces: `export const handler: Handler = async (event) => {
+  const authorization = event.headers.authorization ?? event.headers.Authorization;
+  const reply = await suggestPlaces(event.httpMethod, event.body ?? "{}", authorization);
+  return { statusCode: reply.status, headers: { "content-type": "application/json" }, body: JSON.stringify(reply.body) };
+};
+`,
+
   mcp: `function jsonResponse(statusCode: number, body: unknown, headers: Record<string, string> = {}) {
   return { statusCode, headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body) };
 }
