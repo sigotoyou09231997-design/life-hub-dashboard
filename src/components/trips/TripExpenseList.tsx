@@ -1,12 +1,15 @@
 import type { TripExpense, TripExpenseCurrency } from "../../types";
 import { getTripExpenseCategory } from "../../lib/tripCategories";
 import { formatOriginalAmount } from "../../lib/currency";
-import { splitExpenses } from "../../lib/tripMembers";
+import { settlementTransfers, splitExpenses } from "../../lib/tripMembers";
 import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
+import { Tabs } from "../ui/Tabs";
+import { Button } from "../ui/Button";
 import { Receipt, Trash2 } from "lucide-react";
+import { useState } from "react";
 
 interface Props {
   budget?: number;
@@ -17,13 +20,23 @@ interface Props {
   currencies?: Map<string, TripExpenseCurrency>;
   /** 旅行の参加者。2人以上なら、誰がいくら払ったかと割り勘の差額を出す(src/lib/tripMembers.ts)。 */
   members?: string[];
+  /** 参加者を入れる画面(旅行を編集)を開く。割り勘のタブで、参加者がまだ2人未満の時に出す。 */
+  onEditMembers?: () => void;
 }
+
+/** 費用のタブの中の切り替え(2026-10-14、要望「支払いのところに割り勘タブがほしい」)。 */
+type View = "list" | "split";
+const VIEW_OPTIONS: { value: View; label: string }[] = [
+  { value: "list", label: "費用" },
+  { value: "split", label: "割り勘" },
+];
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
 }
 
-export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies, members }: Props) {
+export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies, members, onEditMembers }: Props) {
+  const [view, setView] = useState<View>("list");
   const total = expenses.reduce((sum, e) => sum + e.amount, 0);
   const paidTotal = expenses.filter((e) => e.paid).reduce((sum, e) => sum + e.amount, 0);
   const remaining = budget != null ? budget - total : undefined;
@@ -31,6 +44,12 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies
 
   return (
     <div className="space-y-4">
+      <Tabs options={VIEW_OPTIONS} value={view} onChange={setView} />
+
+      {view === "split" ? (
+        <SplitView split={split} members={members} expenses={expenses} onEdit={onEdit} onEditMembers={onEditMembers} />
+      ) : (
+        <>
       <Card>
         {/* 金額は数字用の文字で(UI/UX 調査メモ 第4弾 B-1)。見出しの日本語はいつもの文字のまま。 */}
         <div className="num grid grid-cols-2 gap-4 text-sm">
@@ -55,44 +74,6 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies
         </div>
         {budget == null && <p className="mt-3 text-xs text-slate-400">予算は右上の鉛筆(旅行を編集)から設定できます。</p>}
       </Card>
-
-      {split && (split.total > 0 || split.unassigned > 0) && (
-        <Card aria-label="割り勘">
-          <p className="text-sm font-medium text-slate-700">
-            {split.total > 0 ? `割り勘(${split.members.length}人・1人あたり ${yen(split.perPerson)})` : "割り勘"}
-          </p>
-          {split.total === 0 ? (
-            <p className="mt-1 text-xs text-slate-400">費用ごとに「支払った人」を入れると、誰がいくら払えばいいかが出ます。</p>
-          ) : (
-            <ul className="mt-2 space-y-1.5 text-sm">
-              {split.members.map((member) => (
-                <li key={member.name} className="flex items-center justify-between gap-3">
-                  <span className="min-w-0 truncate text-slate-700">{member.name}</span>
-                  <span className="flex shrink-0 items-baseline gap-2">
-                    <span className="text-xs text-slate-400">払った {yen(member.paid)}</span>
-                    <span
-                      className={`font-semibold tabular-nums ${
-                        Math.round(member.balance) > 0 ? "text-success" : Math.round(member.balance) < 0 ? "text-danger" : "text-slate-500"
-                      }`}
-                    >
-                      {Math.round(member.balance) > 0
-                        ? `${yen(member.balance)} 受け取る`
-                        : Math.round(member.balance) < 0
-                          ? `${yen(-member.balance)} 払う`
-                          : "精算なし"}
-                    </span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {split.total > 0 && split.unassigned > 0 && (
-            <p className="mt-2 text-xs text-slate-400">
-              誰が払ったか決まっていない費用 {yen(split.unassigned)} は、割り勘に入れていません。
-            </p>
-          )}
-        </Card>
-      )}
 
       {expenses.length === 0 ? (
         <EmptyState icon={Receipt} title="費用がまだ登録されていません" description="下のボタンから追加できます。" card />
@@ -148,6 +129,129 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies
             );
           })}
         </div>
+      )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 「割り勘」の見方。誰がいくら払ったか・差額・精算の仕方(誰が誰にいくら渡せばいいか)。
+ * 参加者が2人未満の時は、入れ方を知らせる(旅行を編集で参加者を入れる)。
+ */
+function SplitView({
+  split,
+  members,
+  expenses,
+  onEdit,
+  onEditMembers,
+}: {
+  split: ReturnType<typeof splitExpenses>;
+  members?: string[];
+  expenses: TripExpense[];
+  onEdit: (expense: TripExpense) => void;
+  onEditMembers?: () => void;
+}) {
+  if (!split) {
+    return (
+      <Card aria-label="割り勘">
+        <p className="text-sm font-medium text-slate-700">割り勘</p>
+        <p className="mt-1 text-xs text-slate-500">
+          {(members ?? []).length === 1
+            ? "参加者がまだ1人です。2人以上入れると、誰がいくら払えばいいかが出ます。"
+            : "旅行の参加者を2人以上入れると、費用ごとに「支払った人」を選んで、誰がいくら払えばいいかが出ます。"}
+        </p>
+        {onEditMembers && (
+          <Button variant="secondary" className="mt-3" onClick={onEditMembers}>
+            参加者を入れる
+          </Button>
+        )}
+      </Card>
+    );
+  }
+
+  const transfers = settlementTransfers(split);
+  const unassigned = expenses.filter((expense) => !(expense.paidBy && split.members.some((member) => member.name === expense.paidBy)));
+
+  return (
+    <div className="space-y-4">
+      <Card aria-label="割り勘">
+        <p className="text-sm font-medium text-slate-700">
+          {split.total > 0 ? `割り勘(${split.members.length}人・1人あたり ${yen(split.perPerson)})` : "割り勘"}
+        </p>
+        {split.total === 0 ? (
+          <p className="mt-1 text-xs text-slate-400">費用ごとに「支払った人」を入れると、誰がいくら払えばいいかが出ます。</p>
+        ) : (
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {split.members.map((member) => (
+              <li key={member.name} className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate text-slate-700">{member.name}</span>
+                <span className="flex shrink-0 items-baseline gap-2">
+                  <span className="text-xs text-slate-400">払った {yen(member.paid)}</span>
+                  <span
+                    className={`font-semibold tabular-nums ${
+                      Math.round(member.balance) > 0 ? "text-success" : Math.round(member.balance) < 0 ? "text-danger" : "text-slate-500"
+                    }`}
+                  >
+                    {Math.round(member.balance) > 0
+                      ? `${yen(member.balance)} 受け取る`
+                      : Math.round(member.balance) < 0
+                        ? `${yen(-member.balance)} 払う`
+                        : "精算なし"}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {split.total > 0 && split.unassigned > 0 && (
+          <p className="mt-2 text-xs text-slate-400">
+            誰が払ったか決まっていない費用 {yen(split.unassigned)} は、割り勘に入れていません。
+          </p>
+        )}
+      </Card>
+
+      {split.total > 0 && (
+        <Card aria-label="精算の仕方">
+          <p className="text-sm font-medium text-slate-700">精算の仕方</p>
+          {transfers.length === 0 ? (
+            <p className="mt-1 text-xs text-slate-400">精算の必要はありません。</p>
+          ) : (
+            <ul className="mt-2 space-y-1.5 text-sm">
+              {transfers.map((transfer) => (
+                <li key={`${transfer.from}->${transfer.to}`} className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate text-slate-700">
+                    {transfer.from} → {transfer.to}
+                  </span>
+                  <span className="shrink-0 font-semibold tabular-nums text-slate-900">{yen(transfer.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      )}
+
+      {unassigned.length > 0 && (
+        <Card aria-label="支払った人が決まっていない費用">
+          <p className="text-sm font-medium text-slate-700">支払った人が決まっていない費用（{unassigned.length}件）</p>
+          <p className="mt-1 text-xs text-slate-400">押すと、支払った人を入れられます。入れると、割り勘に入ります。</p>
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {unassigned.map((expense) => (
+              <li key={expense.id}>
+                <button
+                  type="button"
+                  onClick={() => onEdit(expense)}
+                  className="flex w-full items-center justify-between gap-3 rounded-lg px-1 py-1 text-left active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                  aria-label={`${expense.title}を編集`}
+                >
+                  <span className="min-w-0 truncate text-slate-700">{expense.title}</span>
+                  <span className="shrink-0 tabular-nums text-slate-900">{yen(expense.amount)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
     </div>
   );

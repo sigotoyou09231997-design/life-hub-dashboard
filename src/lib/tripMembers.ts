@@ -44,6 +44,44 @@ export interface SplitSummary {
   unassigned: number;
 }
 
+export interface Settlement {
+  from: string;
+  to: string;
+  /** 円(整数)。 */
+  amount: number;
+}
+
+/**
+ * 割り勘の精算の仕方(2026-10-14、要望「支払いのところに割り勘タブがほしい」)。
+ * 払う側(差額がマイナス)の人が、受け取る側(プラス)の人へ、誰に・いくら渡せば全員の差額が0になるかを、
+ * なるべく少ない回数で返す(払う額が大きい人から、受け取る額が大きい人へ順に)。
+ * 円に丸めた差額で数える。丸めて合計が0からずれた分(1〜数円)は、いちばん差額の大きい人に寄せて、必ず全員が0になるようにする。
+ */
+export function settlementTransfers(split: SplitSummary): Settlement[] {
+  const balances = split.members.map((member) => ({ name: member.name, balance: Math.round(member.balance) }));
+  const drift = balances.reduce((sum, member) => sum + member.balance, 0);
+  if (drift !== 0 && balances.length > 0) {
+    const biggest = balances.reduce((best, member) => (Math.abs(member.balance) > Math.abs(best.balance) ? member : best), balances[0]);
+    biggest.balance -= drift;
+  }
+  const debtors = balances.filter((member) => member.balance < 0).map((member) => ({ ...member, balance: -member.balance }));
+  const creditors = balances.filter((member) => member.balance > 0).map((member) => ({ ...member }));
+  debtors.sort((a, b) => b.balance - a.balance);
+  creditors.sort((a, b) => b.balance - a.balance);
+  const transfers: Settlement[] = [];
+  let d = 0;
+  let c = 0;
+  while (d < debtors.length && c < creditors.length) {
+    const amount = Math.min(debtors[d].balance, creditors[c].balance);
+    if (amount > 0) transfers.push({ from: debtors[d].name, to: creditors[c].name, amount });
+    debtors[d].balance -= amount;
+    creditors[c].balance -= amount;
+    if (debtors[d].balance === 0) d += 1;
+    if (creditors[c].balance === 0) c += 1;
+  }
+  return transfers;
+}
+
 /**
  * 費用を参加者で割り勘にした時の、払った額と差額。参加者が2人未満なら null(割る相手がいない)。
  * 割るのは誰が払ったか決まっている費用だけ。決まっていない費用まで入れると、まだ誰も立て替えていない額を
