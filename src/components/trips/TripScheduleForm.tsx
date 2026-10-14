@@ -70,6 +70,8 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
   const [endTime, setEndTime] = useState(initial?.endTime ?? "");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [location, setLocation] = useState(initial?.location ?? "");
+  /** 移動の目的地(2026-10-14)。種類が「移動」の時だけ出して、保存する。場所の欄は、移動では出発地。 */
+  const [endLocation, setEndLocation] = useState(initial?.endLocation ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
   const [type, setType] = useState<TripScheduleType>(initial?.type ?? "sightseeing");
   /** 何で移動するか。種類が「移動」の時だけ出して、保存する。 */
@@ -165,6 +167,8 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
       endTime: endTime || undefined,
       title: title.trim(),
       location: location || undefined,
+      // 移動の目的地。空にした時、前に入っていたなら null(同期は undefined を送らず、ほかの端末に古い値が残るため)。
+      endLocation: type === "transport" && endLocation.trim() ? endLocation.trim() : initial?.endLocation ? null : undefined,
       memo: memo || undefined,
       type,
       transportMode: type === "transport" && transportMode ? transportMode : undefined,
@@ -277,12 +281,22 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
           onChange={(e) => setEndTime(e.target.value)}
         />
         <Input
-          label="場所"
+          label={type === "transport" ? "出発地" : "場所"}
           optional
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          placeholder="例: 函館市元町"
+          placeholder={type === "transport" ? "例: 東京駅" : "例: 函館市元町"}
         />
+        {/* 移動には目的地も入れられる。ルート・1日の経路に、出発地と目的地の2つの場所が入る(2026-10-14)。 */}
+        {type === "transport" && (
+          <Input
+            label="目的地"
+            optional
+            value={endLocation}
+            onChange={(e) => setEndLocation(e.target.value)}
+            placeholder="例: 京都駅"
+          />
+        )}
         <Textarea label="メモ" optional value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} />
       </FormPanel>
 

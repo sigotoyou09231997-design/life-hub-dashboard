@@ -25,7 +25,7 @@ vi.mock("../db/schema", () => ({
   },
 }));
 
-import { describeRouteFollow, followRouteAfterEdit, planAddressReflect, planRouteFollow } from "./tripRouteFollow";
+import { describeRouteFollow, describeRouteFollowAll, followRouteAfterEdit, planAddressReflect, planRouteFollow, planRouteFollowAll } from "./tripRouteFollow";
 
 beforeEach(() => {
   mocks.places = [];
@@ -215,5 +215,38 @@ describe("planAddressReflect(日程に住所が入っているのに、名前の
   it("同じ住所に直す場所が2つ並んでも、1つだけ(同じ住所が2つにならない)", () => {
     const places = [place({ id: "p1", name: "霊山寺", address: "霊山寺" }), place({ id: "p2", name: "霊山寺(2)", address: "霊山寺", sortOrder: 2 })];
     expect(planAddressReflect([withAddress], places)).toHaveLength(1);
+  });
+});
+
+describe("planRouteFollowAll: 移動の目的地も追いかける(2026-10-14)", () => {
+  const move = (over: Partial<TripScheduleItem> = {}) => item({ id: "m1", title: "のぞみ13号", type: "transport", location: "東京駅", endLocation: "京都駅", ...over });
+
+  it("目的地を直したら、目的地のルートの場所を直す(出発地はそのまま)", () => {
+    const before = move();
+    const places = [place({ id: "a", name: "東京駅", address: "東京駅" }), place({ id: "b", name: "京都駅", address: "京都駅", sortOrder: 2 })];
+    const plans = planRouteFollowAll(before, { ...before, endLocation: "新大阪駅" }, [], places);
+    expect(plans).toHaveLength(1);
+    expect(plans[0]).toMatchObject({ id: "b", patch: { address: "新大阪駅", name: "新大阪駅" }, changed: ["場所", "名前"] });
+  });
+
+  it("出発地も目的地も直したら、2つの場所を直す。知らせは両方の名前", () => {
+    const before = move();
+    const places = [place({ id: "a", name: "東京駅", address: "東京駅" }), place({ id: "b", name: "京都駅", address: "京都駅", sortOrder: 2 })];
+    const plans = planRouteFollowAll(before, { ...before, location: "品川駅", endLocation: "新大阪駅" }, [], places);
+    expect(plans.map((plan) => plan.id)).toEqual(["a", "b"]);
+    expect(describeRouteFollowAll(plans)).toBe("ルートの「東京駅」・「京都駅」も一緒に直しました");
+  });
+
+  it("目的地を足しただけ(前は無い)・移動でない予定は、目的地の分は何もしない", () => {
+    const before = move({ endLocation: undefined });
+    expect(planRouteFollowAll(before, { ...before, endLocation: "京都駅" }, [], [place({ id: "a", name: "東京駅", address: "東京駅" })])).toEqual([]);
+    const sight = item({ id: "s", title: "清水寺", location: "清水寺", endLocation: "どこか" });
+    expect(planRouteFollowAll(sight, { ...sight, endLocation: "別" }, [], [place({ id: "p", name: "どこか", address: "どこか" })])).toEqual([]);
+  });
+
+  it("同じ日の別の日程が、まだその目的地を出発地にしている(次の移動)なら、触らない", () => {
+    const before = move();
+    const next = item({ id: "m2", title: "移動", type: "transport", location: "京都駅", endLocation: "大阪駅" });
+    expect(planRouteFollowAll(before, { ...before, endLocation: "新大阪駅" }, [next], [place({ id: "b", name: "京都駅", address: "京都駅" })])).toEqual([]);
   });
 });

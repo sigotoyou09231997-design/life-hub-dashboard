@@ -68,7 +68,10 @@ export function collectPlaces(schedule: TripScheduleItem[], routePlaces: TripRou
   const context: string[] = [];
   let truncated = false;
   // 日程に住所が入っている場所は、地図には住所が渡る(mapQueryFor)ので、場所の名前は聞かない(住所のほうを手がかりに回す)。
-  const all = [...schedule.map((item) => (item.address?.trim() ? mapQueryFor(item) : item.location)), ...routePlaces.map((place) => place.address)];
+  const all = [
+    ...schedule.flatMap((item) => [item.address?.trim() ? mapQueryFor(item) : item.location, item.type === "transport" ? item.endLocation : undefined]),
+    ...routePlaces.map((place) => place.address),
+  ];
   for (const raw of all) {
     const text = raw?.trim();
     if (!text || seen.has(text)) continue;

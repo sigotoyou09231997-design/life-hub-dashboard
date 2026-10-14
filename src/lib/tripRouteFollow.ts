@@ -46,7 +46,8 @@ export function planRouteFollow(
   if (!oldQuery) return null;
   // 直す前のルートの場所は、住所で作られていても、住所を入れる前の場所の名前のままでも、見つける。
   const oldKeys = new Set([routeKey(oldQuery), ...(before.location?.trim() ? [routeKey(before.location)] : [])]);
-  const keysOf = (item: TripScheduleItem): string[] => [mapQueryFor(item), item.location?.trim()].filter((v): v is string => Boolean(v)).map(routeKey);
+  const keysOf = (item: TripScheduleItem): string[] =>
+    [mapQueryFor(item), item.location?.trim(), item.type === "transport" ? item.endLocation?.trim() : undefined].filter((v): v is string => Boolean(v)).map(routeKey);
 
   const place = places
     .filter((p) => p.id && oldKeys.has(routeKey(p.address)) && p.date === before.date)
@@ -117,9 +118,43 @@ export function planAddressReflect(schedule: TripScheduleItem[], places: TripRou
   return result;
 }
 
+/**
+ * 日程を直した時の、ルートの場所の直し(全部)。出発地(場所・住所)の分と、移動の目的地の分。
+ * 目的地は、場所だけの別の日程として見て、同じ決まりで追いかける(2026-10-14)。
+ * 同じルートの場所を2回直す案は、1つにする。
+ */
+export function planRouteFollowAll(
+  before: TripScheduleItem,
+  after: TripScheduleItem,
+  others: TripScheduleItem[],
+  places: TripRoutePlace[],
+): RouteFollowPlan[] {
+  const plans: RouteFollowPlan[] = [];
+  const start = planRouteFollow(before, after, others, places);
+  if (start) plans.push(start);
+  if (before.type === "transport" && before.endLocation?.trim()) {
+    const asPlace = (item: TripScheduleItem): TripScheduleItem => ({
+      ...item,
+      type: "transport",
+      location: item.type === "transport" ? (item.endLocation ?? undefined) : undefined,
+      address: undefined,
+      endLocation: undefined,
+    });
+    // 出発地の分を直したあとの状態で、目的地を探す(出発地と目的地が同じ場所でも、2回直さない)。
+    const end = planRouteFollow(asPlace(before), asPlace(after), others, places.filter((place) => place.id !== start?.id));
+    if (end) plans.push(end);
+  }
+  return plans;
+}
+
 /** 知らせの文。 */
 export function describeRouteFollow(plan: RouteFollowPlan): string {
   return `ルートの「${plan.placeName}」も一緒に直しました(${plan.changed.join("・")})`;
+}
+
+/** 複数の場所を直した時の知らせ。 */
+export function describeRouteFollowAll(plans: RouteFollowPlan[]): string {
+  return plans.length === 1 ? describeRouteFollow(plans[0]) : `ルートの${plans.map((plan) => `「${plan.placeName}」`).join("・")}も一緒に直しました`;
 }
 
 /**
@@ -132,10 +167,10 @@ export async function followRouteAfterEdit(before: TripScheduleItem, after: Trip
       db.tripRoutePlaces.where("tripId").equals(after.tripId).toArray(),
       db.tripSchedule.where("tripId").equals(after.tripId).toArray(),
     ]);
-    const plan = planRouteFollow(before, after, schedule.filter((item) => item.id !== before.id), places);
-    if (!plan) return null;
-    await db.tripRoutePlaces.update(plan.id, plan.patch);
-    return describeRouteFollow(plan);
+    const plans = planRouteFollowAll(before, after, schedule.filter((item) => item.id !== before.id), places);
+    if (plans.length === 0) return null;
+    for (const plan of plans) await db.tripRoutePlaces.update(plan.id, plan.patch);
+    return describeRouteFollowAll(plans);
   } catch (error) {
     console.error("[route-follow] failed to follow the schedule edit:", error);
     return null;

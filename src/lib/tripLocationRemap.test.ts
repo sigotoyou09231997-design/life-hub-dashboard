@@ -100,3 +100,21 @@ describe("planLocationRemap", () => {
     expect(plan.scheduleCount).toBe(0);
   });
 });
+
+describe("planLocationRemap: 移動の目的地(2026-10-14)", () => {
+  const rules = [{ from: "霊山寺", to: "霊山寺 徳島県鳴門市大麻町" }];
+  const move = (id: string, location: string, endLocation: string) => ({ ...item(id, location), type: "transport" as const, endLocation });
+
+  it("移動の目的地が元の場所とぴったり同じなら、目的地を書き換える対象にする(件数にも入る)", () => {
+    const plan = planLocationRemap(rules, [move("m1", "徳島駅", "霊山寺"), item("a", "霊山寺")], []);
+    expect(plan.rules[0].scheduleIds).toEqual(["a"]);
+    expect(plan.rules[0].endIds).toEqual(["m1"]);
+    expect(plan.scheduleCount).toBe(2);
+  });
+
+  it("移動でない予定の目的地欄・部分一致は対象にしない", () => {
+    const other = { ...item("x", "どこか"), endLocation: "霊山寺" };
+    const plan = planLocationRemap(rules, [other, move("m2", "徳島駅", "霊山寺の駐車場")], []);
+    expect(plan.rules[0].endIds).toEqual([]);
+  });
+});

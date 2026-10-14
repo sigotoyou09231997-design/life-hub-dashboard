@@ -39,6 +39,8 @@ export interface SharedScheduleItem {
   endTime?: string;
   title: string;
   location?: string;
+  /** 移動の目的地(038)。古い関数からは返ってこない。 */
+  endLocation?: string | null;
   memo?: string;
   type: string;
   /** 何で移動するか(030)。古い関数からは返ってこない。 */

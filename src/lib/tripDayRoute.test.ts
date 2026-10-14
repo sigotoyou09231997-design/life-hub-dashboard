@@ -281,3 +281,22 @@ describe("dayRouteStops: 住所が入っている場所は住所を渡す(2026-1
     expect(stops).toEqual(["徳島県鳴門市大麻町板東塚鼻126", "大麻比古神社", "徳島県鳴門市大麻町板野字西山田"]);
   });
 });
+
+describe("dayRouteStops: 移動の目的地(2026-10-14)", () => {
+  it("移動に目的地があれば、出発地のあとに目的地も1つの地点として並べる。次の予定が目的地と同じ場所なら1つにまとめる", () => {
+    const stops = dayRouteStops(
+      [
+        item("東京駅", "08:00", { type: "transport", endLocation: "京都駅" }),
+        item("京都駅", "11:00"),
+        item("清水寺", "13:00"),
+        item("伏見稲荷", "15:00", { type: "transport", endLocation: " 大阪駅 " }),
+      ],
+      DAY,
+    );
+    expect(stops).toEqual(["東京駅", "京都駅", "清水寺", "伏見稲荷", "大阪駅"]);
+  });
+
+  it("移動でない予定の目的地欄は使わない。目的地だけがあって出発地が無い移動も、目的地を地点にする", () => {
+    expect(dayRouteStops([item("清水寺", "09:00", { endLocation: "どこか" }), item(undefined, "10:00", { type: "transport", endLocation: "京都駅" })], DAY)).toEqual(["清水寺", "京都駅"]);
+  });
+});

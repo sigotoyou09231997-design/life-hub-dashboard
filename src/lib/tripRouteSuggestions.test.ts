@@ -96,3 +96,24 @@ describe("日程に住所が入っている時は、住所で候補にする(202
     expect(findRoutePlaceFor([byName], "霊山寺", "2026-09-19", "徳島県鳴門市大麻町板東塚鼻126")).toBe(byName);
   });
 });
+
+describe("移動の目的地もルートの候補にする(2026-10-14)", () => {
+  const shinkansen = item({ id: "m1", date: "2026-09-19", startTime: "08:00", endTime: "10:15", title: "のぞみ13号", type: "transport", location: "東京駅", endLocation: "京都駅" });
+
+  it("出発地と目的地を、別々の候補にする。目的地の名前は場所そのもの、メモに移動の名前", () => {
+    const result = toRouteSuggestions([shinkansen], []);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ scheduleId: "m1", name: "東京駅", address: "東京駅", memo: "のぞみ13号" });
+    // 目的地は、到着時刻の順に並ぶ。印は元の予定の id に「#end」を付けたもの。
+    expect(result[1]).toMatchObject({ scheduleId: "m1#end", name: "京都駅", address: "京都駅", startTime: "10:15", memo: "のぞみ13号" });
+  });
+
+  it("もうルートに入っている場所は、出発地でも目的地でも出さない。同じ場所は1回だけ", () => {
+    expect(toRouteSuggestions([shinkansen], [place("京都駅", "2026-09-19")]).map((s) => s.name)).toEqual(["東京駅"]);
+    expect(toRouteSuggestions([shinkansen, { ...shinkansen, id: "m2", location: "京都駅", endLocation: "大阪駅", startTime: "12:00" }], []).map((s) => s.name)).toEqual(["東京駅", "京都駅", "大阪駅"]);
+  });
+
+  it("移動でない予定の目的地欄は、候補にしない", () => {
+    expect(toRouteSuggestions([item({ id: "s1", date: "2026-09-19", title: "清水寺", location: "清水寺", endLocation: "どこか" })], []).map((s) => s.name)).toEqual(["清水寺"]);
+  });
+});

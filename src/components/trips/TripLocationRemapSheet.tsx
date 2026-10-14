@@ -49,8 +49,9 @@ export function TripLocationRemapSheet({ tripName = "", destination = "", schedu
     setBusy(true);
     try {
       await db.transaction("rw", db.tripSchedule, db.tripRoutePlaces, async () => {
-        for (const { rule, scheduleIds, routeIds } of plan.rules) {
+        for (const { rule, scheduleIds, endIds, routeIds } of plan.rules) {
           for (const id of scheduleIds) await db.tripSchedule.update(id, { location: rule.to });
+          for (const id of endIds) await db.tripSchedule.update(id, { endLocation: rule.to });
           for (const id of routeIds) await db.tripRoutePlaces.update(id, { address: rule.to });
         }
       });
@@ -98,8 +99,8 @@ export function TripLocationRemapSheet({ tripName = "", destination = "", schedu
 
       {plan.rules.length > 0 && (
         <ul className="flex flex-col gap-1.5 text-sm" aria-label="書き換えの内容">
-          {plan.rules.map(({ rule, scheduleIds, routeIds }) => {
-            const hit = scheduleIds.length + routeIds.length > 0;
+          {plan.rules.map(({ rule, scheduleIds, endIds, routeIds }) => {
+            const hit = scheduleIds.length + endIds.length + routeIds.length > 0;
             return (
               <li key={rule.from} className={hit ? "text-slate-700" : "text-slate-400"}>
                 <span>
@@ -107,7 +108,7 @@ export function TripLocationRemapSheet({ tripName = "", destination = "", schedu
                 </span>
                 <span className="ml-2 text-xs">
                   {hit
-                    ? `日程${scheduleIds.length}件${routeIds.length > 0 ? `・ルート${routeIds.length}件` : ""}`
+                    ? `日程${scheduleIds.length + endIds.length}件${routeIds.length > 0 ? `・ルート${routeIds.length}件` : ""}`
                     : "当たる場所がありません"}
                 </span>
               </li>
