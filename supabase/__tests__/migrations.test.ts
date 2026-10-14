@@ -1133,3 +1133,24 @@ describe("037: 修正依頼の「かかる時間の目安」", () => {
   });
 });
 
+describe("038: 日程の移動の目的地", () => {
+  const T038 = "bbbbbbbb-0038-4ccc-8ddd-eeeeeeeeeeee";
+  it("予定に目的地(end_location)を書けて、共有したしおりにも出る。入れていない予定は今までどおり(null)", async () => {
+    await db.exec(`
+      insert into public.trips (id, user_id, device_id, name, destination, start_date, end_date, status)
+        values ('${T038}', '${USER}', 'pc', '目的地の旅', '京都', '2026-12-27', '2026-12-28', 'planning');
+      insert into public.trip_schedule (id, user_id, device_id, trip_id, date, title, type, location, end_location, transport_mode, sort_order)
+        values ('bbbbbbbb-0038-4ccc-8ddd-000000000001', '${USER}', 'pc', '${T038}', '2026-12-27', '新幹線', 'transport', '東京駅', '京都駅', 'shinkansen', 1);
+      insert into public.trip_schedule (id, user_id, device_id, trip_id, date, title, type, location)
+        values ('bbbbbbbb-0038-4ccc-8ddd-000000000002', '${USER}', 'pc', '${T038}', '2026-12-27', '清水寺', 'sightseeing', '清水寺');
+      insert into public.trip_shares (id, user_id, trip_id, token, include_expenses)
+        values ('bbbbbbbb-0038-4ccc-8ddd-000000000003', '${USER}', '${T038}', 'share-token-038', false);
+    `);
+    const shared = await as("anon", null, async () =>
+      (await db.query<{ r: { schedule: Record<string, string | number | null>[] } }>("select public.get_shared_trip('share-token-038') as r")).rows[0].r,
+    );
+    const byTitle = Object.fromEntries(shared.schedule.map((row) => [row.title as string, row]));
+    expect(byTitle["新幹線"]).toMatchObject({ location: "東京駅", endLocation: "京都駅", transportMode: "shinkansen", sortOrder: 1 });
+    expect(byTitle["清水寺"]).toMatchObject({ location: "清水寺", endLocation: null });
+  });
+});
