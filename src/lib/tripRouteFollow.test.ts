@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { TripRoutePlace, TripScheduleItem } from "../types";
 
@@ -248,5 +249,18 @@ describe("planRouteFollowAll: 移動の目的地も追いかける(2026-10-14)",
     const before = move();
     const next = item({ id: "m2", title: "移動", type: "transport", location: "京都駅", endLocation: "大阪駅" });
     expect(planRouteFollowAll(before, { ...before, endLocation: "新大阪駅" }, [next], [place({ id: "b", name: "京都駅", address: "京都駅" })])).toEqual([]);
+  });
+});
+
+describe("連動を切っている旅行では、日程を直してもルートに触らない(2026-10-14)", () => {
+  it("followRouteAfterEdit は、連動を切っていれば null で、ルートを更新しない", async () => {
+    const before = item({ id: "s1" });
+    mocks.places = [place({ id: "p1" })];
+    mocks.schedule = [before];
+    window.localStorage.setItem("lifeHubRouteLink:t1", "0");
+    expect(await followRouteAfterEdit(before, { ...before, location: "金閣寺" })).toBeNull();
+    expect(mocks.updated).toEqual([]);
+    window.localStorage.removeItem("lifeHubRouteLink:t1");
+    expect(await followRouteAfterEdit(before, { ...before, location: "金閣寺" })).not.toBeNull();
   });
 });

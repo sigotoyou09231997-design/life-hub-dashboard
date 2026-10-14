@@ -33,6 +33,7 @@ import { TripRouteTimeline } from "./TripRouteTimeline";
 import { buildRouteTimeline, findSourceSchedule } from "../../lib/tripRouteTimeline";
 import { dayModeFromTransports, hintFor, transportHints } from "../../lib/tripDayRoute";
 import { planAddressReflect } from "../../lib/tripRouteFollow";
+import { isRouteLinked, setRouteLinked } from "../../lib/routeLink";
 import { TripPlaceStation } from "./TripPlaceStation";
 import { readHiddenPlaceIds, toggleHiddenPlace, writeHiddenPlaceIds } from "../../lib/tripRouteSelection";
 
@@ -346,6 +347,14 @@ export function TripRouteView({
     return hintFor(transportHints(schedule, place.date), place.address) ?? dayModeFromTransports(schedule, place.date);
   }
 
+  /** 日程との連動(2026-10-14)。日程を直す・足す・消す → ルートも、ルートを直す → 日程も。旅行ごとに、この端末に覚える。 */
+  const [linked, setLinked] = useState(() => isRouteLinked(tripId));
+
+  function changeLinked(next: boolean) {
+    setLinked(next);
+    setRouteLinked(tripId, next);
+  }
+
   /** 日程に住所が入っているのに、場所の名前のままのルートの場所。 */
   const addressReflects = useMemo(() => planAddressReflect(schedule, places), [schedule, places]);
   const [reflecting, setReflecting] = useState(false);
@@ -496,6 +505,14 @@ export function TripRouteView({
               )}
             </div>
           )}
+
+          <label className="trip-route-link">
+            <input type="checkbox" checked={linked} onChange={(e) => changeLinked(e.target.checked)} />
+            <span>
+              日程と連動する
+              <small>日程を直す・足す・消すとルートも、ルートを直すと日程も、一緒に変わります。</small>
+            </span>
+          </label>
 
           {addressReflects.length > 0 && (
             <div className="trip-route-reflect" role="status">

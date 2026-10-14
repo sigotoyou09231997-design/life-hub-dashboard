@@ -49,7 +49,8 @@ import { DiaryForm } from "../components/diary/DiaryForm";
 import { EmptyState } from "../components/ui/EmptyState";
 import { useToast } from "../components/ui/ToastProvider";
 import { useConfirm } from "../components/ui/ConfirmProvider";
-import { deleteRowWithUndo, quoted } from "../components/ui/undoToast";
+import { deleteRowWithUndo, deleteWithUndo, quoted } from "../components/ui/undoToast";
+import { routePlacesToRemove } from "../lib/tripRouteLinks";
 import { useWithoutPendingDeletes } from "../hooks/usePendingDeletes";
 import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
@@ -281,12 +282,25 @@ export default function TripDetailPage() {
   const trip = tripResult.trip;
 
   /** 予定を消す(編集の中の「この予定を削除」から。確認はフォームが取る)。貼った写真は別のテーブルにあるので一緒に。 */
-  function deleteSchedule(id: string) {
+  async function deleteSchedule(id: string) {
+    // 消す日程から作られたルートの場所も、一緒に外す(日程とルートの連動。旅行ごとに切れる)。消す前に調べる。
+    const target = schedule.find((entry) => entry.id === id);
+    const routeRemoval = target ? await routePlacesToRemove(target) : [];
     db.tripSchedule.delete(id);
     void deleteAttachmentsFor("tripSchedule", id);
     setEditingSchedule(null);
     setScheduleDatePreset(null);
-    showToast("削除しました");
+    if (routeRemoval.length === 0) {
+      showToast("削除しました");
+      return;
+    }
+    // ルートの場所は5秒の間「元に戻す」で戻せる(日程そのものは、これまでどおり戻せない)。
+    const names = routeRemoval.map((place) => quoted(place.name) || "場所").join("・");
+    deleteWithUndo(
+      routeRemoval.map((place) => ({ table: "tripRoutePlaces", id: place.id! })),
+      () => Promise.all(routeRemoval.map((place) => db.tripRoutePlaces.delete(place.id!))),
+      `日程を削除し、ルートの${names}も外しました`,
+    );
   }
 
   async function handleDelete() {
@@ -779,10 +793,10 @@ export default function TripDetailPage() {
             nextSortOrder={(routePlaces[routePlaces.length - 1]?.sortOrder ?? 0) + 1}
             dayList={dayList}
             preset={editingRoute === "new" ? routePreset : undefined}
-            onSaved={() => {
+            onSaved={(note) => {
               setEditingRoute(null);
               setRoutePreset(undefined);
-              showToast("保存しました");
+              showToast(note ? `保存しました。${note}` : "保存しました");
             }}
             onCancel={() => {
               setEditingRoute(null);

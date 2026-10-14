@@ -21,6 +21,16 @@ const mocks = vi.hoisted(() => ({
   // ルートの場所の追いかけ(src/lib/tripRouteFollow.ts)に渡された「直す前・直した後」と、それが返す知らせ。
   routeFollow: [] as [Record<string, unknown>, Record<string, unknown>][],
   routeNote: null as string | null,
+  routeAdds: [] as [string, string[]][],
+  routeAdded: 0,
+}));
+
+// 足した日程の場所をルートに入れる処理(src/lib/tripRouteLinks.ts)は別のテストで見る。
+vi.mock("../../lib/tripRouteLinks", () => ({
+  addRouteForNewSchedule: async (tripId: string, ids: string[]) => {
+    mocks.routeAdds.push([tripId, ids]);
+    return mocks.routeAdded;
+  },
 }));
 
 vi.mock("../../lib/tripRouteFollow", () => ({
@@ -122,6 +132,8 @@ beforeEach(() => {
   mocks.deletedPhotosFor = [];
   mocks.routeFollow = [];
   mocks.routeNote = null;
+  mocks.routeAdds = [];
+  mocks.routeAdded = 0;
   mocks.sent = [];
   mocks.inbox = [];
   mocks.sendCodeState = { kind: "unavailable" };
@@ -403,6 +415,18 @@ describe("写真・文章から日程を読み取る画面", () => {
       expect(mocks.routeFollow[0][0]).toMatchObject({ id: "a", location: "土庄港" });
       expect(mocks.routeFollow[0][1]).toMatchObject({ id: "a", location: "土庄港 香川県小豆郡土庄町" });
       expect(saved).toHaveBeenCalledWith("日程を1件更新しました。ルートの場所も1件一緒に直しました");
+    });
+
+    it("新しく足した日程の id を渡して、ルートにも入れさせる。入れた数を知らせに載せる(2026-10-14)", async () => {
+      mocks.routeAdded = 1;
+      const saved = vi.fn();
+      const user = userEvent.setup();
+      renderForm(saved);
+      await readFromText(user);
+      await user.click(screen.getByRole("button", { name: /入れる|追加/ }));
+      expect(mocks.routeAdds).toHaveLength(1);
+      expect(mocks.routeAdds[0][0]).toBe("trip-1");
+      expect(saved).toHaveBeenCalledWith(expect.stringContaining("ルートにも1件入れました"));
     });
 
     it("ルートを直さなかった更新・追加だけの保存は、知らせを変えない", async () => {
