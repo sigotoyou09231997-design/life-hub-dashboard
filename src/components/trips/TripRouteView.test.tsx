@@ -710,3 +710,20 @@ describe("ルートの場所から、元になった日程を開く(2026-10-14)"
     expect(screen.queryByRole("button", { name: "どこにも無い場所の元の予定を開く" })).toBeNull();
   });
 });
+
+describe("日程と連動する(ルートのタブの入り切り、2026-10-14)", () => {
+  it("初めは「連動する」が入。切ると、この旅行だけ切れて、次に開いても切れたまま。入れ直せる", async () => {
+    const user = userEvent.setup();
+    renderView();
+    const box = screen.getByRole("checkbox", { name: /日程と連動する/ }) as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    await user.click(box);
+    expect(window.localStorage.getItem("lifeHubRouteLink:t1")).toBe("0");
+
+    cleanup();
+    renderView();
+    expect((screen.getByRole("checkbox", { name: /日程と連動する/ }) as HTMLInputElement).checked).toBe(false);
+    await user.click(screen.getByRole("checkbox", { name: /日程と連動する/ }));
+    expect(window.localStorage.getItem("lifeHubRouteLink:t1")).toBe("1");
+  });
+});

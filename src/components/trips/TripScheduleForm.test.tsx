@@ -16,6 +16,16 @@ const mocks = vi.hoisted(() => ({
   expenseDeleted: [] as string[],
   routeFollow: [] as [TripScheduleItem, TripScheduleItem][],
   routeNote: null as string | null,
+  routeAdds: [] as [string, string[]][],
+  routeAdded: 0,
+}));
+
+// 足した日程の場所をルートに入れる処理(src/lib/tripRouteLinks.ts)は別のテストで見る。ここでは「足した時に、旅行と新しい id を渡して呼ぶ」ことだけ見る。
+vi.mock("../../lib/tripRouteLinks", () => ({
+  addRouteForNewSchedule: async (tripId: string, ids: string[]) => {
+    mocks.routeAdds.push([tripId, ids]);
+    return mocks.routeAdded;
+  },
 }));
 
 // ルートの場所を追いかける処理(src/lib/tripRouteFollow.ts)は別のテストで見る。ここでは「保存のあとに、直す前と後を渡して呼ぶ」ことだけ見る。
@@ -74,6 +84,8 @@ beforeEach(() => {
   mocks.expenseDeleted = [];
   mocks.routeFollow = [];
   mocks.routeNote = null;
+  mocks.routeAdds = [];
+  mocks.routeAdded = 0;
 });
 afterEach(cleanup);
 
@@ -436,5 +448,31 @@ describe("旅行の予定の入力: 移動の出発地と目的地(2026-10-14、
     renderForm({ id: "s2", tripId: "t1", date: "2026-12-27", title: "移動", type: "transport", location: "東京駅", createdAt: 1 });
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
     expect(mocks.updated[0][1]).toMatchObject({ endLocation: undefined });
+  });
+});
+
+describe("旅行の予定の入力: 足した予定の場所をルートにも入れる(2026-10-14、要望「日程とルートが連動してほしい」)", () => {
+  it("新しい予定を足したら、旅行と新しい予定の id を渡して、ルートに入れさせる。入れたら、その知らせを保存の知らせに載せる", async () => {
+    mocks.routeAdded = 2;
+    const user = userEvent.setup();
+    const saved = renderForm();
+    await user.type(screen.getByPlaceholderText("例: 五稜郭"), "霊山寺");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(mocks.routeAdds).toEqual([["t1", ["new-schedule-id"]]]);
+    expect(saved).toHaveBeenCalledWith("2026-12-27", "ルートにも2件入れました");
+  });
+
+  it("ルートに入れなかった時は、いつもどおりの知らせ。今ある予定を直して保存した時は、足す処理を呼ばない", async () => {
+    const user = userEvent.setup();
+    const saved = renderForm();
+    await user.type(screen.getByPlaceholderText("例: 五稜郭"), "霊山寺");
+    await user.click(screen.getByRole("button", { name: "予定を追加" }));
+    expect(saved).toHaveBeenCalledWith("2026-12-27");
+
+    cleanup();
+    mocks.routeAdds = [];
+    renderForm({ id: "s1", tripId: "t1", date: "2026-12-27", title: "桂浜", type: "sightseeing", createdAt: 1 });
+    await user.click(screen.getByRole("button", { name: "変更を保存" }));
+    expect(mocks.routeAdds).toEqual([]);
   });
 });

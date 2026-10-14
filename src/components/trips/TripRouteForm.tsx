@@ -9,6 +9,7 @@ import { Field } from "../ui/Field";
 import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
+import { followScheduleAfterRouteEdit } from "../../lib/tripRouteLinks";
 
 interface Props {
   tripId: string;
@@ -24,7 +25,8 @@ interface Props {
   /** 1件も無いときにルートタブへ直接置く形。戻る先が無いので「キャンセル」は出さず、
    * 面の見出しも「どこへ行きたいか」ではなく最初の一歩として書き換える。 */
   inline?: boolean;
-  onSaved: () => void;
+  /** note は、ルートを直したのに合わせて日程も直した時の知らせ(2026-10-14。src/lib/tripRouteLinks.ts)。 */
+  onSaved: (note?: string) => void;
   onCancel: () => void;
 }
 
@@ -69,13 +71,17 @@ export function TripRouteForm({ tripId, initial, nextSortOrder, preset, dayList,
       createdAt: initial?.createdAt ?? Date.now(),
     };
 
+    let note: string | null = null;
     if (initial?.id) {
       await db.tripRoutePlaces.update(initial.id, record);
+      // 場所・日にち・名前を直したら、元になった日程も追いかける(日程とルートの連動。旅行ごとに切れる)。
+      note = await followScheduleAfterRouteEdit(initial, { ...record, id: initial.id });
     } else {
       await db.tripRoutePlaces.add(record);
     }
     setSaving(false);
-    onSaved();
+    if (note) onSaved(note);
+    else onSaved();
   }
 
   return (

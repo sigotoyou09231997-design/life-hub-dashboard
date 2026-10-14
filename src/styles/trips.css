@@ -1795,6 +1795,32 @@ a.trip-leg-mode--link {
   color: #fff;
 }
 
+/* 日程との連動の入り切り(ルートのタブの上、2026-10-14)。 */
+.trip-route-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(13, 27, 49, 0.1);
+  border-radius: var(--hub-r-md);
+  background: var(--hub-surface);
+  color: var(--hub-ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.trip-route-link input { margin-top: 0.2rem; }
+
+.trip-route-link small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--hub-ink-2);
+  font-size: 0.76rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
 /* 日程に住所が入っているのに、ルートの場所が名前のままの時の知らせ(2026-10-14)。 */
 .trip-route-reflect {
   display: flex;

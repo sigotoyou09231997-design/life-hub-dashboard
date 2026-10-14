@@ -2,6 +2,7 @@ import { db } from "../db/schema";
 import type { TripRoutePlace, TripScheduleItem } from "../types";
 import { routeKey } from "./mailPlanImport";
 import { mapQueryFor } from "./scheduleDetails";
+import { isRouteLinked } from "./routeLink";
 
 /**
  * 日程を直したら、その日程から作られたルートの場所も一緒に直す(2026-10-14、要望の受信箱「日程を修正等したらルートにも反映して欲しい」)。
@@ -162,6 +163,8 @@ export function describeRouteFollowAll(plans: RouteFollowPlan[]): string {
  * ルートの更新に失敗しても、日程の保存はもう済んでいるので、投げずに null を返す(日程の保存を失敗に見せない)。
  */
 export async function followRouteAfterEdit(before: TripScheduleItem, after: TripScheduleItem): Promise<string | null> {
+  // 連動を切っている旅行(ルートのタブの「日程と連動する」)では、ルートに触らない。
+  if (!isRouteLinked(after.tripId)) return null;
   try {
     const [places, schedule] = await Promise.all([
       db.tripRoutePlaces.where("tripId").equals(after.tripId).toArray(),

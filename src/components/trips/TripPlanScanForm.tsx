@@ -35,6 +35,7 @@ import { ChatGptInbox } from "./ChatGptInbox";
 import { ChatGptPlanGuide } from "./ChatGptPlanGuide";
 import { deleteInboxEntry, type InboxEntry } from "../../lib/chatgptInbox";
 import { followRouteAfterEdit } from "../../lib/tripRouteFollow";
+import { addRouteForNewSchedule } from "../../lib/tripRouteLinks";
 import { Button } from "../ui/Button";
 import { FormActions } from "../ui/FormActions";
 import { EmptyState } from "../ui/EmptyState";
@@ -217,6 +218,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
     try {
       const now = Date.now();
       let routeCount = 0;
+      const addedIds: string[] = [];
       for (const entry of savable) {
         const { row } = entry;
         if (entry.updating && entry.target) {
@@ -228,6 +230,7 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
           continue;
         }
         const scheduleId = String(await db.tripSchedule.add(toTripScheduleRecord(row, tripId, now)));
+        addedIds.push(scheduleId);
         // 費用は金額が読み取れていて、外されていない分だけ積む(種類がそのまま分類になる)。
         // 更新では積まない(同じ予定の費用が二重になるため)。その予定の費用としてひもづける。
         if (row.withExpense && row.amount) await db.tripExpenses.add({ ...toTripExpenseRecord(row, tripId, now), scheduleId });
@@ -236,12 +239,18 @@ export function TripPlanScanForm({ tripId, trip, onSaved, onCancel }: Props) {
         await db.tripSchedule.delete(id);
         await deleteAttachmentsFor("tripSchedule", id);
       }
+      // 新しく足した日程の場所は、ルートにも入れる(日程とルートの連動。旅行ごとに切れる)。
+      const routeAdded = await addRouteForNewSchedule(tripId, addedIds);
       releasePhotos();
       // 受信箱から入れた旅程は、入れ終わったら受信箱から消す(同じ旅程が残り続けないように)。
       // 消せなくても日程には入っているので、失敗は黙って流す(次に開いた時にまた並ぶだけ)。
       if (inboxId) void deleteInboxEntry(inboxId).catch((err) => console.warn("[chatgptInbox] failed to clear the entry:", err));
       const saved = describeScanSaved(addCount, updateCount, expenseCount, deleteCount);
-      onSaved(routeCount > 0 ? `${saved}。ルートの場所も${routeCount}件一緒に直しました` : saved);
+      const routeNotes = [
+        routeCount > 0 ? `ルートの場所も${routeCount}件一緒に直しました` : "",
+        routeAdded > 0 ? `ルートにも${routeAdded}件入れました` : "",
+      ].filter(Boolean);
+      onSaved(routeNotes.length > 0 ? `${saved}。${routeNotes.join("、")}` : saved);
     } catch (err) {
       console.error("[tripPlanScan] failed to save:", err);
       setError("入れられませんでした。もう一度お試しください");

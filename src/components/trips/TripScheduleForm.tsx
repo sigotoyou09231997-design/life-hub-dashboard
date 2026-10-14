@@ -18,6 +18,7 @@ import { Button } from "../ui/Button";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { isMultiDay, normalizeEndDate, shiftEndDate, spanDays } from "../../lib/eventSpan";
 import { followRouteAfterEdit } from "../../lib/tripRouteFollow";
+import { addRouteForNewSchedule } from "../../lib/tripRouteLinks";
 
 interface Props {
   tripId: string;
@@ -27,7 +28,8 @@ interface Props {
   defaultDate: string;
   /**
    * 保存した予定の日(開始日)。旅行の画面が、その日へ表示を切り替えるのに使う。
-   * routeNote は、日程を直したのに合わせてルートの場所も直した時の知らせ(2026-10-14。src/lib/tripRouteFollow.ts)。
+   * routeNote は、日程を直したのに合わせてルートの場所も直した・足した日程の場所をルートにも入れた時の知らせ(2026-10-14。
+   * src/lib/tripRouteFollow.ts・src/lib/tripRouteLinks.ts)。
    */
   onSaved: (date: string, routeNote?: string) => void;
   onCancel: () => void;
@@ -203,6 +205,9 @@ export function TripScheduleForm({ tripId, initial, members: membersProp, defaul
       routeNote = await followRouteAfterEdit(initial, record);
     } else {
       scheduleId = String(await db.tripSchedule.add(record));
+      // 新しく足した日程の場所は、ルートにも入れる(日程とルートの連動。旅行ごとに切れる)。
+      const added = await addRouteForNewSchedule(tripId, [scheduleId]);
+      if (added > 0) routeNote = added > 1 ? `ルートにも${added}件入れました` : "ルートにも入れました";
     }
     await saveAttachmentDrafts("tripSchedule", scheduleId, photos);
     await saveLinkedExpense(scheduleId, record.title);
