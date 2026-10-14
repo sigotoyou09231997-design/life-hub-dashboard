@@ -189,3 +189,26 @@ export function hintFor(hints: Map<string, LegMode>, from: string): LegMode | un
   return hints.get(routeKey(from));
 }
 
+/**
+ * その日の経路の、全体の移動手段(2026-10-14、要望「ルートでは日程で選択された移動手段を基本的に示して欲しい」)。
+ * その日の移動の予定が選んでいる手段(src/lib/tripCategories.ts の移動手段)を、経路の手段(車・徒歩・電車バス)に読み替えて、
+ * いちばん多いものにする。同数なら、その日に先に出てくる方。経路で引けない手段(飛行機・自転車)・手段を決めていない移動は数えない。
+ * 決められなければ undefined(画面は、これまでどおり本人が選んだ手段か、車にする)。
+ */
+export function dayModeFromTransports(items: TripScheduleItem[], date: string): LegMode | undefined {
+  const counts = new Map<LegMode, number>();
+  const order: LegMode[] = [];
+  for (const item of orderScheduleDay(items.filter((entry) => entry.date === date))) {
+    if (item.type !== "transport") continue;
+    const mode = legModeForTransport(item.transportMode);
+    if (!mode) continue;
+    if (!counts.has(mode)) order.push(mode);
+    counts.set(mode, (counts.get(mode) ?? 0) + 1);
+  }
+  let best: LegMode | undefined;
+  for (const mode of order) {
+    if (best === undefined || (counts.get(mode) ?? 0) > (counts.get(best) ?? 0)) best = mode;
+  }
+  return best;
+}
+

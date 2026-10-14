@@ -186,3 +186,59 @@ describe("TripDayRoute", () => {
     expect(screen.queryByRole("link", { name: "設定の「自宅の住所」" })).toBeNull();
   });
 });
+
+describe("経路の手段は、日程の移動手段を基本にする(2026-10-14)", () => {
+  const move = (location: string, startTime: string, transportMode: TripScheduleItem["transportMode"]): TripScheduleItem => ({
+    ...item(location, startTime),
+    type: "transport",
+    transportMode,
+  });
+  const withTrain = [move("高松駅 香川県高松市", "08:00", "train"), item("栗林公園 香川県高松市", "10:00"), item("高松港 香川県高松市", "12:00")];
+  const selectedTab = () => screen.getAllByRole("tab").find((tab) => tab.getAttribute("aria-selected") === "true")?.textContent;
+
+  it("その日の移動の予定が電車なら「電車・バス」、車なら「車」、歩きなら「徒歩」を選んでおく。理由を一言添える", () => {
+    openSheet(withTrain);
+    expect(mapSrc()).toContain("dirflg=r");
+    expect(selectedTab()).toBe("電車・バス");
+    expect(screen.getByText("日程の移動手段（電車・バス）に合わせています。")).toBeTruthy();
+
+    cleanup();
+    openSheet([move("高松駅 香川県高松市", "08:00", "car"), item("栗林公園 香川県高松市", "10:00")]);
+    expect(mapSrc()).toContain("dirflg=d");
+    expect(screen.getByText("日程の移動手段（車）に合わせています。")).toBeTruthy();
+
+    cleanup();
+    openSheet([move("高松駅 香川県高松市", "08:00", "walk"), item("栗林公園 香川県高松市", "10:00")]);
+    expect(mapSrc()).toContain("dirflg=w");
+  });
+
+  it("日程に移動手段が無い日は、これまでどおり(最後に選んだ手段、無ければ車)。理由の一言も出さない", () => {
+    openSheet(DAY1);
+    expect(mapSrc()).toContain("dirflg=d");
+    expect(screen.queryByText(/日程の移動手段/)).toBeNull();
+  });
+
+  it("本人が選び直した手段は、日程の手段より先。「日程に合わせる」で、日程の手段に戻せる", () => {
+    openSheet(withTrain);
+    fireEvent.click(screen.getByRole("tab", { name: "車" }));
+    expect(mapSrc()).toContain("dirflg=d");
+    expect(screen.getByText(/日程の移動手段は電車・バスです/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "日程に合わせる" }));
+    expect(mapSrc()).toContain("dirflg=r");
+    expect(screen.getByText("日程の移動手段（電車・バス）に合わせています。")).toBeTruthy();
+  });
+
+  it("選び直した手段は、その日だけのもの。次に開いた時も覚えている(日ごとに別)", () => {
+    openSheet(withTrain);
+    fireEvent.click(screen.getByRole("tab", { name: "徒歩" }));
+    cleanup();
+    openSheet(withTrain);
+    expect(mapSrc()).toContain("dirflg=w");
+    // 別の日(日程に移動手段が無い日)は、最後に選んだ手段(徒歩)がそのまま使われる。
+    cleanup();
+    render(<TripDayRoute items={[{ ...item("A 徳島県", "08:00"), date: "2026-12-28" }, { ...item("B 徳島県", "09:00"), date: "2026-12-28" }]} date="2026-12-28" />);
+    fireEvent.click(screen.getByRole("button", { name: "この日の経路を地図で見る" }));
+    expect(mapSrc()).toContain("dirflg=w");
+  });
+});

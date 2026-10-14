@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Route } from "lucide-react";
 import type { TripScheduleItem } from "../../types";
-import { dayRouteStops, LEG_MODE_LABEL, maxWaypointsForDevice, stopKeys, type LegMode } from "../../lib/tripDayRoute";
+import { dayModeFromTransports, dayRouteStops, LEG_MODE_LABEL, maxWaypointsForDevice, stopKeys, type LegMode } from "../../lib/tripDayRoute";
 import { buildRouteEmbedUrl, buildRouteSearchUrl } from "../../lib/googleMaps";
 import { resolveHomeStops, useHomeAddress } from "../../lib/homePlace";
 import { formatDisplayDate } from "../../lib/date";
@@ -25,6 +25,8 @@ interface Props {
 
 /** 地図の線の手段。以前の「車/徒歩」の切り替えと同じ鍵に覚える。 */
 const MODE_KEY = "lifehub.tripDayRouteMode";
+/** 日ごとに本人が選んだ手段(2026-10-14)。日程の移動手段に合わせた既定より、こちらを先にする。 */
+const MODE_BY_DATE_KEY = "lifehub.tripDayRouteModeByDate";
 /** 外した場所。端末ごとに覚える(同期はしない)。区間ごとの手段(legs)を持っていた頃の値も読めるように同じ鍵。 */
 const CHOICES_KEY = "lifehub.tripDayRouteChoices";
 
@@ -44,6 +46,15 @@ function readStoredMode(): LegMode {
     return isLegMode(stored) ? stored : "driving";
   } catch {
     return "driving";
+  }
+}
+
+function readModesByDate(): Record<string, LegMode> {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(MODE_BY_DATE_KEY) ?? "{}") as Record<string, unknown>;
+    return Object.fromEntries(Object.entries(parsed).filter((entry): entry is [string, LegMode] => isLegMode(entry[1])));
+  } catch {
+    return {};
   }
 }
 
@@ -82,7 +93,14 @@ function store(key: string, value: string) {
  * 選んだ内容は端末に覚えるので、次に開いた時もそのまま。
  */
 export function TripDayRoute({ items, date, inline = false }: Props) {
-  const [mode, setMode] = useState<LegMode>(readStoredMode);
+  /** 手段を決めていない日(日程に移動手段が無い日)の既定。最後に選んだ手段。 */
+  const [fallbackMode, setFallbackMode] = useState<LegMode>(readStoredMode);
+  /** 本人が、その日の手段を選び直した記録。 */
+  const [pickedModes, setPickedModes] = useState<Record<string, LegMode>>(readModesByDate);
+  // 経路の手段は、日程でその日の移動に選んだ手段を基本にする(本人が選び直していれば、そちらが先)。
+  const scheduleMode = dayModeFromTransports(items, date);
+  const mode: LegMode = pickedModes[date] ?? scheduleMode ?? fallbackMode;
+  const followsSchedule = pickedModes[date] === undefined && scheduleMode !== undefined;
   const [excludedKeys, setExcludedKeys] = useState<string[]>(readExcluded);
   /** 経路に出す場所を選ぶシートを開いているか。 */
   const [open, setOpen] = useState(false);
@@ -100,9 +118,32 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
   const appUrl = chosen.length === 1 || fitsOneLink ? buildRouteSearchUrl(chosen, mode) : undefined;
 
   function changeMode(next: LegMode) {
-    setMode(next);
+    const nextPicked = { ...pickedModes, [date]: next };
+    setPickedModes(nextPicked);
+    setFallbackMode(next);
+    store(MODE_BY_DATE_KEY, JSON.stringify(nextPicked));
     store(MODE_KEY, next);
   }
+
+  /** 選び直した手段をやめて、日程の移動手段に合わせる。 */
+  function followSchedule() {
+    const { [date]: _dropped, ...rest } = pickedModes;
+    setPickedModes(rest);
+    store(MODE_BY_DATE_KEY, JSON.stringify(rest));
+  }
+
+  /** 手段の下に出す、日程との関係。日程に移動手段がある日だけ。 */
+  const modeNote =
+    scheduleMode === undefined ? null : followsSchedule ? (
+      <p className="text-xs text-slate-500">日程の移動手段（{LEG_MODE_LABEL[scheduleMode]}）に合わせています。</p>
+    ) : scheduleMode !== mode ? (
+      <p className="text-xs text-slate-500">
+        日程の移動手段は{LEG_MODE_LABEL[scheduleMode]}です。{" "}
+        <button type="button" className="underline" onClick={followSchedule}>
+          日程に合わせる
+        </button>
+      </p>
+    ) : null;
 
   function toggle(index: number) {
     const key = keys[index];
@@ -150,6 +191,7 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
             <p className="px-1 text-xs text-slate-500">地図に出す場所が1つも選ばれていません。</p>
           )}
           {homeNote}
+          {modeNote}
           <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>
             <Route size={17} />
             場所と移動手段を選ぶ
@@ -169,6 +211,7 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
             <div className="flex flex-col gap-1.5">
               <p className="text-xs text-slate-500">移動手段</p>
               <Tabs options={MODE_OPTIONS} value={mode} onChange={changeMode} />
+              {modeNote}
             </div>
 
             {chosen.length > 0 ? (
