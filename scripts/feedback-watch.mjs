@@ -5,6 +5,8 @@
 //   node scripts/feedback-watch.mjs            見張り続ける(10秒ごと)。最初の1回は、いま届いている分を「見た」ことにして出さない
 //   node scripts/feedback-watch.mjs --once     1回だけ調べて終わる(出すのは、まだ出していない新しい依頼だけ)
 //   node scripts/feedback-watch.mjs --replay   いま未対応の依頼を、出した・出さないに関わらず全部出す(確かめ用。記録は変えない)
+//   node scripts/feedback-watch.mjs --show <id> [<id> …]  指定した依頼を、同じ区切りの形で出す(状態は問わない・記録は変えない)。
+//                                              会話の外で動く常駐(scripts/feedback-daemon.mjs)が起こした Claude が、依頼を読むのに使う
 //
 // どの依頼を出したかは todoアプリ/.feedback-seen(1行1つ。git には入れない)に覚える。
 // 読み取りコード(.feedback-code)と Supabase の場所は feedback-inbox.mjs と同じ。
@@ -25,7 +27,7 @@ const COLLECT_MS = Number(process.env.FEEDBACK_COLLECT_MS ?? 15_000);
 /** 1件の文章を出す長さの上限。長すぎる文章で会話が埋まらないように(あふれた分は切る)。 */
 const MAX_MESSAGE_CHARS = 1500;
 
-function readEnv() {
+export function readEnv() {
   const env = {};
   const text = readFileSync(join(ROOT, ".env"), "utf8");
   for (const line of text.split(/\r?\n/)) {
@@ -35,7 +37,7 @@ function readEnv() {
   return env;
 }
 
-function readCode() {
+export function readCode() {
   try {
     return readFileSync(join(ROOT, ".feedback-code"), "utf8").trim();
   } catch {
@@ -43,7 +45,8 @@ function readCode() {
   }
 }
 
-async function fetchNewItems(env, code) {
+/** 受信箱の依頼を読む。includeResolved が偽なら「対応待ち」(status=new)だけ。真なら、対応中・保留中・対応済み・見送りも全部。 */
+export async function fetchItems(env, code, includeResolved = false) {
   const res = await fetch(`${env.VITE_SUPABASE_URL}/rest/v1/rpc/app_feedback_inbox`, {
     method: "POST",
     headers: {
@@ -51,13 +54,17 @@ async function fetchNewItems(env, code) {
       apikey: env.VITE_SUPABASE_ANON_KEY,
       Authorization: `Bearer ${env.VITE_SUPABASE_ANON_KEY}`,
     },
-    body: JSON.stringify({ p_code: code, p_include_resolved: false }),
+    body: JSON.stringify({ p_code: code, p_include_resolved: includeResolved }),
   });
   const text = await res.text();
   if (!res.ok) throw new Error(`受信箱を読めませんでした(${res.status})`);
   const result = JSON.parse(text);
   if (!result.ok) throw new Error(`受信箱を読めませんでした(${result.reason})`);
   return result.items ?? [];
+}
+
+async function fetchNewItems(env, code) {
+  return fetchItems(env, code, false);
 }
 
 function readSeen() {
@@ -94,7 +101,7 @@ export function answerLines(item) {
   ];
 }
 
-async function printItem(item, env, code) {
+export async function printItem(item, env, code) {
   if (item.answer && item.answeredAt) {
     console.log(answerLines(item).join("\n"));
     return;
@@ -161,6 +168,21 @@ async function main() {
   if (!env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_ANON_KEY || !code) {
     console.log("要望の見張りを始められません(.env か .feedback-code がありません)");
     process.exit(1);
+  }
+  // 指定した依頼を、同じ区切りの形で出して終わる(状態は問わない)。見つからない id は、そう書く。
+  if (args.includes("--show")) {
+    const ids = args.slice(args.indexOf("--show") + 1).filter((arg) => !arg.startsWith("--"));
+    if (ids.length === 0) {
+      console.log("--show のあとに依頼の id を付けてください");
+      process.exit(1);
+    }
+    const all = await fetchItems(env, code, true);
+    for (const id of ids) {
+      const item = all.find((entry) => entry.id === id);
+      if (item) await printItem(item, env, code);
+      else console.log(`id=${id} の依頼は見つかりません`);
+    }
+    return;
   }
   const once = args.includes("--once") || args.includes("--replay");
   const replay = args.includes("--replay");

@@ -32,5 +32,11 @@ AGENTS.md
 .feedback-images
 # 見張り(scripts/feedback-watch.mjs)が、どの依頼を会話へ流したかを覚えるファイル。
 .feedback-seen
+# 会話の外で動く常駐の見張り(scripts/feedback-daemon.mjs)の記憶・記録・裏の Claude の出力・止めの印。
+.feedback-daemon.json
+.feedback-daemon.json.tmp
+.feedback-daemon.log
+.feedback-daemon-runs
+.feedback-daemon-STOP
 # 修正を出すのにかかった時間の記録(scripts/ship.sh が書く。scripts/fix-times.mjs で見る)。
 .fix-times.log
