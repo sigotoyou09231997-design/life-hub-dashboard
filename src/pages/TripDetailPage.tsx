@@ -60,6 +60,7 @@ import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
 import { toRouteSuggestions, findRoutePlaceFor } from "../lib/tripRouteSuggestions";
+import { mapQueryFor } from "../lib/scheduleDetails";
 import type { RouteSuggestion } from "../lib/tripRouteSuggestions";
 
 type Tab = "schedule" | "expense" | "packing" | "route" | "diary" | "documents";
@@ -408,14 +409,17 @@ export default function TripDetailPage() {
                   setTab("route");
                   // ルートにある場所なら、その日に切り替えて、その場所まで送る(2026-10-11、「ルートの該当の
                   // 部分に飛んで欲しいのに、違うところに飛んでる」— タブを替えるだけで、開いていた日の先頭が出ていた)。
-                  const place = findRoutePlaceFor(routePlaces, location, date);
+                  // 日程に住所が入っていれば、ルートの場所は住所で作られている(mapQueryFor)。住所でも探す。
+                  const tapped = schedule.find((entry) => entry.date === date && entry.location?.trim() === location.trim());
+                  const mapQuery = tapped ? mapQueryFor(tapped) : undefined;
+                  const place = findRoutePlaceFor(routePlaces, location, date, mapQuery);
                   if (place?.id) {
                     setRouteFocus({ id: place.id, at: Date.now() });
                     return;
                   }
                   // まだルートに無い場所なら、そのまま追加フォームを開いて拾わせる。
                   // 一覧に戻って同じ住所を打ち直させない。
-                  setRoutePreset({ name: title, address: location });
+                  setRoutePreset({ name: title, address: mapQuery ?? location });
                   setEditingRoute("new");
                 }}
               />

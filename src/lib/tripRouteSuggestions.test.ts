@@ -69,3 +69,30 @@ describe("日程の場所から、ルートの場所を探す", () => {
     expect(findRoutePlaceFor([place("松山駅")], "道後温泉")).toBeUndefined();
   });
 });
+
+describe("日程に住所が入っている時は、住所で候補にする(2026-10-14)", () => {
+  const ryozen = item({ id: "s1", date: "2026-09-19", title: "霊山寺", location: "霊山寺", address: "徳島県鳴門市大麻町板東塚鼻126" });
+
+  it("地図に渡す文字は住所。名前は日程の題名のまま", () => {
+    const [suggestion] = toRouteSuggestions([ryozen], []);
+    expect(suggestion).toMatchObject({ name: "霊山寺", address: "徳島県鳴門市大麻町板東塚鼻126" });
+  });
+
+  it("移動は、名前が場所(出発地)そのもの。住所があれば地図には住所を渡す", () => {
+    const [suggestion] = toRouteSuggestions([item({ id: "s2", date: "2026-09-19", title: "新幹線", type: "transport", location: "岡山駅", address: "岡山県岡山市北区駅元町1-1" })], []);
+    expect(suggestion).toMatchObject({ name: "岡山駅", address: "岡山県岡山市北区駅元町1-1", memo: "新幹線" });
+  });
+
+  it("まだ場所の名前のままルートに入っている場所も、「入っている」と数える(候補にまた出さない)。住所で入っていても同じ", () => {
+    expect(toRouteSuggestions([ryozen], [place("霊山寺", "2026-09-19")])).toEqual([]);
+    expect(toRouteSuggestions([ryozen], [place("徳島県鳴門市大麻町板東塚鼻126", "2026-09-19")])).toEqual([]);
+  });
+
+  it("日程の場所を押してルートへ飛ぶ時、場所の名前でも住所でも、ルートの場所を見つける", () => {
+    const byAddress = place("徳島県鳴門市大麻町板東塚鼻126", "2026-09-19");
+    expect(findRoutePlaceFor([byAddress], "霊山寺", "2026-09-19", "徳島県鳴門市大麻町板東塚鼻126")).toBe(byAddress);
+    expect(findRoutePlaceFor([byAddress], "霊山寺", "2026-09-19")).toBeUndefined();
+    const byName = place("霊山寺", "2026-09-19");
+    expect(findRoutePlaceFor([byName], "霊山寺", "2026-09-19", "徳島県鳴門市大麻町板東塚鼻126")).toBe(byName);
+  });
+});

@@ -25,7 +25,7 @@ vi.mock("../db/schema", () => ({
   },
 }));
 
-import { describeRouteFollow, followRouteAfterEdit, planRouteFollow } from "./tripRouteFollow";
+import { describeRouteFollow, followRouteAfterEdit, planAddressReflect, planRouteFollow } from "./tripRouteFollow";
 
 beforeEach(() => {
   mocks.places = [];
@@ -163,5 +163,57 @@ describe("followRouteAfterEdit(保存のあとに、ルートの場所を直す)
     expect(await followRouteAfterEdit(before, { ...before, location: "金閣寺" })).toBeNull();
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+describe("住所を足す・直すと、ルートの場所の住所も追いかける(2026-10-14)", () => {
+  const ADDRESS = "徳島県鳴門市大麻町板東塚鼻126";
+
+  it("住所を足したら、場所の名前のままのルートの場所を、住所に直す。名前(題名)はそのまま", () => {
+    const before = item({ id: "s1", title: "霊山寺", location: "霊山寺" });
+    const plan = planRouteFollow(before, { ...before, address: ADDRESS }, [], [place({ id: "p1", name: "霊山寺", address: "霊山寺" })]);
+    expect(plan).toMatchObject({ id: "p1", patch: { address: ADDRESS }, changed: ["場所"] });
+  });
+
+  it("住所を直したら、住所で作られているルートの場所の住所も直す", () => {
+    const before = item({ id: "s1", title: "霊山寺", location: "霊山寺", address: ADDRESS });
+    const plan = planRouteFollow(before, { ...before, address: "徳島県鳴門市大麻町板東塚鼻127" }, [], [place({ id: "p1", name: "霊山寺", address: ADDRESS })]);
+    expect(plan?.patch).toEqual({ address: "徳島県鳴門市大麻町板東塚鼻127" });
+  });
+
+  it("住所を入れてあるのに、ルートの場所がまだ名前のままの時は、日程を保存し直すだけで住所に直る(住所は変えていなくても)", () => {
+    const before = item({ id: "s1", title: "霊山寺", location: "霊山寺", address: ADDRESS });
+    const plan = planRouteFollow(before, { ...before, memo: "拝観は朝" }, [], [place({ id: "p1", name: "霊山寺", address: "霊山寺" })]);
+    expect(plan).toMatchObject({ id: "p1", patch: { address: ADDRESS } });
+  });
+
+  it("住所を消したら、場所に戻す。もうルートに同じ住所の場所があれば、変えない", () => {
+    const before = item({ id: "s1", title: "霊山寺", location: "霊山寺", address: ADDRESS });
+    expect(planRouteFollow(before, { ...before, address: undefined }, [], [place({ id: "p1", name: "霊山寺", address: ADDRESS })])?.patch).toEqual({ address: "霊山寺" });
+    const dup = place({ id: "p2", name: "別の名前", address: ADDRESS, sortOrder: 2 });
+    expect(planRouteFollow(item({ id: "s1", title: "霊山寺", location: "霊山寺" }), { ...before }, [], [place({ id: "p1", name: "霊山寺", address: "霊山寺" }), dup])).toBeNull();
+  });
+});
+
+describe("planAddressReflect(日程に住所が入っているのに、名前のままのルートの場所)", () => {
+  const ADDRESS = "徳島県鳴門市大麻町板東塚鼻126";
+  const withAddress = item({ id: "s1", title: "霊山寺", location: "霊山寺", address: ADDRESS });
+
+  it("同じ日・同じ場所の日程に住所があれば、住所に直す案を返す", () => {
+    expect(planAddressReflect([withAddress], [place({ id: "p1", name: "霊山寺", address: "霊山寺" })])).toEqual([{ id: "p1", placeName: "霊山寺", address: ADDRESS }]);
+  });
+
+  it("住所の無い日程・もう住所のルートの場所・日にちが違う・日にちが決まっていない場所・同じ住所がもうルートにある場合は、出さない", () => {
+    const named = place({ id: "p1", name: "霊山寺", address: "霊山寺" });
+    expect(planAddressReflect([item({ id: "s1", title: "霊山寺", location: "霊山寺" })], [named])).toEqual([]);
+    expect(planAddressReflect([withAddress], [place({ id: "p1", name: "霊山寺", address: ADDRESS })])).toEqual([]);
+    expect(planAddressReflect([withAddress], [{ ...named, date: "2026-10-20" }])).toEqual([]);
+    expect(planAddressReflect([withAddress], [{ ...named, date: undefined }])).toEqual([]);
+    expect(planAddressReflect([withAddress], [named, place({ id: "p2", name: "もう1つ", address: ADDRESS, sortOrder: 2 })])).toEqual([]);
+  });
+
+  it("同じ住所に直す場所が2つ並んでも、1つだけ(同じ住所が2つにならない)", () => {
+    const places = [place({ id: "p1", name: "霊山寺", address: "霊山寺" }), place({ id: "p2", name: "霊山寺(2)", address: "霊山寺", sortOrder: 2 })];
+    expect(planAddressReflect([withAddress], places)).toHaveLength(1);
   });
 });

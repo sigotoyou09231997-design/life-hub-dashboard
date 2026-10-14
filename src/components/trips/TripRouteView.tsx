@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
   Check,
@@ -31,6 +31,7 @@ import { TripLegRoute } from "./TripLegRoute";
 import { TripRouteTimeline } from "./TripRouteTimeline";
 import { buildRouteTimeline } from "../../lib/tripRouteTimeline";
 import { dayModeFromTransports, hintFor, transportHints } from "../../lib/tripDayRoute";
+import { planAddressReflect } from "../../lib/tripRouteFollow";
 import { TripPlaceStation } from "./TripPlaceStation";
 import { readHiddenPlaceIds, toggleHiddenPlace, writeHiddenPlaceIds } from "../../lib/tripRouteSelection";
 
@@ -340,6 +341,21 @@ export function TripRouteView({
     return hintFor(transportHints(schedule, place.date), place.address) ?? dayModeFromTransports(schedule, place.date);
   }
 
+  /** 日程に住所が入っているのに、場所の名前のままのルートの場所。 */
+  const addressReflects = useMemo(() => planAddressReflect(schedule, places), [schedule, places]);
+  const [reflecting, setReflecting] = useState(false);
+
+  async function reflectAddresses() {
+    setReflecting(true);
+    try {
+      await Promise.all(addressReflects.map((entry) => db.tripRoutePlaces.update(entry.id, { address: entry.address })));
+    } catch (error) {
+      console.error("[route] failed to reflect schedule addresses:", error);
+    } finally {
+      setReflecting(false);
+    }
+  }
+
   function legMode(legKey: string): TravelMode {
     const picked = legModes[legKey];
     if (picked) return picked;
@@ -473,6 +489,17 @@ export function TripRouteView({
                   日付なし<small>{places.filter((place) => !place.date).length}</small>
                 </button>
               )}
+            </div>
+          )}
+
+          {addressReflects.length > 0 && (
+            <div className="trip-route-reflect" role="status">
+              <p>
+                日程に住所が入っている場所が<b>{addressReflects.length}</b>件あります。ルートの地図に、その住所を使うと、同じ名前の別の場所に置かれません。
+              </p>
+              <button type="button" disabled={reflecting} onClick={() => void reflectAddresses()}>
+                {reflecting ? "反映しています…" : "日程の住所を反映"}
+              </button>
             </div>
           )}
 

@@ -2,6 +2,7 @@ import type { TripScheduleItem, TripTransportMode } from "../types";
 import { buildRouteSearchUrl, type TravelMode } from "./googleMaps";
 import { routeKey } from "./mailPlanImport";
 import { orderScheduleDay } from "./scheduleOrder";
+import { mapQueryFor } from "./scheduleDetails";
 
 /**
  * 旅行の1日ぶんの日程を、Googleマップの経路(出発地 → 経由地 → 目的地)として開くためのリンク。
@@ -59,9 +60,10 @@ export function maxWaypointsForDevice(): number {
  */
 export function dayRouteStops(items: TripScheduleItem[], date: string): string[] {
   // 並びは日程と同じ(入れ替えた日はその順)。場所の無い予定も並びには効くので、並べてから絞る。
+  // 場所の代わりに、詳細の住所が入っていれば住所を渡す(mapQueryFor)。名前だけの場所が別の場所に置かれるのを防ぐ。
   const places = orderScheduleDay(items.filter((item) => item.date === date))
-    .filter((item) => item.location?.trim())
-    .map((item) => item.location!.trim());
+    .map((item) => mapQueryFor(item))
+    .filter((place): place is string => Boolean(place));
   return places.filter((place, index) => index === 0 || routeKey(place) !== routeKey(places[index - 1]));
 }
 
