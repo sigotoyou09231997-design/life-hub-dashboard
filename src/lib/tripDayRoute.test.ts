@@ -300,3 +300,13 @@ describe("dayRouteStops: 移動の目的地(2026-10-14)", () => {
     expect(dayRouteStops([item("清水寺", "09:00", { endLocation: "どこか" }), item(undefined, "10:00", { type: "transport", endLocation: "京都駅" })], DAY)).toEqual(["清水寺", "京都駅"]);
   });
 });
+
+describe("dayRouteStops: 移動の目的地の住所(2026-10-15)", () => {
+  it("目的地の住所があれば、経路の地点には目的地の名前ではなく住所を渡す", () => {
+    const stops = dayRouteStops(
+      [item("東京駅", "08:00", { type: "transport", address: "東京都千代田区丸の内1-9-1", endLocation: "京都駅", endAddress: "京都府京都市下京区烏丸通塩小路下る東塩小路町" }), item("清水寺", "13:00")],
+      DAY,
+    );
+    expect(stops).toEqual(["東京都千代田区丸の内1-9-1", "京都府京都市下京区烏丸通塩小路下る東塩小路町", "清水寺"]);
+  });
+});

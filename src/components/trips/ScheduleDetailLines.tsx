@@ -5,6 +5,8 @@ import { phoneLabel, telHref, urlLabel } from "../../lib/scheduleDetails";
 interface Details {
   type: string;
   address?: string | null;
+  /** 移動の目的地の住所。 */
+  endAddress?: string | null;
   phone?: string | null;
   url?: string | null;
   openingHours?: string | null;
@@ -23,13 +25,21 @@ export function ScheduleDetailLines({ item }: { item: Details }) {
   const tel = telHref(item.phone ?? undefined);
   const url = item.url && /^https?:\/\//i.test(item.url) ? item.url : undefined;
   const stay = item.type === "lodging" && (item.checkInTime || item.checkOutTime);
-  if (!item.address && !item.phone && !item.url && !item.openingHours && !stay) return null;
+  const transport = item.type === "transport";
+  const endAddress = transport ? item.endAddress : null;
+  if (!item.address && !endAddress && !item.phone && !item.url && !item.openingHours && !stay) return null;
   return (
     <div className="mt-1 flex flex-col gap-0.5 text-xs">
       {item.address && (
         <a className={LINK} href={buildMapSearchUrl(item.address)} target="_blank" rel="noreferrer">
           <MapPinHouse size={12} className="shrink-0" aria-hidden="true" />
-          <span className="truncate">{item.address}</span>
+          <span className="truncate">{transport && endAddress ? `出発 ${item.address}` : item.address}</span>
+        </a>
+      )}
+      {endAddress && (
+        <a className={LINK} href={buildMapSearchUrl(endAddress)} target="_blank" rel="noreferrer">
+          <MapPinHouse size={12} className="shrink-0" aria-hidden="true" />
+          <span className="truncate">{item.address ? `到着 ${endAddress}` : endAddress}</span>
         </a>
       )}
       {item.phone &&

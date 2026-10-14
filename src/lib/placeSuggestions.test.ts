@@ -157,3 +157,12 @@ describe("collectPlaces: 移動の目的地も集める(2026-10-14)", () => {
     expect(collectPlaces([move, sight], []).places).toEqual(["東京駅", "児島駅", "清水寺"]);
   });
 });
+
+describe("collectPlaces: 目的地の住所(2026-10-15)", () => {
+  it("目的地の住所が入っていれば、目的地の名前は聞かず、住所を手がかりに回す", () => {
+    const move = { ...item("東京駅"), type: "transport" as const, endLocation: "児島駅", endAddress: "岡山県倉敷市児島駅前1-1" };
+    const result = collectPlaces([move], []);
+    expect(result.places).toEqual(["東京駅"]);
+    expect(result.context).toEqual(["岡山県倉敷市児島駅前1-1"]);
+  });
+});

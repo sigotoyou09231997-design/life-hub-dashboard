@@ -2,7 +2,7 @@ import { db } from "../db/schema";
 import type { TripRoutePlace, TripScheduleItem } from "../types";
 import { nextRouteSortOrder, routeKey } from "./mailPlanImport";
 import { isRouteLinked } from "./routeLink";
-import { mapQueryFor } from "./scheduleDetails";
+import { endMapQueryFor, mapQueryFor } from "./scheduleDetails";
 import { toRouteSuggestions } from "./tripRouteSuggestions";
 
 /**
@@ -13,7 +13,7 @@ import { toRouteSuggestions } from "./tripRouteSuggestions";
  * 迷う時は何もしない(別の場所・別の予定を書き換えない・消さない)。連動は旅行ごとに切れる(src/lib/routeLink.ts)。
  */
 
-type ScheduleField = "address" | "location" | "endLocation";
+type ScheduleField = "address" | "location" | "endAddress" | "endLocation";
 
 /** その日程のどの項目が、このルートの場所(の住所)に当たるか。当たらなければ null。 */
 function fieldFor(item: TripScheduleItem, key: string): ScheduleField | null {
@@ -22,7 +22,14 @@ function fieldFor(item: TripScheduleItem, key: string): ScheduleField | null {
     if (query && routeKey(query) === key) return "address";
   }
   if (item.location?.trim() && routeKey(item.location) === key) return "location";
-  if (item.type === "transport" && item.endLocation?.trim() && routeKey(item.endLocation) === key) return "endLocation";
+  // 移動の目的地(住所が入っていれば住所、無ければ目的地の名前。住所が入った後も、名前のままのルートの場所を見つける)。
+  if (item.type === "transport") {
+    if (item.endAddress?.trim()) {
+      const query = endMapQueryFor(item);
+      if (query && routeKey(query) === key) return "endAddress";
+    }
+    if (item.endLocation?.trim() && routeKey(item.endLocation) === key) return "endLocation";
+  }
   return null;
 }
 
@@ -76,13 +83,13 @@ export async function addRouteForNewSchedule(tripId: string, newIds: string[]): 
 // ── 日程を消したら、ルートの場所も外す ──────────────────────────────────────
 
 /** 日程から作られたルートの場所に、そのとき付いたメモ(src/lib/tripRouteSuggestions.ts と同じ決まり)。 */
-function derivedMemo(item: TripScheduleItem, field: ScheduleField): string | undefined {
-  return item.type === "transport" || field === "endLocation" ? item.title.trim() : item.memo?.trim() || undefined;
+function derivedMemo(item: TripScheduleItem): string | undefined {
+  return item.type === "transport" ? item.title.trim() : item.memo?.trim() || undefined;
 }
 
 /** 日程から作られたルートの場所の名前。 */
 function derivedName(item: TripScheduleItem, field: ScheduleField): string {
-  if (item.type === "transport") return (field === "endLocation" ? item.endLocation : item.location)?.trim() ?? "";
+  if (item.type === "transport") return (field === "endLocation" || field === "endAddress" ? item.endLocation : item.location)?.trim() ?? "";
   return item.title.trim();
 }
 
@@ -101,7 +108,7 @@ export function planRouteRemoval(deleted: TripScheduleItem, remaining: TripSched
     if (!field) continue;
     if (sameDay.some((item) => fieldFor(item, key))) continue;
     if (place.visited) continue;
-    if (place.memo?.trim() && place.memo.trim() !== derivedMemo(deleted, field)) continue;
+    if (place.memo?.trim() && place.memo.trim() !== derivedMemo(deleted)) continue;
     if (place.name.trim() !== derivedName(deleted, field)) continue;
     removable.push(place);
   }
@@ -128,12 +135,12 @@ export async function routePlacesToRemove(deleted: TripScheduleItem): Promise<Tr
 export interface ScheduleFollowPlan {
   id: string;
   title: string;
-  patch: Partial<Pick<TripScheduleItem, "address" | "location" | "endLocation" | "date" | "title" | "sortOrder">>;
+  patch: Partial<Pick<TripScheduleItem, "address" | "location" | "endLocation" | "endAddress" | "date" | "title" | "sortOrder">>;
   /** 何を直したか(「場所」「住所」「目的地」「日にち」「題名」)。 */
   changed: string[];
 }
 
-const FIELD_LABEL: Record<ScheduleField, string> = { address: "住所", location: "場所", endLocation: "目的地" };
+const FIELD_LABEL: Record<ScheduleField, string> = { address: "住所", location: "場所", endAddress: "目的地の住所", endLocation: "目的地" };
 
 /**
  * ルートの場所を直した時に、同じ日・同じ場所の日程を直す案(その場所を使っている日程ぜんぶ)。
@@ -171,6 +178,7 @@ export function planScheduleFollow(before: TripRoutePlace, after: TripRoutePlace
 
     if (
       field !== "endLocation" &&
+      field !== "endAddress" &&
       item.type !== "transport" &&
       after.name.trim() &&
       after.name.trim() !== before.name.trim() &&

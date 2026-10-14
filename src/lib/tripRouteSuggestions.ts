@@ -1,7 +1,7 @@
 import type { TripRoutePlace, TripScheduleItem, TripScheduleType } from "../types";
 import { routeKey } from "./mailPlanImport";
 import { orderSchedule } from "./scheduleOrder";
-import { mapQueryFor } from "./scheduleDetails";
+import { endMapQueryFor, mapQueryFor } from "./scheduleDetails";
 
 /**
  * 日程に入っているのに、ルートにはまだ無い場所。
@@ -55,7 +55,9 @@ export function toRouteSuggestions(schedule: TripScheduleItem[], places: TripRou
 
   for (const item of sorted) {
     // 移動の目的地(2026-10-14)。出発地とは別の場所として、候補にする(同じ場所がもうルートにあれば出さない)。
-    const destination = item.type === "transport" ? item.endLocation?.trim() : undefined;
+    // 地図に渡す文字は、目的地の住所があれば住所(2026-10-15)、無ければ目的地の名前。
+    const destination = endMapQueryFor(item);
+    const destinationName = item.type === "transport" ? item.endLocation?.trim() || destination : undefined;
     // 地図に渡す文字は、住所が入っていれば住所(mapQueryFor)。まだ場所のままルートに入っている場所も「入っている」と数える
     // (住所を足したあと、同じ場所が候補にまた出ないように。入っているものの住所の直しは、ルートの「日程の住所を反映」)。
     const address = mapQueryFor(item);
@@ -78,13 +80,15 @@ export function toRouteSuggestions(schedule: TripScheduleItem[], places: TripRou
         });
       }
     }
-    if (item.id && destination && !seen.has(routeKey(destination))) {
+    const destinationNameKey = destinationName ? routeKey(destinationName) : "";
+    if (item.id && destination && !seen.has(routeKey(destination)) && !seen.has(destinationNameKey)) {
       seen.add(routeKey(destination));
+      if (destinationNameKey) seen.add(destinationNameKey);
       suggestions.push({
         scheduleId: `${item.id}#end`,
         date: item.date,
         startTime: item.endTime ?? item.startTime,
-        name: destination,
+        name: destinationName ?? destination,
         address: destination,
         memo: item.title.trim(),
         title: item.title.trim(),

@@ -264,3 +264,29 @@ describe("連動を切っている旅行では、日程を直してもルート�
     expect(await followRouteAfterEdit(before, { ...before, location: "金閣寺" })).not.toBeNull();
   });
 });
+
+describe("目的地の住所の連動(2026-10-15)", () => {
+  const ADDR = "京都府京都市下京区烏丸通塩小路下る東塩小路町";
+  const move = (over: Partial<TripScheduleItem> = {}) => item({ id: "m1", title: "のぞみ13号", type: "transport", location: "東京駅", endLocation: "京都駅", ...over });
+
+  it("目的地の住所を足したら、名前のままの目的地のルートの場所を住所に直す(名前はそのまま)", () => {
+    const before = move();
+    const plans = planRouteFollowAll(before, { ...before, endAddress: ADDR }, [], [place({ id: "a", name: "東京駅", address: "東京駅" }), place({ id: "b", name: "京都駅", address: "京都駅", sortOrder: 2 })]);
+    expect(plans).toHaveLength(1);
+    expect(plans[0]).toMatchObject({ id: "b", patch: { address: ADDR }, changed: ["場所"] });
+  });
+
+  it("目的地の住所を直したら、住所で作られているルートの場所の住所も直す", () => {
+    const before = move({ endAddress: ADDR });
+    const plans = planRouteFollowAll(before, { ...before, endAddress: "京都府京都市下京区烏丸通塩小路下る東塩小路町1" }, [], [place({ id: "b", name: "京都駅", address: ADDR })]);
+    expect(plans[0].patch).toEqual({ address: "京都府京都市下京区烏丸通塩小路下る東塩小路町1" });
+  });
+
+  it("planAddressReflect: 日程に目的地の住所が入っているのに、名前のままのルートの目的地を、住所に直す案にする", () => {
+    const schedule = [move({ endAddress: ADDR })];
+    expect(planAddressReflect(schedule, [place({ id: "b", name: "京都駅", address: "京都駅" })])).toEqual([{ id: "b", placeName: "京都駅", address: ADDR }]);
+    // 出発地の住所も同じ日程にあれば、出発地は出発地の住所へ。
+    const both = [move({ address: "東京都千代田区丸の内1-9-1", endAddress: ADDR })];
+    expect(planAddressReflect(both, [place({ id: "a", name: "東京駅", address: "東京駅" }), place({ id: "b", name: "京都駅", address: "京都駅", sortOrder: 2 })]).map((r) => r.address)).toEqual(["東京都千代田区丸の内1-9-1", ADDR]);
+  });
+});

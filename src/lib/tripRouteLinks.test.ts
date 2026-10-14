@@ -169,3 +169,25 @@ describe("planScheduleFollow(ルートを直したら、元の日程も直す)",
     expect(mocks.scheduleUpdates).toEqual([]);
   });
 });
+
+describe("目的地の住所の連動(2026-10-15)", () => {
+  const ADDR = "京都府京都市下京区烏丸通塩小路下る東塩小路町";
+  const move = item({ id: "m", title: "のぞみ13号", type: "transport", location: "東京駅", endLocation: "京都駅", endAddress: ADDR });
+
+  it("ルートの目的地(住所)を直したら、日程の目的地の住所を直す", () => {
+    const dest = place({ id: "p", name: "京都駅", address: ADDR });
+    expect(planScheduleFollow(dest, { ...dest, address: `${ADDR}1` }, [move])).toEqual([{ id: "m", title: "のぞみ13号", patch: { endAddress: `${ADDR}1` }, changed: ["目的地の住所"] }]);
+  });
+
+  it("日程を消したら、住所で作られた目的地のルートの場所も外す。名前のままの目的地も外す", () => {
+    const byAddress = place({ id: "a", name: "京都駅", address: ADDR, memo: "のぞみ13号" });
+    const byName = place({ id: "b", name: "京都駅", address: "京都駅", memo: "のぞみ13号", sortOrder: 2 });
+    expect(planRouteRemoval(move, [], [byAddress]).map((p) => p.id)).toEqual(["a"]);
+    expect(planRouteRemoval(move, [], [byName]).map((p) => p.id)).toEqual(["b"]);
+  });
+
+  it("足した移動の目的地は、住所でルートに入る", () => {
+    const rows = planRouteAdds(["m"], [move], [], "t1", 1);
+    expect(rows.map((row) => [row.name, row.address])).toEqual([["東京駅", "東京駅"], ["京都駅", ADDR]]);
+  });
+});

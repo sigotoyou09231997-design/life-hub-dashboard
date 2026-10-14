@@ -1247,3 +1247,25 @@ describe("039: 保留中の依頼への質問と答え", () => {
   });
 });
 
+describe("040: 日程の移動の目的地の住所", () => {
+  const T040 = "bbbbbbbb-0040-4ccc-8ddd-eeeeeeeeeeee";
+  it("予定に目的地の住所(end_address)を書けて、共有したしおりにも出る。入れていない予定は null(今までどおり)", async () => {
+    await db.exec(`
+      insert into public.trips (id, user_id, device_id, name, destination, start_date, end_date, status)
+        values ('${T040}', '${USER}', 'pc', '住所の旅', '京都', '2026-12-27', '2026-12-28', 'planning');
+      insert into public.trip_schedule (id, user_id, device_id, trip_id, date, title, type, location, address, end_location, end_address)
+        values ('bbbbbbbb-0040-4ccc-8ddd-000000000001', '${USER}', 'pc', '${T040}', '2026-12-27', '新幹線', 'transport', '東京駅', '東京都千代田区丸の内1-9-1', '京都駅', '京都府京都市下京区烏丸通塩小路下る東塩小路町');
+      insert into public.trip_schedule (id, user_id, device_id, trip_id, date, title, type, location)
+        values ('bbbbbbbb-0040-4ccc-8ddd-000000000002', '${USER}', 'pc', '${T040}', '2026-12-27', '清水寺', 'sightseeing', '清水寺');
+      insert into public.trip_shares (id, user_id, trip_id, token, include_expenses)
+        values ('bbbbbbbb-0040-4ccc-8ddd-000000000003', '${USER}', '${T040}', 'share-token-040', false);
+    `);
+    const shared = await as("anon", null, async () =>
+      (await db.query<{ r: { schedule: Record<string, string | null>[] } }>("select public.get_shared_trip('share-token-040') as r")).rows[0].r,
+    );
+    const byTitle = Object.fromEntries(shared.schedule.map((row) => [row.title as string, row]));
+    expect(byTitle["新幹線"]).toMatchObject({ endLocation: "京都駅", endAddress: "京都府京都市下京区烏丸通塩小路下る東塩小路町", address: "東京都千代田区丸の内1-9-1" });
+    expect(byTitle["清水寺"]).toMatchObject({ endLocation: null, endAddress: null });
+  });
+});
+

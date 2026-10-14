@@ -1,6 +1,6 @@
 import type { TripRoutePlace, TripScheduleItem } from "../types";
 import { routeKey } from "./mailPlanImport";
-import { mapQueryFor } from "./scheduleDetails";
+import { endMapQueryFor, mapQueryFor } from "./scheduleDetails";
 
 /**
  * ルートの「時間で見る」並び(src/components/trips/TripRouteTimeline.tsx)の材料。
@@ -46,7 +46,7 @@ function isSamePlace(place: TripRoutePlace, item: TripScheduleItem): boolean {
   const address = routeKey(place.address);
   const name = routeKey(place.name);
   // 日程の「場所」のほか、詳細の住所(地図には住所が渡る)と、移動の目的地も、ルートの場所になる(2026-10-14)。
-  const spots = [item.location, mapQueryFor(item), item.type === "transport" ? item.endLocation : undefined]
+  const spots = [item.location, mapQueryFor(item), item.type === "transport" ? item.endLocation : undefined, endMapQueryFor(item)]
     .filter((spot): spot is string => Boolean(spot?.trim()))
     .map(routeKey);
   if (spots.some((spot) => spot === address || spot === name)) return true;

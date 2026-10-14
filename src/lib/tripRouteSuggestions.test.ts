@@ -117,3 +117,20 @@ describe("移動の目的地もルートの候補にする(2026-10-14)", () => {
     expect(toRouteSuggestions([item({ id: "s1", date: "2026-09-19", title: "清水寺", location: "清水寺", endLocation: "どこか" })], []).map((s) => s.name)).toEqual(["清水寺"]);
   });
 });
+
+describe("移動の目的地の住所をルートの候補にする(2026-10-15)", () => {
+  const move = item({ id: "m1", date: "2026-09-19", startTime: "08:00", endTime: "10:15", title: "のぞみ13号", type: "transport", location: "東京駅", address: "東京都千代田区丸の内1-9-1", endLocation: "京都駅", endAddress: "京都府京都市下京区烏丸通塩小路下る東塩小路町" });
+
+  it("出発地・目的地とも、地図に渡す文字は住所。名前は場所の名前のまま", () => {
+    const result = toRouteSuggestions([move], []);
+    expect(result.map((s) => [s.name, s.address])).toEqual([
+      ["東京駅", "東京都千代田区丸の内1-9-1"],
+      ["京都駅", "京都府京都市下京区烏丸通塩小路下る東塩小路町"],
+    ]);
+  });
+
+  it("まだ名前のままルートに入っている目的地も「入っている」と数える(候補にまた出さない)", () => {
+    expect(toRouteSuggestions([move], [place("京都駅", "2026-09-19")]).map((s) => s.name)).toEqual(["東京駅"]);
+    expect(toRouteSuggestions([move], [place("京都府京都市下京区烏丸通塩小路下る東塩小路町", "2026-09-19")]).map((s) => s.name)).toEqual(["東京駅"]);
+  });
+});

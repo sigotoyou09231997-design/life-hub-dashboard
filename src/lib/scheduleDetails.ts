@@ -6,11 +6,11 @@ import type { TripScheduleItem } from "../types";
  * 2026-10-11、要望の受信箱「予定のところに住所、電話番号、URL、営業時間、ホテルならチェックイン・
  * チェックアウト時間が入ってると便利」から。
  */
-export type ScheduleDetailField = "address" | "phone" | "url" | "openingHours" | "checkInTime" | "checkOutTime";
+export type ScheduleDetailField = "address" | "endAddress" | "phone" | "url" | "openingHours" | "checkInTime" | "checkOutTime";
 
 export function hasScheduleDetails(item: Partial<Pick<TripScheduleItem, ScheduleDetailField>> | undefined): boolean {
   if (!item) return false;
-  return Boolean(item.address || item.phone || item.url || item.openingHours || item.checkInTime || item.checkOutTime);
+  return Boolean(item.address || item.endAddress || item.phone || item.url || item.openingHours || item.checkInTime || item.checkOutTime);
 }
 
 /**
@@ -21,11 +21,24 @@ export function hasScheduleDetails(item: Partial<Pick<TripScheduleItem, Schedule
  * 場所も住所も無ければ undefined。
  */
 export function mapQueryFor(item: Pick<TripScheduleItem, "location" | "address">): string | undefined {
-  const address = (item.address ?? "")
+  return cleanAddress(item.address) || item.location?.trim() || undefined;
+}
+
+/** 住所の先頭の郵便番号と、余計な空白を外す。 */
+export function cleanAddress(raw: string | null | undefined): string {
+  return (raw ?? "")
     .replace(/^[\s　]*〒?[\s　]*\d{3}[-ー−]?\d{4}[\s　]*/, "")
     .replace(/[\s　]+/g, " ")
     .trim();
-  return address || item.location?.trim() || undefined;
+}
+
+/**
+ * 移動の目的地を、地図・経路に渡す文字(2026-10-15)。目的地の住所が入っていれば住所、無ければ目的地の名前。
+ * 移動でない予定の目的地欄は使わない。何も無ければ undefined。
+ */
+export function endMapQueryFor(item: Pick<TripScheduleItem, "type" | "endLocation" | "endAddress">): string | undefined {
+  if (item.type !== "transport") return undefined;
+  return cleanAddress(item.endAddress) || item.endLocation?.trim() || undefined;
 }
 
 /** URL の頭に http(s):// が無ければ https:// を付ける(「example.com」と打っても開けるように)。空は空。 */
@@ -98,6 +111,8 @@ export function detailsForSave(
   const lodging = type === "lodging";
   return {
     address: text(values.address),
+    // 目的地の住所は、移動の時だけ(宿泊のチェックインと同じ)。
+    endAddress: type === "transport" ? text(values.endAddress) : undefined,
     phone: text(formatPhone(values.phone)),
     url: normalizeUrl(values.url),
     openingHours: text(values.openingHours),
