@@ -1154,3 +1154,96 @@ describe("038: 日程の移動の目的地", () => {
     expect(byTitle["清水寺"]).toMatchObject({ location: "清水寺", endLocation: null });
   });
 });
+
+describe("039: 保留中の依頼への質問と答え", () => {
+  const OWNER = USER;
+  const SENDER = "88888888-3333-4333-8444-555555555555";
+  const OTHER_SENDER = "99999999-3333-4333-8444-555555555555";
+  const readCode = "FBQUESTIONCODE123456";
+  const asUser = <T,>(sub: string, fn: () => Promise<T>) => as("authenticated", { sub, role: "authenticated" }, fn);
+  type Result = { ok: boolean; reason?: string };
+  const ask = async (id: string, note: string | null, options: unknown) =>
+    (await db.query<{ r: Result }>("select public.app_feedback_ask($1, $2, $3, $4::jsonb) as r", [readCode, id, note, JSON.stringify(options)])).rows[0].r;
+  /** 答えを送る。as() は終わったら全部取り消すので、ここでは取り消さずに確定する(答えが残るかを、あとで見るため)。 */
+  const answer = async (sub: string | null, id: string, text: string | null): Promise<Result> => {
+    await db.exec("begin");
+    try {
+      await db.exec(`set local role ${sub === null ? "anon" : "authenticated"}`);
+      if (sub !== null) await db.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub, role: "authenticated" })]);
+      const result = (await db.query<{ r: Result }>("select public.app_feedback_answer($1, $2) as r", [id, text])).rows[0].r;
+      await db.exec("commit");
+      return result;
+    } catch (error) {
+      await db.exec("rollback");
+      throw error;
+    }
+  };
+  const row = async (id: string) =>
+    (await db.query<{ status: string; status_note: string | null; question_options: string[] | null; answer: string | null; answered_at: Date | null }>(
+      "select status, status_note, question_options, answer, answered_at from public.app_feedback where id = $1",
+      [id],
+    )).rows[0];
+  const inbox = async () =>
+    (await db.query<{ r: { items: { id: string; status: string; statusNote: string | null; questionOptions: string[] | null; answer: string | null; answeredAt: string | null }[] } }>("select public.app_feedback_inbox($1, false) as r", [readCode])).rows[0].r.items;
+  let mine = "";
+  let others = "";
+
+  beforeAll(async () => {
+    await db.exec("delete from public.app_feedback_owner; delete from public.app_feedback_read_codes; delete from public.app_feedback;");
+    await db.query("insert into public.app_feedback_owner (id, user_id) values ('owner', $1)", [OWNER]);
+    await db.query("insert into public.app_feedback_read_codes (id, code_hash) values ('owner', $1)", [createHash("sha256").update(readCode).digest("hex")]);
+    mine = (await db.query<{ id: string }>("insert into public.app_feedback (sender_id, via, message) values ($1, 'app', '日程とルートが連動してほしい') returning id", [SENDER])).rows[0].id;
+    others = (await db.query<{ id: string }>("insert into public.app_feedback (sender_id, via, message) values ($1, 'app', '別の人の依頼') returning id", [OTHER_SENDER])).rows[0].id;
+  });
+
+  it("質問と選択肢を付けて保留中にできる。選択肢は前後の空白・空・重複を整える。保留中は見張りが見る一覧(対応待ち)から外れる", async () => {
+    expect(await ask(mine, "  どれをつなぎますか?  ", ["  ルートを直したら日程も ", "日程を消したらルートも", "", "ルートを直したら日程も"])).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "hold", status_note: "どれをつなぎますか?", question_options: ["ルートを直したら日程も", "日程を消したらルートも"], answer: null, answered_at: null });
+    expect((await inbox()).map((item) => item.id)).toEqual([others]);
+  });
+
+  it("選択肢が2つ未満・7つ以上・配列でない・読み取りコードが違う・依頼が無い時は断る(何も変わらない)", async () => {
+    expect(await ask(mine, "質問", ["1つだけ"])).toEqual({ ok: false, reason: "invalid_options" });
+    expect(await ask(mine, "質問", ["a", "b", "c", "d", "e", "f", "g"])).toEqual({ ok: false, reason: "invalid_options" });
+    expect(await ask(mine, "質問", { a: 1 })).toEqual({ ok: false, reason: "invalid_options" });
+    expect(await ask(mine, "質問", ["", " "])).toEqual({ ok: false, reason: "invalid_options" });
+    expect((await db.query<{ r: Result }>("select public.app_feedback_ask('違うコード', $1, '質問', '[\"a\",\"b\"]'::jsonb) as r", [mine])).rows[0].r).toEqual({ ok: false, reason: "invalid_code" });
+    expect(await ask("00000000-0000-4000-8000-000000000000", "質問", ["a", "b"])).toEqual({ ok: false, reason: "not_found" });
+    expect((await row(mine)).question_options).toEqual(["ルートを直したら日程も", "日程を消したらルートも"]);
+  });
+
+  it("送った人は、選択肢にある答えを送れる。依頼は「対応待ち」に戻り、答えと時刻が付いて、見張りの一覧に出る", async () => {
+    expect(await answer(SENDER, mine, "日程を消したらルートも")).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "new", answer: "日程を消したらルートも" });
+    expect((await row(mine)).answered_at).not.toBeNull();
+    const item = (await inbox()).find((entry) => entry.id === mine)!;
+    expect(item).toMatchObject({ status: "new", answer: "日程を消したらルートも", questionOptions: ["ルートを直したら日程も", "日程を消したらルートも"] });
+    expect(item.answeredAt).not.toBeNull();
+  });
+
+  it("同じ質問に2回は答えられない(もう保留中ではない)。持ち主がもう一度質問すると、前の答えは消える", async () => {
+    expect(await answer(SENDER, mine, "ルートを直したら日程も")).toEqual({ ok: false, reason: "not_asking" });
+    expect(await ask(mine, "もう一つ", ["はい", "いいえ"])).toEqual({ ok: true });
+    expect(await row(mine)).toMatchObject({ status: "hold", answer: null, answered_at: null });
+    expect(await answer(SENDER, mine, "はい")).toEqual({ ok: true });
+  });
+
+  it("選択肢に無い答え・ほかの人の依頼・ログインしていない人・質問のない保留は断る", async () => {
+    expect(await ask(mine, "再び", ["はい", "いいえ"])).toEqual({ ok: true });
+    expect(await answer(SENDER, mine, "どちらでもない")).toEqual({ ok: false, reason: "invalid_answer" });
+    expect(await answer(SENDER, mine, null)).toEqual({ ok: false, reason: "invalid_answer" });
+    expect(await answer(OTHER_SENDER, mine, "はい")).toEqual({ ok: false, reason: "not_found" });
+    expect(await answer(null, mine, "はい")).toEqual({ ok: false, reason: "not_signed_in" });
+    // 質問を付けずに保留中にした依頼には、答えられない。
+    await db.query("update public.app_feedback set status = 'hold', question_options = null where id = $1", [others]);
+    expect(await answer(OTHER_SENDER, others, "はい")).toEqual({ ok: false, reason: "not_asking" });
+    expect((await row(mine)).status).toBe("hold");
+  });
+
+  it("送った人は自分の依頼の行を直接は書き換えられない(答えは関数だけ)。持ち主以外は、質問を付ける関数を使えない(読み取りコードが要る)", async () => {
+    await expect(asUser(SENDER, () => db.exec(`update public.app_feedback set answer = '勝手に', status = 'new' where id = '${mine}'`))).resolves.not.toThrow();
+    // 更新は 0 件(行は書き換わっていない)。
+    expect(await row(mine)).toMatchObject({ status: "hold", answer: null });
+  });
+});
+

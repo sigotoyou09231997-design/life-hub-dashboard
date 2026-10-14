@@ -50,6 +50,12 @@ export interface FeedbackItem {
   statusNote?: string;
   /** かかる時間の目安(分。037 を流す前は無い)。直し始める時に付く。ゲージに使う(src/lib/feedbackGauge.ts)。 */
   estimateMinutes?: number;
+  /** 保留中の質問の選択肢(039 を流す前は無い)。あれば、送った人はボタンで答えられる。statusNote が質問の文。 */
+  questionOptions?: string[];
+  /** 送った人が押した答え(039)。答えると、依頼は「対応待ち」に戻る。 */
+  answer?: string;
+  /** 答えた時刻(039)。 */
+  answeredAt?: string;
 }
 
 export type FeedbackFailure =
@@ -193,6 +199,9 @@ interface FeedbackRow {
   working_at?: string | null;
   status_note?: string | null;
   estimate_minutes?: number | null;
+  question_options?: unknown;
+  answer?: string | null;
+  answered_at?: string | null;
 }
 
 export function rowToFeedback(row: FeedbackRow): FeedbackItem {
@@ -210,11 +219,14 @@ export function rowToFeedback(row: FeedbackRow): FeedbackItem {
     workingAt: row.working_at ?? undefined,
     statusNote: row.status_note ?? undefined,
     estimateMinutes: row.estimate_minutes ?? undefined,
+    questionOptions: Array.isArray(row.question_options) ? row.question_options.filter((option): option is string => typeof option === "string") : undefined,
+    answer: row.answer ?? undefined,
+    answeredAt: row.answered_at ?? undefined,
   };
 }
 
 /** あとから足された列(033 の画像の枚数・035 の修正中の時刻)。流す前の本番には無いので、無ければ外して読み直す。 */
-const OPTIONAL_COLUMNS = ["image_count", "working_at", "status_note", "estimate_minutes"];
+const OPTIONAL_COLUMNS = ["image_count", "working_at", "status_note", "estimate_minutes", "question_options", "answer", "answered_at"];
 const BASE_COLUMNS = "id, via, sender_name, trip_name, page, message, app_version, status, created_at";
 
 type FeedbackQuery = (columns: string) => PromiseLike<{ data: unknown; error: { code?: string; message?: string } | null }>;
@@ -291,6 +303,35 @@ export async function setFeedbackStatus(id: string, status: FeedbackStatus): Pro
     if (!missing) throw error;
     delete patch[missing];
   }
+  notifyFeedbackChanged();
+}
+
+/**
+ * 保留中の質問(選ぶボタン)に答える(2026-10-14、持ち主「質問者がボタンを押したらその回答がこっちに送信されるように」。supabase/sql/039)。
+ * 自分が送った依頼で、保留中で、選択肢にある答えの時だけ通る。通ると、依頼は「対応待ち」に戻り、持ち主の見張りに答えが流れる。
+ * 失敗の理由は FeedbackError("failed" / "unavailable")で返す。
+ */
+export async function answerFeedback(id: string, answer: string): Promise<void> {
+  if (!isSupabaseConfigured) throw new FeedbackError("unavailable");
+  const accessToken = (await auth.getSession()).data.session?.access_token;
+  if (!accessToken) throw new FeedbackError("failed");
+  const { url, anonKey } = getSupabaseConfig();
+  let response: Response;
+  try {
+    response = await fetch(`${url}/rest/v1/rpc/app_feedback_answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: anonKey, Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ p_id: id, p_answer: answer }),
+    });
+  } catch {
+    throw new FeedbackError("failed");
+  }
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { code?: string; message?: string } | null;
+    throw new FeedbackError(isMissingTable(body) || response.status === 404 ? "unavailable" : "failed");
+  }
+  const result = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+  if (!result?.ok) throw new FeedbackError("failed");
   notifyFeedbackChanged();
 }
 

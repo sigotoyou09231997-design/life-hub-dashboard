@@ -5,6 +5,7 @@
 //   node scripts/feedback-inbox.mjs --all        対応済み・見送りも並べる
 //   node scripts/feedback-inbox.mjs --json       そのまま JSON で出す
 //   node scripts/feedback-inbox.mjs --hold <id> "理由"  保留中にする(直さずに止める時。理由・聞きたいことの一言をアプリに出す。036 を流した後)
+//   node scripts/feedback-inbox.mjs --hold <id> "質問" --option "A" --option "B" …  質問つきで保留中にする(送った人にボタンが出て、押された答えが見張りに流れる。2〜6つ。039 を流した後)
 //   node scripts/feedback-inbox.mjs --working <id> [--estimate <分>]  対応中にする(--estimate で、かかる時間の目安をアプリのゲージに出す。037 を流した後。目安は scripts/estimate-fix.mjs で出す)
 //   node scripts/feedback-inbox.mjs --working <id>  対応中にする(直し始めた時。アプリの「修正」が「対応中」になる。035 を流した後)
 //   node scripts/feedback-inbox.mjs --done <id>  対応済みにする(--dismiss で見送り、--reopen で対応待ちに戻す)
@@ -21,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { saveFeedbackImages } from "./feedbackImages.mjs";
 import { startWithEstimate } from "./feedbackStart.mjs";
+import { askWithOptions, readOptions } from "./feedbackAsk.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -108,8 +110,18 @@ async function main() {
   if (args.includes("--hold")) {
     const index = args.indexOf("--hold");
     const id = args[index + 1];
-    const note = args[index + 2] ?? "";
+    const note = args[index + 2]?.startsWith("--") ? "" : (args[index + 2] ?? "");
     if (!id) throw new Error('--hold のあとに要望の id と、理由(任意)を付けてください: --hold <id> "理由"');
+    // --option が2つ以上あれば、送った人に質問(選ぶボタン)を付ける。答えは見張り(feedback-watch)に「回答が届いた」と流れる。
+    const options = readOptions(args);
+    if (options.length > 0) {
+      const asked = await askWithOptions((name, body) => rpc(env, name, body), { code, id, note, options });
+      if (asked.ok) {
+        console.log(`${id} を「保留中」にして、質問を送りました(質問: ${note || "(文なし)"} / ボタン: ${options.join(" ・ ")})。答えが届くと、見張りに出ます`);
+        return;
+      }
+      console.error("質問のボタンは付けられませんでした(supabase/sql/039_feedback_question.sql がまだ本番で流れていません)。質問なしの「保留中」だけ付けます");
+    }
     try {
       const result = await rpc(env, "app_feedback_hold", { p_code: code, p_id: id, p_note: note });
       if (!result.ok) throw new Error(`保留中にできませんでした(${result.reason})`);
@@ -169,9 +181,10 @@ async function main() {
   for (const item of items) {
     const who = item.senderName ?? (item.via === "share" ? "しおりを見た人" : "名前なし");
     const from = item.tripName ? `${who}(「${item.tripName}」のしおりから)` : who;
-    console.log(`■ ${when(item.createdAt)}  ${from}  [${item.status}]`);
+    console.log(`■ ${when(item.createdAt)}  ${from}  [${item.status}]${item.answer ? "  (回答あり)" : ""}`);
     console.log(`  画面: ${item.page ?? "-"}  版: ${item.appVersion ?? "-"}  id: ${item.id}`);
     for (const line of String(item.message).split(/\r?\n/)) console.log(`  │ ${line}`);
+    if (item.answer) console.log(`  質問「${item.statusNote ?? ""}」への答え: ${item.answer}`);
     if (item.imageCount > 0) console.log(`  画像 ${item.imageCount}枚(node scripts/feedback-inbox.mjs --images ${item.id} で保存して開く)`);
     console.log("");
   }

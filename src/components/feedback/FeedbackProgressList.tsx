@@ -1,4 +1,5 @@
-import { feedbackStatusLabel, type FeedbackItem } from "../../lib/appFeedback";
+import { useState } from "react";
+import { answerFeedback, feedbackStatusLabel, FeedbackError, type FeedbackItem } from "../../lib/appFeedback";
 import { useFeedbackCounts, useFeedbackProgress } from "../../hooks/useFeedbackProgress";
 import { isActiveFeedback } from "../../lib/feedbackProgress";
 import { agoLabel } from "../../lib/feedbackTime";
@@ -28,6 +29,49 @@ function subText(item: FeedbackItem, nowMs: number): { arrived: string; working?
   const ago = isActiveFeedback(item) ? agoLabel(item.createdAt, nowMs) : "";
   const arrived = `${timeLabel(item.createdAt)} に届きました${ago ? `（${ago}）` : ""}`;
   return item.status === "working" && item.workingAt ? { arrived, working: `${timeLabel(item.workingAt)} から対応中` } : { arrived };
+}
+
+/**
+ * 保留中の質問に答えるボタン(2026-10-14、持ち主「質問者がボタンを押したらその回答がこっちに送信されるように」。supabase/sql/039)。
+ * 質問の文は statusNote、選択肢は questionOptions。押すと答えが持ち主に送られて、依頼は「対応待ち」に戻る。
+ * 一度押したら、返事が来るまで押せない(二重に送らない)。失敗したら理由を出して、もう一度押せる。
+ */
+function QuestionButtons({ item }: { item: FeedbackItem }) {
+  const [sending, setSending] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  if (item.status !== "hold" || !item.questionOptions || item.questionOptions.length < 2) return null;
+
+  async function answer(option: string) {
+    setSending(option);
+    setError("");
+    try {
+      await answerFeedback(item.id, option);
+    } catch (err) {
+      setError(err instanceof FeedbackError ? err.message : "送れませんでした。もう一度お試しください");
+      setSending(null);
+    }
+  }
+
+  return (
+    <div className="mt-1.5 flex flex-col gap-1.5" role="group" aria-label="質問への答え">
+      {item.questionOptions.map((option) => (
+        <button
+          key={option}
+          type="button"
+          disabled={sending !== null}
+          onClick={() => void answer(option)}
+          className="rounded-xl border border-accent/30 bg-white/80 px-3 py-2 text-left text-sm font-medium text-accent active:bg-accent/10 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+        >
+          {sending === option ? "送っています…" : option}
+        </button>
+      ))}
+      {error && (
+        <span role="alert" className="text-xs text-red-700">
+          {error}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -70,6 +114,10 @@ export function FeedbackProgressList() {
               })()}
               {/* 保留中の理由・聞きたいこと(あれば)。送った人が、何を答えればいいか分かるように。 */}
               {item.status === "hold" && item.statusNote && <span className="mt-0.5 block text-xs text-amber-800">{item.statusNote}</span>}
+              {/* 質問のボタン(保留中で、選択肢が付いている時だけ)。 */}
+              <QuestionButtons item={item} />
+              {/* 答えたあと(対応待ちに戻っている間)は、何と答えたかを出す。 */}
+              {item.status !== "hold" && item.answer && <span className="mt-0.5 block text-xs text-slate-600">あなたの答え: {item.answer}</span>}
               {/* 対応中の依頼の、かかる時間の目安と経過のゲージ(目安が付いている時だけ)。 */}
               <FeedbackGauge item={item} />
             </div>

@@ -6,7 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { ToastProvider } from "../ui/ToastProvider";
 import type { FeedbackItem } from "../../lib/appFeedback";
 
-const mocks = vi.hoisted(() => ({ recent: [] as FeedbackItem[], owner: false as boolean | undefined }));
+const mocks = vi.hoisted(() => ({ recent: [] as FeedbackItem[], owner: false as boolean | undefined, answers: [] as [string, string][], answerError: null as Error | null }));
 
 vi.mock("../../lib/appFeedback", async () => {
   const actual = await vi.importActual<typeof import("../../lib/appFeedback")>("../../lib/appFeedback");
@@ -14,11 +14,15 @@ vi.mock("../../lib/appFeedback", async () => {
     ...actual,
     canAttachImages: async () => false,
     loadRecentFeedback: async () => mocks.recent,
+    answerFeedback: async (id: string, answer: string) => {
+      if (mocks.answerError) throw mocks.answerError;
+      mocks.answers.push([id, answer]);
+    },
   };
 });
 vi.mock("../../hooks/useIsFeedbackOwner", () => ({ useIsFeedbackOwner: () => mocks.owner }));
 
-import { notifyFeedbackChanged } from "../../lib/appFeedback";
+import { FeedbackError, notifyFeedbackChanged } from "../../lib/appFeedback";
 import { resetFeedbackProgressForTests } from "../../lib/feedbackProgress";
 import { FeedbackButton, InAppFeedbackButton } from "./FeedbackButton";
 
@@ -43,6 +47,8 @@ beforeEach(() => {
   resetFeedbackProgressForTests();
   mocks.recent = [];
   mocks.owner = false;
+  mocks.answers = [];
+  mocks.answerError = null;
   window.localStorage.clear();
 });
 afterEach(() => {
@@ -252,5 +258,46 @@ describe("持ち主の画面(2026-10-13、本人「修正を送るボタンが�
     expect(list.textContent).toContain("地図が出ない");
     expect(list.textContent).toContain("文字が小さい");
     expect(screen.queryByRole("region", { name: "送った依頼の状況" })).toBeNull();
+  });
+});
+
+describe("保留中の質問に、ボタンで答える(2026-10-14、持ち主「質問者がボタンを押したらその回答がこっちに送信されるように」)", () => {
+  const asking = (extra: Partial<FeedbackItem> = {}) =>
+    item("q", "hold", { message: "ルートは日程の横がいい", statusNote: "どの「横」ですか?", questionOptions: ["PCで左右に並べる", "スマホでも日程の下に出す"], ...extra });
+
+  async function openList() {
+    const user = userEvent.setup();
+    renderApp(<FeedbackButton />);
+    await user.click(await screen.findByRole("button", { name: /^保留中の依頼があります/ }));
+    return { user, list: await screen.findByRole("region", { name: "送った依頼の状況" }) };
+  }
+
+  it("保留中で選択肢が付いた依頼に、質問の文と、選択肢のボタンが出る。押すと、依頼の id と答えが送られる", async () => {
+    mocks.recent = [asking()];
+    const { user, list } = await openList();
+    expect(list.textContent).toContain("どの「横」ですか?");
+    const group = within(list).getByRole("group", { name: "質問への答え" });
+    expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["PCで左右に並べる", "スマホでも日程の下に出す"]);
+    await user.click(within(group).getByRole("button", { name: "スマホでも日程の下に出す" }));
+    await waitFor(() => expect(mocks.answers).toEqual([["q", "スマホでも日程の下に出す"]]));
+  });
+
+  it("押している間は、ほかのボタンも押せない(二重に送らない)。失敗したら、理由を出して、もう一度押せる", async () => {
+    mocks.recent = [asking()];
+    mocks.answerError = new FeedbackError("failed");
+    const { user, list } = await openList();
+    await user.click(within(list).getByRole("button", { name: "PCで左右に並べる" }));
+    expect((await within(list).findByRole("alert")).textContent).toContain("送れませんでした");
+    expect((within(list).getByRole("button", { name: "PCで左右に並べる" }) as HTMLButtonElement).disabled).toBe(false);
+    mocks.answerError = null;
+    await user.click(within(list).getByRole("button", { name: "PCで左右に並べる" }));
+    await waitFor(() => expect(mocks.answers).toEqual([["q", "PCで左右に並べる"]]));
+  });
+
+  it("選択肢が無い保留中(質問なし)にはボタンを出さない。答えたあと(対応待ちに戻った)は、何と答えたかを出す", async () => {
+    mocks.recent = [item("h", "hold", { message: "質問なしの保留", statusNote: "少し待ってください" }), item("a", "new", { message: "答え済み", answer: "PCで左右に並べる", questionOptions: ["PCで左右に並べる", "別"] })];
+    const { list } = await openList();
+    expect(within(list).queryByRole("group", { name: "質問への答え" })).toBeNull();
+    expect(list.textContent).toContain("あなたの答え: PCで左右に並べる");
   });
 });
