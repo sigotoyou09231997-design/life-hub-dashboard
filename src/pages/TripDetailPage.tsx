@@ -62,6 +62,7 @@ import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
 import { toRouteSuggestions, findRoutePlaceFor } from "../lib/tripRouteSuggestions";
 import { placesToRemoveFor, readExcludedIds, reflectCovers, setExcludedId } from "../lib/tripRouteReflect";
+import { quickPlanDefaultDate } from "../lib/quickPlanDate";
 import { TripRouteReflect } from "../components/trips/TripRouteReflect";
 import { mapQueryFor } from "../lib/scheduleDetails";
 import { TRIP_TAB_OPTIONS, VALID_TRIP_TABS, type TripTab } from "../lib/tripTabs";
@@ -132,6 +133,8 @@ export default function TripDetailPage() {
   const [routeFocus, setRouteFocus] = useState<{ id: string; at: number } | null>(null);
   /** ルートのタブの中の切り替え: ふだんのルート表示か、日程の予定ごとに「入れる／入れない」を選ぶ一覧か(2026-10-15)。 */
   const [routeSub, setRouteSub] = useState<"route" | "reflect">("route");
+  /** ルートのタブで選んでいる日(「全部」「日付なし」は null)。「まとめて追加」の日付を、見ている日から始めるのに使う。 */
+  const [routeDay, setRouteDay] = useState<string | null>(null);
   /** 「ルートに入れない」と選んだ予定の id(この端末・旅行ごと。src/lib/tripRouteReflect.ts)。 */
   const [excludedIds, setExcludedIds] = useState<string[]>(() => readExcludedIds(tripId));
   // 日程の場所を押して、ルートのその場所へ飛んで来た時は、ふだんのルート表示へ戻す(「日程から選ぶ」のままだと、飛んだ先が見えない)。
@@ -212,6 +215,8 @@ export default function TripDetailPage() {
   // 旅行の期間を直して、見ていた日が無くなった時も、同じ既定に戻る。
   const [scheduleDay, setScheduleDay] = useState<string>();
   const activeScheduleDay = scheduleDay && dayList.includes(scheduleDay) ? scheduleDay : scheduleDefaultDate;
+  // 「まとめて追加」の日付の初期値は、見ている日(今日や1日目に決め打ちしない。src/lib/quickPlanDate.ts)。
+  const quickPlanDate = quickPlanDefaultDate({ tab, routeDay, dayList, activeScheduleDay });
 
   // 日程には入っているのに、ルートにはまだ無い場所。ルートのその日が空でも、日程に
   // 予定があるならそこから起こせるようにする(2026-08-27の指摘)。
@@ -617,6 +622,7 @@ export default function TripDetailPage() {
               onFirstSaved={() => showToast("保存しました")}
               // ルートの場所から、元になった日程の編集を開く(日程のタブへ移らず、その場で開く)。
               onOpenSchedule={(item) => setEditingSchedule(item)}
+              onDayChange={setRouteDay}
               onEdit={(place) => {
                 setRoutePreset(undefined);
                 setEditingRoute(place);
@@ -890,7 +896,7 @@ export default function TripDetailPage() {
             </Button>
             <TripQuickPlanForm
               tripId={tripId}
-              defaultDate={scheduleDefaultDate}
+              defaultDate={quickPlanDate}
               nextSortOrder={nextRouteSortOrder(routePlaces)}
               existingRouteKeys={new Set(routePlaces.map((place) => routeKey(place.address)))}
               onSaved={(message) => {
