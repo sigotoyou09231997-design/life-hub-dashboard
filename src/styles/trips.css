@@ -1680,25 +1680,46 @@ a.trip-leg-mode--link {
   background: var(--hub-surface);
 }
 
+/* 見出し全体が、開け閉めのボタン(2026-10-15)。見出し(h3)の中にボタンを置く形で、ボタンの既定の見た目は消して、
+   これまでの見出しのまま、右端に矢印だけ足す。 */
 .trip-route-picks__head {
+  margin: 0;
+  font: inherit;
+}
+
+.trip-route-picks__toggle {
   display: flex;
   align-items: center;
   gap: 0.45rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.trip-route-picks__head span {
+.trip-route-picks__toggle:focus-visible {
+  outline: 2px solid var(--accent, var(--hub-blue));
+  outline-offset: 2px;
+  border-radius: var(--hub-r-sm, 8px);
+}
+
+.trip-route-picks__icon {
   display: inline-flex;
   color: var(--accent, var(--hub-blue));
 }
 
-.trip-route-picks__head h3 {
-  margin: 0;
+.trip-route-picks__title {
   color: var(--hub-ink);
   font-size: 0.95rem;
   font-weight: 700;
 }
 
-.trip-route-picks__head b {
+.trip-route-picks__toggle b {
   min-width: 1.35rem;
   padding: 0.05rem 0.4rem;
   border-radius: var(--r-pill);
@@ -1706,6 +1727,34 @@ a.trip-leg-mode--link {
   color: var(--hub-ink-2);
   font-size: 0.75rem;
   text-align: center;
+}
+
+.trip-route-picks__chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--hub-ink-2);
+  transition: transform 0.18s ease;
+}
+
+.trip-route-picks.is-folded .trip-route-picks__chevron {
+  transform: rotate(-90deg);
+}
+
+/* 中身(説明・一覧・ボタン)。畳んでいる間は hidden で消える。 */
+.trip-route-picks__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.trip-route-picks__content[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-route-picks__chevron {
+    transition: none;
+  }
 }
 
 .trip-route-picks__lead {

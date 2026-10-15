@@ -174,6 +174,92 @@ describe("旅行のルート", () => {
     expect(added).toEqual([[suggestion]]);
   });
 
+  describe("日程に入っている場所の開け閉め(要望: タップで閉じたり開いたりしてほしい)", () => {
+    const suggestion = (id: string, name: string): RouteSuggestion => ({
+      scheduleId: id,
+      date: "2026-09-19",
+      name,
+      address: name,
+      title: name,
+      type: "sightseeing",
+    });
+    const renderPicks = () =>
+      render(
+        <TripRouteView
+          tripId="t1"
+          destination="横浜"
+          places={[place("p1", "岡山駅", 1, "2026-09-19")]}
+          dayList={["2026-09-19", "2026-09-20"]}
+          suggestions={[suggestion("s1", "鶴岡八幡宮"), suggestion("s2", "江ノ島")]}
+          onAddSuggestions={() => {}}
+          onAdd={() => {}}
+          onFirstSaved={() => {}}
+          onEdit={() => {}}
+          onDelete={() => {}}
+        />,
+        { wrapper: ConfirmProvider },
+      );
+    /** 一覧の行が見えているか(畳むと hidden の中に入る。要素そのものは残るので、中にあるかで見る)。 */
+    const pickVisible = () => {
+      const row = screen.queryByText("鶴岡八幡宮");
+      return Boolean(row && !row.closest("[hidden]"));
+    };
+    const clearFold = () => window.localStorage.removeItem("lifehub.tripRoutePicksFolded");
+
+    it("ふだんは開いていて、見出しを押すと畳める。畳んでも件数は見え、もう一度押すと開く", async () => {
+      clearFold();
+      const user = userEvent.setup();
+      renderPicks();
+      await user.click(screen.getByRole("button", { name: /1日目/ }));
+
+      const toggle = screen.getByRole("button", { name: /日程に入っている場所/ });
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+      expect(pickVisible()).toBe(true);
+
+      await user.click(toggle);
+      expect(toggle.getAttribute("aria-expanded")).toBe("false");
+      expect(pickVisible()).toBe(false);
+      expect(within(toggle).getByText("2")).toBeTruthy();
+
+      await user.click(toggle);
+      expect(toggle.getAttribute("aria-expanded")).toBe("true");
+      expect(pickVisible()).toBe(true);
+      clearFold();
+    });
+
+    it("畳んだ状態は覚えていて、画面を開き直しても畳んだまま。開けば、その次も開いたまま", async () => {
+      clearFold();
+      const user = userEvent.setup();
+      renderPicks();
+      await user.click(screen.getByRole("button", { name: /1日目/ }));
+      await user.click(screen.getByRole("button", { name: /日程に入っている場所/ }));
+      cleanup();
+
+      renderPicks();
+      await user.click(screen.getByRole("button", { name: /1日目/ }));
+      expect(screen.getByRole("button", { name: /日程に入っている場所/ }).getAttribute("aria-expanded")).toBe("false");
+      expect(pickVisible()).toBe(false);
+
+      await user.click(screen.getByRole("button", { name: /日程に入っている場所/ }));
+      cleanup();
+      renderPicks();
+      await user.click(screen.getByRole("button", { name: /1日目/ }));
+      expect(pickVisible()).toBe(true);
+      clearFold();
+    });
+
+    it("畳んでいる間も、見出しの件数は日にちの切り替えについてくる(候補が無くなれば見出しごと消える)", async () => {
+      clearFold();
+      const user = userEvent.setup();
+      renderPicks();
+      await user.click(screen.getByRole("button", { name: /1日目/ }));
+      await user.click(screen.getByRole("button", { name: /日程に入っている場所/ }));
+      await user.click(screen.getByRole("button", { name: /2日目/ }));
+      expect(screen.queryByRole("button", { name: /日程に入っている場所/ })).toBeNull();
+      clearFold();
+    });
+  });
+
   it("候補はその日のぶんだけ出す", async () => {
     const user = userEvent.setup();
     const suggestion = (id: string, name: string, date: string): RouteSuggestion => ({
