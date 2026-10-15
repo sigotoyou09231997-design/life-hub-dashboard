@@ -51,6 +51,64 @@ describe("日程からルートの候補を起こす", () => {
   });
 });
 
+describe("場所の欄が空の予定を、予定の名前で候補にする(titleOnly)", () => {
+  const opts = { titleOnly: true };
+
+  it("場所も住所も無い予定を、名前を地図の探し言葉にした候補にする。付けなければ今までどおり出さない", () => {
+    const schedule = [item({ id: "s1", date: "2026-09-19", startTime: "10:00", title: "鶴岡八幡宮", memo: "朝一で行く" })];
+    expect(toRouteSuggestions(schedule, [])).toEqual([]);
+    expect(toRouteSuggestions(schedule, [], opts)).toEqual([
+      {
+        scheduleId: "s1",
+        date: "2026-09-19",
+        startTime: "10:00",
+        name: "鶴岡八幡宮",
+        address: "鶴岡八幡宮",
+        memo: "朝一で行く",
+        title: "鶴岡八幡宮",
+        type: "sightseeing",
+        fromTitle: true,
+      },
+    ]);
+  });
+
+  it("場所か住所が入っている予定は、今までどおり場所・住所で候補にする(名前の候補にはしない)", () => {
+    const result = toRouteSuggestions(
+      [
+        item({ id: "s1", date: "2026-09-19", title: "昼ごはん", location: "鎌倉駅", type: "meal" }),
+        item({ id: "s2", date: "2026-09-19", title: "宿", address: "神奈川県鎌倉市雪ノ下2-1-31", type: "lodging" }),
+      ],
+      [],
+      opts,
+    );
+    expect(result.map((s) => [s.scheduleId, s.address, s.fromTitle])).toEqual([
+      ["s1", "鎌倉駅", undefined],
+      ["s2", "神奈川県鎌倉市雪ノ下2-1-31", undefined],
+    ]);
+  });
+
+  it("移動は、区間の名前では地図に置けないので、場所が空なら出さない", () => {
+    const result = toRouteSuggestions([item({ id: "s1", date: "2026-09-19", title: "新幹線 東京→京都", type: "transport" })], [], opts);
+    expect(result).toEqual([]);
+  });
+
+  it("ルートに同じ名前の場所がもうあれば(名前でも住所でも)出さない。同じ名前の予定は1件にまとめる", () => {
+    const named = { ...place("神奈川県鎌倉市雪ノ下2-1-31"), name: "鶴岡八幡宮" };
+    expect(toRouteSuggestions([item({ id: "s1", date: "2026-09-19", title: "鶴岡八幡宮" })], [named], opts)).toEqual([]);
+    expect(toRouteSuggestions([item({ id: "s1", date: "2026-09-19", title: "江ノ島" })], [place("江ノ島")], opts)).toEqual([]);
+    const twice = toRouteSuggestions(
+      [item({ id: "s1", date: "2026-09-19", title: "江ノ島" }), item({ id: "s2", date: "2026-09-20", title: " 江ノ島 " })],
+      [],
+      opts,
+    );
+    expect(twice.map((s) => s.scheduleId)).toEqual(["s1"]);
+  });
+
+  it("名前の空の予定は出さない", () => {
+    expect(toRouteSuggestions([item({ id: "s1", date: "2026-09-19", title: "  " })], [], opts)).toEqual([]);
+  });
+});
+
 describe("日程の場所から、ルートの場所を探す", () => {
   it("住所か名前が同じものを、大文字小文字・前後の空白を見ずに探す", () => {
     const hotel = { ...place("愛媛県松山市千舟町", "2026-12-29"), name: "ダイワロイネットホテル松山" };

@@ -205,7 +205,8 @@ export default function TripDetailPage() {
 
   // 日程には入っているのに、ルートにはまだ無い場所。ルートのその日が空でも、日程に
   // 予定があるならそこから起こせるようにする(2026-08-27の指摘)。
-  const routeSuggestions = useMemo(() => toRouteSuggestions(schedule, routePlaces), [schedule, routePlaces]);
+  // 場所の欄が空の予定も、予定の名前で候補に出す(titleOnly)。予定を足した時の自動の追加(planRouteAdds)は出さない。
+  const routeSuggestions = useMemo(() => toRouteSuggestions(schedule, routePlaces, { titleOnly: true }), [schedule, routePlaces]);
 
   async function addRouteSuggestions(picked: RouteSuggestion[]) {
     if (picked.length === 0) return;
