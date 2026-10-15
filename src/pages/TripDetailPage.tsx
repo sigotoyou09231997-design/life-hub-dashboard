@@ -61,6 +61,8 @@ import { deleteTripCascade } from "./TripsPage";
 import { AREA_ACCENT_STYLE } from "../lib/areaColors";
 import { nextRouteSortOrder, routeKey } from "../lib/mailPlanImport";
 import { toRouteSuggestions, findRoutePlaceFor } from "../lib/tripRouteSuggestions";
+import { placesToRemoveFor, readExcludedIds, reflectCovers, setExcludedId } from "../lib/tripRouteReflect";
+import { TripRouteReflect } from "../components/trips/TripRouteReflect";
 import { mapQueryFor } from "../lib/scheduleDetails";
 import { TRIP_TAB_OPTIONS, VALID_TRIP_TABS, type TripTab } from "../lib/tripTabs";
 import type { RouteSuggestion } from "../lib/tripRouteSuggestions";
@@ -128,6 +130,14 @@ export default function TripDetailPage() {
   const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
   /** 日程の場所を押して、ルートで見せたい場所。at は同じ場所をもう一度押した時にも送り直すため。 */
   const [routeFocus, setRouteFocus] = useState<{ id: string; at: number } | null>(null);
+  /** ルートのタブの中の切り替え: ふだんのルート表示か、日程の予定ごとに「入れる／入れない」を選ぶ一覧か(2026-10-15)。 */
+  const [routeSub, setRouteSub] = useState<"route" | "reflect">("route");
+  /** 「ルートに入れない」と選んだ予定の id(この端末・旅行ごと。src/lib/tripRouteReflect.ts)。 */
+  const [excludedIds, setExcludedIds] = useState<string[]>(() => readExcludedIds(tripId));
+  // 日程の場所を押して、ルートのその場所へ飛んで来た時は、ふだんのルート表示へ戻す(「日程から選ぶ」のままだと、飛んだ先が見えない)。
+  useEffect(() => {
+    if (routeFocus) setRouteSub("route");
+  }, [routeFocus]);
 
   // Wrapped in an object so `undefined` unambiguously means "still loading" —
   // db.trips.get() itself resolves to `undefined` for a missing id too, which
@@ -206,7 +216,10 @@ export default function TripDetailPage() {
   // 日程には入っているのに、ルートにはまだ無い場所。ルートのその日が空でも、日程に
   // 予定があるならそこから起こせるようにする(2026-08-27の指摘)。
   // 場所の欄が空の予定も、予定の名前で候補に出す(titleOnly)。予定を足した時の自動の追加(planRouteAdds)は出さない。
-  const routeSuggestions = useMemo(() => toRouteSuggestions(schedule, routePlaces, { titleOnly: true }), [schedule, routePlaces]);
+  const routeSuggestions = useMemo(
+    () => toRouteSuggestions(schedule, routePlaces, { titleOnly: true, excluded: excludedIds }),
+    [schedule, routePlaces, excludedIds],
+  );
 
   async function addRouteSuggestions(picked: RouteSuggestion[]) {
     if (picked.length === 0) return;
@@ -231,6 +244,34 @@ export default function TripDetailPage() {
     if (rows.length === 0) return;
     await db.tripRoutePlaces.bulkAdd(rows);
     showToast(rows.length > 1 ? `${rows.length}件をルートに入れました` : "ルートに入れました");
+  }
+
+  /** 日程の予定ごとの「入れる／入れない」(ルートのタブの「日程から選ぶ」)。 */
+  async function chooseRouteReflect(item: TripScheduleItem, on: boolean) {
+    if (!item.id) return;
+    if (on) {
+      setExcludedIds(setExcludedId(tripId, item.id, false));
+      const picks = toRouteSuggestions([item], routePlaces, { titleOnly: true });
+      if (picks.length === 0) {
+        showToast("ルートに入れる場所が見つかりませんでした");
+        return;
+      }
+      await addRouteSuggestions(picks);
+      return;
+    }
+    setExcludedIds(setExcludedId(tripId, item.id, true));
+    // ルートに入っている場所は外す(確認なしで隠し、お知らせの「元に戻す」で戻せる)。自分で手を入れた場所は残す。
+    const removable = placesToRemoveFor(item, schedule, routePlaces);
+    for (const place of removable) {
+      if (place.id) deleteRowWithUndo("tripRoutePlace", place.id, `${quoted(place.name) || "場所"}をルートから外しました`);
+    }
+    if (removable.length === 0) {
+      showToast(
+        routePlaces.some((place) => reflectCovers(item, place))
+          ? "入れないにしました。ルートの場所は、手を入れてあるので残しました"
+          : "入れないにしました",
+      );
+    }
   }
 
   /** 書類の並べ替え。ルートと同じで、入れ替えたあと1始まりの連番に振り直す —
@@ -529,35 +570,68 @@ export default function TripDetailPage() {
         )}
 
         {tab === "route" && (
-          <TripRouteView
-            dayList={dayList}
-            schedule={schedule}
-            tripId={tripId}
-            destination={trip.destination}
-            places={routePlaces}
-            focus={routeFocus}
-            suggestions={routeSuggestions}
-            onAddSuggestions={addRouteSuggestions}
-            onAdd={() => {
-              setRoutePreset(undefined);
-              setEditingRoute("new");
-            }}
-            onFirstSaved={() => showToast("保存しました")}
-            // ルートの場所から、元になった日程の編集を開く(日程のタブへ移らず、その場で開く)。
-            onOpenSchedule={(item) => setEditingSchedule(item)}
-            onEdit={(place) => {
-              setRoutePreset(undefined);
-              setEditingRoute(place);
-            }}
-            onDelete={(id) => {
-              // 確認なしで隠し、お知らせが閉じた時に本当に消す(UI/UX 調査メモ 第4弾 A-2)。
-              deleteRowWithUndo(
-                "tripRoutePlace",
-                id,
-                `${quoted(routePlaces.find((p) => p.id === id)?.name) || "場所"}をルートから削除しました`,
-              );
-            }}
-          />
+          <>
+            {/* ルートの中の切り替え。予定が1つも無い旅行では、選ぶものが無いので出さない。 */}
+            {schedule.length > 0 && (
+              <div className="trip-route__days mb-3" role="group" aria-label="ルートの画面">
+                <button
+                  type="button"
+                  className={`trip-route__day${routeSub === "route" ? " is-active" : ""}`}
+                  aria-pressed={routeSub === "route"}
+                  onClick={() => setRouteSub("route")}
+                >
+                  ルート表示
+                </button>
+                <button
+                  type="button"
+                  className={`trip-route__day${routeSub === "reflect" ? " is-active" : ""}`}
+                  aria-pressed={routeSub === "reflect"}
+                  onClick={() => setRouteSub("reflect")}
+                >
+                  日程から選ぶ
+                </button>
+              </div>
+            )}
+            {routeSub === "reflect" && schedule.length > 0 ? (
+              <TripRouteReflect
+                dayList={dayList}
+                schedule={schedule}
+                places={routePlaces}
+                excluded={excludedIds}
+                onChoose={(item, on) => void chooseRouteReflect(item, on)}
+              />
+            ) : (
+            <TripRouteView
+              dayList={dayList}
+              schedule={schedule}
+              tripId={tripId}
+              destination={trip.destination}
+              places={routePlaces}
+              focus={routeFocus}
+              suggestions={routeSuggestions}
+              onAddSuggestions={addRouteSuggestions}
+              onAdd={() => {
+                setRoutePreset(undefined);
+                setEditingRoute("new");
+              }}
+              onFirstSaved={() => showToast("保存しました")}
+              // ルートの場所から、元になった日程の編集を開く(日程のタブへ移らず、その場で開く)。
+              onOpenSchedule={(item) => setEditingSchedule(item)}
+              onEdit={(place) => {
+                setRoutePreset(undefined);
+                setEditingRoute(place);
+              }}
+              onDelete={(id) => {
+                // 確認なしで隠し、お知らせが閉じた時に本当に消す(UI/UX 調査メモ 第4弾 A-2)。
+                deleteRowWithUndo(
+                  "tripRoutePlace",
+                  id,
+                  `${quoted(routePlaces.find((p) => p.id === id)?.name) || "場所"}をルートから削除しました`,
+                );
+              }}
+            />
+            )}
+          </>
         )}
 
         {tab === "diary" && (

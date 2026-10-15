@@ -48,6 +48,7 @@ export function findRoutePlaceFor(places: TripRoutePlace[], location: string, da
  * titleOnly を付けると、場所も住所も入っていない予定(移動以外)も、予定の名前で作った候補として足す
  * (2026-10-15、要望「日程は入っているのにルートには入っていない予定をルートに入れられるようにしたい」)。
  * 「鶴岡八幡宮」とだけ書いて場所の欄を空にした予定は、これまでルートに入れる道が無かった。
+ * excluded は「入れない」と選んだ予定の id(候補から外す)。
  * 画面の「日程に入っている場所」の一覧だけが使う — 予定を足した時に自動でルートへ入れる側(planRouteAdds)は付けない
  * (「起きる」のような予定まで勝手にルートの場所になってしまうため。入れるかは人が選ぶ)。
  *
@@ -58,7 +59,7 @@ export function findRoutePlaceFor(places: TripRoutePlace[], location: string, da
 export function toRouteSuggestions(
   schedule: TripScheduleItem[],
   places: TripRoutePlace[],
-  options: { titleOnly?: boolean } = {},
+  options: { titleOnly?: boolean; excluded?: string[] } = {},
 ): RouteSuggestion[] {
   const seen = new Set(places.map((place) => routeKey(place.address)));
   /** 名前だけの候補を出すかどうかの目安。ルートの場所は名前でも、同じ名前の予定がもう入っていると見る。 */
@@ -68,6 +69,8 @@ export function toRouteSuggestions(
   const sorted = orderSchedule(schedule);
 
   for (const item of sorted) {
+    // 「入れない」と選んだ予定(src/lib/tripRouteReflect.ts)は、候補に出さない。
+    if (item.id && options.excluded?.includes(item.id)) continue;
     // 移動の目的地(2026-10-14)。出発地とは別の場所として、候補にする(同じ場所がもうルートにあれば出さない)。
     // 地図に渡す文字は、目的地の住所があれば住所(2026-10-15)、無ければ目的地の名前。
     const destination = endMapQueryFor(item);
