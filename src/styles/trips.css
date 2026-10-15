@@ -3049,7 +3049,6 @@ a.trip-leg-mode--link {
 .trip-reflect__day h3 {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
   margin: 0 0 0.45rem;
   color: var(--hub-ink);
   font-size: 0.95rem;

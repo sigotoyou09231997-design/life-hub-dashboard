@@ -15,8 +15,8 @@ interface Props {
 
 const STATE_NOTE: Record<ReflectRow["state"], string> = {
   in: "ルートに入っています",
-  out: "まだ選んでいません(「日程に入っている場所」に候補で出ます)",
-  off: "入れません(候補にも出しません)",
+  out: "まだ選んでいません",
+  off: "入れません",
   none: "地図に置ける場所が無いので、選べません",
 };
 
