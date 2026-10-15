@@ -63,6 +63,8 @@ interface Props {
   /** ルートの場所の元になった日程を開く(2026-10-14、要望「ルートの予定を選択して元になった予定を開くことができると効率的」)。
    * 渡さなければ、ボタンは出さない。 */
   onOpenSchedule?: (item: TripScheduleItem) => void;
+  /** いま見ている日が変わった時(日にちのチップで選んでいる日。「全部」「日付なし」は null)。「まとめて追加」の日付の初期値に使う。 */
+  onDayChange?: (day: string | null) => void;
 }
 
 /** 現在地から1つ目の場所までの区間につける鍵。場所idと混ざらない名前にしてある。 */
@@ -271,6 +273,7 @@ export function TripRouteView({
   onEdit,
   onDelete,
   onOpenSchedule,
+  onDayChange,
 }: Props) {
   /** 区間ごとの移動手段。1つにまとめて持っていた頃は、どこかで「車」に変えると
    * ほかの地図まで全部つられて変わり、「この区間は電車・ここは車」という見方が
@@ -289,6 +292,11 @@ export function TripRouteView({
    * 日をまたいだ場所を1本の鎖に並べると、その日に回る順として読めないため。
    * 日にちの切り替えを出さない旅行(1日で終わる)だけ、内部的に全件表示のままにする。 */
   const [day, setDay] = useState<string>(ALL_DAYS);
+  // 見ている日を、持ち主の画面へ知らせる(「まとめて追加」の日付を、見ている日から始めるため)。
+  useEffect(() => {
+    onDayChange?.(day === ALL_DAYS || day === NO_DAY ? null : day);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day]);
   /** 地図・時間の並びに出さない場所(ルートには残る)。旅行ごとに、この端末の中だけに覚える(src/lib/tripRouteSelection.ts)。 */
   const [hiddenIds, setHiddenIds] = useState<string[]>(() => readHiddenPlaceIds(tripId));
   /** 「地図に出す場所を選ぶ」の一覧を開いているか。 */
