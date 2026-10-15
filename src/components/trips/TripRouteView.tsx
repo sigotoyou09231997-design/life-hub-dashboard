@@ -104,16 +104,41 @@ function readStoredView(): RouteViewMode {
  */
 function TripRoutePicks({
   suggestions,
+  allSuggestions = suggestions,
   onAdd,
 }: {
+  /** いま見ている日の候補。 */
   suggestions: RouteSuggestion[];
+  /** 全部の日の候補(2026-10-15)。見ている日に候補が無くても、ほかの日にあることを伝え、まとめて入れる入口にする。 */
+  allSuggestions?: RouteSuggestion[];
   onAdd: (suggestions: RouteSuggestion[]) => void;
 }) {
   /** チェックを付けた候補(日程の予定の id)。 */
   const [selected, setSelected] = useState<string[]>([]);
   /** 見出しを押して畳んだ状態(2026-10-15、要望「ルートの『日程に入っている場所』を、タップで閉じたり開いたりしてほしい」)。 */
   const [folded, setFolded] = useState(readPicksFolded);
-  if (suggestions.length === 0) return null;
+  /** ほかの日にある候補の数。見ている日だけを出していると、日程にあってルートに無い場所に気づけない(2026-10-15、要望「日程に入っているがルートには全く入ってない予定を反映して」)。 */
+  const others = allSuggestions.length - suggestions.length;
+  if (suggestions.length === 0 && others <= 0) return null;
+  if (suggestions.length === 0) {
+    return (
+      <section className="trip-route-picks">
+        <h3 className="trip-route-picks__head trip-route-picks__head--static">
+          <span className="trip-route-picks__icon" aria-hidden="true"><CalendarPlus size={16} /></span>
+          <span className="trip-route-picks__title">日程に入っている場所</span>
+          <b>{others}</b>
+        </h3>
+        <p className="trip-route-picks__lead">
+          この日に入れられる場所はありません。ほかの日の予定に、ルートにまだ入っていない場所が{others}件あります。
+        </p>
+        <div className="trip-route-picks__actions">
+          <button type="button" className="trip-route-picks__all trip-route-picks__all--primary" onClick={() => onAdd(allSuggestions)}>
+            全部の日の{allSuggestions.length}件を、まとめてルートに入れる
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   // 日にちを切り替えた・ルートに入れた後に、もう候補に無いものの選びは外す。
   const chosen = suggestions.filter((suggestion) => selected.includes(suggestion.scheduleId));
@@ -205,6 +230,13 @@ function TripRoutePicks({
                 すべてルートに入れる
               </button>
             )}
+          </div>
+        )}
+        {others > 0 && (
+          <div className="trip-route-picks__actions">
+            <button type="button" className="trip-route-picks__all" onClick={() => onAdd(allSuggestions)}>
+              全部の日の{allSuggestions.length}件を、まとめてルートに入れる
+            </button>
           </div>
         )}
       </div>
@@ -560,7 +592,7 @@ export function TripRouteView({
             </div>
           )}
 
-          <TripRoutePicks suggestions={shownSuggestions} onAdd={onAddSuggestions} />
+          <TripRoutePicks suggestions={shownSuggestions} allSuggestions={suggestions} onAdd={onAddSuggestions} />
 
           {/* 見たい場所だけを地図に出す。外した場所はルートに残り、ここでいつでも戻せる。 */}
           {dayPlaces.length > 1 && (

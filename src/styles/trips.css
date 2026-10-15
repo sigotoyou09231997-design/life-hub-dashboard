@@ -1687,6 +1687,24 @@ a.trip-leg-mode--link {
   font: inherit;
 }
 
+/* ほかの日の分しか無い時の見出し(押せない。開け閉めする中身が無い)。 */
+.trip-route-picks__head--static {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.5rem;
+}
+
+.trip-route-picks__head--static b {
+  min-width: 1.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--r-pill);
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
 .trip-route-picks__toggle {
   display: flex;
   align-items: center;
