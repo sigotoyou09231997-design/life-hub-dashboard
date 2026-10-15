@@ -3021,3 +3021,127 @@ a.trip-leg-mode--link {
     border-left: 1px solid var(--hub-hairline);
   }
 }
+
+/* --- 日程の予定ごとに「ルートに入れる／入れない」を選ぶ一覧 --------------------
+   (2026-10-15、要望「日程の予定にルートに反映するかしないか選択するタブ作って」。src/components/trips/TripRouteReflect.tsx)
+   日にちごとに1枚のカード。1つの予定に2つのボタンを、隙間を空けて並べる(Tabs と同じ、1つずつ独立した丸ボタン)。 */
+.trip-reflect {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.trip-reflect__lead,
+.trip-reflect__empty {
+  margin: 0;
+  color: var(--hub-ink-2);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.trip-reflect__day {
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(13, 27, 49, 0.1);
+  border-radius: var(--hub-r-md);
+  background: var(--hub-surface);
+}
+
+.trip-reflect__day h3 {
+  display: flex;
+  align-items: center;
+  margin: 0 0 0.45rem;
+  color: var(--hub-ink);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.trip-reflect__day h3 span {
+  color: var(--hub-ink-2);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.trip-reflect__day h3 b {
+  min-width: 1.35rem;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--r-pill);
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.trip-reflect__day ul {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trip-reflect__day li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.6rem 0;
+  border-top: 1px solid rgba(13, 27, 49, 0.07);
+}
+
+.trip-reflect__day li:first-child {
+  border-top: 0;
+}
+
+.trip-reflect__body {
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+
+.trip-reflect__body p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--hub-ink);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trip-reflect__body small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--hub-ink-2);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.trip-reflect__choice {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.4rem;
+}
+
+.trip-reflect__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: var(--r-pill);
+  background: var(--hub-inset);
+  color: var(--hub-ink-2);
+  font-size: 0.83rem;
+  font-weight: 600;
+}
+
+/* 選んだ方だけ黒(日にちのチップ・Tabs と同じ、選んでいる所だけ黒の決まり)。 */
+.trip-reflect__btn[aria-pressed="true"] {
+  background: var(--ink-black, var(--accent, var(--hub-blue)));
+  color: #fff;
+}
+
+.trip-reflect__day li[data-state="none"] .trip-reflect__body p {
+  color: var(--hub-ink-2);
+}
