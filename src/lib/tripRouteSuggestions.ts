@@ -26,6 +26,8 @@ export interface RouteSuggestion {
   /** 元の予定のタイトル。候補の一覧に出す見出し。 */
   title: string;
   type: TripScheduleType;
+  /** 予定に場所も住所も入っておらず、予定の名前で作った候補(2026-10-15)。名前が地図の探し言葉になる。 */
+  fromTitle?: boolean;
 }
 
 /**
@@ -43,12 +45,24 @@ export function findRoutePlaceFor(places: TripRoutePlace[], location: string, da
 /**
  * 場所の入っている日程のうち、まだルートに無いものを候補にする。
  *
+ * titleOnly を付けると、場所も住所も入っていない予定(移動以外)も、予定の名前で作った候補として足す
+ * (2026-10-15、要望「日程は入っているのにルートには入っていない予定をルートに入れられるようにしたい」)。
+ * 「鶴岡八幡宮」とだけ書いて場所の欄を空にした予定は、これまでルートに入れる道が無かった。
+ * 画面の「日程に入っている場所」の一覧だけが使う — 予定を足した時に自動でルートへ入れる側(planRouteAdds)は付けない
+ * (「起きる」のような予定まで勝手にルートの場所になってしまうため。入れるかは人が選ぶ)。
+ *
  * 移動(新幹線・飛行機)は駅名そのものを場所の名前にして、列車名はメモへ回す —
  * 「東京→新函館北斗 はやぶさ13号」は区間の名前で、地図に置ける場所ではない
  * (メールからの取り込み src/lib/mailPlanImport.ts の toRouteImportRows と同じ扱い)。
  */
-export function toRouteSuggestions(schedule: TripScheduleItem[], places: TripRoutePlace[]): RouteSuggestion[] {
+export function toRouteSuggestions(
+  schedule: TripScheduleItem[],
+  places: TripRoutePlace[],
+  options: { titleOnly?: boolean } = {},
+): RouteSuggestion[] {
   const seen = new Set(places.map((place) => routeKey(place.address)));
+  /** 名前だけの候補を出すかどうかの目安。ルートの場所は名前でも、同じ名前の予定がもう入っていると見る。 */
+  const seenNames = new Set(places.flatMap((place) => [routeKey(place.address), routeKey(place.name)]));
   const suggestions: RouteSuggestion[] = [];
 
   const sorted = orderSchedule(schedule);
@@ -77,6 +91,25 @@ export function toRouteSuggestions(schedule: TripScheduleItem[], places: TripRou
           memo: isTransport ? item.title.trim() : item.memo?.trim() || undefined,
           title: item.title.trim(),
           type: item.type,
+        });
+      }
+    }
+    // 場所も住所も無い予定は、予定の名前で候補にする(移動は、区間の名前で地図に置けないので出さない)。
+    if (options.titleOnly && item.id && !address && !isTransport) {
+      const title = item.title.trim();
+      const key = title ? routeKey(title) : "";
+      if (key && !seen.has(key) && !seenNames.has(key)) {
+        seen.add(key);
+        suggestions.push({
+          scheduleId: item.id,
+          date: item.date,
+          startTime: item.startTime,
+          name: title,
+          address: title,
+          memo: item.memo?.trim() || undefined,
+          title,
+          type: item.type,
+          fromTitle: true,
         });
       }
     }

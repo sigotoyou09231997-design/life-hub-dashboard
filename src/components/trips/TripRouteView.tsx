@@ -152,6 +152,7 @@ function TripRoutePicks({
         <p className="trip-route-picks__lead">
           日程にはあるのに、ルートにはまだ入っていない場所です。入れると地図と経路が並びます。
           {canSelect && "いくつかあるときは、チェックして、選んだものだけを入れられます。"}
+          {suggestions.some((suggestion) => suggestion.fromTitle) && "場所の欄が空の予定は、予定の名前で地図を探します。"}
         </p>
         <ul className="trip-route-picks__list">
           {suggestions.map((suggestion) => (
@@ -169,7 +170,7 @@ function TripRoutePicks({
                 <p className="trip-route-picks__name" title={suggestion.address}>{suggestion.name}</p>
                 <small>
                   {formatShortDate(suggestion.date)}
-                  {suggestion.startTime ? ` ${suggestion.startTime}` : ""}・{suggestion.title}
+                  {suggestion.startTime ? ` ${suggestion.startTime}` : ""}・{suggestion.fromTitle ? "場所の欄が空(予定の名前で探します)" : suggestion.title}
                 </small>
               </div>
               <button type="button" onClick={() => onAdd([suggestion])}>

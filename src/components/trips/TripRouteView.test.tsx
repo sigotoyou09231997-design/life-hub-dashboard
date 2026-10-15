@@ -174,6 +174,40 @@ describe("旅行のルート", () => {
     expect(added).toEqual([[suggestion]]);
   });
 
+  it("場所の欄が空の予定の候補は、予定の名前で探すと分かる文を出し、入れるとその名前のまま渡す", async () => {
+    const user = userEvent.setup();
+    const added: RouteSuggestion[][] = [];
+    const suggestion: RouteSuggestion = {
+      scheduleId: "s1",
+      date: "2026-09-19",
+      name: "鶴岡八幡宮",
+      address: "鶴岡八幡宮",
+      title: "鶴岡八幡宮",
+      type: "sightseeing",
+      fromTitle: true,
+    };
+    render(
+      <TripRouteView
+        tripId="t1"
+        destination="横浜"
+        places={[place("p2", "新横浜駅", 1, "2026-09-19")]}
+        dayList={["2026-09-19", "2026-09-20"]}
+        suggestions={[suggestion]}
+        onAddSuggestions={(picked) => added.push(picked)}
+        onAdd={() => {}}
+        onFirstSaved={() => {}}
+        onEdit={() => {}}
+        onDelete={() => {}}
+      />,
+      { wrapper: ConfirmProvider },
+    );
+
+    expect(screen.getByText(/場所の欄が空の予定は、予定の名前で地図を探します/)).toBeTruthy();
+    expect(screen.getByText(/場所の欄が空\(予定の名前で探します\)/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "入れる" }));
+    expect(added).toEqual([[suggestion]]);
+  });
+
   describe("日程に入っている場所の開け閉め(要望: タップで閉じたり開いたりしてほしい)", () => {
     const suggestion = (id: string, name: string): RouteSuggestion => ({
       scheduleId: id,
