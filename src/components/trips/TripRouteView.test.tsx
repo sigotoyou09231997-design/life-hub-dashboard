@@ -208,6 +208,75 @@ describe("旅行のルート", () => {
     expect(added).toEqual([[suggestion]]);
   });
 
+  describe("全部の日をまとめてルートに入れる(要望: 日程に入っているがルートには全く入ってない予定を反映して)", () => {
+    const suggestion = (id: string, name: string, date: string): RouteSuggestion => ({
+      scheduleId: id,
+      date,
+      name,
+      address: name,
+      title: name,
+      type: "sightseeing",
+    });
+    const renderDays = (suggestions: RouteSuggestion[], added: RouteSuggestion[][]) =>
+      render(
+        <TripRouteView
+          tripId="t1"
+          destination="横浜"
+          places={[place("p1", "岡山駅", 1, "2026-09-19")]}
+          dayList={["2026-09-19", "2026-09-20", "2026-09-21"]}
+          suggestions={suggestions}
+          onAddSuggestions={(picked) => added.push(picked)}
+          onAdd={() => {}}
+          onFirstSaved={() => {}}
+          onEdit={() => {}}
+          onDelete={() => {}}
+        />,
+        { wrapper: ConfirmProvider },
+      );
+    const everyday = [
+      suggestion("s1", "鶴岡八幡宮", "2026-09-20"),
+      suggestion("s2", "江ノ島", "2026-09-20"),
+      suggestion("s3", "横浜中華街", "2026-09-21"),
+    ];
+
+    it("見ている日に候補が無くても、ほかの日にあれば件数を知らせ、まとめて入れられる(全部の日の分を渡す)", async () => {
+      const user = userEvent.setup();
+      const added: RouteSuggestion[][] = [];
+      renderDays(everyday, added);
+      await user.click(screen.getByRole("button", { name: /1日目/ }));
+
+      expect(screen.getByText(/この日に入れられる場所はありません。ほかの日の予定に、ルートにまだ入っていない場所が3件あります/)).toBeTruthy();
+      await user.click(screen.getByRole("button", { name: "全部の日の3件を、まとめてルートに入れる" }));
+      expect(added).toEqual([everyday]);
+    });
+
+    it("候補のある日でも、ほかの日があれば、全部の日をまとめて入れる入口を足す(その日の分だけ入れるのは今までどおり)", async () => {
+      const user = userEvent.setup();
+      const added: RouteSuggestion[][] = [];
+      renderDays(everyday, added);
+      await user.click(screen.getByRole("button", { name: /2日目/ }));
+
+      expect(screen.getByText("鶴岡八幡宮")).toBeTruthy();
+      expect(screen.queryByText("横浜中華街")).toBeNull();
+      await user.click(screen.getByRole("button", { name: "すべてルートに入れる" }));
+      expect(added).toEqual([[everyday[0], everyday[1]]]);
+      await user.click(screen.getByRole("button", { name: "全部の日の3件を、まとめてルートに入れる" }));
+      expect(added[1]).toEqual(everyday);
+    });
+
+    it("候補がその日のぶんしか無ければ、まとめて入れるボタンは出さない。候補が全く無ければ何も出さない", async () => {
+      const user = userEvent.setup();
+      renderDays([suggestion("s1", "鶴岡八幡宮", "2026-09-20")], []);
+      await user.click(screen.getByRole("button", { name: /2日目/ }));
+      expect(screen.queryByRole("button", { name: /全部の日の/ })).toBeNull();
+      cleanup();
+
+      renderDays([], []);
+      await user.click(screen.getByRole("button", { name: /1日目/ }));
+      expect(screen.queryByText("日程に入っている場所")).toBeNull();
+    });
+  });
+
   describe("日程に入っている場所の開け閉め(要望: タップで閉じたり開いたりしてほしい)", () => {
     const suggestion = (id: string, name: string): RouteSuggestion => ({
       scheduleId: id,
