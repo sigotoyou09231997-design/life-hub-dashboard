@@ -11,6 +11,7 @@ import {
   Plus,
   CalendarDays,
   CalendarPlus,
+  ChevronDown,
   Clock,
   Search,
   Trash2,
@@ -74,6 +75,16 @@ const NO_DAY = "none";
 /** ルートの見方。「地図」は場所ごとの地図と経路、「時間」は時刻と移動時間の縦の並び。 */
 type RouteViewMode = "map" | "time";
 const VIEW_KEY = "lifehub.tripRouteView";
+/** 「日程に入っている場所」の候補を、畳んでいるか。ふだんは開いたまま(畳んだ人だけ、次に開いた時も畳んだまま)。 */
+const PICKS_FOLDED_KEY = "lifehub.tripRoutePicksFolded";
+
+function readPicksFolded(): boolean {
+  try {
+    return window.localStorage.getItem(PICKS_FOLDED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 function readStoredView(): RouteViewMode {
   try {
@@ -100,6 +111,8 @@ function TripRoutePicks({
 }) {
   /** チェックを付けた候補(日程の予定の id)。 */
   const [selected, setSelected] = useState<string[]>([]);
+  /** 見出しを押して畳んだ状態(2026-10-15、要望「ルートの『日程に入っている場所』を、タップで閉じたり開いたりしてほしい」)。 */
+  const [folded, setFolded] = useState(readPicksFolded);
   if (suggestions.length === 0) return null;
 
   // 日にちを切り替えた・ルートに入れた後に、もう候補に無いものの選びは外す。
@@ -108,71 +121,92 @@ function TripRoutePicks({
   const allSelected = chosen.length === suggestions.length;
   const toggle = (scheduleId: string) =>
     setSelected((current) => (current.includes(scheduleId) ? current.filter((id) => id !== scheduleId) : [...current, scheduleId]));
+  const toggleFolded = () => {
+    const next = !folded;
+    setFolded(next);
+    try {
+      window.localStorage.setItem(PICKS_FOLDED_KEY, next ? "1" : "0");
+    } catch {
+      // 覚えられなくても、開け閉めはできる
+    }
+  };
 
   return (
-    <section className="trip-route-picks">
-      <header className="trip-route-picks__head">
-        <span aria-hidden="true"><CalendarPlus size={16} /></span>
-        <h3>日程に入っている場所</h3>
-        <b>{suggestions.length}</b>
-      </header>
-      <p className="trip-route-picks__lead">
-        日程にはあるのに、ルートにはまだ入っていない場所です。入れると地図と経路が並びます。
-        {canSelect && "いくつかあるときは、チェックして、選んだものだけを入れられます。"}
-      </p>
-      <ul className="trip-route-picks__list">
-        {suggestions.map((suggestion) => (
-          <li key={suggestion.scheduleId}>
-            {canSelect && (
-              <input
-                type="checkbox"
-                className="trip-route-picks__check"
-                checked={selected.includes(suggestion.scheduleId)}
-                onChange={() => toggle(suggestion.scheduleId)}
-                aria-label={`${suggestion.name}を選ぶ`}
-              />
-            )}
-            <div className="trip-route-picks__body">
-              <p className="trip-route-picks__name" title={suggestion.address}>{suggestion.name}</p>
-              <small>
-                {formatShortDate(suggestion.date)}
-                {suggestion.startTime ? ` ${suggestion.startTime}` : ""}・{suggestion.title}
-              </small>
-            </div>
-            <button type="button" onClick={() => onAdd([suggestion])}>
-              <Plus size={15} />
-              入れる
-            </button>
-          </li>
-        ))}
-      </ul>
-      {canSelect && (
-        <div className="trip-route-picks__actions">
-          <button
-            type="button"
-            className="trip-route-picks__all"
-            onClick={() => setSelected(allSelected ? [] : suggestions.map((suggestion) => suggestion.scheduleId))}
-          >
-            {allSelected ? "選びをやめる" : "すべて選ぶ"}
-          </button>
-          {chosen.length > 0 ? (
+    <section className={`trip-route-picks${folded ? " is-folded" : ""}`}>
+      {/* 見出しの全体が押せる。畳んでも件数は見えるので、「まだ入れていない場所がある」ことは分かる。 */}
+      <h3 className="trip-route-picks__head">
+        <button
+          type="button"
+          className="trip-route-picks__toggle"
+          aria-expanded={!folded}
+          aria-controls="trip-route-picks-body"
+          onClick={toggleFolded}
+        >
+          <span className="trip-route-picks__icon" aria-hidden="true"><CalendarPlus size={16} /></span>
+          <span className="trip-route-picks__title">日程に入っている場所</span>
+          <b>{suggestions.length}</b>
+          <ChevronDown size={18} className="trip-route-picks__chevron" aria-hidden="true" />
+        </button>
+      </h3>
+      <div id="trip-route-picks-body" className="trip-route-picks__content" hidden={folded}>
+        <p className="trip-route-picks__lead">
+          日程にはあるのに、ルートにはまだ入っていない場所です。入れると地図と経路が並びます。
+          {canSelect && "いくつかあるときは、チェックして、選んだものだけを入れられます。"}
+        </p>
+        <ul className="trip-route-picks__list">
+          {suggestions.map((suggestion) => (
+            <li key={suggestion.scheduleId}>
+              {canSelect && (
+                <input
+                  type="checkbox"
+                  className="trip-route-picks__check"
+                  checked={selected.includes(suggestion.scheduleId)}
+                  onChange={() => toggle(suggestion.scheduleId)}
+                  aria-label={`${suggestion.name}を選ぶ`}
+                />
+              )}
+              <div className="trip-route-picks__body">
+                <p className="trip-route-picks__name" title={suggestion.address}>{suggestion.name}</p>
+                <small>
+                  {formatShortDate(suggestion.date)}
+                  {suggestion.startTime ? ` ${suggestion.startTime}` : ""}・{suggestion.title}
+                </small>
+              </div>
+              <button type="button" onClick={() => onAdd([suggestion])}>
+                <Plus size={15} />
+                入れる
+              </button>
+            </li>
+          ))}
+        </ul>
+        {canSelect && (
+          <div className="trip-route-picks__actions">
             <button
               type="button"
-              className="trip-route-picks__all trip-route-picks__all--primary"
-              onClick={() => {
-                onAdd(chosen);
-                setSelected([]);
-              }}
+              className="trip-route-picks__all"
+              onClick={() => setSelected(allSelected ? [] : suggestions.map((suggestion) => suggestion.scheduleId))}
             >
-              選んだ{chosen.length}件をルートに入れる
+              {allSelected ? "選びをやめる" : "すべて選ぶ"}
             </button>
-          ) : (
-            <button type="button" className="trip-route-picks__all" onClick={() => onAdd(suggestions)}>
-              すべてルートに入れる
-            </button>
-          )}
-        </div>
-      )}
+            {chosen.length > 0 ? (
+              <button
+                type="button"
+                className="trip-route-picks__all trip-route-picks__all--primary"
+                onClick={() => {
+                  onAdd(chosen);
+                  setSelected([]);
+                }}
+              >
+                選んだ{chosen.length}件をルートに入れる
+              </button>
+            ) : (
+              <button type="button" className="trip-route-picks__all" onClick={() => onAdd(suggestions)}>
+                すべてルートに入れる
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }
