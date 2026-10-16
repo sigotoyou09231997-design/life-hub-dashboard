@@ -31,6 +31,9 @@ const TABLE_LABELS: Record<string, string> = {
   trip_expense_currencies: "旅行費用の通貨",
   transaction_project_tags: "案件タグ",
   category_budgets: "カテゴリ予算",
+  event_mail_links: "予定と元のメールのつながり",
+  google_calendar_links: "Googleカレンダーとの対応",
+  subscription_details: "サブスクの詳細",
 };
 
 export function syncTableLabel(tableName: string): string {
