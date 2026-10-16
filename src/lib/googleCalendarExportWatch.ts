@@ -51,8 +51,10 @@ export function runPendingExport(): Promise<void> {
 /** 予定の表への書き込みを見張り始める(アプリの起動時に1回)。 */
 export function installCalendarExportWatcher(): void {
   if (installed) return;
+  const table = db.calendarEvents as { hook?: unknown } | undefined;
+  // テストなどで表の作りが差し替えられている時(フックが無い)は、何もしない。
+  if (typeof table?.hook !== "function") return;
   installed = true;
-  const table = db.calendarEvents;
   (table.hook as any)("creating", function (this: { onsuccess?: () => void }) {
     this.onsuccess = () => scheduleCalendarExport();
   });
