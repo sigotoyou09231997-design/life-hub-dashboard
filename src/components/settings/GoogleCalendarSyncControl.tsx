@@ -15,11 +15,13 @@ import { SwitchField } from "../ui/SwitchField";
 import { useToast } from "../ui/ToastProvider";
 
 /**
- * 設定画面のGmailアカウント1件ぶんの「Googleカレンダーから予定を取り込む」(src/lib/googleCalendar.ts)。
+ * 設定画面のGmailアカウント1件ぶんの「Googleカレンダーと同期する」(src/lib/googleCalendar.ts)。
+ * 2026-09-16 は取り込み(Google → LIFE HUB)だけだったが、2026-10-16 に書き出し(LIFE HUB → Google)も入り、
+ * 呼び名を「取り込む」から「同期する」に変えた。
  *
  * カレンダーの権限はGmailの連携と同じGoogleログインに足すので、この機能より前に連携した
  * アカウントは一度つなぎ直しが要る(依頼本文で「その場合は仕方ない」と了承済み)。
- * つなぎ直しから戻ると、そのまま取り込みが入になる(GmailCallbackPage)。
+ * つなぎ直しから戻ると、そのまま同期が入になる(GmailCallbackPage)。
  */
 export function GoogleCalendarSyncControl({ account }: { account: GmailAccount }) {
   const showToast = useToast();
@@ -51,7 +53,7 @@ export function GoogleCalendarSyncControl({ account }: { account: GmailAccount }
         calendarSyncToken: undefined,
         calendarSyncError: "",
       });
-      showToast("Googleカレンダーの取り込みを止めました");
+      showToast("Googleカレンダーとの同期を止めました");
       return;
     }
     const changes = { calendarSyncEnabledAt: Date.now(), calendarSyncToken: undefined, calendarSyncError: "" };
@@ -64,10 +66,10 @@ export function GoogleCalendarSyncControl({ account }: { account: GmailAccount }
       <div className="flex flex-col gap-1.5 rounded-lg bg-white/40 px-3 py-2.5">
         <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
           <CalendarSync size={14} />
-          Googleカレンダーの取り込み
+          Googleカレンダーとの同期
         </p>
         <p className="text-xs leading-relaxed text-slate-500">
-          Googleカレンダーの予定をLIFE HUBに取り込むには、カレンダーの権限を足すため一度つなぎ直してください。
+          Googleカレンダーの予定とLIFE HUBの予定を揃えるには、カレンダーの権限を足すため一度つなぎ直してください。
         </p>
         <button
           type="button"
@@ -81,17 +83,17 @@ export function GoogleCalendarSyncControl({ account }: { account: GmailAccount }
   }
 
   const status = !enabled
-    ? "メインのカレンダーで、入にした後に足した・変えた・消した予定を取り込みます(今ある予定は入れません)"
+    ? "メインのカレンダーと、入にした後に足した・変えた・消した予定を、どちら側からも揃えます(今ある予定はどちらも触りません)"
     : account.calendarSyncError
       ? account.calendarSyncError
       : account.calendarLastSyncedAt
         ? `最後に確認: ${formatGmailTimestamp(account.calendarLastSyncedAt)}`
-        : "これから足した・変えた予定を取り込みます";
+        : "これから足した・変えた予定を、どちら側からも揃えます";
 
   return (
     <div className="flex flex-col gap-1">
       <SwitchField
-        label="Googleカレンダーから予定を取り込む"
+        label="Googleカレンダーと同期する"
         hint={status}
         checked={enabled}
         onChange={(on) => void handleToggle(on)}
@@ -103,7 +105,7 @@ export function GoogleCalendarSyncControl({ account }: { account: GmailAccount }
           onClick={() => void runSync(account)}
           className="self-start px-[0.9rem] text-xs font-medium text-accent disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
-          {busy ? "取り込んでいます…" : "今すぐ取り込む"}
+          {busy ? "同期しています…" : "今すぐ同期する"}
         </button>
       )}
     </div>
