@@ -22,6 +22,14 @@ export interface ChangelogEntry {
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-16-79",
+    date: "2026-10-16",
+    area: "予定・タスク",
+    title: "LIFE HUBで足した・変えた・消した予定が、Googleカレンダーにも入るように",
+    description:
+      "設定のGmailのアカウント欄の「Googleカレンダーと同期する」(以前の「Googleカレンダーから予定を取り込む」)を入にしてあると、これまでのGoogleカレンダー→LIFE HUBの取り込みに加えて、LIFE HUBで足した・変えた・消した予定がGoogleカレンダー(メインのカレンダー)にも入ります。予定を変えた数秒後に送るほか、ホームや予定の画面を開いた時・「今すぐ同期する」・引っ張って更新でも揃えます。入にする前からある予定はどちらの側も触りません。繰り返しの予定は、毎日・毎週・毎月・曜日指定と終わりの日をそのまま送ります。Google側で消した予定はLIFE HUBからも消え、LIFE HUBで消した予定はGoogle側からも消えます。",
+  },
+  {
     id: "2026-10-16-78",
     date: "2026-10-16",
     area: "設定",
