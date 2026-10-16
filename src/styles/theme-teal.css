@@ -88,6 +88,15 @@
 
   --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* 文字の大きさは5段(UI/UX 調査メモ 第6弾 D-8、2026-10-16)。大きな数字 → ページ見出し → セクション見出し → 本文 → 補足。
+     前は大きな金額(約40px)の次がセクション見出し(約13px)で、あいだの段が無く見出しが本文に埋もれていた。
+     数字(--font-num)の大きさはそのまま。新しく書く CSS は、この5つから選ぶ。 */
+  --fs-display: 2.25rem;
+  --fs-page: 1.5rem;
+  --fs-section: 1rem;
+  --fs-body: 0.875rem;
+  --fs-caption: 0.75rem;
 }
 
 /* 画面ごとの色（pages-warm.css の --page-tone）も青緑1色にそろえる。 */
@@ -715,3 +724,20 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 :root .text-slate-400 {
   color: var(--warm-ink-3);
 }
+
+/* ---------------------------------------------------------------------------
+   文字の段(第6弾 D-8、2026-10-16)。ページ見出しは 24px、セクション見出しは 16px・600。
+   index.css の PC 幅の 1.85rem !important より、.app-shell を付けた分だけ詳細度が高いのでこちらが勝つ。
+   ------------------------------------------------------------------------ */
+.app-shell .spatial-page-header__title,
+.app-shell .spatial-page-header h1 {
+  font-size: var(--fs-page) !important;
+}
+.app-shell .lh-section__title,
+.app-shell .lh-home .warm-brief .warm-card__title,
+.app-shell .warm-card__title {
+  font-size: var(--fs-section);
+  font-weight: 600;
+}
+/* 黒いお金のカードの「今月のお金」は見出しではなく小さな札なので、段に入れない。 */
+.app-shell .lh-home > .lh-money .warm-card__title { font-size: 0.9rem; }

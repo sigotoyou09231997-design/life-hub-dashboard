@@ -238,7 +238,9 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   min-width: 0;
   border-radius: var(--r-card);
   padding: 0.85rem 0.9rem 0.9rem;
-  background: linear-gradient(160deg, #ffffff, var(--teal-50));
+  /* 第6弾 D-6(2026-10-16): 薄い青緑の面をやめ、白＋細い線に。青緑はアイコンの丸だけ。 */
+  border: 1px solid var(--warm-line);
+  background: var(--warm-surface);
   box-shadow: var(--shadow-rest);
 }
 .lh-home .warm-brief__label {
@@ -510,11 +512,14 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 0.6rem;
-  border-radius: var(--r-control);
-  padding: 0.65rem 0.9rem;
-  background: var(--warm-surface-sunk);
+  border: 1px solid var(--warm-line);
+  border-radius: var(--r-card);
+  padding: 0.65rem 1rem;
+  /* 第6弾 D-6(2026-10-16): 灰色の帯をやめ、白いカード＋細い線の1行に。 */
+  background: var(--warm-surface);
+  box-shadow: var(--shadow-rest);
   color: var(--warm-ink-2);
-  font-size: 0.8rem;
+  font-size: var(--fs-caption);
 }
 .warm-usage-band > svg { flex: 0 0 auto; color: var(--warm-ink-3); }
 .warm-usage-band__link {
@@ -541,7 +546,8 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   gap: 0.6rem;
   border-radius: var(--r-card);
   padding: 0.85rem 1rem;
-  background: linear-gradient(160deg, #ffffff, var(--teal-50));
+  border: 1px solid var(--warm-line);
+  background: var(--warm-surface);
   box-shadow: var(--shadow-rest);
   color: var(--warm-ink);
   font-size: 0.86rem;
@@ -847,23 +853,34 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 .lh-money__cta:disabled { opacity: 0.4; }
 
 /* 第5弾 A-4(2026-10-13) 始め方のチェックリスト「LIFE HUB をそろえる」。 */
-.lh-setup { padding: 0.95rem 1.05rem 0.55rem; }
+/* 第6弾 D-7(2026-10-16): 済んだ項目は「Nつ済み」の1行に畳み、残りは PC では横に並べた小さなカード。 */
+.lh-setup { padding: 0.95rem 1.05rem 0.7rem; }
 .lh-setup__head { display: flex; align-items: center; gap: 0.75rem; }
 .lh-setup__ring { flex: 0 0 auto; width: 2.5rem; height: 2.5rem; }
 .lh-setup__ring-track { fill: none; stroke: var(--warm-line-strong); stroke-width: 4; }
 .lh-setup__ring-bar { fill: none; stroke: var(--teal-500); stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset 600ms var(--ease-out-expo); }
-.lh-setup__title { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--warm-ink); }
-.lh-setup__sub { margin: 0.1rem 0 0; font-size: 0.74rem; color: var(--warm-ink-3); }
-.lh-setup__hide { flex: 0 0 auto; border: 0; background: transparent; padding: 0.3rem 0.1rem; color: var(--warm-ink-3); font-size: 0.74rem; font-weight: 600; }
+.lh-setup__title { margin: 0; font-size: var(--fs-section); font-weight: 600; color: var(--warm-ink); }
+.lh-setup__sub { margin: 0.1rem 0 0; font-size: var(--fs-caption); color: var(--warm-ink-3); }
+.lh-setup__hide { flex: 0 0 auto; border: 0; background: transparent; padding: 0.3rem 0.1rem; color: var(--warm-ink-3); font-size: var(--fs-caption); font-weight: 600; }
 .lh-setup__hide:hover { color: var(--warm-ink); }
-.lh-setup__list { display: flex; flex-direction: column; margin: 0.6rem 0 0; padding: 0; list-style: none; }
-.lh-setup__list > li + li { border-top: 1px solid var(--warm-line); }
-.lh-setup__row { display: flex; align-items: center; gap: 0.7rem; width: 100%; min-height: 2.9rem; border: 0; background: transparent; padding: 0.55rem 0.1rem; text-align: left; color: inherit; }
+.lh-setup__todo { display: flex; flex-direction: column; gap: 0.5rem; margin: 0.7rem 0 0; padding: 0; list-style: none; }
+.lh-setup__row { display: flex; align-items: center; gap: 0.7rem; width: 100%; min-height: 3.1rem; border: 1px solid var(--warm-line); border-radius: var(--r-control); background: var(--warm-surface); padding: 0.6rem 0.75rem; text-align: left; color: inherit; }
 button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
-.lh-setup__row:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; border-radius: 0.5rem; }
+.lh-setup__row:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; }
+.lh-setup__icon { display: grid; flex: 0 0 auto; width: 2.1rem; height: 2.1rem; place-items: center; border-radius: var(--r-control); background: var(--teal-50); color: var(--teal-700); }
+.lh-setup__copy { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: 0.1rem; }
+.lh-setup__copy strong { font-size: var(--fs-body); font-weight: 700; color: var(--warm-ink); }
+.lh-setup__copy small { font-size: var(--fs-caption); color: var(--warm-ink-3); }
+.lh-setup__cta { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 0.15rem; font-size: var(--fs-caption); font-weight: 700; color: var(--teal-700); white-space: nowrap; }
+.lh-setup__done { margin-top: 0.45rem; }
+.lh-setup__done-toggle { display: inline-flex; align-items: center; gap: 0.45rem; border: 0; background: transparent; padding: 0.4rem 0.1rem; font-size: var(--fs-caption); font-weight: 600; color: var(--warm-ink-3); cursor: pointer; }
+.lh-setup__done-toggle:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; border-radius: 0.5rem; }
 .lh-setup__check { display: grid; flex: 0 0 auto; width: 1.3rem; height: 1.3rem; place-items: center; border: 1.5px solid var(--warm-line-strong); border-radius: 50%; color: #fff; }
 .lh-setup__check.is-done { border-color: var(--teal-500); background: var(--teal-500); }
-.lh-setup__copy { display: flex; min-width: 0; flex-direction: column; gap: 0.1rem; }
-.lh-setup__copy strong { font-size: 0.86rem; font-weight: 700; color: var(--warm-ink); }
-.lh-setup__copy small { font-size: 0.72rem; color: var(--warm-ink-3); }
-.lh-setup__row.is-done .lh-setup__copy strong { color: var(--warm-ink-3); text-decoration: line-through; font-weight: 600; }
+.lh-setup__chevron { transition: transform 240ms var(--ease-out-expo); }
+.lh-setup__done-toggle[aria-expanded="true"] .lh-setup__chevron { transform: rotate(180deg); }
+.lh-setup__done-list { margin: 0; padding: 0 0 0.2rem 1.85rem; list-style: none; }
+.lh-setup__done-row { padding: 0.15rem 0; font-size: var(--fs-caption); font-weight: 600; color: var(--warm-ink-3); text-decoration: line-through; }
+@media (min-width: 1024px) {
+  .lh-setup__todo { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.6rem; }
+}
