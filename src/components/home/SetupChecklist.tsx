@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Check } from "lucide-react";
+import { ArrowRight, CalendarDays, CalendarSync, Check, ChevronDown, Home, Receipt, Wallet, type LucideIcon } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import { isCalendarSyncEnabled } from "../../lib/googleCalendar";
@@ -12,6 +12,7 @@ import {
   markSetupChecklistDone,
   SETUP_HIDE_DAYS,
   type SetupItem,
+  type SetupItemId,
 } from "../../lib/setupChecklist";
 import { openQuickAdd } from "../layout/AddChooser";
 import { useHiddenFeatures } from "../../hooks/useHiddenFeatures";
@@ -20,13 +21,26 @@ import { showToast } from "../ui/toastStore";
 const RING_RADIUS = 15;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 
+/** 残っている項目のカードに出すアイコン(第6弾 D-7)。 */
+const ITEM_ICON: Record<SetupItemId, LucideIcon> = {
+  salary: Wallet,
+  expense: Receipt,
+  event: CalendarDays,
+  homeAddress: Home,
+  googleCalendar: CalendarSync,
+};
+
 /**
  * ホームの「LIFE HUB をそろえる」(第5弾 A-4)。済んだかどうかは実際のデータから決める(手でチェックしない)。
  * 全部済んだら自動で消え、二度と出ない。「今は表示しない」で14日間だけ出さない。
  * 読み込み中は何も出さない(出たり消えたりしないため)。判定の中身は src/lib/setupChecklist.ts。
+ *
+ * 2026-10-16(第6弾 D-7): 済んだ項目は「Nつ済み」の1行に畳む(押すと開く)。残りの項目は
+ * アイコン・題名・一言・「はじめる」のカードにし、PC では横に並べる。
  */
 export function SetupChecklist() {
   const [hidden, setHidden] = useState(() => isSetupChecklistSuppressed(Date.now()));
+  const [doneOpen, setDoneOpen] = useState(false);
   const homeAddress = useHomeAddress();
   const facts = useLiveQuery(async () => {
     const [salaries, expenses, events, accounts] = await Promise.all([
@@ -56,6 +70,9 @@ export function SetupChecklist() {
     showToast(`${SETUP_HIDE_DAYS}日間、表示しません`);
   }
 
+  const todo = progress.items.filter((item) => !item.done);
+  const done = progress.items.filter((item) => item.done);
+
   return (
     <section className="warm-card lh-setup" aria-labelledby="lh-setup-title">
       <div className="lh-setup__head">
@@ -81,30 +98,59 @@ export function SetupChecklist() {
           今は表示しない
         </button>
       </div>
-      <ul className="lh-setup__list">
-        {progress.items.map((item) => (
-          <li key={item.id}>
-            <SetupRow item={item} />
-          </li>
-        ))}
-      </ul>
+      {todo.length > 0 && (
+        <ul className="lh-setup__todo">
+          {todo.map((item) => (
+            <li key={item.id}>
+              <SetupCard item={item} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {done.length > 0 && (
+        <div className="lh-setup__done">
+          <button
+            type="button"
+            className="lh-setup__done-toggle"
+            aria-expanded={doneOpen}
+            aria-controls="lh-setup-done-list"
+            onClick={() => setDoneOpen((open) => !open)}
+          >
+            <span className="lh-setup__check is-done" aria-hidden="true">
+              <Check size={12} strokeWidth={3.2} />
+            </span>
+            {done.length}つ済み
+            <ChevronDown size={14} className="lh-setup__chevron" aria-hidden="true" />
+          </button>
+          <ul id="lh-setup-done-list" className="lh-setup__done-list" hidden={!doneOpen}>
+            {done.map((item) => (
+              <li key={item.id} className="lh-setup__done-row">
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }
 
-function SetupRow({ item }: { item: SetupItem }) {
+function SetupCard({ item }: { item: SetupItem }) {
+  const Icon = ITEM_ICON[item.id];
   const body = (
     <>
-      <span className={`lh-setup__check ${item.done ? "is-done" : ""}`} aria-hidden="true">
-        {item.done && <Check size={12} strokeWidth={3.2} />}
+      <span className="lh-setup__icon" aria-hidden="true">
+        <Icon size={16} strokeWidth={1.9} />
       </span>
       <span className="lh-setup__copy">
         <strong>{item.label}</strong>
-        {!item.done && <small>{item.hint}</small>}
+        <small>{item.hint}</small>
+      </span>
+      <span className="lh-setup__cta">
+        はじめる <ArrowRight size={12} aria-hidden="true" />
       </span>
     </>
   );
-  if (item.done) return <div className="lh-setup__row is-done">{body}</div>;
   if (item.action) {
     const kind = item.action;
     return (

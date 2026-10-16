@@ -19,7 +19,7 @@ export interface SetupFacts {
   event: boolean;
   /** 自宅の住所を入れてある(この端末の設定)。 */
   homeAddress: boolean;
-  /** Google カレンダーの取り込みを入にしてある。 */
+  /** Google カレンダーとの同期を入にしてある。 */
   googleCalendar: boolean;
 }
 
@@ -69,8 +69,8 @@ export function buildSetupItems(facts: SetupFacts): SetupItem[] {
     },
     {
       id: "googleCalendar",
-      label: "Google カレンダーを取り込む",
-      hint: "Google の予定を、ここにも出せます",
+      label: "Google カレンダーと同期する",
+      hint: "Google の予定がここにも出て、ここで足した予定が Google にも入ります",
       done: facts.googleCalendar,
       to: "/settings",
     },

@@ -260,7 +260,8 @@ a.warm-card {
 .warm-trip__veil {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(18, 22, 30, 0.78), rgba(18, 22, 30, 0.2) 62%, rgba(18, 22, 30, 0.06));
+  /* 第6弾 D-5(2026-10-16): 上 40% は写真をそのまま見せ、文字の下だけ暗く。 */
+  background: linear-gradient(180deg, rgba(8, 16, 28, 0) 40%, rgba(8, 16, 28, 0.72) 100%);
 }
 
 .warm-trip__kicker,
