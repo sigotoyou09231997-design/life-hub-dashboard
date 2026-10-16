@@ -36,7 +36,7 @@ vi.mock("../../lib/googleCalendar", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../lib/googleCalendar")>()),
   syncGoogleCalendar: async (account: GmailAccount) => {
     mocks.synced.push(account);
-    return { added: 0, updated: 0, deleted: 0, skipped: 0, baselined: true, error: null };
+    return { added: 0, updated: 0, deleted: 0, skipped: 0, exported: 0, removed: 0, baselined: true, error: null };
   },
 }));
 
@@ -82,7 +82,7 @@ describe("設定のGoogleカレンダー取り込み", () => {
   it("入にすると、起点を捨ててから取り込み(起点の取得)を始める", async () => {
     const user = userEvent.setup();
     renderControl(withScope);
-    const toggle = screen.getByRole("switch", { name: /Googleカレンダーから予定を取り込む/ });
+    const toggle = screen.getByRole("switch", { name: /Googleカレンダーと同期する/ });
     expect(toggle.getAttribute("aria-checked")).toBe("false");
     await user.click(toggle);
     await waitFor(() => expect(mocks.synced).toHaveLength(1));
@@ -95,7 +95,7 @@ describe("設定のGoogleカレンダー取り込み", () => {
   it("切っても取り込み済みの予定は消さず、次に入にした時のために起点だけ捨てる", async () => {
     const user = userEvent.setup();
     renderControl({ ...withScope, calendarSyncEnabledAt: 1, calendarSyncToken: "t", calendarLastSyncedAt: Date.now() });
-    await user.click(screen.getByRole("switch", { name: /Googleカレンダーから予定を取り込む/ }));
+    await user.click(screen.getByRole("switch", { name: /Googleカレンダーと同期する/ }));
     expect(mocks.updates).toEqual([
       { id: "acc-1", changes: { calendarSyncEnabledAt: 0, calendarSyncToken: undefined, calendarSyncError: "" } },
     ]);
@@ -105,6 +105,6 @@ describe("設定のGoogleカレンダー取り込み", () => {
   it("前回の失敗の理由を、そのまま出す", () => {
     renderControl({ ...withScope, calendarSyncEnabledAt: 1, calendarSyncError: "Google Calendar API が有効になっていません" });
     expect(screen.getByText("Google Calendar API が有効になっていません")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "今すぐ取り込む" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "今すぐ同期する" })).toBeTruthy();
   });
 });

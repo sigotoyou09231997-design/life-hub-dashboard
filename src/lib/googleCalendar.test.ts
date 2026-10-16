@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   accountUpdates: [] as Record<string, unknown>[],
   responses: [] as { status: number; body: unknown }[],
   requests: [] as string[],
+  calls: [] as { url: string; method: string; body?: any }[],
 }));
 
 vi.mock("../db/schema", () => ({
@@ -15,11 +16,21 @@ vi.mock("../db/schema", () => ({
       get: async (id: string) => mocks.events.get(id),
       put: async (row: CalendarEvent) => void mocks.events.set(row.id!, row),
       delete: async (id: string) => void mocks.events.delete(id),
+      toArray: async () => [...mocks.events.values()],
     },
     googleCalendarLinks: {
       get: async (id: string) => mocks.links.get(id),
       put: async (row: GoogleCalendarLink) => void mocks.links.set(row.id!, row),
       delete: async (id: string) => void mocks.links.delete(id),
+      toArray: async () => [...mocks.links.values()],
+      where: (index: string) => ({
+        equals: (key: [string, string]) => ({
+          toArray: async () => {
+            if (index !== "[accountEmail+googleEventId]") throw new Error(`unexpected index ${index}`);
+            return [...mocks.links.values()].filter((l) => l.accountEmail === key[0] && l.googleEventId === key[1]);
+          },
+        }),
+      }),
     },
     gmailAccounts: {
       update: async (_id: string, changes: Record<string, unknown>) => {
@@ -38,14 +49,21 @@ vi.mock("./gmail", () => ({
 
 import {
   describeCalendarError,
+  EMPTY_CALENDAR_SYNC_RESULT,
+  eventIdFromGoogleId,
   fromGoogleEvent,
+  googleEventIdFor,
   hasCalendarScope,
   importedEventId,
+  importedLinkId,
   parseRecurrence,
+  planExport,
   shouldAutoSyncCalendar,
   stableUuid,
   summarizeCalendarSync,
   syncGoogleCalendar,
+  toGoogleEvent,
+  toRecurrence,
   UNSUPPORTED_REPEAT_NOTE,
   type GoogleCalendarItem,
 } from "./googleCalendar";
@@ -72,8 +90,10 @@ beforeEach(() => {
   mocks.accountUpdates = [];
   mocks.responses = [];
   mocks.requests = [];
-  vi.stubGlobal("fetch", async (url: string) => {
+  mocks.calls = [];
+  vi.stubGlobal("fetch", async (url: string, init?: { method?: string; body?: string }) => {
     mocks.requests.push(url);
+    mocks.calls.push({ url, method: init?.method ?? "GET", body: init?.body ? JSON.parse(init.body) : undefined });
     const next = mocks.responses.shift() ?? { status: 500, body: "no response prepared" };
     return {
       ok: next.status >= 200 && next.status < 300,
@@ -275,9 +295,11 @@ describe("describeCalendarError", () => {
 
 describe("summarizeCalendarSync", () => {
   it("何が起きたかを1行にする", () => {
-    const base = { added: 0, updated: 0, deleted: 0, skipped: 0, baselined: false, error: null };
+    const base = EMPTY_CALENDAR_SYNC_RESULT;
     expect(summarizeCalendarSync({ ...base, added: 2, deleted: 1 })).toBe("Googleカレンダーから2件追加・1件削除しました");
-    expect(summarizeCalendarSync(base)).toBe("Googleカレンダーに新しい変更はありませんでした");
+    expect(summarizeCalendarSync({ ...base, exported: 3 })).toBe("Googleカレンダーへ3件送信しました");
+    expect(summarizeCalendarSync({ ...base, added: 1, exported: 1, removed: 1 })).toBe("Googleカレンダーから1件追加、Googleカレンダーへ1件送信・1件削除しました");
+    expect(summarizeCalendarSync(base)).toBe("Googleカレンダーとの間に新しい変更はありませんでした");
   });
 });
 
@@ -291,5 +313,237 @@ describe("hasCalendarScope / shouldAutoSyncCalendar", () => {
     expect(shouldAutoSyncCalendar({ ...account, calendarSyncEnabledAt: 0 }, now)).toBe(false);
     expect(shouldAutoSyncCalendar({ ...account, grantedScopes: "openid" }, now)).toBe(false);
     expect(shouldAutoSyncCalendar({ ...account, reauthRequiredAt: 5 }, now)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 第2段: LIFE HUB → Google の書き出し(2026-10-16)
+// ---------------------------------------------------------------------------
+
+describe("googleEventIdFor / eventIdFromGoogleId", () => {
+  it("予定のUUIDからハイフンを抜いた32文字にし、元に戻せる(Googleが付けた26文字のidは戻さない)", () => {
+    const id = "0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6";
+    expect(googleEventIdFor(id)).toBe("0f3c2a9e1b4d5c6e8f90a1b2c3d4e5f6");
+    expect(googleEventIdFor(id)).toMatch(/^[0-9a-v]{5,1024}$/);
+    expect(eventIdFromGoogleId(googleEventIdFor(id))).toBe(id);
+    expect(eventIdFromGoogleId("_6co34c9g6ko3ab9k60o3ab9kc")).toBeNull();
+    expect(eventIdFromGoogleId("abc")).toBeNull();
+  });
+});
+
+describe("toRecurrence", () => {
+  it("毎日・毎週・毎月・曜日指定を RRULE にし、繰り返さない予定は空(繰り返しを消す)", () => {
+    expect(toRecurrence({ repeat: "none" })).toEqual([]);
+    expect(toRecurrence({})).toEqual([]);
+    expect(toRecurrence({ repeat: "daily" })).toEqual(["RRULE:FREQ=DAILY"]);
+    expect(toRecurrence({ repeat: "weekly" })).toEqual(["RRULE:FREQ=WEEKLY"]);
+    expect(toRecurrence({ repeat: "monthly" })).toEqual(["RRULE:FREQ=MONTHLY"]);
+    expect(toRecurrence({ repeat: "weekdays:1,3,5" })).toEqual(["RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR"]);
+  });
+
+  it("終わりの日は、終日なら日付、時刻つきなら端末の時刻の 23:59:59 を UTC にして付ける(取り込みで同じ日に戻る)", () => {
+    expect(toRecurrence({ repeat: "weekly", repeatUntil: "2026-12-31", allDay: true })).toEqual(["RRULE:FREQ=WEEKLY;UNTIL=20261231"]);
+    const [timed] = toRecurrence({ repeat: "weekly", repeatUntil: "2026-12-31", startTime: "10:00" });
+    const until = /UNTIL=(\d{8}T\d{6}Z)/.exec(timed)![1];
+    expect(parseRecurrence([timed], "2026-10-07")).toEqual({ repeat: "weekly", repeatUntil: "2026-12-31" });
+    expect(until.endsWith("Z")).toBe(true);
+  });
+});
+
+describe("toGoogleEvent", () => {
+  const tz = "Asia/Tokyo";
+  it("時刻つきの予定は端末の時刻＋時間帯で送り、終わりが無ければ1時間にする", () => {
+    const body = toGoogleEvent({ id: "e1", title: " 打合せ ", date: "2026-10-20", startTime: "13:30", endTime: "15:00", location: "渋谷", memo: "資料持参", createdAt: 1 }, tz);
+    expect(body).toEqual({
+      status: "confirmed",
+      summary: "打合せ",
+      description: "資料持参",
+      location: "渋谷",
+      start: { dateTime: "2026-10-20T13:30:00", timeZone: tz, date: null },
+      end: { dateTime: "2026-10-20T15:00:00", timeZone: tz, date: null },
+      recurrence: [],
+    });
+    const open = toGoogleEvent({ id: "e2", title: "歯医者", date: "2026-10-20", startTime: "23:30", createdAt: 1 }, tz);
+    expect(open.end).toEqual({ dateTime: "2026-10-21T00:30:00", timeZone: tz, date: null });
+  });
+
+  it("終日(時刻の無い予定)は日付で送り、終わりは「含まない翌日」にする。何日かにまたがる予定も同じ", () => {
+    const one = toGoogleEvent({ id: "e3", title: "休み", date: "2026-10-20", allDay: true, createdAt: 1 }, tz);
+    expect(one.start).toEqual({ date: "2026-10-20", dateTime: null, timeZone: null });
+    expect(one.end).toEqual({ date: "2026-10-21", dateTime: null, timeZone: null });
+    const span = toGoogleEvent({ id: "e4", title: "出張", date: "2026-10-20", endDate: "2026-10-22", createdAt: 1 }, tz);
+    expect(span.end).toEqual({ date: "2026-10-23", dateTime: null, timeZone: null });
+    expect(fromGoogleEvent({ id: "x", summary: "出張", start: { date: "2026-10-20" }, end: { date: "2026-10-23" } }, undefined, 0)).toEqual(
+      expect.objectContaining({ kind: "upsert", event: expect.objectContaining({ date: "2026-10-20", endDate: "2026-10-22", allDay: true }) }),
+    );
+  });
+
+  it("空のタイトルは「(タイトルなし)」、取り込みで付けた繰り返しの注記は送らない", () => {
+    const body = toGoogleEvent({ id: "e5", title: "  ", date: "2026-10-20", memo: `毎年の予定\n${UNSUPPORTED_REPEAT_NOTE}`, createdAt: 1 }, tz);
+    expect(body.summary).toBe("(タイトルなし)");
+    expect(body.description).toBe("毎年の予定");
+  });
+});
+
+describe("planExport", () => {
+  const enabledAt = 1_000_000;
+  const email = "me@example.com";
+  const link = (eventId: string, extra: Partial<GoogleCalendarLink> = {}): GoogleCalendarLink => ({
+    id: `l-${eventId}`,
+    eventId,
+    accountEmail: "Me@example.com",
+    googleEventId: `g-${eventId}`,
+    createdAt: enabledAt,
+    updatedAt: enabledAt + 100,
+    ...extra,
+  });
+  const ev = (id: string, extra: Partial<CalendarEvent> = {}): CalendarEvent => ({ id, title: id, date: "2026-10-20", createdAt: enabledAt + 10, ...extra });
+
+  it("入にした後に足した予定だけ作り、入にする前からある予定は触らない(依頼のとおり)", () => {
+    const plan = planExport([ev("new"), ev("old", { createdAt: 1, updatedAt: 2 })], [], email, enabledAt);
+    expect(plan.create.map((e) => e.id)).toEqual(["new"]);
+    expect(plan.update).toEqual([]);
+    expect(plan.remove).toEqual([]);
+  });
+
+  it("入にする前からある予定でも、入にした後に変えたものは送る(「足した/変えた分から」)", () => {
+    const plan = planExport([ev("old", { createdAt: 1, updatedAt: enabledAt + 5 })], [], email, enabledAt);
+    expect(plan.create.map((e) => e.id)).toEqual(["old"]);
+  });
+
+  it("対応表がある予定は、最後に同期した時刻より後に変えたものだけ更新する(アドレスの大文字・小文字は無視)", () => {
+    const events = [ev("same", { updatedAt: enabledAt + 100 }), ev("changed", { updatedAt: enabledAt + 200 })];
+    const plan = planExport(events, [link("same"), link("changed")], email, enabledAt);
+    expect(plan.create).toEqual([]);
+    expect(plan.update.map((u) => u.event.id)).toEqual(["changed"]);
+  });
+
+  it("予定が消えて対応表だけ残っていれば Google からも消す。別のアカウントの対応表は見ない", () => {
+    const plan = planExport([], [link("gone"), link("other", { accountEmail: "other@example.com" })], email, enabledAt);
+    expect(plan.remove.map((l) => l.eventId)).toEqual(["gone"]);
+  });
+
+  it("Google から取り込んだ予定(対応表あり・作った時刻は古い)は、変えていなければ何もしない", () => {
+    const imported = ev("imp", { createdAt: 1, updatedAt: enabledAt + 100 });
+    const plan = planExport([imported], [link("imp")], email, enabledAt);
+    expect(plan).toEqual({ create: [], update: [], remove: [] });
+  });
+});
+
+describe("syncGoogleCalendar の書き出し", () => {
+  const enabled: GmailAccount = { ...account, calendarSyncEnabledAt: 1_000_000, calendarSyncToken: "sync-1" };
+  const noChanges = { status: 200, body: { items: [], nextSyncToken: "sync-2" } };
+
+  it("LIFE HUB で足した予定を Google に作り(idは予定のUUIDから)、対応表に覚える", async () => {
+    mocks.events.set("0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6", {
+      id: "0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6",
+      title: "新しい予定",
+      date: "2026-10-20",
+      startTime: "10:00",
+      createdAt: 1_000_010,
+      updatedAt: 1_000_010,
+    });
+    mocks.responses = [noChanges, { status: 200, body: { id: "0f3c2a9e1b4d5c6e8f90a1b2c3d4e5f6", updated: "2026-10-16T01:00:00Z" } }];
+    const result = await syncGoogleCalendar(enabled);
+    expect(result).toEqual(expect.objectContaining({ exported: 1, removed: 0, error: null }));
+    const post = mocks.calls[1];
+    expect(post.method).toBe("POST");
+    expect(post.url).toBe("https://www.googleapis.com/calendar/v3/calendars/primary/events");
+    expect(post.body).toEqual(expect.objectContaining({ id: "0f3c2a9e1b4d5c6e8f90a1b2c3d4e5f6", summary: "新しい予定" }));
+    expect(post.body.start.dateTime).toBe("2026-10-20T10:00:00");
+    const linkId = await importedLinkId(account.email, "0f3c2a9e1b4d5c6e8f90a1b2c3d4e5f6");
+    expect(mocks.links.get(linkId)).toEqual(
+      expect.objectContaining({
+        eventId: "0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6",
+        googleEventId: "0f3c2a9e1b4d5c6e8f90a1b2c3d4e5f6",
+        googleUpdated: "2026-10-16T01:00:00Z",
+      }),
+    );
+    expect(summarizeCalendarSync(result)).toBe("Googleカレンダーへ1件送信しました");
+  });
+
+  it("Google に同じidがもうあれば(ほかの端末が先に送った)、2件目を作らず上書きする", async () => {
+    mocks.events.set("0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6", {
+      id: "0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6",
+      title: "新しい予定",
+      date: "2026-10-20",
+      createdAt: 1_000_010,
+    });
+    mocks.responses = [
+      noChanges,
+      { status: 409, body: '{"error":{"message":"The requested identifier already exists."}}' },
+      { status: 200, body: { id: "0f3c2a9e1b4d5c6e8f90a1b2c3d4e5f6", updated: "2026-10-16T02:00:00Z" } },
+    ];
+    const result = await syncGoogleCalendar(enabled);
+    expect(result.exported).toBe(1);
+    expect(mocks.calls.map((c) => c.method)).toEqual(["GET", "POST", "PATCH"]);
+    expect(mocks.calls[2].url).toContain("/events/0f3c2a9e1b4d5c6e8f90a1b2c3d4e5f6");
+    expect(mocks.calls[2].body.status).toBe("confirmed");
+  });
+
+  it("前回の同期より後に変えた予定は PATCH で送り、消した予定は DELETE する。変えていない予定は送らない", async () => {
+    mocks.events.set("changed", { id: "changed", title: "変えた", date: "2026-10-20", createdAt: 1, updatedAt: 1_000_300 });
+    mocks.events.set("same", { id: "same", title: "そのまま", date: "2026-10-20", createdAt: 1, updatedAt: 1_000_100 });
+    mocks.links.set("l1", { id: "l1", eventId: "changed", accountEmail: account.email, googleEventId: "g-changed", createdAt: 1, updatedAt: 1_000_200 });
+    mocks.links.set("l2", { id: "l2", eventId: "same", accountEmail: account.email, googleEventId: "g-same", createdAt: 1, updatedAt: 1_000_200 });
+    mocks.links.set("l3", { id: "l3", eventId: "gone", accountEmail: account.email, googleEventId: "g-gone", createdAt: 1, updatedAt: 1_000_200 });
+    mocks.responses = [noChanges, { status: 204, body: "" }, { status: 200, body: { id: "g-changed", updated: "2026-10-16T03:00:00Z" } }];
+    const result = await syncGoogleCalendar(enabled);
+    expect(result).toEqual(expect.objectContaining({ exported: 1, removed: 1, error: null }));
+    expect(mocks.calls.slice(1).map((c) => `${c.method} ${c.url.split("/events")[1]}`)).toEqual(["DELETE /g-gone", "PATCH /g-changed"]);
+    expect(mocks.links.has("l3")).toBe(false);
+    expect(mocks.links.get("l1")).toEqual(expect.objectContaining({ googleUpdated: "2026-10-16T03:00:00Z" }));
+    expect(mocks.links.get("l1")!.updatedAt!).toBeGreaterThanOrEqual(1_000_300);
+    expect(summarizeCalendarSync(result)).toBe("Googleカレンダーへ1件送信・1件削除しました");
+  });
+
+  it("こちらが送った版がそのまま Google から返ってきても、取り込み直さない(更新の数に入れない)", async () => {
+    mocks.events.set("mine", { id: "mine", title: "LIFE HUB の文", date: "2026-10-20", createdAt: 1, updatedAt: 1_000_100 });
+    mocks.links.set("l1", {
+      id: "l1",
+      eventId: "mine",
+      accountEmail: account.email,
+      googleEventId: "g-mine",
+      googleUpdated: "2026-10-16T01:00:00Z",
+      createdAt: 1,
+      updatedAt: 1_000_200,
+    });
+    const echo: GoogleCalendarItem = { id: "g-mine", summary: "Google が整えた文", start: { date: "2026-10-20" }, end: { date: "2026-10-21" }, updated: "2026-10-16T01:00:00Z" };
+    mocks.responses = [{ status: 200, body: { items: [echo], nextSyncToken: "sync-2" } }];
+    const result = await syncGoogleCalendar(enabled);
+    expect(result).toEqual(expect.objectContaining({ added: 0, updated: 0, exported: 0, error: null }));
+    expect(mocks.events.get("mine")!.title).toBe("LIFE HUB の文");
+  });
+
+  it("Google 側で変えた分は、対応表から LIFE HUB の予定(UUIDから付けたid)を引いて上書きする", async () => {
+    mocks.events.set("0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6", { id: "0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6", title: "前の題", date: "2026-10-20", createdAt: 1, updatedAt: 1_000_100, category: "work" });
+    const item: GoogleCalendarItem = { id: "0f3c2a9e1b4d5c6e8f90a1b2c3d4e5f6", summary: "Google で直した題", start: { date: "2026-10-21" }, end: { date: "2026-10-22" }, updated: "2026-10-16T05:00:00Z" };
+    mocks.responses = [{ status: 200, body: { items: [item], nextSyncToken: "sync-2" } }];
+    const result = await syncGoogleCalendar(enabled);
+    expect(result).toEqual(expect.objectContaining({ updated: 1, added: 0, exported: 0 }));
+    expect(mocks.events.size).toBe(1);
+    expect(mocks.events.get("0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6")).toEqual(expect.objectContaining({ title: "Google で直した題", date: "2026-10-21", category: "work" }));
+    expect([...mocks.links.values()]).toEqual([expect.objectContaining({ eventId: "0f3c2a9e-1b4d-5c6e-8f90-a1b2c3d4e5f6", googleUpdated: "2026-10-16T05:00:00Z" })]);
+  });
+
+  it("pull: false なら取り込みを飛ばして書き出しだけ(予定を変えた直後)。失敗は理由を覚える", async () => {
+    mocks.events.set("new", { id: "new", title: "新しい予定", date: "2026-10-20", createdAt: 1_000_010 });
+    mocks.responses = [{ status: 200, body: { id: "new", updated: "2026-10-16T01:00:00Z" } }];
+    const result = await syncGoogleCalendar(enabled, { pull: false });
+    expect(result.exported).toBe(1);
+    expect(mocks.calls.map((c) => c.method)).toEqual(["POST"]);
+
+    mocks.events.set("new2", { id: "new2", title: "もう1件", date: "2026-10-20", createdAt: 1_000_010 });
+    mocks.responses = [{ status: 403, body: '{"error":{"errors":[{"reason":"insufficientPermissions"}]}}' }];
+    const failed = await syncGoogleCalendar(enabled, { pull: false });
+    expect(failed.error).toContain("権限がありません");
+    expect(mocks.accountUpdates.at(-1)).toEqual(expect.objectContaining({ calendarSyncError: failed.error }));
+  });
+
+  it("入にしていないアカウントでは何も送らない", async () => {
+    mocks.events.set("new", { id: "new", title: "新しい予定", date: "2026-10-20", createdAt: 1_000_010 });
+    const result = await syncGoogleCalendar({ ...enabled, calendarSyncEnabledAt: undefined }, { pull: false });
+    expect(result.exported).toBe(0);
+    expect(mocks.calls).toEqual([]);
   });
 });

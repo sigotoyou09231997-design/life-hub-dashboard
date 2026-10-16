@@ -20,7 +20,7 @@ vi.mock("./googleCalendar", async (importOriginal) => {
     ...actual,
     syncGoogleCalendar: async (account: GmailAccount): Promise<CalendarSyncResult> => {
       mocks.calendarCalls.push(account.email);
-      return { added: 2, updated: 0, deleted: 0, skipped: 0, baselined: false, error: null };
+      return { added: 2, updated: 0, deleted: 0, skipped: 0, exported: 0, removed: 0, baselined: false, error: null };
     },
   };
 });
@@ -28,7 +28,7 @@ vi.mock("./googleCalendar", async (importOriginal) => {
 const { canPullCalendar, describeScheduleRefresh, refreshScheduleSources } = await import("./scheduleRefresh");
 const { GOOGLE_CALENDAR_SCOPE } = await import("./googleCalendar");
 
-const empty: CalendarSyncResult = { added: 0, updated: 0, deleted: 0, skipped: 0, baselined: false, error: null };
+const empty: CalendarSyncResult = { added: 0, updated: 0, deleted: 0, skipped: 0, exported: 0, removed: 0, baselined: false, error: null };
 
 function account(email: string, extra: Partial<GmailAccount> = {}): Partial<GmailAccount> {
   return { id: email, email, calendarSyncEnabledAt: 1, grantedScopes: GOOGLE_CALENDAR_SCOPE, ...extra };

@@ -25,6 +25,7 @@ import { QuickActionBar } from "./components/layout/QuickActionBar";
 import { usePageMotion } from "./hooks/usePageMotion";
 import { useDesignMotion } from "./hooks/useDesignMotion";
 import { usePlaceReminderWatch } from "./hooks/usePlaceReminderWatch";
+import { installCalendarExportWatcher } from "./lib/googleCalendarExportWatch";
 import { HiddenFeaturesSync } from "./components/layout/HiddenFeaturesSync";
 
 import AuthGatePage from "./pages/AuthGatePage";
@@ -84,6 +85,10 @@ export default function App() {
   // 場所リマインドの見張り。下の早期returnより前に置く(フックの数を変えないため)。
   // リマインドが1件も無いうちは位置情報に触らないので、使っていない人には何も起きない。
   usePlaceReminderWatch();
+  // 予定を足した・変えた・消した数秒後に、Googleカレンダーへ書き出す見張り(同期を入にしてある人だけ動く)。
+  useEffect(() => {
+    installCalendarExportWatcher();
+  }, []);
   // 画面を切り替えたら、画面下に貼りつくもの(追従ナビ・追加ボタン)の位置を測り直す。
   // iOSは、キーボードが出ている入力欄が画面ごと消えると focusout を出さないことが
   // あり、そのままだと短いままの画面の高さが残って、ナビとボタンが画面の途中に

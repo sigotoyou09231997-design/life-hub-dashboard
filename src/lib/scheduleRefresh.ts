@@ -1,12 +1,6 @@
 import { db } from "../db/schema";
 import type { GmailAccount } from "../types";
-import {
-  hasCalendarScope,
-  isCalendarSyncEnabled,
-  summarizeCalendarSync,
-  syncGoogleCalendar,
-  type CalendarSyncResult,
-} from "./googleCalendar";
+import { calendarSyncChangedSomething, isCalendarSyncReady, summarizeCalendarSync, syncGoogleCalendar, type CalendarSyncResult } from "./googleCalendar";
 import { syncNow } from "./syncRuntime";
 
 /**
@@ -16,8 +10,8 @@ import { syncNow } from "./syncRuntime";
  * - PC・スマホの間の同期(アカウント画面の「今すぐ同期」と同じ syncNow)。予定・タスクの行を取り込み直し、
  *   送れていない変更を送る。リアルタイムの接続はスマホが裏に回ると黙って切れることがあるので、
  *   開き直した時に引っ張れば、ほかの端末で足した予定がすぐ届く。
- * - Googleカレンダーの取り込み(設定画面の「今すぐ取り込む」と同じ syncGoogleCalendar)。
- *   取り込みを入にしてあるアカウントだけ。開いた時の自動の取り込みは10分に1回までだが、引っ張った時は待たない。
+ * - Googleカレンダーとの同期(設定画面の「今すぐ同期する」と同じ syncGoogleCalendar。取り込みと書き出しの両方)。
+ *   同期を入にしてあるアカウントだけ。開いた時の自動の同期は10分に1回までだが、引っ張った時は待たない。
  */
 export async function refreshScheduleSources(): Promise<ScheduleRefreshSummary> {
   const accounts = await db.gmailAccounts.toArray();
@@ -31,9 +25,9 @@ export async function refreshScheduleSources(): Promise<ScheduleRefreshSummary> 
   return describeScheduleRefresh(cloud, calendars);
 }
 
-/** 引っ張った時に取り込みを走らせるアカウント(入にしてある・権限がある・連携が切れていない)。 */
+/** 引っ張った時に同期を走らせるアカウント(入にしてある・権限がある・連携が切れていない)。 */
 export function canPullCalendar(account: GmailAccount): boolean {
-  return isCalendarSyncEnabled(account) && hasCalendarScope(account) && !account.reauthRequiredAt;
+  return isCalendarSyncReady(account);
 }
 
 export interface ScheduleRefreshSummary {
@@ -50,7 +44,7 @@ export function describeScheduleRefresh(
   calendars: CalendarSyncResult[],
 ): ScheduleRefreshSummary {
   const calendarNotes = calendars
-    .filter((r) => r.error || r.baselined || r.added || r.updated || r.deleted)
+    .filter(calendarSyncChangedSomething)
     .map((r) => summarizeCalendarSync(r));
   const failed = cloud.failed || calendars.some((r) => r.error);
   return { message: [cloud.message, ...calendarNotes].join(" / "), tone: failed ? "error" : "success" };
