@@ -33,6 +33,13 @@ function loadSyncModule(): Promise<SyncModule> {
         // これで、アプリを開いていない日でも使いすぎ予測を Web Push で送れる
         // (netlify/functions/checkBudgetAndNotify.ts から上限が見えるようになるため)。
         module.registerSyncedTable(db.categoryBudgets, "category_budgets");
+        // 2026-10-16、本人が supabase/sql/025・026・032 を本番で流した(表ができたのを公開鍵で確かめた)あとに登録した。
+        // 025: メールから作った予定と元のメールのつながり(どの端末でも「元のメールを開く」が出る)。
+        // 026: Googleカレンダーから取り込んだ予定との対応表(書き出しの第2段の前提。重複を防ぐ)。
+        // 032: サブスクの年払い・無料体験・契約開始日などを端末間で揃える。
+        module.registerSyncedTable(db.eventMailLinks, "event_mail_links");
+        module.registerSyncedTable(db.googleCalendarLinks, "google_calendar_links");
+        module.registerSyncedTable(db.subscriptionDetails, "subscription_details");
         return module;
       })
       .catch((error) => {
