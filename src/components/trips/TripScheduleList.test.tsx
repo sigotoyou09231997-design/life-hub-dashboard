@@ -71,13 +71,16 @@ describe("旅行の日程の時間軸", () => {
     expect(within(row).queryByText("食事")).toBeNull();
   });
 
-  it("移動のアイコンは移動手段の絵(手段が無ければ電車)。「起床」「準備」のような生活の区切りは小さく出す", () => {
+  it("移動のアイコンは移動手段の絵(手段が無ければ電車)。「起床」「準備」のような生活の区切りは小さく出す", async () => {
+    const user = userEvent.setup();
     renderList([
       item({ id: "a", title: "起床", startTime: "06:00" }),
       item({ id: "b", title: "東京→岡山", startTime: "06:48", type: "transport", transportMode: "shinkansen" }),
       item({ id: "c", title: "朝食", startTime: "08:00", location: "ホテルのレストラン", type: "meal" }),
     ]);
-    const [wake, move, breakfast] = screen.getAllByRole("listitem");
+    // 移動は「つなぎ」の札に畳んであるので、開いてから1件の行を見る。
+    await user.click(screen.getByRole("button", { name: /新幹線/ }));
+    const [wake, , move, breakfast] = screen.getAllByRole("listitem");
     expect(wake.classList.contains("trip-timeline__item--quiet")).toBe(true);
     expect(within(wake).getByRole("img", { name: "その他" })).toBeTruthy();
     expect(within(move).getByRole("img", { name: "移動" })).toBeTruthy();
@@ -233,18 +236,76 @@ describe("日程を、日にちごとに切り替える", () => {
 });
 
 describe("移動の予定の移動手段", () => {
-  it("移動の予定は、選んだ移動手段を種類の横に出す", () => {
+  it("移動の予定は、選んだ移動手段を札に出す。開けば1件ずつの行にも出る", async () => {
+    const user = userEvent.setup();
     renderList([item({ id: "a", title: "東京→岡山 のぞみ7号", type: "transport", transportMode: "shinkansen", startTime: "06:48" })]);
     expect(within(screen.getByRole("listitem")).getByText("新幹線")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: /新幹線/ }));
+    const rows = screen.getAllByRole("listitem");
+    expect(within(rows[1]).getByText("新幹線")).toBeTruthy();
   });
 
-  it("移動手段を選んでいない移動や、移動以外の予定には出さない", () => {
+  it("移動手段を選んでいない移動の札は「移動」。移動以外の予定には手段を出さない", () => {
     renderList([
       item({ id: "a", title: "高松駅→レンタカー店", type: "transport", startTime: "11:18" }),
       item({ id: "b", title: "霊山寺", type: "sightseeing", transportMode: "car", startTime: "13:15" }),
     ]);
+    expect(screen.getByRole("button", { name: /^移動/ })).toBeTruthy();
     expect(screen.queryByText("車")).toBeNull();
     expect(screen.queryByText("新幹線")).toBeNull();
+  });
+});
+
+describe("続けて並ぶ移動は1本の「つなぎ」に(第6弾 D-1)", () => {
+  const MOVES = [
+    item({ id: "wake", title: "起床", startTime: "05:00" }),
+    item({ id: "m1", title: "小金井→東京", type: "transport", transportMode: "train", startTime: "05:30", endTime: "06:30" }),
+    item({ id: "m2", title: "東京→岡山", type: "transport", transportMode: "shinkansen", startTime: "06:48", endTime: "10:05" }),
+    item({ id: "m3", title: "岡山→高松", type: "transport", transportMode: "train", startTime: "10:20" }),
+    item({ id: "udon", title: "うどん", type: "meal", startTime: "11:51" }),
+  ];
+
+  it("移動3件が1本にまとまる(手段・所要時間・件数の札。中の予定の題名は出ない)", () => {
+    renderList(MOVES);
+    const rows = screen.getAllByRole("listitem");
+    expect(rows).toHaveLength(3);
+    expect(rows[1].classList.contains("trip-timeline__item--connector")).toBe(true);
+    const chip = within(rows[1]).getByRole("button");
+    expect(chip.textContent).toBe("電車・新幹線6時間21分3件");
+    expect(chip.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByText("東京→岡山")).toBeNull();
+    expect(rows[1].querySelector(".trip-timeline__time")?.textContent).toBe("");
+  });
+
+  it("札を押すと3件に開き、編集も押せる。もう一度押すと畳む", async () => {
+    const onEdit = vi.fn();
+    const user = userEvent.setup();
+    renderList(MOVES, { onEdit });
+    await user.click(screen.getByRole("button", { name: /電車・新幹線/ }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
+    expect(screen.getByRole("button", { name: /電車・新幹線/ }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByText("東京→岡山")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "東京→岡山を編集" }));
+    expect(onEdit).toHaveBeenCalledWith(MOVES[2]);
+    await user.click(screen.getByRole("button", { name: /電車・新幹線/ }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("「並べ替え」を押している間は全部開き、つまみが移動の行にも出る", () => {
+    renderList(MOVES, { onReorder: () => {} });
+    fireEvent.click(screen.getByRole("button", { name: "並べ替え" }));
+    expect(screen.getAllByRole("button", { name: /を動かす$/ })).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: "完了" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("移動しか無い日・移動で始まる日・移動で終わる日も崩れない", () => {
+    renderList([MOVES[1], MOVES[2]]);
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    cleanup();
+    renderList([MOVES[1], MOVES[4], item({ id: "m9", title: "高松→ホテル", type: "transport", startTime: "20:00" })]);
+    const rows = screen.getAllByRole("listitem");
+    expect(rows.map((row) => row.classList.contains("trip-timeline__item--connector"))).toEqual([true, false, true]);
   });
 });
 
@@ -527,6 +588,8 @@ describe("移動の出発地と目的地(2026-10-14)", () => {
     const onLocationTap = vi.fn();
     const user = userEvent.setup();
     renderList([item({ id: "m", title: "のぞみ13号", type: "transport", startTime: "08:00", location: "東京駅", endLocation: "京都駅" })], { onLocationTap });
+    // 移動は「つなぎ」の札に畳んであるので、開いてから見る。
+    await user.click(screen.getByRole("button", { name: /^移動/ }));
     expect(screen.getByText("→")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "東京駅" }));
     expect(onLocationTap).toHaveBeenLastCalledWith("東京駅", "のぞみ13号", "2026-12-27");
@@ -534,11 +597,13 @@ describe("移動の出発地と目的地(2026-10-14)", () => {
     expect(onLocationTap).toHaveBeenLastCalledWith("京都駅", "のぞみ13号", "2026-12-27");
   });
 
-  it("出発地が無く目的地だけなら、目的地だけ出す(矢印なし)。目的地が無ければ、これまでどおり場所だけ", () => {
+  it("出発地が無く目的地だけなら、目的地だけ出す(矢印なし)。目的地が無ければ、これまでどおり場所だけ", async () => {
+    const user = userEvent.setup();
     renderList([
       item({ id: "a", title: "移動A", type: "transport", startTime: "08:00", endLocation: "京都駅" }),
       item({ id: "b", title: "移動B", type: "transport", startTime: "09:00", location: "大阪駅" }),
     ]);
+    await user.click(screen.getByRole("button", { name: /^移動/ }));
     expect(screen.queryByText("→")).toBeNull();
     expect(screen.getByRole("button", { name: "目的地 京都駅" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "大阪駅" })).toBeTruthy();
