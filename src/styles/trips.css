@@ -804,11 +804,11 @@ a.trip-leg-mode--link {
 /* --- 日程タブ: 1日の中の時間軸 -----------------------------------------------
    左に時刻を縦に揃え、線と点で上から下へつなぐ。灰色の箱を並べて時刻を中に小さく
    入れていた頃は、題名の長さで時刻の位置がずれ、1日の流れを目で追いにくかった。
-   点の色は種類(観光・食事・移動・宿泊)。色だけが手がかりにならないよう、種類の
-   バッジも残してある。 */
+   印の色と絵は種類(観光・食事・移動・宿泊)。2026-10-16 に点から角丸の四角＋アイコンにし、
+   種類のバッジはやめた(読み上げには種類の名前を残す)。 */
 .trip-timeline {
   --tl-time: 3.1rem;
-  --tl-rail: 1.1rem;
+  --tl-rail: 1.8rem;
   --tl-gap: 0.35rem;
   /* 点の中心の高さ。題名の1行目の中心(body の余白 + 行の高さの半分)に合わせる。 */
   --tl-dot-y: 1.3rem;
@@ -851,16 +851,20 @@ a.trip-leg-mode--link {
 .trip-timeline__item:last-child::before { bottom: calc(100% - var(--tl-dot-y)); }
 .trip-timeline__item:only-child::before { display: none; }
 
-.trip-timeline__dot {
+/* 第6弾 D-2(2026-10-16): 点の代わりに、角丸の四角に種類のアイコン。面は種類の色を薄くしたもの、絵はその濃い色。 */
+.trip-timeline__icon {
   position: absolute;
   top: var(--tl-dot-y);
   left: var(--tl-x);
-  width: 0.72rem;
-  height: 0.72rem;
-  border-radius: var(--r-pill);
+  display: grid;
+  width: 1.7rem;
+  height: 1.7rem;
+  place-items: center;
+  border-radius: var(--r-tag);
   transform: translate(-50%, -50%);
-  background: var(--tl-tone);
-  /* 面と同じ色の縁で、線が点の裏に透けないようにする。 */
+  background: color-mix(in srgb, var(--tl-tone) 14%, var(--hub-surface));
+  color: var(--tl-tone);
+  /* 面と同じ色の縁で、線が印の裏に透けないようにする。 */
   box-shadow: 0 0 0 3px var(--hub-surface);
 }
 
@@ -1033,12 +1037,6 @@ a.trip-leg-mode--link {
   background: var(--hub-inset);
 }
 
-/* 灰色(neutral)のバッジは、薄い灰色の面の上でだけ見える色なので、白い面の上では
-   枠が消えて文字だけが左にずれて浮く。ここでは枠を持たせる。 */
-.trip-timeline__body .trip-timeline__badge.trip-timeline__badge {
-  background: var(--hub-inset);
-}
-
 .trip-timeline__title {
   margin: 0;
   color: var(--hub-ink);
@@ -1046,6 +1044,85 @@ a.trip-leg-mode--link {
   font-weight: 600;
   line-height: 1.3rem;
 }
+
+/* 第6弾 D-4(2026-10-16): 「起床」「準備」のような生活の区切り(src/lib/scheduleRhythm.ts)は一段小さく・薄く。 */
+.trip-timeline__item--quiet .trip-timeline__title {
+  color: var(--warm-ink-3, var(--hub-ink-3));
+  font-size: var(--fs-body, 0.875rem);
+  font-weight: 400;
+}
+.trip-timeline__item--quiet .trip-timeline__icon {
+  background: var(--hub-surface);
+  box-shadow: 0 0 0 3px var(--hub-surface), inset 0 0 0 1px var(--warm-line-strong, var(--hub-hairline));
+  color: var(--hub-ink-3);
+}
+
+/* 第6弾 D-3(2026-10-16): 2行目は灰色の補足(場所・移動手段・金額・払った人)。場所は押せるが、色は補足のまま(下線で応える)。 */
+.trip-timeline__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.6rem;
+  margin-top: 0.15rem;
+  color: var(--warm-ink-3, var(--hub-ink-3));
+  font-size: var(--fs-caption, 0.75rem);
+  font-weight: 500;
+}
+.trip-timeline__meta .trip-timeline__place {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.2rem;
+  color: inherit;
+  text-align: left;
+}
+.trip-timeline__meta .trip-timeline__place:active { text-decoration: underline; }
+.trip-timeline__meta .trip-timeline__place:focus-visible { outline: 2px solid var(--teal-500, var(--hub-blue)); outline-offset: 2px; border-radius: 4px; }
+
+/* 予定の詳細(ScheduleDetailLines): 地図・電話・サイトは 28px のアイコンのボタン、文は「詳細」で開く。青緑は押せるものだけ。 */
+.sched-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+.sched-detail__btn {
+  display: inline-grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border: 1px solid var(--warm-line, var(--hub-hairline));
+  border-radius: var(--r-tag);
+  background: var(--warm-surface, var(--hub-surface));
+  color: var(--teal-700, var(--hub-blue));
+  box-shadow: var(--shadow-rest);
+}
+.sched-detail__btn:active { transform: translateY(1px); }
+.sched-detail__btn:focus-visible { outline: 2px solid var(--teal-500, var(--hub-blue)); outline-offset: 2px; }
+.sched-detail__more {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  border: 0;
+  background: transparent;
+  padding: 0.2rem 0.2rem;
+  color: var(--teal-700, var(--hub-blue));
+  font-size: var(--fs-caption, 0.75rem);
+  font-weight: 700;
+}
+.sched-detail__chevron { transition: transform 240ms var(--ease-out-expo, ease); }
+.sched-detail__more[aria-expanded="true"] .sched-detail__chevron { transform: rotate(180deg); }
+.sched-detail__lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 0.35rem;
+  color: var(--warm-ink-3, var(--hub-ink-3));
+  font-size: var(--fs-caption, 0.75rem);
+}
+.sched-detail__line { display: inline-flex; min-width: 0; align-items: center; gap: 0.3rem; }
+.sched-detail__line > span { min-width: 0; overflow-wrap: anywhere; }
 
 /* --- 日程タブ: その日の天気(Open-Meteo) --------------------------------------
    見出しの1行に収める。日程そのものより目立つと、何を見る画面か分からなくなる。 */
