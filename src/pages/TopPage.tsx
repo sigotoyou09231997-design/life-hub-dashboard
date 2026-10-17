@@ -29,6 +29,7 @@ import { CountingAmount } from "../components/ui/CountingAmount";
 import { openAddChooser, openQuickAdd } from "../components/layout/AddChooser";
 import { InlineExpenseEntry } from "../components/home/InlineExpenseEntry";
 import { TripInviteBanner } from "../components/trips/TripInviteBanner";
+import { HomeAttention } from "../components/home/HomeAttention";
 import { useHiddenFeatures } from "../hooks/useHiddenFeatures";
 import { aheadDates, aheadDayLabel, buildConcerns, homeStatusLine, tripCardMode } from "../lib/homeLayout";
 
@@ -306,37 +307,7 @@ export default function TopPage() {
       {/* 2. 気になること(放っておくと困ることだけ)。無い日は1行で、カードは出さない。 */}
       <section className="lh-section lh-section--concern" data-reveal="2" aria-label="気になること">
         <SectionHead title="気になること" />
-        {concerns.length === 0 ? (
-          <p className="lh-concern-none">気になることはありません</p>
-        ) : (
-          <div className="warm-card lh-group lh-concern">
-            {concerns.map((concern) => {
-              const body = (
-                <>
-                  <i className={`lh-concern__dot is-${concern.tone}`} aria-hidden="true" />
-                  <span className="lh-row__copy">
-                    <strong>{concern.text}</strong>
-                    {concern.note && <small>{concern.note}</small>}
-                  </span>
-                  <span className="lh-concern__cta">{concern.cta}</span>
-                </>
-              );
-              if (concern.action) {
-                const kind = concern.action;
-                return (
-                  <button key={concern.id} type="button" className="lh-row lh-concern__row" onClick={() => openQuickAdd(kind)}>
-                    {body}
-                  </button>
-                );
-              }
-              return (
-                <Link key={concern.id} to={concern.to ?? "/"} className="lh-row lh-concern__row">
-                  {body}
-                </Link>
-              );
-            })}
-          </div>
-        )}
+        <HomeAttention concerns={concerns} />
       </section>
 
       {/* 別のアカウントから届いた、旅行への招待(supabase/sql/034)。無い間は何も出ない。 */}
@@ -441,7 +412,12 @@ export default function TopPage() {
       )}
 
       {/* 4. 次の旅行。30日以内か旅行中は写真のカード、それ以外は1行の帯。 */}
-      {!hide.trips && (
+      {!hide.trips && tripsResult === undefined && (
+        <section className="lh-section lh-section--trip is-band" aria-hidden="true">
+          <div className="warm-card lh-trip-band lh-trip-band--loading" />
+        </section>
+      )}
+      {!hide.trips && tripsResult !== undefined && (
         <section className={`lh-section lh-section--trip${tripMode === "band" ? " is-band" : ""}`} data-reveal="4">
           {tripMode === "big" && featuredTrip ? (
             <>
@@ -486,28 +462,37 @@ export default function TopPage() {
           <SectionHead title="Gmail" to={gmailPreview?.connected ? "/gmail" : undefined} />
           <div className="warm-card lh-group">
             {gmailPreview?.connected ? (
-              <>
-                <Link to="/gmail" className="lh-row">
-                  <span className="lh-row__icon lh-tone--neutral" aria-hidden="true">
-                    <Mail size={16} />
-                  </span>
-                  <span className="lh-row__copy">
-                    <strong>未処理 {gmailPreview.total}件</strong>
-                    <small>{gmailPreview.total > 0 ? "まだ手を付けていないメール" : "未処理のメールはありません"}</small>
-                  </span>
-                  <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
-                </Link>
-                <Link to="/gmail" className="lh-row">
-                  <span className={`lh-row__icon ${gmailPreview.importantUnread > 0 ? "lh-tone--danger" : "lh-tone--neutral"}`} aria-hidden="true">
-                    <Mail size={16} />
-                  </span>
-                  <span className="lh-row__copy">
-                    <strong>重要な未読 {gmailPreview.importantUnread}件</strong>
-                    <small>「重要」を付けたまま、まだ読んでいないメール</small>
-                  </span>
-                  <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
-                </Link>
-              </>
+              gmailPreview.total === 0 && gmailPreview.importantUnread === 0 ? (
+                // 0件の行は並べない。両方0なら1行だけ。
+                <p className="lh-gmail-clear">新着はありません</p>
+              ) : (
+                <>
+                  {gmailPreview.total > 0 && (
+                    <Link to="/gmail" className="lh-row">
+                      <span className="lh-row__icon lh-tone--neutral" aria-hidden="true">
+                        <Mail size={16} />
+                      </span>
+                      <span className="lh-row__copy">
+                        <strong>未処理 {gmailPreview.total}件</strong>
+                        <small>まだ手を付けていないメール</small>
+                      </span>
+                      <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+                    </Link>
+                  )}
+                  {gmailPreview.importantUnread > 0 && (
+                    <Link to="/gmail" className="lh-row">
+                      <span className="lh-row__icon lh-tone--danger" aria-hidden="true">
+                        <Mail size={16} />
+                      </span>
+                      <span className="lh-row__copy">
+                        <strong>重要な未読 {gmailPreview.importantUnread}件</strong>
+                        <small>「重要」を付けたまま、まだ読んでいないメール</small>
+                      </span>
+                      <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+                    </Link>
+                  )}
+                </>
+              )
             ) : (
               <div className="warm-empty">
                 <span className="warm-empty__icon">

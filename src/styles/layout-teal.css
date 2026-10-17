@@ -16,7 +16,8 @@
 
 .lh-home {
   --lh-pad: 1rem;
-  gap: 1.35rem;
+  /* ブロックの間隔は 16px(組み直しの指示 2-5)。 */
+  gap: 1rem;
   padding: 0.75rem var(--lh-pad) 2rem;
 }
 
@@ -297,18 +298,19 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
    PC — 3列のグリッドに置き直す
    ------------------------------------------------------------------------ */
 @media (min-width: 1024px) {
+  /* 6列のグリッド: お金 4/6＋気になること 2/6、旅行 3/6＋Gmail 3/6(組み直しの指示 1-3)。 */
   .lh-home {
     --lh-pad: 2rem;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.4rem 1.25rem;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1rem 1rem;
     padding: 0.75rem var(--lh-pad) 2.5rem;
   }
   .lh-home > * { grid-column: 1 / -1; }
 
   .lh-money {
-    grid-column: 1 / span 2;
-    padding: 1.5rem 1.8rem 1.3rem;
+    grid-column: 1 / span 4;
+    padding: 1.4rem 1.6rem 1.2rem;
   }
   .lh-money .warm-amount { font-size: var(--fs-money-pc, 3rem); }
   .lh-money__stats { margin-top: auto; gap: 1rem; }
@@ -316,7 +318,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   .lh-money__stats dt { font-size: 0.74rem; }
 
   .lh-section--trip {
-    grid-column: 1 / span 2;
+    grid-column: 1 / span 3;
   }
   /* 「お金管理」を隠している時(設定の「使う機能」)は、上段の黒いカードが無い。旅行のカードを、右上に孤立させず、全幅の1段にする。 */
   .lh-home--no-money .lh-section--trip {
@@ -329,7 +331,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   /* 予定もタスクも無い日の1枚は、予定とタスクの2列ぶん(Gmail は3列目のまま)。 */
   .lh-section--today-empty { grid-column: 1 / span 2; align-self: start; }
   .lh-section--tasks { grid-column: 2; }
-  .lh-section--gmail { grid-column: 3; }
+  .lh-section--gmail { grid-column: 4 / span 3; }
   /* 3枚の高さは中身に合わせる(2026-10-12、UI/UX 調査メモ C-5)。前は Gmail に合わせて
      そろえていたので、予定やタスクが空の日は下半分が空いた箱に見えていた。 */
   .lh-section--events,
@@ -941,8 +943,8 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 }
 .lh-concern__row {
   width: 100%;
-  min-height: 3.1rem;
-  padding: 0.55rem 1rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 1rem;
   border: 0;
   background: transparent;
   text-align: left;
@@ -985,7 +987,7 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 .lh-ahead__day.is-today .lh-ahead__date b { color: var(--teal-700); }
 .lh-ahead__none { margin: 0; padding: 0.1rem 1rem 0.65rem; color: var(--warm-ink-3); font-size: var(--fs-caption); }
 .lh-ahead__rows { display: flex; flex-direction: column; }
-.lh-ahead__row { min-height: 3rem; padding: 0.45rem 1rem; }
+.lh-ahead__row { min-height: 2.25rem; padding: 0.35rem 1rem; }
 .lh-ahead__row .lh-row__icon { width: 2rem; height: 2rem; }
 .lh-ahead__row + .lh-ahead__row::before { left: 3.6rem; }
 .lh-ahead__row.is-done + .lh-ahead__row::before,
@@ -1016,12 +1018,11 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 .lh-trip-band .lh-row__copy strong { font-size: var(--fs-body); }
 
 @media (min-width: 1024px) {
-  .lh-home { gap: 1.5rem 1.5rem; }
   .lh-today { grid-column: 1 / -1; }
-  .lh-section--concern { grid-column: 3; align-self: stretch; }
+  .lh-section--concern { grid-column: 5 / span 2; align-self: stretch; }
   .lh-home--no-money .lh-section--concern { grid-column: 1 / -1; }
   .lh-section--ahead { grid-column: 1 / -1; }
-  .lh-section--gmail { grid-column: 3; align-self: start; }
+  .lh-section--gmail { grid-column: 4 / span 3; align-self: start; }
   .lh-home--no-trips .lh-section--gmail { grid-column: 1 / -1; }
   .lh-section--trip.is-band { align-self: start; }
   .lh-home { --fs-money-pc: 3rem; }
@@ -1030,3 +1031,19 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
   .lh-ahead__day { flex: 1 1 0; min-width: 0; }
   .lh-ahead__day + .lh-ahead__day { border-top: 0; border-left: 1px solid var(--warm-line); }
 }
+
+/* 解消した「気になること」の行は右へすっと消える(HomeAttention)。 */
+.lh-concern__row.is-leaving {
+  pointer-events: none;
+  animation: lh-concern-leave 260ms var(--ease-out-expo) both;
+}
+@keyframes lh-concern-leave {
+  to { opacity: 0; transform: translateX(24px); max-height: 0; padding-top: 0; padding-bottom: 0; min-height: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lh-concern__row.is-leaving { animation: none; display: none; }
+}
+/* Gmail が両方0の日は1行。 */
+.lh-gmail-clear { margin: 0; padding: 0.7rem 1rem; color: var(--warm-ink-3); font-size: var(--fs-body); }
+/* 旅行を読み込んでいる間の空き(帯と同じ高さ)。 */
+.lh-trip-band--loading { min-height: 3.6rem; }
