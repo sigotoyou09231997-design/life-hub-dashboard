@@ -1128,6 +1128,23 @@ a.trip-leg-mode--link {
   box-shadow: var(--shadow-rest);
 }
 .sched-detail__btn:active { transform: translateY(1px); }
+/* 仕上げ B-1(2026-10-17): PC(マウス)では、地図・電話・サイトのボタンはその行に乗せた時とキーボードで中に入った時だけ見せる。
+   1日20件だと同じ並びの繰り返しが目立つため。場所は空けたまま(opacity)なので行の高さは変わらず、Tab で順に入れる。
+   「詳細」は常に見せる。並べ替えている間は常に出す。スマホ・タブレット(タッチ)は今までどおり常に見せる。 */
+@media (hover: hover) and (pointer: fine) {
+  .trip-timeline__body .sched-detail__btn {
+    opacity: 0;
+    transition: opacity 160ms ease;
+  }
+  .trip-timeline__body:hover .sched-detail__btn,
+  .trip-timeline__body:focus-within .sched-detail__btn,
+  .trip-timeline.is-sorting .sched-detail__btn {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .trip-timeline__body .sched-detail__btn { transition: none; }
+}
 .sched-detail__btn:focus-visible { outline: 2px solid var(--teal-500, var(--hub-blue)); outline-offset: 2px; }
 .sched-detail__more {
   display: inline-flex;
