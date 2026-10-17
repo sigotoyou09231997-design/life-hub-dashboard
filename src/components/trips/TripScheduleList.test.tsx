@@ -62,12 +62,26 @@ describe("旅行の日程の時間軸", () => {
     expect(time.classList.contains("is-plain")).toBe(true);
   });
 
-  it("点の色の元になる種類を、行に持たせる(バッジの文字は残す)", () => {
+  it("種類は時間軸のアイコンで出す(色だけが手がかりにならないよう、読み上げには種類の名前)", () => {
     renderList([item({ id: "a", title: "昼食", startTime: "12:00", type: "meal" })]);
     const row = screen.getByRole("listitem");
     expect(row.classList.contains("trip-timeline__item--meal")).toBe(true);
-    // 色だけが手がかりにならないよう、種類は文字でも出す。
-    expect(within(row).getByText("食事")).toBeTruthy();
+    expect(within(row).getByRole("img", { name: "食事" })).toBeTruthy();
+    // 種類の札(バッジ)は、アイコンで分かるのでもう出さない。
+    expect(within(row).queryByText("食事")).toBeNull();
+  });
+
+  it("移動のアイコンは移動手段の絵(手段が無ければ電車)。「起床」「準備」のような生活の区切りは小さく出す", () => {
+    renderList([
+      item({ id: "a", title: "起床", startTime: "06:00" }),
+      item({ id: "b", title: "東京→岡山", startTime: "06:48", type: "transport", transportMode: "shinkansen" }),
+      item({ id: "c", title: "朝食", startTime: "08:00", location: "ホテルのレストラン", type: "meal" }),
+    ]);
+    const [wake, move, breakfast] = screen.getAllByRole("listitem");
+    expect(wake.classList.contains("trip-timeline__item--quiet")).toBe(true);
+    expect(within(wake).getByRole("img", { name: "その他" })).toBeTruthy();
+    expect(within(move).getByRole("img", { name: "移動" })).toBeTruthy();
+    expect(breakfast.classList.contains("trip-timeline__item--quiet")).toBe(false);
   });
 
   it("予定が無い日は、時間軸を出さず「予定を追加」に畳む", async () => {
@@ -109,14 +123,15 @@ describe("旅行の日程の時間軸", () => {
     expect(screen.queryByRole("button", { name: "削除" })).toBeNull();
   });
 
-  it("種類の札は「その他」なら出さない(選ばなかった予定の全部に同じ札が並ぶため)", () => {
+  it("種類の札(バッジ)はどの種類でも出さない(時間軸のアイコンで分かる)", () => {
     renderList([
       item({ id: "a", title: "集合", startTime: "06:00", type: "other" }),
       item({ id: "b", title: "うどん", startTime: "12:00", type: "meal" }),
     ]);
     const [other, meal] = screen.getAllByRole("listitem");
     expect(within(other).queryByText("その他")).toBeNull();
-    expect(within(meal).getByText("食事")).toBeTruthy();
+    expect(within(meal).queryByText("食事")).toBeNull();
+    expect(within(meal).getByRole("img", { name: "食事" })).toBeTruthy();
   });
 });
 

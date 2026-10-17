@@ -6,14 +6,37 @@ import { formatDisplayDate, formatShortDate } from "../../lib/date";
 import { occurringOn, spanLabel } from "../../lib/eventSpan";
 import { timelineTimeParts } from "../../lib/tripTimeline";
 import { getTripScheduleType } from "../../lib/tripCategories";
+import { isLifeMarker } from "../../lib/scheduleRhythm";
 import { forecastForDate, forecastHorizon, type TripWeather } from "../../lib/weather";
 import { TripDayWeather, TripWeatherBanner } from "./TripDayWeather";
-import { Badge } from "../ui/Badge";
-import { TransportModeChip } from "./transportModes";
+import { TRANSPORT_MODE_ICON, TransportModeChip } from "./transportModes";
 import { PhotoStrip } from "../attachments/PhotoStrip";
 import { ScheduleDetailLines } from "./ScheduleDetailLines";
 import { Button } from "../ui/Button";
-import { ArrowUpDown, CalendarRange, Check, ChevronLeft, ChevronRight, GripVertical, MapPin, Plus, Wallet } from "lucide-react";
+import {
+  ArrowUpDown,
+  BedDouble,
+  CalendarRange,
+  Camera,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  GripVertical,
+  MapPin,
+  Plus,
+  TramFront,
+  Utensils,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+
+/** 時間軸の印に出す、種類ごとのアイコン(第6弾 D-2)。移動は手段の絵(transportModes.tsx)、手段が無ければ電車。 */
+const TYPE_ICON: Record<string, LucideIcon> = { sightseeing: Camera, meal: Utensils, lodging: BedDouble, transport: TramFront, other: MapPin };
+
+function iconFor(item: TripScheduleItem): LucideIcon {
+  if (item.type === "transport" && item.transportMode) return TRANSPORT_MODE_ICON[item.transportMode] ?? TramFront;
+  return TYPE_ICON[item.type] ?? MapPin;
+}
 
 interface Props {
   dayList: string[];
@@ -59,6 +82,11 @@ interface Props {
  * - 並べ替えは、持ち物と同じく長押しして上下に動かす(src/hooks/useLongPressReorder.ts)。
  * - 削除は、行を押して開く編集の中(TripScheduleForm)へ移した。
  * - 種類の札は「その他」なら出さない。種類を選ばなかった予定ほど多く、全部の行に同じ札が並ぶだけだった。
+ *
+ * 2026-10-16(UI/UX 調査メモ 第6弾 D-2〜D-4): 時間軸の点を角丸の四角＋種類のアイコンにし、種類の札はやめた
+ * (アイコンで分かる。読み上げには種類の名前を残す)。場所・金額・払った人は題名の下の灰色の1行に、住所・電話・
+ * サイトはアイコンのボタン(ScheduleDetailLines)に。「起床」「準備」のような生活の区切りは一段小さく薄く出す
+ * (src/lib/scheduleRhythm.ts)。青緑は押せるものだけ。
  *
  * ただ、矢印を消すと「並べ替えられる」こと自体が見えなくなった(日の下に小さな案内を1行置いただけ)。
  * そこで、日の見出しの横に「並べ替え」のボタンを置き、押した時だけ各行の右に「つまみ」を出す。
@@ -192,8 +220,8 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                   {shownItems.map((item) => {
                     const index = dayItems.indexOf(item);
                     const typeDef = getTripScheduleType(item.type);
-                    // 「その他」は種類を選ばなかった時の既定。全部の行に同じ札が並ぶだけなので出さない。
-                    const showType = typeDef.value !== "other";
+                    const Icon = iconFor(item);
+                    const quiet = isLifeMarker(item);
                     const expense = item.id ? expenseBySchedule?.get(item.id) : undefined;
                     const span = spanLabel(item, date);
                     const showTransport = item.type === "transport" && Boolean(item.transportMode);
@@ -203,13 +231,15 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                       <li
                         key={item.id}
                         {...(canReorder ? reorder.rowProps(date, index) : {})}
-                        className={`trip-timeline__item trip-timeline__item--${item.type}${dragging ? " is-dragging" : ""}`}
+                        className={`trip-timeline__item trip-timeline__item--${item.type}${quiet ? " trip-timeline__item--quiet" : ""}${dragging ? " is-dragging" : ""}`}
                       >
                         <div className={`trip-timeline__time${time.plain ? " is-plain" : ""}`}>
                           <span>{time.main}</span>
                           {time.sub && <small>{time.sub}</small>}
                         </div>
-                        <span className="trip-timeline__dot" aria-hidden="true" />
+                        <span className="trip-timeline__icon" role="img" aria-label={typeDef.label}>
+                          <Icon size={14} strokeWidth={2} aria-hidden="true" />
+                        </span>
                         <div className="trip-timeline__body">
                           <button
                             type="button"
@@ -221,15 +251,16 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                             <p className="trip-timeline__title line-clamp-2" title={item.title}>
                               {item.title}
                             </p>
-                            {(item.location || item.endLocation) && (
-                              <div className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs text-accent">
+                            {/* 2行目(灰色の補足): 場所・移動手段・金額と払った人・またがる日数。場所は押すとルートのその場所へ(押せるので下線で応える)。 */}
+                            {(item.location || item.endLocation || showTransport || expense || span) && (
+                              <div className="trip-timeline__meta">
                                 {item.location && (
                                   <button
                                     type="button"
                                     onClick={() => onLocationTap(item.location!, item.title, item.date)}
-                                    className="pointer-events-auto flex items-center gap-1 active:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                                    className="trip-timeline__place pointer-events-auto"
                                   >
-                                    <MapPin size={12} />
+                                    <MapPin size={12} aria-hidden="true" />
                                     {item.location}
                                   </button>
                                 )}
@@ -241,41 +272,32 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                                       type="button"
                                       onClick={() => onLocationTap(item.endLocation!, item.title, item.date)}
                                       aria-label={`目的地 ${item.endLocation}`}
-                                      className="pointer-events-auto flex items-center gap-1 active:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+                                      className="trip-timeline__place pointer-events-auto"
                                     >
-                                      {!item.location && <MapPin size={12} />}
+                                      {!item.location && <MapPin size={12} aria-hidden="true" />}
                                       {item.endLocation}
                                     </button>
                                   </>
                                 )}
-                              </div>
-                            )}
-                            <div className="pointer-events-auto">
-                              <ScheduleDetailLines item={item} />
-                            </div>
-                            {(showType || showTransport || expense || span) && (
-                              <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-                                {showType && (
-                                  <Badge tone={typeDef.tone} className="trip-timeline__badge">
-                                    {typeDef.label}
-                                  </Badge>
-                                )}
                                 {showTransport && <TransportModeChip mode={item.transportMode!} />}
                                 {expense && (
-                                  <span className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-slate-600">
+                                  <span className="inline-flex items-center gap-1 whitespace-nowrap">
                                     <Wallet size={12} aria-hidden="true" />
                                     ¥{Math.round(expense.amount).toLocaleString()}
                                     {expense.paidBy ? `・${expense.paidBy}` : ""}
                                   </span>
                                 )}
                                 {span && (
-                                  <span className="flex items-center gap-0.5 whitespace-nowrap text-xs font-medium text-slate-500">
-                                    <CalendarRange size={12} />
+                                  <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
+                                    <CalendarRange size={12} aria-hidden="true" />
                                     {span}
                                   </span>
                                 )}
                               </div>
                             )}
+                            <div className="pointer-events-auto">
+                              <ScheduleDetailLines item={item} />
+                            </div>
                             {item.id && (photosBySchedule?.get(item.id)?.length ?? 0) > 0 && (
                               <div className="pointer-events-auto mt-2">
                                 <PhotoStrip attachments={photosBySchedule!.get(item.id)!} limit={4} interactive />
