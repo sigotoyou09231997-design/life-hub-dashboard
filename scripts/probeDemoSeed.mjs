@@ -134,7 +134,7 @@ export async function seed(page, ids) {
     ]);
     await db.tripSchedule.bulkPut([
       stamp({ tripId: TRIP_ID, date: d(6), startTime: "08:30", endTime: "11:00", title: "新幹線で移動", type: "transport", location: "東京→京都" }),
-      stamp({ tripId: TRIP_ID, date: d(6), startTime: "12:00", title: "昼食（湯葉）", type: "meal", location: "南禅寺周辺" }),
+      stamp({ tripId: TRIP_ID, date: d(6), startTime: "12:00", title: "昼食（湯葉）", type: "meal", location: "南禅寺周辺", address: "京都府京都市左京区南禅寺福地町", phone: "075-000-0000", url: "https://example.com/yuba", openingHours: "11:00〜15:00" }),
       stamp({ tripId: TRIP_ID, date: d(6), endDate: d(8), startTime: "16:00", title: "宿にチェックイン", type: "lodging", location: "四条のホテル" }),
       stamp({ tripId: TRIP_ID, date: d(7), startTime: "09:00", endTime: "10:30", title: "清水寺", type: "sightseeing", location: "清水" }),
       stamp({ tripId: TRIP_ID, date: d(7), startTime: "11:30", endTime: "12:15", title: "八坂神社", type: "sightseeing", location: "八坂神社" }),
