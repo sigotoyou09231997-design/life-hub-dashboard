@@ -307,19 +307,16 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   .lh-home > * { grid-column: 1 / -1; }
 
   .lh-money {
-    grid-row: 1;
     grid-column: 1 / span 2;
-    padding: 1.6rem 1.8rem 1.3rem;
-    min-height: 15rem;
+    padding: 1.5rem 1.8rem 1.3rem;
   }
-  .lh-money .warm-amount { font-size: 3.6rem; }
+  .lh-money .warm-amount { font-size: var(--fs-money-pc, 3rem); }
   .lh-money__stats { margin-top: auto; gap: 1rem; }
   .lh-money__stats dd { font-size: 1.25rem; }
   .lh-money__stats dt { font-size: 0.74rem; }
 
   .lh-section--trip {
-    grid-row: 1;
-    grid-column: 3;
+    grid-column: 1 / span 2;
   }
   /* 「お金管理」を隠している時(設定の「使う機能」)は、上段の黒いカードが無い。旅行のカードを、右上に孤立させず、全幅の1段にする。 */
   .lh-home--no-money .lh-section--trip {
@@ -883,4 +880,152 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 .lh-setup__done-row { padding: 0.15rem 0; font-size: var(--fs-caption); font-weight: 600; color: var(--warm-ink-3); text-decoration: line-through; }
 @media (min-width: 1024px) {
   .lh-setup__todo { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 0.6rem; }
+}
+
+/* ============================================================================
+   ホームの組み直し(2026-10-17、Cowork「LIFE HUB ホームのレイアウト案」)
+   4ブロック: 今日の1行 ／ お金(黒)＋気になること(白) ／ 今日と、この先 ／ 次の旅行(写真)＋Gmail(白)。
+   面は白・黒(お金だけ)・写真(旅行だけ)。余白は8の倍数。青緑は押せるものだけ。
+   ========================================================================= */
+.lh-today {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  padding: 0.25rem 0.2rem 0;
+}
+.lh-today__date {
+  margin: 0;
+  color: var(--warm-ink);
+  font-size: var(--fs-page);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.lh-today__status {
+  margin: 0;
+  color: var(--warm-ink-3);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+/* 5-1 主役は1つ。残り額は 40px(PC 48px)・Manrope 600・字間 −2%。 */
+.lh-home > .lh-money .warm-amount {
+  font-family: var(--font-num);
+  font-size: 2.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.lh-money__line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.4rem;
+  margin: 0.6rem 0 0;
+  color: rgba(244, 247, 247, 0.62);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+.lh-money__line b {
+  color: #fff;
+  font-family: var(--font-num);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 気になること: 色の点で重さを分ける(赤＝放っておくと困る、琥珀＝設定が未完)。文字色は黒のまま。 */
+.lh-concern-none {
+  margin: 0;
+  padding: 0.25rem 0.2rem;
+  color: var(--warm-ink-3);
+  font-size: var(--fs-body);
+}
+.lh-concern__row {
+  width: 100%;
+  min-height: 3.1rem;
+  padding: 0.55rem 1rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+}
+.lh-concern__row + .lh-concern__row::before { left: 1rem; }
+.lh-concern__dot {
+  flex: 0 0 auto;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+}
+.lh-concern__dot.is-red { background: #dc6355; box-shadow: 0 0 0 3px rgba(220, 99, 85, 0.16); }
+.lh-concern__dot.is-amber { background: #cf9448; box-shadow: 0 0 0 3px rgba(207, 148, 72, 0.16); }
+.lh-concern .lh-row__copy strong { font-size: var(--fs-body); white-space: normal; }
+.lh-concern__cta {
+  flex: 0 0 auto;
+  color: var(--teal-700);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 今日と、この先: 日ごとの小さな見出しと、hairline で区切った行。 */
+.lh-ahead { padding: 0.3rem 0 0.6rem; }
+.lh-ahead__days { display: flex; flex-direction: column; }
+.lh-ahead__day + .lh-ahead__day { border-top: 1px solid var(--warm-line); }
+.lh-ahead__date {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0.7rem 1rem 0.2rem;
+  color: var(--warm-ink-3);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+}
+.lh-ahead__date b { color: var(--warm-ink); font-size: var(--fs-body); font-weight: 700; }
+.lh-ahead__day.is-today .lh-ahead__date b { color: var(--teal-700); }
+.lh-ahead__none { margin: 0; padding: 0.1rem 1rem 0.65rem; color: var(--warm-ink-3); font-size: var(--fs-caption); }
+.lh-ahead__rows { display: flex; flex-direction: column; }
+.lh-ahead__row { min-height: 3rem; padding: 0.45rem 1rem; }
+.lh-ahead__row .lh-row__icon { width: 2rem; height: 2rem; }
+.lh-ahead__row + .lh-ahead__row::before { left: 3.6rem; }
+.lh-ahead__row.is-done + .lh-ahead__row::before,
+.lh-ahead__row + .lh-ahead__row.is-done::before { left: 1rem; }
+.lh-ahead__more {
+  display: block;
+  padding: 0.3rem 1rem 0.5rem;
+  color: var(--teal-700);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+}
+.lh-ahead__foot {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem 0;
+  border-top: 1px solid var(--warm-line);
+}
+
+/* 次の旅行が30日より先なら1行の帯。 */
+.lh-trip-band {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.6rem 1rem;
+  color: var(--warm-ink);
+}
+.lh-trip-band .lh-row__copy strong { font-size: var(--fs-body); }
+
+@media (min-width: 1024px) {
+  .lh-home { gap: 1.5rem 1.5rem; }
+  .lh-today { grid-column: 1 / -1; }
+  .lh-section--concern { grid-column: 3; align-self: stretch; }
+  .lh-home--no-money .lh-section--concern { grid-column: 1 / -1; }
+  .lh-section--ahead { grid-column: 1 / -1; }
+  .lh-section--gmail { grid-column: 3; align-self: start; }
+  .lh-home--no-trips .lh-section--gmail { grid-column: 1 / -1; }
+  .lh-section--trip.is-band { align-self: start; }
+  .lh-home { --fs-money-pc: 3rem; }
+  /* 3日を横に並べる(1画面に収める)。 */
+  .lh-ahead__days { flex-direction: row; }
+  .lh-ahead__day { flex: 1 1 0; min-width: 0; }
+  .lh-ahead__day + .lh-ahead__day { border-top: 0; border-left: 1px solid var(--warm-line); }
 }

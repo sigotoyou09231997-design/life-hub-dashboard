@@ -1,51 +1,43 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { differenceInCalendarDays, format, parseISO } from "date-fns";
-import { ja } from "date-fns/locale";
+import { differenceInCalendarDays, parseISO } from "date-fns";
 import { ArrowRight, CalendarDays, Check, ChevronRight, Mail, Plane, Plus } from "lucide-react";
 import { db } from "../db/schema";
-import type { CalendarEvent } from "../types";
-import { formatDisplayDate, formatGmailTimestamp, toDateStr, todayStr } from "../lib/date";
+import type { CalendarEvent, Task } from "../types";
+import { formatDisplayDate, formatShortDate, toDateStr, todayStr } from "../lib/date";
 import { occursOn, spanDayIndex, spanTimeText } from "../lib/eventSpan";
-import { avatarColor, avatarInitial, isUnhandledEmail, parseSender } from "../lib/gmail";
+import { parseSender } from "../lib/gmail";
 import { pullBlockedSendersIfDue } from "../lib/blockedSenders";
 import { useTripCover } from "../hooks/useTripCover";
 import { getScheduleCategory } from "../lib/scheduleCategories";
-import { getHolidayMapForYears } from "../lib/holidays";
-import { groupWeekAhead, hasWeekAheadItems, weekAheadDates } from "../lib/weekAhead";
 import { PersonTags } from "../components/calendar/PersonTags";
 import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { useHubMotion } from "../hooks/useHubMotion";
-import { useIsDesktop } from "../hooks/useIsDesktop";
 import { toggleTaskCompletion } from "../components/tasks/TaskList";
 import { haptic } from "../lib/haptics";
-import { UsageAlertCard } from "../components/review/UsageAlertCard";
-import { useUsageAlerts } from "../hooks/useFeatureUsage";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
 import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
 import { useWithoutPendingDeletes } from "../hooks/usePendingDeletes";
-import { BriefingCard } from "../components/home/BriefingCard";
+import { useNotificationSignals } from "../lib/notificationSignals";
+import { useHomeAddress } from "../lib/homePlace";
+import { computeSetupProgress, isSetupChecklistSuppressed } from "../lib/setupChecklist";
+import { isCalendarSyncEnabled } from "../lib/googleCalendar";
+import { isUnhandledEmail } from "../lib/gmail";
 import { PageFab } from "../components/ui/PageFab";
 import { CountingAmount } from "../components/ui/CountingAmount";
 import { openAddChooser, openQuickAdd } from "../components/layout/AddChooser";
-import { EmptyIllustration } from "../components/ui/EmptyIllustration";
 import { InlineExpenseEntry } from "../components/home/InlineExpenseEntry";
-import { SetupChecklist } from "../components/home/SetupChecklist";
 import { TripInviteBanner } from "../components/trips/TripInviteBanner";
 import { useHiddenFeatures } from "../hooks/useHiddenFeatures";
-import type { HideableFeature } from "../lib/hiddenFeatures";
+import { aheadDates, aheadDayLabel, buildConcerns, homeStatusLine, tripCardMode } from "../lib/homeLayout";
 
-const EVENT_PREVIEW_LIMIT = 3;
-const TASK_PREVIEW_LIMIT = 3;
-const GMAIL_PREVIEW_LIMIT = 3;
-/** ホーム下段の「今週これから」。PC幅だけに出す(スマホは今のままでいい、という指示)。
- *  明日から7日ぶんを1列ずつ並べ、1日に出すのは3件まで。 */
-const WEEK_AHEAD_DAYS = 7;
-const WEEK_AHEAD_PER_DAY = 3;
+/** 1日に出す予定・タスクの数。残りは件数だけ出し、中身は予定の画面で見る。 */
+const EVENTS_PER_DAY = 4;
+const TASKS_PER_DAY = 3;
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
-/** 区切りの見出し。2026-10-12 の並べ替えで、見出しはカードの外（参考にしたアプリの形）に出した。 */
+/** 区切りの見出し。見出しはカードの外（参考にしたアプリの形）。 */
 function SectionHead({ title, to, trailing }: { title: string; to?: string; trailing?: ReactNode }) {
   return (
     <div className="lh-section__head">
@@ -78,6 +70,31 @@ function formatCountdown(minutes: number): string {
   return `あと${hours}時間${rest ? `${rest}分` : ""}`;
 }
 
+/** 何日かにまたがる予定の開始時刻は、初日にしか意味がない。2日目以降も同じ時刻で扱うと、
+ * 泊まっている最中の宿泊が「10:00に始まる次の予定」として毎朝出てくる。 */
+function timeOn(event: CalendarEvent, date: string): string | undefined {
+  return event.allDay || spanDayIndex(event, date) !== 1 ? undefined : event.startTime;
+}
+
+function sortTasks(tasks: Task[]): Task[] {
+  return [...tasks].sort(
+    (a, b) =>
+      Number(a.completed) - Number(b.completed) ||
+      (a.dueTime ?? "99:99").localeCompare(b.dueTime ?? "99:99") ||
+      a.createdAt - b.createdAt,
+  );
+}
+
+/**
+ * ホーム(TOP)。2026-10-17 に Cowork の「ホームのレイアウト案」で組み直した(src/lib/homeLayout.ts)。
+ *   1. 今日の1行(日付＋状態の一言。表紙ではなく見出しの大きさ)
+ *   2. 今月のお金(黒、PC では左2/3)＋気になること(白、右1/3。放っておくと困ることだけ。無い日は1行)
+ *   3. 今日と、この先(今日・明日・明後日の予定とタスクを1枚で)
+ *   4. 次の旅行(写真。30日より先なら1行の帯)＋Gmail(未処理・重要な未読の2行)
+ * 外した: 今日のまとめ(3 と Gmail に重なる)、最近使われていない機能(ふりかえりとベルで見る)、
+ * LIFE HUB をそろえる(残りの項目は「気になること」へ)。中身・リンク・ボタンの働きは前と同じ。
+ * DOM の順番はスマホの並び順。PC の並びは layout-teal.css のグリッドが決める。
+ */
 export default function TopPage() {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -86,53 +103,32 @@ export default function TopPage() {
   }, []);
 
   const motionRef = useHubMotion<HTMLDivElement>();
-
   const today = todayStr();
-  // 何日かにまたがる予定(宿泊など)は初日の date しか索引に載らないので、date の索引で
-  // 今日ぶんだけを引くと2日目以降がTOPから消える。全部見てから絞る(src/lib/eventSpan.ts)。
-  // 「削除しました・元に戻す」の5秒間は、まだ本当には消していない(src/lib/deferredDelete.ts)。
-  // ほかの画面で消してすぐホームへ来ても出ないよう、ホームでも除く(UI/UX 調査メモ 第4弾 A-2)。
+  const dates = aheadDates(today);
+
+  // 何日かにまたがる予定(宿泊など)は初日の date しか索引に載らないので、全部見てから絞る(src/lib/eventSpan.ts)。
+  // 「削除しました・元に戻す」の5秒間は、まだ本当には消していない(src/lib/deferredDelete.ts)ので、ホームでも除く。
   const eventsResult = useWithoutPendingDeletes(
     "calendarEvents",
-    useLiveQuery(() => db.calendarEvents.filter((event) => occursOn(event, today)).toArray(), [today]),
+    useLiveQuery(() => db.calendarEvents.filter((event) => dates.some((date) => occursOn(event, date))).toArray(), [today]),
   );
-  // 何日かにまたがる予定の開始時刻は、初日にしか意味がない。2日目以降も同じ時刻で
-  // 扱うと、泊まっている最中の宿泊が「10:00に始まる次の予定」として毎朝出てくる。
-  const startsToday = (event: CalendarEvent) => spanDayIndex(event, today) === 1;
-  const timeToday = (event: CalendarEvent) => (event.allDay || !startsToday(event) ? undefined : event.startTime);
-  const allTodayEvents = [...(eventsResult ?? [])].sort((a, b) =>
-    (timeToday(a) ?? "").localeCompare(timeToday(b) ?? ""),
-  );
-  const previewEvents = allTodayEvents.slice(0, EVENT_PREVIEW_LIMIT);
-  const nextEvent = allTodayEvents.find(
-    (event) => !timeToday(event) || minutesUntil(timeToday(event), now) !== null,
-  );
-  const nextEventMinutes = nextEvent ? minutesUntil(timeToday(nextEvent), now) : null;
-  // 「誰の予定か」の名前と色。付けた印はホームの「次の予定」にも出す
-  // (付けたのに一覧に出ないと、付いているのか分からないため)。
-  const eventPeople = useLiveQuery(() => db.eventPeople.toArray(), []) ?? [];
   const tasksResult = useWithoutPendingDeletes(
     "tasks",
-    useLiveQuery(() => db.tasks.where("dueDate").equals(today).toArray(), [today]),
+    useLiveQuery(() => db.tasks.where("dueDate").anyOf(dates).toArray(), [today]),
   );
-  const todayTasks = (tasksResult ?? []).filter((task) => !task.parentTaskId);
-  const doneCount = todayTasks.filter((task) => task.completed).length;
-  const openCount = todayTasks.length - doneCount;
-  const sortedTasks = [...todayTasks].sort(
-    (a, b) =>
-      Number(a.completed) - Number(b.completed) ||
-      (a.dueTime ?? "99:99").localeCompare(b.dueTime ?? "99:99") ||
-      a.createdAt - b.createdAt,
-  );
-  const previewTasks = sortedTasks.slice(0, TASK_PREVIEW_LIMIT);
-  // 予定もタスクも無い日は、中身の無いカード2枚ではなく、1枚にまとめる(第5弾 A-2)。読み込み中は、まとめない
-  // (読み込みの一瞬に「ありません」と出さない)。
-  const todayIsEmpty =
-    eventsResult !== undefined && tasksResult !== undefined && previewEvents.length === 0 && previewTasks.length === 0;
+  const tasks = (tasksResult ?? []).filter((task) => !task.parentTaskId);
+  // 「誰の予定か」の名前と色。付けた印はホームにも出す(付けたのに出ないと、付いているのか分からないため)。
+  const eventPeople = useLiveQuery(() => db.eventPeople.toArray(), []) ?? [];
+
+  const todayEvents = (eventsResult ?? []).filter((event) => occursOn(event, today));
+  const todayOpenTasks = tasks.filter((task) => task.dueDate === today && !task.completed).length;
+  const statusLine = homeStatusLine(eventsResult ? todayEvents.length : undefined, tasksResult ? todayOpenTasks : undefined);
+  const nextEvent = [...todayEvents]
+    .sort((a, b) => (timeOn(a, today) ?? "").localeCompare(timeOn(b, today) ?? ""))
+    .find((event) => !timeOn(event, today) || minutesUntil(timeOn(event, today), now) !== null);
 
   const { data: budget } = usePayPeriodBudget();
-  // 給与がまだ無い時の「今月のお金」。前は「¥—」と案内の1行だけで、ホームでいちばん大きな
-  // 面が空いていた(UI/UX 調査メモ A-4)ので、給与が無くても分かる今月の支出を出す。
+  // 給与がまだ無い時の「今月のお金」。給与が無くても分かる今月の支出を出す(UI/UX 調査メモ A-4)。
   const monthStart = `${today.slice(0, 7)}-01`;
   const monthSpending = useLiveQuery(async () => {
     const rows = await db.transactions.where("date").between(monthStart, today, true, true).toArray();
@@ -145,8 +141,7 @@ export default function TopPage() {
       latest: latest ? latest.store || latest.category : null,
     };
   }, [monthStart, today]);
-  // 使われなくなった機能のお知らせ。ある月だけ、上段と4分割のカードの間に1枚出す。
-  const usageAlerts = useUsageAlerts();
+
   // 設定の「使う機能」で隠した機能は、ホームのカードも出さない(src/lib/hiddenFeatures.ts)。
   const hiddenFeatures = useHiddenFeatures();
   const hide = {
@@ -155,36 +150,11 @@ export default function TopPage() {
     gmail: hiddenFeatures.includes("gmail"),
     trips: hiddenFeatures.includes("trips"),
   };
-  const GROUP_FEATURE: Record<string, HideableFeature> = { 予定: "schedule", お金: "money", メモ: "notes", 旅行: "trips", Gmail: "gmail" };
-  const shownUsageAlerts = usageAlerts.alerts.filter((alert) => !hiddenFeatures.includes(GROUP_FEATURE[alert.usage.feature.group]));
-  // 「今日のまとめ」に出す返信待ち(src/lib/replyWaiting.ts)。
-  const replyWaiting = useReplyWaiting();
-  // Googleカレンダーの取り込みを入にしてあれば、開いた時に取り込む(10分に1回まで)。
+  // Googleカレンダーの同期を入にしてあれば、開いた時に同期する(10分に1回まで)。
   useGoogleCalendarAutoSync();
 
-  // 「今週これから」— 明日から7日ぶん。PC幅でしか出さないので、スマホでは
-  // 予定の全件走査そのものを走らせない(useIsDesktop で問い合わせごと止める)。
-  const isDesktop = useIsDesktop();
-  const weekDates = useMemo(() => (isDesktop ? weekAheadDates(today, WEEK_AHEAD_DAYS) : []), [today, isDesktop]);
-  // 何日かにまたがる予定・繰り返しの予定は date の索引では引けないので、
-  // 上の「今日の予定」と同じく全部見てから絞る(src/lib/eventSpan.ts)。
-  const weekEvents = useLiveQuery(
-    () =>
-      weekDates.length === 0
-        ? Promise.resolve<CalendarEvent[]>([])
-        : db.calendarEvents.filter((event) => weekDates.some((date) => occursOn(event, date))).toArray(),
-    [isDesktop, today],
-  );
-  const weekDays = useMemo(() => groupWeekAhead(weekEvents ?? [], weekDates), [weekEvents, weekDates]);
-  const weekHolidays = useMemo(
-    () => (weekDates.length === 0 ? new Map<string, string>() : getHolidayMapForYears([...new Set(weekDates.map((d) => Number(d.slice(0, 4))))])),
-    [weekDates],
-  );
-
-  // ブロック中の送信者リストは端末ごとのローカル(db.blockedSenders)で、汎用同期エンジンの
-  // 対象外。取り込みは受信トレイ(/gmail)とメール画面でしか走っていなかったので、PCで
-  // ブロックした送信者がスマホのTOPには出続けていた(受信トレイを一度開くまで消えない)。
-  // TOPは受信トレイを開かずに眺める画面なので、ここでも取り込む(src/lib/blockedSenders.ts)。
+  // ブロック中の送信者リストは端末ごとのローカルで、同期の対象外。TOP は受信トレイを開かずに眺める画面なので、
+  // ここでも取り込む(src/lib/blockedSenders.ts)。
   const gmailAccounts = useLiveQuery(() => db.gmailAccounts.toArray(), []);
   useEffect(() => {
     for (const account of gmailAccounts ?? []) {
@@ -192,36 +162,43 @@ export default function TopPage() {
     }
   }, [gmailAccounts]);
 
-  // アカウントはこの中でも読み直す — 上のgmailAccountsは読み込み中がundefinedで、
-  // それを使うと一瞬「未接続」の表示が出てしまう。
+  // Gmail の数字。アカウントはこの中でも読み直す — 上の gmailAccounts は読み込み中が undefined で、一瞬「未接続」が出るため。
   const gmailPreview = useLiveQuery(async () => {
     const accounts = await db.gmailAccounts.toArray();
-    if (accounts.length === 0) return { connected: false, emails: [], total: 0, importantUnread: 0 };
-    const [blocked, allEmails] = await Promise.all([
-      db.blockedSenders.toArray(),
-      db.syncedEmails.orderBy("receivedAt").reverse().toArray(),
-    ]);
+    if (accounts.length === 0) return { connected: false, total: 0, importantUnread: 0 };
+    const [blocked, allEmails] = await Promise.all([db.blockedSenders.toArray(), db.syncedEmails.toArray()]);
     const blockedSet = new Set(blocked.map((item) => `${item.accountId}:${item.email}`));
-    // 受信トレイの「すべて」タブとまったく同じ絞り込み — ブロック中の送信者を外し、
-    // 既読にしたものと返信を送ったものも外して、まだ手を付けていない直近だけを出す
-    // (isUnhandledEmailはGmailInboxと共有。TOPだけ独自に「全部の直近」を出していた
-    // 頃は、受信トレイでは片付いているメールがTOPには残り続けていた)。
-    const visible = allEmails.filter(
-      (email) =>
-        !blockedSet.has(`${email.accountId}:${parseSender(email.from).email.toLowerCase()}`) &&
-        isUnhandledEmail(email),
-    );
-    // 「今日のまとめ」の重要な未読。重要を付けた・まだ読んでいない・返信していないもの
-    // (朝の通知 netlify/functions/sendMorningBriefing.ts も同じ数え方)。
-    const importantUnread = allEmails.filter(
-      (email) =>
-        !blockedSet.has(`${email.accountId}:${parseSender(email.from).email.toLowerCase()}`) &&
-        email.importantAt &&
-        !email.readAt &&
-        email.status !== "sent",
-    ).length;
-    return { connected: true, emails: visible.slice(0, GMAIL_PREVIEW_LIMIT), total: visible.length, importantUnread };
+    const visible = allEmails.filter((email) => !blockedSet.has(`${email.accountId}:${parseSender(email.from).email.toLowerCase()}`));
+    // 受信トレイの「すべて」タブと同じ絞り込み(まだ手を付けていないもの)。重要な未読は朝の通知と同じ数え方。
+    const total = visible.filter(isUnhandledEmail).length;
+    const importantUnread = visible.filter((email) => email.importantAt && !email.readAt && email.status !== "sent").length;
+    return { connected: true, total, importantUnread };
   }, []);
+
+  // 「気になること」の材料: 返信待ち・予算超えの予兆・期限切れのタスク・連携切れ・そろえるの残り。
+  const replyWaiting = useReplyWaiting();
+  const signals = useNotificationSignals();
+  const homeAddress = useHomeAddress();
+  const [setupSuppressed] = useState(() => isSetupChecklistSuppressed(Date.now()));
+  const setupFacts = useLiveQuery(async () => {
+    const [salaries, expenses, events, accounts] = await Promise.all([
+      db.salaries.count(),
+      db.transactions.filter((row) => row.type === "expense").count(),
+      db.calendarEvents.count(),
+      db.gmailAccounts.toArray(),
+    ]);
+    return { salary: salaries > 0, expense: expenses > 0, event: events > 0, googleCalendar: accounts.some(isCalendarSyncEnabled) };
+  }, []);
+  const setupProgress = setupFacts ? computeSetupProgress({ ...setupFacts, homeAddress: homeAddress.trim().length > 0 }, hiddenFeatures) : null;
+  const concerns = buildConcerns({
+    waiting: hide.gmail
+      ? []
+      : (replyWaiting ?? []).map((item) => ({ emailId: item.email.id ?? "", name: parseSender(item.email.from).name, waitingDays: item.waitingDays })),
+    forecasts: hide.money ? [] : signals.budgetForecasts.filter((f) => f.willExceed),
+    overdueTasks: hide.schedule ? 0 : signals.overdueTasks.length,
+    reauthEmails: hide.gmail ? [] : (gmailAccounts ?? []).filter((account) => account.reauthRequiredAt).map((account) => account.email),
+    setupItems: setupSuppressed || !setupProgress || setupProgress.complete ? [] : setupProgress.items.filter((item) => !item.done),
+  });
 
   const tripsResult = useLiveQuery(() => db.trips.toArray(), []);
   const featuredTrip =
@@ -230,45 +207,59 @@ export default function TopPage() {
       .filter((trip) => trip.status === "planning")
       .sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
   const tripCover = useTripCover(featuredTrip?.name ?? "", featuredTrip?.destination ?? "");
-
   const tripDays = featuredTrip ? differenceInCalendarDays(parseISO(featuredTrip.startDate), now) : null;
+  const tripMode = tripCardMode(featuredTrip, today);
+  const tripFacts = useLiveQuery(async () => {
+    const id = featuredTrip?.id;
+    if (!id) return null;
+    const [packing, expenses] = await Promise.all([
+      db.tripPackingItems.where("tripId").equals(id).toArray(),
+      db.tripExpenses.where("tripId").equals(id).toArray(),
+    ]);
+    return {
+      packed: packing.filter((item) => item.checked).length,
+      packingTotal: packing.length,
+      spent: expenses.reduce((sum, row) => sum + row.amount, 0),
+    };
+  }, [featuredTrip?.id]);
+  const tripWhen = featuredTrip
+    ? tripDays === null || tripDays < 0
+      ? featuredTrip.status === "ongoing"
+        ? "旅行中"
+        : `${formatDisplayDate(featuredTrip.startDate)} 〜 ${formatDisplayDate(featuredTrip.endDate)}`
+      : tripDays === 0
+        ? "本日出発"
+        : `あと ${tripDays} 日`
+    : "";
 
-  // 2026-10-12: 並べ方を変えた（参考: サブスクBOX）。中身・リンク・ボタンの働きは前と同じ。
-  //  - いちばん上は黒い「今月のお金」。写真の表紙(日付・時刻・ひとこと)は 2026-10-13 に本人の要望で外した
-  //  - 見出しはカードの外に出し、カードの中は区切り線つきの行の一覧にする
-  //  - DOM の順番はスマホの並び順。PC の並びは home-teal.css のグリッドが決める
   return (
-    <div className={`warm-home lh-home${hide.money ? " lh-home--no-money" : ""}`} ref={motionRef}>
-      {/* 見出しは画面の読み上げ用に残す(見た目には出さない)。 */}
-      <h1 className="sr-only">ホーム</h1>
+    <div className={`warm-home lh-home${hide.money ? " lh-home--no-money" : ""}${hide.trips ? " lh-home--no-trips" : ""}`} ref={motionRef}>
+      {/* 1. 今日の1行。表紙ではなく見出しの大きさ(--fs-page)。 */}
+      <header className="lh-today">
+        <h1 className="lh-today__date">{formatDisplayDate(today)}</h1>
+        <p className="lh-today__status">{statusLine || " "}</p>
+      </header>
 
+      {/* 2. 今月のお金(黒)。主役は残り額だけ、ほかは1行の補足。 */}
       {hide.money ? null : budget ? (
         <Link to="/records/expense" className="warm-card lh-money" data-reveal="1">
-          <span className="lh-money__label">今月のお金</span>
+          <span className="lh-money__label">今月、あと使える</span>
           <p className={`warm-amount ${budget.remaining < 0 ? "is-negative" : ""}`}>
             <small>¥</small>
-            {/* 支出を記録すると、減った額が「−¥1,280」と浮かんでから、前の残りから数え下がる
-                (UI/UX 調査メモ 第4弾 A-5)。給料日で期間が替わった時は動かさない。 */}
+            {/* 支出を記録すると、減った額が「−¥1,280」と浮かんでから、前の残りから数え下がる(第4弾 A-5)。 */}
             <CountingAmount value={budget.remaining} resetKey={toDateStr(budget.period.periodStart)} showDelta />
           </p>
-          <dl className="lh-money__stats">
-            <div>
-              <dt>1日あたり使える</dt>
-              <dd>¥{Math.round(Math.max(0, budget.perDayUsable)).toLocaleString()}</dd>
-            </div>
-            <div>
-              <dt>使った額</dt>
-              <dd>
-                ¥<CountingAmount value={budget.actualSpending} resetKey={toDateStr(budget.period.periodStart)} />
-              </dd>
-            </div>
-            <div>
-              <dt>給料日まで</dt>
-              <dd>{budget.period.daysUntilNextPayday}日</dd>
-            </div>
-          </dl>
+          <p className="lh-money__line">
+            <span>
+              1日あたり <b>¥{Math.round(Math.max(0, budget.perDayUsable)).toLocaleString()}</b>
+            </span>
+            <span aria-hidden="true">・</span>
+            <span>
+              給料日まで <b>{budget.period.daysUntilNextPayday}日</b>
+            </span>
+          </p>
           <span className="warm-card__foot">
-            詳細をチェック <ArrowRight size={14} />
+            支出を見る <ArrowRight size={14} />
           </span>
         </Link>
       ) : (
@@ -281,24 +272,23 @@ export default function TopPage() {
               <span className="lh-money__label">今月の支出</span>
               <p className="warm-amount">
                 <small>¥</small>
-                {/* ホームの「＋」で支出を入れると、足した額が「+¥1,280」と浮かんでから合計に入り、
-                    合計は前の値から数え上がる(UI/UX 調査メモ 第4弾 A-5)。月が替わった時は動かさない。 */}
                 <CountingAmount value={monthSpending?.total} resetKey={monthStart} showDelta />
               </p>
-              <dl className="lh-money__stats">
-                <div>
-                  <dt>記録した数</dt>
-                  <dd>{monthSpending?.count ?? 0}件</dd>
-                </div>
-                <div>
-                  <dt>今日</dt>
-                  <dd>¥{(monthSpending?.today ?? 0).toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt>さいごの支出</dt>
-                  <dd>{monthSpending?.latest ?? "まだなし"}</dd>
-                </div>
-              </dl>
+              <p className="lh-money__line">
+                <span>
+                  記録 <b>{monthSpending?.count ?? 0}件</b>
+                </span>
+                <span aria-hidden="true">・</span>
+                <span>
+                  今日 <b>¥{(monthSpending?.today ?? 0).toLocaleString()}</b>
+                </span>
+                {monthSpending?.latest && (
+                  <>
+                    <span aria-hidden="true">・</span>
+                    <span>さいご {monthSpending.latest}</span>
+                  </>
+                )}
+              </p>
               <p className="warm-amount__note">給与を入れると、給料日まで1日いくら使えるかも出ます</p>
               <div className="lh-money__actions">
                 <Link to="/records/expense?new=salary" className="lh-money__cta">
@@ -313,271 +303,231 @@ export default function TopPage() {
         </div>
       )}
 
+      {/* 2. 気になること(放っておくと困ることだけ)。無い日は1行で、カードは出さない。 */}
+      <section className="lh-section lh-section--concern" data-reveal="2" aria-label="気になること">
+        <SectionHead title="気になること" />
+        {concerns.length === 0 ? (
+          <p className="lh-concern-none">気になることはありません</p>
+        ) : (
+          <div className="warm-card lh-group lh-concern">
+            {concerns.map((concern) => {
+              const body = (
+                <>
+                  <i className={`lh-concern__dot is-${concern.tone}`} aria-hidden="true" />
+                  <span className="lh-row__copy">
+                    <strong>{concern.text}</strong>
+                    {concern.note && <small>{concern.note}</small>}
+                  </span>
+                  <span className="lh-concern__cta">{concern.cta}</span>
+                </>
+              );
+              if (concern.action) {
+                const kind = concern.action;
+                return (
+                  <button key={concern.id} type="button" className="lh-row lh-concern__row" onClick={() => openQuickAdd(kind)}>
+                    {body}
+                  </button>
+                );
+              }
+              return (
+                <Link key={concern.id} to={concern.to ?? "/"} className="lh-row lh-concern__row">
+                  {body}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {/* 別のアカウントから届いた、旅行への招待(supabase/sql/034)。無い間は何も出ない。 */}
       <TripInviteBanner />
 
-      {/* 始め方のチェックリスト(第5弾 A-4)。済んだかは実データから決め、全部済むと自動で消える。 */}
-      <SetupChecklist />
-
-      {/* 今日のまとめ(2026-09-16)。予定・重要な未読・返信待ちを、画面を回らずに1枚で。 */}
-      {!(hide.schedule && hide.gmail) && (
-        <BriefingCard
-          eventCount={eventsResult ? allTodayEvents.length : undefined}
-          nextEvent={nextEvent ? { title: nextEvent.title, time: timeToday(nextEvent) } : undefined}
-          gmail={hide.gmail ? { connected: false, importantUnread: 0, total: 0 } : gmailPreview}
-          waiting={replyWaiting}
-          hideEvents={hide.schedule}
-        />
-      )}
-
-      {hide.schedule ? null : todayIsEmpty ? (
-        <section className="lh-section lh-section--today-empty" data-reveal="3">
-          <SectionHead title="今日の予定・タスク" />
-          <div className="warm-card lh-today-empty">
-            <EmptyIllustration kind="calendar" size={64} />
-            <div className="min-w-0">
-              <strong>今日は予定もタスクもありません</strong>
-              <p>何か1つ入れておきますか？</p>
-              <div className="lh-today-empty__actions">
-                <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("event")}>
-                  <Plus size={14} aria-hidden="true" />
-                  予定
-                </button>
-                <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("task")}>
-                  <Plus size={14} aria-hidden="true" />
-                  タスク
-                </button>
-              </div>
+      {/* 3. 今日と、この先(今日・明日・明後日)。予定の無い日は薄い1行。 */}
+      {!hide.schedule && (
+        <section className="lh-section lh-section--ahead" data-reveal="3">
+          <SectionHead title="今日と、この先" to="/schedule?view=calendar" />
+          <div className="warm-card lh-ahead">
+            <div className="lh-ahead__days">
+              {dates.map((date) => {
+                const dayEvents = (eventsResult ?? [])
+                  .filter((event) => occursOn(event, date))
+                  .sort((a, b) => (timeOn(a, date) ?? "").localeCompare(timeOn(b, date) ?? ""));
+                const dayTasks = sortTasks(tasks.filter((task) => task.dueDate === date));
+                const shownEvents = dayEvents.slice(0, EVENTS_PER_DAY);
+                const shownTasks = dayTasks.slice(0, TASKS_PER_DAY);
+                const rest = dayEvents.length - shownEvents.length + (dayTasks.length - shownTasks.length);
+                const label = aheadDayLabel(date, today);
+                const isToday = date === today;
+                return (
+                  <div key={date} className={`lh-ahead__day${isToday ? " is-today" : ""}`}>
+                    <p className="lh-ahead__date">
+                      <b>{label}</b>
+                      <span>{formatShortDate(date)}</span>
+                    </p>
+                    {shownEvents.length === 0 && shownTasks.length === 0 ? (
+                      <p className="lh-ahead__none">{eventsResult && tasksResult ? "予定なし" : " "}</p>
+                    ) : (
+                      <div className="lh-ahead__rows">
+                        {shownEvents.map((event) => {
+                          const category = getScheduleCategory(event.category);
+                          const time = timeOn(event, date);
+                          const past = isToday && !event.allDay && Boolean(time) && minutesUntil(time, now) === null;
+                          const minutes = isToday && event.id === nextEvent?.id ? minutesUntil(time, now) : null;
+                          return (
+                            <Link key={`${event.id}-${date}`} to="/schedule?view=calendar" className={`lh-row lh-ahead__row${past ? " is-past" : ""}`}>
+                              <span className={`lh-row__icon lh-tone--${category.tone}`} aria-hidden="true">
+                                <CalendarDays size={16} strokeWidth={2} />
+                              </span>
+                              <span className="lh-row__copy">
+                                <strong>{event.title}</strong>
+                                <small>
+                                  <span className="lh-row__time">{spanTimeText(event, date)}</span>
+                                  {event.location || category.label}
+                                </small>
+                                <PersonTags event={event} people={eventPeople} compact />
+                              </span>
+                              {minutes !== null && minutes !== undefined ? (
+                                <span className="warm-list__meta">{formatCountdown(minutes)}</span>
+                              ) : (
+                                <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+                              )}
+                            </Link>
+                          );
+                        })}
+                        {shownTasks.map((task) => (
+                          <div key={task.id} className={`lh-row lh-ahead__row${task.completed ? " is-done" : ""}`}>
+                            <button
+                              type="button"
+                              className="warm-check"
+                              onClick={() => {
+                                // 完了にした時だけ、Android では短く振動させる(第4弾 A-6)。
+                                if (!task.completed) haptic("success");
+                                void toggleTaskCompletion(task);
+                              }}
+                              aria-label={`${task.title}の完了を切り替え`}
+                              aria-pressed={task.completed}
+                            >
+                              <Check size={12} strokeWidth={3.2} />
+                            </button>
+                            <Link to="/schedule?view=list" className="lh-row__copy">
+                              <strong>{task.title}</strong>
+                            </Link>
+                            {task.dueTime && <span className="warm-list__meta">{task.dueTime}</span>}
+                          </div>
+                        ))}
+                        {rest > 0 && (
+                          <Link to="/schedule?view=calendar" className="lh-ahead__more">
+                            ほか {rest} 件
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="lh-ahead__foot">
+              <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("event")}>
+                <Plus size={14} aria-hidden="true" />
+                予定
+              </button>
+              <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("task")}>
+                <Plus size={14} aria-hidden="true" />
+                タスク
+              </button>
             </div>
           </div>
         </section>
-      ) : (
-        <>
-      <section className="lh-section lh-section--events" data-reveal="3">
-        <SectionHead title="次の予定" to="/schedule?view=calendar" />
-        <div className="warm-card lh-group">
-          {previewEvents.length > 0 ? (
-            previewEvents.map((event) => {
-              const category = getScheduleCategory(event.category);
-              const time = timeToday(event);
-              const past = !event.allDay && Boolean(time) && minutesUntil(time, now) === null;
-              const countdown =
-                event.id === nextEvent?.id && nextEventMinutes !== null ? formatCountdown(nextEventMinutes) : null;
-              return (
-                <Link key={event.id} to="/schedule?view=calendar" className={`lh-row ${past ? "is-past" : ""}`}>
-                  <span className={`lh-row__icon lh-tone--${category.tone}`} aria-hidden="true">
-                    <CalendarDays size={18} strokeWidth={2} />
-                  </span>
-                  <span className="lh-row__copy">
-                    <strong>{event.title}</strong>
-                    <small>
-                      <span className="lh-row__time">{spanTimeText(event, today)}</span>
-                      {event.location || category.label}
-                    </small>
-                    <PersonTags event={event} people={eventPeople} compact />
-                  </span>
-                  {countdown ? (
-                    <span className="warm-list__meta">{countdown}</span>
-                  ) : (
-                    <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
-                  )}
-                </Link>
-              );
-            })
-          ) : (
-            <div className="warm-empty lh-empty-line">
-              <EmptyIllustration kind="calendar" size={48} />
-              <div className="min-w-0">
-                <strong>今日の予定はありません</strong>
-                <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("event")}>
-                  <Plus size={14} aria-hidden="true" />
-                  予定
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="lh-section lh-section--tasks" data-reveal="4">
-        <SectionHead
-          title="今日のタスク"
-          trailing={
-            todayTasks.length > 0 ? (
-              <span className="warm-card__badge">{doneCount}/{todayTasks.length} 完了</span>
-            ) : undefined
-          }
-        />
-        <div className="warm-card lh-group">
-          {previewTasks.length > 0 ? (
-            previewTasks.map((task) => (
-              <div key={task.id} className={`lh-row ${task.completed ? "is-done" : ""}`}>
-                <button
-                  type="button"
-                  className="warm-check"
-                  onClick={() => {
-                    // 完了にした時だけ、Android では短く振動させる(UI/UX 調査メモ 第4弾 A-6)。
-                    if (!task.completed) haptic("success");
-                    void toggleTaskCompletion(task);
-                  }}
-                  aria-label={`${task.title}の完了を切り替え`}
-                  aria-pressed={task.completed}
-                >
-                  <Check size={12} strokeWidth={3.2} />
-                </button>
-                <Link to="/schedule?view=list" className="lh-row__copy">
-                  <strong>{task.title}</strong>
-                </Link>
-                {task.dueTime && <span className="warm-list__meta">{task.dueTime}</span>}
-              </div>
-            ))
-          ) : (
-            <div className="warm-empty lh-empty-line">
-              <EmptyIllustration kind="tasks" size={48} />
-              <div className="min-w-0">
-                <strong>今日のタスクはありません</strong>
-                <button type="button" className="lh-add-pill" onClick={() => openQuickAdd("task")}>
-                  <Plus size={14} aria-hidden="true" />
-                  タスク
-                </button>
-              </div>
-            </div>
-          )}
-          <Link to="/schedule?view=list" className="lh-row lh-row--foot">
-            <span className="lh-row__copy">
-              <strong>{openCount > 0 ? `すべてのタスクを見る（あと ${openCount} 件）` : "すべてのタスクを見る"}</strong>
-            </span>
-            <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
-          </Link>
-        </div>
-      </section>
-        </>
       )}
 
+      {/* 4. 次の旅行。30日以内か旅行中は写真のカード、それ以外は1行の帯。 */}
       {!hide.trips && (
-        <section className="lh-section lh-section--trip" data-reveal="2">
-          <SectionHead title="旅行" />
-          <Link to="/trips" className="warm-trip">
-            <div
-              className="warm-trip__photo"
-              style={featuredTrip ? { backgroundImage: `url('${tripCover.url}')` } : undefined}
-              aria-hidden="true"
-            />
-            <div className="warm-trip__veil" aria-hidden="true" />
-            <span className="warm-trip__kicker">
-              <Plane size={13} strokeWidth={2.2} />
-              {featuredTrip ? TRIP_STATUS_LABEL[featuredTrip.status] : "次の旅"}
-            </span>
-            <p className="warm-trip__place">{featuredTrip ? featuredTrip.destination || featuredTrip.name : "次はどこへ"}</p>
-            <p className="warm-trip__when">
-              {featuredTrip
-                ? `${formatDisplayDate(featuredTrip.startDate)} 〜 ${formatDisplayDate(featuredTrip.endDate)}${
-                    tripDays !== null && tripDays >= 0 ? `（${tripDays === 0 ? "本日出発" : `あと ${tripDays} 日`}）` : ""
-                  }`
-                : "旅の計画を立てましょう"}
-            </p>
-          </Link>
+        <section className={`lh-section lh-section--trip${tripMode === "band" ? " is-band" : ""}`} data-reveal="4">
+          {tripMode === "big" && featuredTrip ? (
+            <>
+              <SectionHead title="次の旅行" to="/trips" />
+              <Link to={featuredTrip.id ? `/trips/${featuredTrip.id}` : "/trips"} className="warm-trip">
+                <div className="warm-trip__photo" style={{ backgroundImage: `url('${tripCover.url}')` }} aria-hidden="true" />
+                <div className="warm-trip__veil" aria-hidden="true" />
+                <span className="warm-trip__kicker">
+                  <Plane size={13} strokeWidth={2.2} />
+                  {TRIP_STATUS_LABEL[featuredTrip.status]}
+                </span>
+                <p className="warm-trip__place">{featuredTrip.name || featuredTrip.destination}</p>
+                <p className="warm-trip__when">
+                  {tripWhen}
+                  {tripFacts && (
+                    <>
+                      <span aria-hidden="true">・</span>持ち物 {tripFacts.packed}/{tripFacts.packingTotal}
+                      <span aria-hidden="true">・</span>使った額 ¥{Math.round(tripFacts.spent).toLocaleString()}
+                    </>
+                  )}
+                </p>
+              </Link>
+            </>
+          ) : (
+            <Link to={featuredTrip?.id ? `/trips/${featuredTrip.id}` : "/trips"} className="warm-card lh-trip-band">
+              <span className="lh-row__icon lh-tone--accent" aria-hidden="true">
+                <Plane size={16} strokeWidth={2} />
+              </span>
+              <span className="lh-row__copy">
+                <strong>{featuredTrip ? featuredTrip.name || featuredTrip.destination : "次はどこへ"}</strong>
+                <small>{featuredTrip ? tripWhen : "旅の計画を立てましょう"}</small>
+              </span>
+              <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+            </Link>
+          )}
         </section>
       )}
 
+      {/* 4. Gmail。未処理と重要な未読の2行と「開く」。 */}
       {!hide.gmail && (
         <section className="lh-section lh-section--gmail" data-reveal="5">
-          <SectionHead
-            title="Gmail"
-            to={gmailPreview?.total ? undefined : "/gmail"}
-            trailing={
-              gmailPreview?.total ? <span className="warm-card__badge">{gmailPreview.total}件の未処理</span> : undefined
-            }
-          />
+          <SectionHead title="Gmail" to={gmailPreview?.connected ? "/gmail" : undefined} />
           <div className="warm-card lh-group">
-            {gmailPreview?.emails.length ? (
-              gmailPreview.emails.map((email) => {
-                const sender = parseSender(email.from);
-                return (
-                  <Link key={email.id} to={`/gmail/mail/${email.id}`} className="lh-row">
-                    <span className={`warm-avatar lh-row__icon ${avatarColor(sender.email)}`}>{avatarInitial(sender.name)}</span>
-                    <span className="lh-row__copy">
-                      <strong>{sender.name}</strong>
-                      <small>{email.subject}</small>
-                    </span>
-                    <span className="lh-row__aside">{formatGmailTimestamp(email.receivedAt)}</span>
-                  </Link>
-                );
-              })
+            {gmailPreview?.connected ? (
+              <>
+                <Link to="/gmail" className="lh-row">
+                  <span className="lh-row__icon lh-tone--neutral" aria-hidden="true">
+                    <Mail size={16} />
+                  </span>
+                  <span className="lh-row__copy">
+                    <strong>未処理 {gmailPreview.total}件</strong>
+                    <small>{gmailPreview.total > 0 ? "まだ手を付けていないメール" : "未処理のメールはありません"}</small>
+                  </span>
+                  <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+                </Link>
+                <Link to="/gmail" className="lh-row">
+                  <span className={`lh-row__icon ${gmailPreview.importantUnread > 0 ? "lh-tone--danger" : "lh-tone--neutral"}`} aria-hidden="true">
+                    <Mail size={16} />
+                  </span>
+                  <span className="lh-row__copy">
+                    <strong>重要な未読 {gmailPreview.importantUnread}件</strong>
+                    <small>「重要」を付けたまま、まだ読んでいないメール</small>
+                  </span>
+                  <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
+                </Link>
+              </>
             ) : (
               <div className="warm-empty">
                 <span className="warm-empty__icon">
                   <Mail size={18} />
                 </span>
                 <div className="min-w-0">
-                  <strong>{gmailPreview?.connected ? "未処理のメールはありません" : "Gmailを接続"}</strong>
-                  <p>{gmailPreview?.connected ? "既読・返信済みは受信トレイで見られます" : "最新メールと返信案をここで確認"}</p>
+                  <strong>Gmailを接続</strong>
+                  <p>最新メールと返信案をここで確認</p>
                 </div>
               </div>
             )}
             <Link to="/gmail" className="lh-row lh-row--foot">
               <span className="lh-row__copy">
-                <strong>{gmailPreview?.connected ? "すべてのメールを見る" : "接続画面を開く"}</strong>
+                <strong>{gmailPreview?.connected ? "開く" : "接続画面を開く"}</strong>
               </span>
               <ChevronRight className="lh-row__chev" size={16} aria-hidden="true" />
             </Link>
           </div>
         </section>
       )}
-
-      {/* 今週これから(PC幅だけ)。上の「次の予定」は今日ぶんしか出さないので、
-          ここが明日から先を受け持つ。1件も無い週はカードごと出さない — 空の枠が
-          7列並ぶだけになり、かえって画面が寂しくなるため。 */}
-      {isDesktop && !hide.schedule && hasWeekAheadItems(weekDays) && (
-        <section className="lh-section lh-section--week" data-reveal="6">
-          <SectionHead title="今週これから" to="/schedule?view=calendar" />
-          <div className="warm-card warm-week">
-            <div className="warm-week__grid">
-              {weekDays.map((day) => {
-                const dayDate = parseISO(day.date);
-                const weekday = dayDate.getDay();
-                const holiday = weekHolidays.get(day.date);
-                const shown = day.items.slice(0, WEEK_AHEAD_PER_DAY);
-                const rest = day.items.length - shown.length;
-                const tone = holiday || weekday === 0 ? "is-sun" : weekday === 6 ? "is-sat" : "";
-                return (
-                  <div key={day.date} className={`warm-week__day ${shown.length === 0 ? "is-quiet" : ""}`}>
-                    <p className={`warm-week__date ${tone}`}>
-                      <b>{format(dayDate, "M/d")}</b>
-                      <span>{format(dayDate, "EEE", { locale: ja })}</span>
-                    </p>
-                    {holiday && <p className="warm-week__holiday">{holiday}</p>}
-                    {shown.length > 0 ? (
-                      <ul className="warm-week__items">
-                        {shown.map((event) => (
-                          <li key={`${event.id}-${day.date}`} className="warm-week__item">
-                            <i
-                              className={`warm-dot warm-dot--${getScheduleCategory(event.category).tone}`}
-                              aria-hidden="true"
-                            />
-                            <span className="warm-week__copy">
-                              <strong>{event.title}</strong>
-                              <small>{spanTimeText(event, day.date)}</small>
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="warm-week__none">予定なし</p>
-                    )}
-                    {rest > 0 && <p className="warm-week__more">ほか {rest} 件</p>}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* 使われなくなった機能のお知らせ。前は「今日のまとめ」のすぐ下(次の予定より上)に
-          カード1枚で出ていたが、毎日の行動とは関係が薄いので、いちばん下の1行に縮めた
-          (UI/UX 調査メモ A-5)。 */}
-      <UsageAlertCard alerts={shownUsageAlerts} onDismiss={usageAlerts.dismiss} compact />
 
       {/* 追加の入口(UI/UX 調査メモ A-3)。ホームは何を足すか決まらないので、選ぶシートを開く。 */}
       <PageFab onClick={openAddChooser} label="追加する">
