@@ -967,7 +967,8 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 }
 
 /* 今日と、この先: 日ごとの小さな見出しと、hairline で区切った行。 */
-.lh-ahead { padding: 0.3rem 0 0.6rem; }
+/* overflow: hidden は、下の「＋予定 ＋タスク」の帯の上の線が丸い角から2px はみ出さないため(probe --corners)。 */
+.lh-ahead { overflow: hidden; padding: 0.3rem 0 0.6rem; }
 .lh-ahead__days { display: flex; flex-direction: column; }
 .lh-ahead__day + .lh-ahead__day { border-top: 1px solid var(--warm-line); }
 .lh-ahead__date {
