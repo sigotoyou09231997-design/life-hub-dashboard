@@ -7,6 +7,8 @@ import { occurringOn, spanLabel } from "../../lib/eventSpan";
 import { timelineTimeParts } from "../../lib/tripTimeline";
 import { getTripScheduleType } from "../../lib/tripCategories";
 import { isLifeMarker } from "../../lib/scheduleRhythm";
+import { connectorMinutes, connectorModes, formatMinutes, segmentSchedule } from "../../lib/scheduleConnectors";
+import { transportModeLabel } from "../../lib/tripCategories";
 import { forecastForDate, forecastHorizon, type TripWeather } from "../../lib/weather";
 import { TripDayWeather, TripWeatherBanner } from "./TripDayWeather";
 import { TRANSPORT_MODE_ICON, TransportModeChip } from "./transportModes";
@@ -19,6 +21,7 @@ import {
   CalendarRange,
   Camera,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   GripVertical,
@@ -88,6 +91,10 @@ interface Props {
  * サイトはアイコンのボタン(ScheduleDetailLines)に。「起床」「準備」のような生活の区切りは一段小さく薄く出す
  * (src/lib/scheduleRhythm.ts)。青緑は押せるものだけ。
  *
+ * 2026-10-17(第6弾 D-1): 続けて並ぶ移動の予定は、場所と場所のあいだの点線と小さな札(手段・所要時間)に
+ * まとめる(src/lib/scheduleConnectors.ts)。札を押すと1件ずつに開き、編集も削除も今までどおり。
+ * 「並べ替え」を押している間は全部開く(並べ替えは1件ずつの行で動くため)。
+ *
  * ただ、矢印を消すと「並べ替えられる」こと自体が見えなくなった(日の下に小さな案内を1行置いただけ)。
  * そこで、日の見出しの横に「並べ替え」のボタンを置き、押した時だけ各行の右に「つまみ」を出す。
  * - ボタンはいつも見えているので、一度きりの案内のように読み飛ばして終わりにならない。
@@ -105,6 +112,16 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
   });
   /** 「並べ替え」を押して、つまみを出している日。日ごとに持つので、別の日へ切り替えた先はふだんの表示で出る。 */
   const [sortingDay, setSortingDay] = useState<string | null>(null);
+  /** 開いている「つなぎ」(続けて並ぶ移動の札)。鍵は中の予定の id。 */
+  const [openConnectors, setOpenConnectors] = useState<ReadonlySet<string>>(() => new Set());
+  function toggleConnector(key: string) {
+    setOpenConnectors((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
   /** キーボードで動かした予定。並びが書き変わると行の要素が動いて押した所が外れるので、戻すために控える。 */
   const refocusRef = useRef<string | null>(null);
 
@@ -217,7 +234,19 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
             ) : (
               <>
                 <ol className={`trip-timeline${sorting ? " is-sorting" : ""}`} ref={reorder.containerRef}>
-                  {shownItems.map((item) => {
+                  {segmentSchedule(shownItems, { open: openConnectors, expandAll: sorting }).map((segment) => {
+                    if (segment.kind === "connector") {
+                      return (
+                        <ConnectorRow
+                          key={`connector:${segment.key}`}
+                          items={segment.items}
+                          next={segment.next}
+                          open={segment.open}
+                          onToggle={() => toggleConnector(segment.key)}
+                        />
+                      );
+                    }
+                    const item = segment.item;
                     const index = dayItems.indexOf(item);
                     const typeDef = getTripScheduleType(item.type);
                     const Icon = iconFor(item);
@@ -356,5 +385,44 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
         </nav>
       )}
     </div>
+  );
+}
+
+/**
+ * 続けて並ぶ移動の「つなぎ」(src/lib/scheduleConnectors.ts)。左の時刻の列は空、時間軸は点線、右に小さな札。
+ * 札: 手段のアイコン＋「電車・新幹線」＋所要時間＋件数。押すと中の移動が1件ずつ開く(もう一度押すと畳む)。
+ */
+function ConnectorRow({
+  items,
+  next,
+  open,
+  onToggle,
+}: {
+  items: TripScheduleItem[];
+  next: TripScheduleItem | null;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const modes = connectorModes(items);
+  const icons = (modes.length > 0 ? modes.map((mode) => TRANSPORT_MODE_ICON[mode]) : [TramFront]).slice(0, 3);
+  const label = modes.length > 0 ? modes.map((mode) => transportModeLabel(mode)).join("・") : "移動";
+  const minutes = connectorMinutes(items, next);
+  return (
+    <li className={`trip-timeline__item trip-timeline__item--connector${open ? " is-open" : ""}`}>
+      <div className="trip-timeline__time is-plain" aria-hidden="true" />
+      <div className="trip-timeline__body trip-timeline__body--connector">
+        <button type="button" className="trip-connector" aria-expanded={open} onClick={onToggle}>
+          <span className="trip-connector__icons" aria-hidden="true">
+            {icons.map((Icon, i) => (
+              <Icon key={i} size={13} strokeWidth={2} />
+            ))}
+          </span>
+          <span>{label}</span>
+          {minutes !== null && <span className="trip-connector__time">{formatMinutes(minutes)}</span>}
+          <small>{items.length}件</small>
+          <ChevronDown size={13} className="trip-connector__chevron" aria-hidden="true" />
+        </button>
+      </div>
+    </li>
   );
 }

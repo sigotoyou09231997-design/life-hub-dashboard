@@ -1057,6 +1057,35 @@ a.trip-leg-mode--link {
   color: var(--hub-ink-3);
 }
 
+/* 第6弾 D-1(2026-10-17): 続けて並ぶ移動の「つなぎ」。時間軸は点線、右に小さな札(src/lib/scheduleConnectors.ts)。 */
+.trip-timeline__item--connector::before {
+  background: repeating-linear-gradient(180deg, color-mix(in srgb, var(--hub-ink-3) 55%, transparent) 0 4px, transparent 4px 9px);
+}
+.trip-timeline__body--connector { padding: 0.3rem 0.4rem 0.35rem 0.6rem; }
+.trip-timeline__body--connector:hover { background: transparent; }
+.trip-connector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--warm-line-strong, var(--hub-hairline));
+  border-radius: var(--r-pill);
+  background: var(--warm-surface, var(--hub-surface));
+  padding: 0.3rem 0.7rem 0.3rem 0.55rem;
+  color: var(--warm-ink-2, var(--hub-ink-2));
+  font-size: var(--fs-caption, 0.75rem);
+  font-weight: 600;
+  box-shadow: var(--shadow-rest);
+  text-align: left;
+}
+.trip-connector:focus-visible { outline: 2px solid var(--teal-500, var(--hub-blue)); outline-offset: 2px; }
+.trip-connector__icons { display: inline-flex; gap: 0.1rem; color: var(--hub-ink-3); }
+.trip-connector__time { font-variant-numeric: tabular-nums; }
+.trip-connector small { font-size: 0.7rem; font-weight: 500; color: var(--warm-ink-3, var(--hub-ink-3)); }
+.trip-connector__chevron { color: var(--hub-ink-3); transition: transform 240ms var(--ease-out-expo, ease); }
+.trip-connector[aria-expanded="true"] .trip-connector__chevron { transform: rotate(180deg); }
+/* 開いた中の移動の行は、札の下に続くので、少し詰める。 */
+.trip-timeline__item--connector.is-open + .trip-timeline__item--transport .trip-timeline__body { margin-top: 0; }
+
 /* 第6弾 D-3(2026-10-16): 2行目は灰色の補足(場所・移動手段・金額・払った人)。場所は押せるが、色は補足のまま(下線で応える)。 */
 .trip-timeline__meta {
   display: flex;
