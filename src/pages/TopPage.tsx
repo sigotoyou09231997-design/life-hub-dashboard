@@ -289,16 +289,17 @@ export default function TopPage() {
               </span>
               <p className="warm-trip__place">{featuredTrip.name || featuredTrip.destination}</p>
               {tripCount && <p className="warm-trip__count">{tripCount}</p>}
-              <p className="warm-trip__when">
-                {tripWhen}
+              <p className="warm-trip__when warm-trip__facts">
+                <span>{tripWhen}</span>
                 {tripFacts && (
                   <>
-                    <span aria-hidden="true">・</span>持ち物 {tripFacts.packed}/{tripFacts.packingTotal}
-                    <span aria-hidden="true">・</span>
-                    {tripFacts.spent > 0 || !featuredTrip.budget
-                      ? `使った額 ¥${Math.round(tripFacts.spent).toLocaleString()}`
-                      : `予算 ¥${Math.round(featuredTrip.budget).toLocaleString()}`}
-                    <span aria-hidden="true">・</span>予定 {tripFacts.scheduleCount}件
+                    <span>持ち物 {tripFacts.packed}/{tripFacts.packingTotal}</span>
+                    <span>
+                      {tripFacts.spent > 0 || !featuredTrip.budget
+                        ? `使った額 ¥${Math.round(tripFacts.spent).toLocaleString()}`
+                        : `予算 ¥${Math.round(featuredTrip.budget).toLocaleString()}`}
+                    </span>
+                    <span>予定 {tripFacts.scheduleCount}件</span>
                   </>
                 )}
               </p>

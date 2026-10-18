@@ -1122,6 +1122,10 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
   font-variant-numeric: tabular-nums;
 }
 .lh-trip-loading { background: var(--warm-surface-soft); }
+/* 日付・持ち物・使った額・予定の件数は「・」で区切り、1つの項目の途中では折り返さない。 */
+.warm-trip__facts { display: flex; flex-wrap: wrap; gap: 0 0.2rem; }
+.warm-trip__facts > span { white-space: nowrap; }
+.warm-trip__facts > span + span::before { content: "・"; margin-right: 0.2rem; }
 
 /* 次の請求 */
 .lh-subs__row { min-height: 2.5rem; padding: 0.45rem 1rem; }
