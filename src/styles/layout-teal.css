@@ -1353,3 +1353,11 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 .mail-inbox .lh-chip.mail-filter-chip { min-height: 2rem; padding: 0 0.8rem; font-size: 0.8125rem; }
 .lh-chip__count { margin-left: 0.35rem; font-size: 0.7rem; font-weight: 700; color: var(--warm-ink-3); }
 .lh-chip[aria-pressed="true"] .lh-chip__count { color: inherit; opacity: 0.8; }
+
+/* 第8弾 3本目 ふりかえり R-2: アプリの使われ方は折りたたみ(初期は閉じる)。 */
+.review-usage-fold { margin-top: 1.25rem; }
+.review-usage-fold__toggle { display: flex; width: 100%; align-items: center; gap: 0.6rem; border: 1px solid var(--warm-line); border-radius: var(--r-card); background: var(--warm-surface); padding: 0.75rem 1rem; text-align: left; color: var(--warm-ink); box-shadow: var(--shadow-rest); }
+.review-usage-fold__title { font-size: var(--fs-section); font-weight: 600; }
+.review-usage-fold__toggle small { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--warm-ink-3); font-size: var(--fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+.review-usage-fold__chevron { flex: 0 0 auto; color: var(--warm-ink-3); transition: transform 240ms var(--ease-out-expo); }
+.review-usage-fold__toggle[aria-expanded="true"] .review-usage-fold__chevron { transform: rotate(180deg); }

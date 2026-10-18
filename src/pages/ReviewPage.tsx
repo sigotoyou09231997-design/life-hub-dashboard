@@ -2,16 +2,7 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import {
-  CalendarDays,
-  CheckSquare,
-  ChevronLeft,
-  ChevronRight,
-  NotebookPen,
-  Sparkles,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { CalendarDays, CheckSquare, ChevronLeft, ChevronRight, NotebookPen, Sparkles, Wallet, type LucideIcon, ChevronDown } from "lucide-react";
 import { db } from "../db/schema";
 import { todayStr } from "../lib/date";
 import {
@@ -296,6 +287,7 @@ export default function ReviewPage() {
   const hasMood = Boolean(moodPoints?.some((point) => point.score != null));
 
   const spanWord = span === "week" ? "週" : "月";
+  const [usageOpen, setUsageOpen] = useState(false);
 
   // 機能の使い方は、週・月の切り替えとは別にいつも直近30日・90日で見る。
   const usage = useUsageReport();
@@ -473,13 +465,32 @@ export default function ReviewPage() {
           </div>
         )}
 
-        <UsageOverview
-          report={usage.report}
-          snapshot={usage.snapshot}
-          failed={usage.failed}
-          refreshing={usage.refreshing}
-          onRefresh={() => void usage.refresh()}
-        />
+        {/* アプリの統計(機能の使い方・TOP5・使われていない機能)は、暮らしの記録より場所を取らないよう、
+            1つの折りたたみにまとめて初期は閉じる(第8弾 R-2)。 */}
+        <section className="review-usage-fold" aria-label="アプリの使われ方">
+          <button
+            type="button"
+            className="review-usage-fold__toggle"
+            aria-expanded={usageOpen}
+            onClick={() => setUsageOpen((open) => !open)}
+          >
+            <span className="lh-section__icon" aria-hidden="true">
+              <Sparkles size={16} strokeWidth={1.75} />
+            </span>
+            <span className="review-usage-fold__title">アプリの使われ方</span>
+            <small>機能の使い方・よく使う機能・使われていない機能</small>
+            <ChevronDown size={16} className="review-usage-fold__chevron" aria-hidden="true" />
+          </button>
+          {usageOpen && (
+            <UsageOverview
+              report={usage.report}
+              snapshot={usage.snapshot}
+              failed={usage.failed}
+              refreshing={usage.refreshing}
+              onRefresh={() => void usage.refresh()}
+            />
+          )}
+        </section>
       </div>
     </div>
   );
