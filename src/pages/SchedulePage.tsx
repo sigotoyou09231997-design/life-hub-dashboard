@@ -175,7 +175,7 @@ export default function SchedulePage() {
   return (
     <div ref={pull.containerRef} className="spatial-page planning-page micro-contrast pb-10 lg:pb-8" style={AREA_ACCENT_STYLE.schedule}>
       <PullToRefreshIndicator ref={pull.indicatorRef} phase={pull.phase} />
-      <PageHeader title="予定・タスク管理" subtitle={scheduleStatus ?? ""} backTo="/" />
+      <PageHeader title="予定・タスク" subtitle={scheduleStatus ?? ""} backTo="/" />
 
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[620px]">
         <Tabs

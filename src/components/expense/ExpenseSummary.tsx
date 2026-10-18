@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { EmptyState } from "../ui/EmptyState";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import type { Transaction } from "../../types";
@@ -59,6 +60,7 @@ interface Props {
 }
 
 export function ExpenseSummary({ onAddSalary }: Props) {
+  const navigate = useNavigate();
   const { data, loading } = usePayPeriodBudget();
   const periodStartStr = data ? toDateStr(data.period.periodStart) : null;
   const savingsGoals = useLiveQuery(() => db.savingsGoals.toArray(), []);
@@ -261,6 +263,23 @@ export function ExpenseSummary({ onAddSalary }: Props) {
 
       <CashBalanceCard />
 
+      {/* 内訳も履歴も空なら、空の箱を2つ並べずに1つにまとめる(第8弾 X-5)。 */}
+      {categoryBreakdown.length === 0 && budgetStatuses.length === 0 && recentTransactions.length === 0 ? (
+        <section className="lh-section col-span-2 lg:col-span-12" data-page-block>
+          <div className="lh-section__head">
+            <h2 className="lh-section__title">今期の支出</h2>
+          </div>
+          <Card className="lh-group flex-1">
+            <EmptyState
+              illustration="expense"
+              title="今期の支出記録はありません"
+              description="記録すると、カテゴリ別の内訳と最近の履歴がここに出ます。"
+              action={{ label: "収支を追加", onClick: () => navigate("/records/expense?new=expense") }}
+            />
+          </Card>
+        </section>
+      ) : (
+      <>
       <section className="lh-section col-span-2 lg:col-span-6" data-page-block>
         <div className="lh-section__head">
           <h2 className="lh-section__title">カテゴリ別支出</h2>
@@ -364,6 +383,8 @@ export function ExpenseSummary({ onAddSalary }: Props) {
           )}
         </Card>
       </section>
+      </>
+      )}
     </div>
   );
 }

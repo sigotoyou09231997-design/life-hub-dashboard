@@ -204,16 +204,21 @@ export function SubscriptionTab() {
         )}
       </section>
 
-      <Tabs<View>
-        className="subs-views"
-        options={[
-          { value: "list", label: "一覧" },
-          { value: "calendar", label: "カレンダー" },
-          { value: "analysis", label: "分析" },
-        ]}
-        value={view}
-        onChange={setView}
-      />
+      {/* 二段目のタブは、上のタブ(サブスク／サマリー…)と見分けがつくよう、見出しの行の右の小さな切り替えにする(第8弾 X-6)。 */}
+      <div className="subs-views-row">
+        <span className="subs-views-row__label">{view === "list" ? "一覧" : view === "calendar" ? "請求日のカレンダー" : "分析"}</span>
+        <Tabs<View>
+          className="subs-views"
+          dense
+          options={[
+            { value: "list", label: "一覧" },
+            { value: "calendar", label: "カレンダー" },
+            { value: "analysis", label: "分析" },
+          ]}
+          value={view}
+          onChange={setView}
+        />
+      </div>
 
       {view === "list" && (
         <div className="subs-list">
@@ -290,7 +295,7 @@ export function SubscriptionTab() {
                 </section>
               )}
 
-              <Button className="w-full" onClick={openAdd}>
+              <Button className="w-full lh-add-end" onClick={openAdd}>
                 <Plus size={16} aria-hidden="true" /> サブスクを追加
               </Button>
 

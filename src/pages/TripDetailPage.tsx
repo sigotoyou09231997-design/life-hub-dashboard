@@ -691,8 +691,8 @@ export default function TripDetailPage() {
               }}
               onReorder={(index, direction) => void reorderDocuments(index, direction)}
             />
-            <Button className="mt-4 w-full" onClick={() => setEditingDocument("new")}>
-              書類を追加
+            <Button className="mt-4 w-full lh-add-end" onClick={() => setEditingDocument("new")}>
+              <Plus size={16} aria-hidden="true" /> 書類を追加
             </Button>
           </>
         )}

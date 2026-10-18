@@ -742,3 +742,110 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 }
 /* 黒いお金のカードの「今月のお金」は見出しではなく小さな札なので、段に入れない。 */
 .app-shell .lh-home > .lh-money .warm-card__title { font-size: 0.9rem; }
+
+/* ============================================================================
+   第8弾 2本目(2026-10-18): 共通の部品 — 全ページに散っていた同じ型の問題を部品で直す
+   ========================================================================= */
+/* X-1 灰色の箱をやめる: カードの中の行は白＋細い線。入力欄は白地に細い枠線。 */
+.spatial-page .glass-row:not(.note-widget),
+.spatial-page .spatial-control:not(.note-widget),
+.spatial-page .mail-row,
+.spatial-page .system-state-control,
+.spatial-page .profile-state-row,
+.spatial-page .calendar-compact-empty,
+.spatial-page .mail-connect-visual,
+.spatial-page .notes-empty-control__types > div,
+.spatial-page .planning-empty-control--timeline,
+.spatial-page .planning-empty-control--tasks,
+.spatial-page .mail-connect-capability {
+  border: 1px solid var(--warm-line);
+  background-color: var(--warm-surface);
+  box-shadow: none;
+}
+.spatial-page .glass-row:not(.note-widget),
+.spatial-page .spatial-control:not(.note-widget),
+.spatial-page .mail-row { min-height: 2.75rem; }
+@media (hover: hover) and (pointer: fine) {
+  .spatial-page .mail-row:hover,
+  .spatial-page .glass-row.is-pressable:hover,
+  .spatial-page .planning-list-module .spatial-control:hover {
+    background-color: color-mix(in srgb, var(--teal-50) 60%, #fff);
+  }
+}
+.spatial-page .mail-inbox-workspace,
+.spatial-page .finance-ledger-workspace { background-color: var(--warm-surface); }
+.field-shell,
+.segmented { background: var(--warm-surface); border-color: rgba(18, 28, 30, 0.14); }
+.segmented--separate .segmented__option { background: var(--warm-surface); border: 1px solid var(--warm-line); }
+.app-header__search-field { background: var(--warm-surface); border: 1px solid var(--warm-line); }
+/* 押せる行は、右端の › かホバーの面で分かるようにする(見分けがつかなくならないこと)。 */
+
+/* X-2 PC では、幅いっぱいの青緑の帯のボタンをやめる。リストの末尾の追加は小さな「＋ 追加」(左揃え)。 */
+@media (min-width: 1024px) {
+  .app-button.w-full,
+  .app-button.flex-1 { width: auto; flex: 0 0 auto; }
+  .lh-add-row,
+  .finance-history-actions { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 0.5rem 0.75rem; }
+  .app-button.lh-add-end {
+    min-height: 2.25rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--warm-line-strong);
+    border-radius: var(--r-pill);
+    background: var(--warm-surface);
+    color: var(--teal-700);
+    font-size: var(--fs-body);
+    font-weight: 700;
+    box-shadow: none;
+  }
+  .app-button.lh-add-end:hover { background: var(--teal-50); }
+  .app-button.lh-add-second {
+    min-height: 2.25rem;
+    padding: 0 0.4rem;
+    border: 0;
+    background: transparent;
+    color: var(--teal-700);
+    font-size: var(--fs-body);
+    font-weight: 600;
+    box-shadow: none;
+  }
+  .app-button.lh-add-second:hover { text-decoration: underline; background: transparent; }
+  /* 空の状態の主ボタンは幅を文字に合わせて中央に1つ。 */
+  .lh-empty .app-button { width: auto; min-width: 10rem; max-width: 14rem; }
+}
+
+/* X-3 文章の行を長くしない: 説明文・注意書き・本文は約40字で止める(カードの幅は変えない)。 */
+.system-section__description,
+.profile-module__description,
+.changelog-entry__body,
+.trip-day-route__note,
+.lh-empty__desc,
+.review-page .lh-section__head + p,
+.spatial-page .mail-connect-copy p { max-width: 40em; }
+
+/* X-4 見出し: ページ名の左の青緑の点と、設定・アカウントのカード見出しの縦線をやめる。見出しの左はアイコンの札(28px・薄い青緑)。 */
+.spatial-page-header__title::before { display: none; }
+.spatial-page .system-section__header,
+.spatial-page .profile-module__header { padding-left: 0; }
+.spatial-page .system-section__header::before,
+.spatial-page .profile-module__header::before { display: none; }
+.spatial-page .system-section__identity > span {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 8px;
+  background: var(--teal-50);
+  color: var(--teal-700);
+  box-shadow: none;
+}
+.spatial-page .system-section__identity > span svg { width: 16px; height: 16px; stroke-width: 1.75; }
+.spatial-page .system-section__identity h2,
+.spatial-page .profile-module__header h2 { font-size: var(--fs-section); font-weight: 600; color: var(--ink-black); }
+
+/* X-5 空の状態: 線画 → 題名(15px・600) → 説明(13px) → ボタン1つ。 */
+.lh-empty__title { font-size: 0.9375rem; font-weight: 600; color: var(--warm-ink); }
+.lh-empty__desc { color: var(--warm-ink-2); font-size: 0.8125rem; }
+
+/* X-6 サブスクの二段目のタブ: 見出しの行の右の小さな切り替え(上のタブと見分けがつくように)。 */
+.subs-views-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.subs-views-row__label { color: var(--warm-ink); font-size: var(--fs-section); font-weight: 600; }
+.subs-views-row .subs-views { margin: 0; }
+.subs-views-row .subs-views [role="tab"] { min-height: 2rem; padding: 0 0.7rem; font-size: 0.8125rem; }
