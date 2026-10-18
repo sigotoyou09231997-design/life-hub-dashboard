@@ -1201,7 +1201,8 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
   pointer-events: none;
 }
 .lh-money > * { position: relative; z-index: 1; }
-.lh-money > .lh-money__leaf { z-index: 0; }
+/* 葉だけは絶対配置(上の「> *」より後ろに置いて勝たせる)。 */
+.lh-money > .lh-money__leaf { position: absolute; z-index: 0; }
 /* 2-3 7日の帯のタイルに表情。今日は薄い面＋細い青緑の線。PC ではホバーで少し持ち上がる。 */
 .lh-week__day { border: 1px solid transparent; transition: transform 300ms var(--spring), background-color 200ms ease, border-color 200ms ease; }
 .lh-week__day.is-today { border-color: rgba(23, 161, 153, 0.3); }
