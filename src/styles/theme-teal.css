@@ -204,7 +204,8 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
   isolation: isolate;
   border: 1px solid rgba(255, 255, 255, 0.06);
   background:
-    radial-gradient(520px circle at var(--mx, 85%) var(--my, -10%), rgba(60, 186, 178, 0.28), transparent 46%),
+    /* 右上の青緑の光は 2026-10-18(「寂しくないホーム」2-1)に少し強めた(.28/46% → .34/58%)。 */
+    radial-gradient(520px circle at var(--mx, 85%) var(--my, 10%), rgba(23, 161, 153, 0.34), transparent 58%),
     radial-gradient(380px circle at 110% 120%, rgba(23, 161, 153, 0.18), transparent 55%),
     linear-gradient(160deg, #1d2226 0%, var(--ink-black) 62%);
   box-shadow: var(--shadow-rest);

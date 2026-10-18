@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import type { StripDay, UpcomingRow } from "../../lib/homeLayout";
 import { formatShortDate } from "../../lib/date";
+import { EmptyIllustration } from "../ui/EmptyIllustration";
 
 interface Props {
   days: StripDay[];
@@ -56,6 +57,7 @@ export function HomeWeekStrip({ days, rows, ready, onAdd }: Props) {
       </div>
       {!ready ? null : rows.length === 0 ? (
         <div className="lh-week__empty">
+          <EmptyIllustration kind="calendar" size={64} />
           <p>この1週間、予定もタスクもありません。ゆっくりできそうです。</p>
           {addButtons}
         </div>
