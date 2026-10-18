@@ -3355,3 +3355,12 @@ a.trip-leg-mode--link {
 }
 .trip-route-picks__list .trip-route-picks__add:hover { text-decoration: underline; background: transparent; }
 .trip-route-picks__actions--top { margin: 0 0 0.6rem; }
+
+/* 第8弾 3本目 旅行 T-2(2026-10-18): 費用の一覧は 720px で止める(名前と金額が離れすぎない)。予算が未設定なら1行。 */
+@media (min-width: 1024px) {
+  .trip-expense-list { max-width: 45rem; }
+}
+.trip-expense-budget-unset { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+.trip-expense-budget-unset__lead { margin: 0; color: var(--warm-ink-2); font-size: var(--fs-body); max-width: 40em; }
+.trip-expense-budget-unset__facts { display: flex; gap: 1rem; margin: 0; color: var(--warm-ink-3); font-size: var(--fs-caption); }
+.trip-expense-budget-unset__facts b { margin-left: 0.25rem; color: var(--warm-ink); font-weight: 700; font-variant-numeric: tabular-nums; }

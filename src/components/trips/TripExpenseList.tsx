@@ -50,6 +50,16 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies
         <SplitView split={split} members={members} expenses={expenses} onEdit={onEdit} onEditMembers={onEditMembers} />
       ) : (
         <>
+      {budget == null ? (
+        // 予算が未設定の間は、2×2の数字が疎らに見えるので1行にする(第8弾 T-2)。
+        <Card className="trip-expense-budget-unset">
+          <p className="trip-expense-budget-unset__lead">予算を決めると、残りが出ます。右上の鉛筆(旅行を編集)から設定できます。</p>
+          <p className="num trip-expense-budget-unset__facts">
+            <span>支出合計 <b>{yen(total)}</b></span>
+            <span>支払済み <b className="text-success">{yen(paidTotal)}</b></span>
+          </p>
+        </Card>
+      ) : (
       <Card>
         {/* 金額は数字用の文字で(UI/UX 調査メモ 第4弾 B-1)。見出しの日本語はいつもの文字のまま。 */}
         <div className="num grid grid-cols-2 gap-4 text-sm">
@@ -72,13 +82,13 @@ export function TripExpenseList({ budget, expenses, onEdit, onDelete, currencies
             <p className="mt-0.5 font-semibold text-success">{yen(paidTotal)}</p>
           </div>
         </div>
-        {budget == null && <p className="mt-3 text-xs text-slate-400">予算は右上の鉛筆(旅行を編集)から設定できます。</p>}
       </Card>
+      )}
 
       {expenses.length === 0 ? (
         <EmptyState icon={Receipt} title="費用がまだ登録されていません" description="下のボタンから追加できます。" card />
       ) : (
-        <div className="space-y-2">
+        <div className="trip-expense-list space-y-2">
           {expenses.map((e) => {
             const category = getTripExpenseCategory(e.category);
             const foreign = e.id ? currencies?.get(e.id) : undefined;
