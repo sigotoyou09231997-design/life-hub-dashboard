@@ -3306,3 +3306,52 @@ a.trip-leg-mode--link {
   font-size: var(--fs-caption, 0.75rem);
   font-weight: 600;
 }
+
+/* 第8弾 3本目 旅行 T-5(2026-10-18): 日程以外のタブでは表紙を細い1行に畳む(戻る・題名・日付・あと◯日)。写真は日程タブだけ。 */
+.trip-detail-page .trip-detail-hero.is-compact {
+  min-height: 0;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--warm-line);
+  border-radius: var(--r-card);
+  background: var(--warm-surface);
+  box-shadow: var(--shadow-rest);
+}
+.trip-detail-hero.is-compact .trip-detail-hero__photo,
+.trip-detail-hero.is-compact .trip-detail-hero__veil,
+.trip-detail-hero.is-compact .trip-detail-hero__credit { display: none; }
+.trip-detail-hero.is-compact .trip-detail-hero__bar { position: static; order: 2; flex: 0 0 auto; margin: 0; padding: 0; }
+.trip-detail-hero.is-compact .trip-detail-hero__bar > a { order: -1; }
+.trip-detail-hero.is-compact .trip-detail-hero__content { display: flex; flex: 1 1 auto; min-width: 0; align-items: baseline; gap: 0.6rem; padding: 0; }
+.trip-detail-hero.is-compact .trip-detail-hero__content > span { order: 3; flex: 0 0 auto; color: var(--teal-700); font-family: var(--font-num); font-size: var(--fs-body); font-weight: 700; }
+.trip-detail-hero.is-compact .trip-detail-hero__title { margin: 0; overflow: hidden; color: var(--warm-ink); font-size: var(--fs-section); text-overflow: ellipsis; white-space: nowrap; text-shadow: none; }
+.trip-detail-hero.is-compact .trip-detail-hero__content p { margin: 0; overflow: hidden; color: var(--warm-ink-3); font-size: var(--fs-caption); text-overflow: ellipsis; white-space: nowrap; }
+.trip-detail-hero.is-compact .trip-hero-button { background: var(--warm-surface-soft); color: var(--warm-ink-2); backdrop-filter: none; }
+@media (max-width: 1023px) {
+  .trip-detail-hero.is-compact .trip-detail-hero__content { flex-wrap: wrap; row-gap: 0.1rem; }
+}
+
+/* 畳んだ表紙は PC では題名・日付・あと◯日を1行に(縦積みの指定より後ろに置いて勝たせる)。 */
+.trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 0.75rem; row-gap: 0.1rem; }
+.trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__title { order: 1; }
+.trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content p { order: 2; flex: 1 1 auto; }
+.trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content > span { order: 3; }
+
+/* 第8弾 3本目 旅行 T-1(2026-10-18): 行ごとの「入れる」は文字のリンク。まとめて入れるボタンは一覧の上に。 */
+.trip-route-picks__list li .trip-route-picks__add,
+.trip-route-picks__list .trip-route-picks__add {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--r-tag);
+  background: transparent;
+  padding: 0.3rem 0.4rem;
+  color: var(--teal-700);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  box-shadow: none;
+}
+.trip-route-picks__list .trip-route-picks__add:hover { text-decoration: underline; background: transparent; }
+.trip-route-picks__actions--top { margin: 0 0 0.6rem; }

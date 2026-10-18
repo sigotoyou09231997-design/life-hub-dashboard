@@ -34,6 +34,7 @@ import { TripRouteForm } from "../components/trips/TripRouteForm";
 import { TripQuickPlanForm } from "../components/trips/TripQuickPlanForm";
 import { TripPlanScanForm } from "../components/trips/TripPlanScanForm";
 import { ADD_METHOD_OPTIONS, type AddMethod } from "../components/plan/addMethod";
+import { tripCountdown } from "../lib/homeLayout";
 import { Tabs } from "../components/ui/Tabs";
 import { TripDocumentForm } from "../components/trips/TripDocumentForm";
 import { TripShareSheet } from "../components/trips/TripShareSheet";
@@ -368,7 +369,8 @@ export default function TripDetailPage() {
           表紙の中(行き先)に2回書いていて、スマホではタブまでに画面の半分近くを使っていた。
           戻る・共有・編集・削除は、見出しの行ごと表紙の上の端へ移した(写真の上でも読めるよう、
           ボタンには暗いすりガラスの丸を敷く。styles/trips.css)。 */}
-      <section className="trip-detail-hero mx-5 mb-3 lg:mx-8" aria-labelledby="trip-detail-title">
+      {/* 日程以外のタブでは、表紙を細い1行(戻る・題名・日付・あと◯日)に畳む(第8弾 T-5)。 */}
+      <section className={`trip-detail-hero mx-5 mb-3 lg:mx-8${tab !== "schedule" ? " is-compact" : ""}`} aria-labelledby="trip-detail-title">
         <div className="trip-detail-hero__photo" style={{ backgroundImage: `url('${cover.url}')` }} aria-hidden="true" />
         <div className="trip-detail-hero__veil" aria-hidden="true" />
         <div className="trip-detail-hero__bar">
@@ -397,7 +399,7 @@ export default function TripDetailPage() {
           </div>
         </div>
         <div className="trip-detail-hero__content">
-          <span>{STATUS_LABEL[trip.status]}</span>
+          <span>{tab !== "schedule" && tripCountdown(trip, todayStr()) ? tripCountdown(trip, todayStr()) : STATUS_LABEL[trip.status]}</span>
           <h1 id="trip-detail-title" className="trip-detail-hero__title">
             {trip.name}
           </h1>

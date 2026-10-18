@@ -181,34 +181,8 @@ function TripRoutePicks({
           {canSelect && "いくつかあるときは、チェックして、選んだものだけを入れられます。"}
           {suggestions.some((suggestion) => suggestion.fromTitle) && "場所の欄が空の予定は、予定の名前で地図を探します。"}
         </p>
-        <ul className="trip-route-picks__list">
-          {suggestions.map((suggestion) => (
-            <li key={suggestion.scheduleId}>
-              {canSelect && (
-                <input
-                  type="checkbox"
-                  className="trip-route-picks__check"
-                  checked={selected.includes(suggestion.scheduleId)}
-                  onChange={() => toggle(suggestion.scheduleId)}
-                  aria-label={`${suggestion.name}を選ぶ`}
-                />
-              )}
-              <div className="trip-route-picks__body">
-                <p className="trip-route-picks__name" title={suggestion.address}>{suggestion.name}</p>
-                <small>
-                  {formatShortDate(suggestion.date)}
-                  {suggestion.startTime ? ` ${suggestion.startTime}` : ""}・{suggestion.fromTitle ? "場所の欄が空(予定の名前で探します)" : suggestion.title}
-                </small>
-              </div>
-              <button type="button" onClick={() => onAdd([suggestion])}>
-                <Plus size={15} />
-                入れる
-              </button>
-            </li>
-          ))}
-        </ul>
         {canSelect && (
-          <div className="trip-route-picks__actions">
+          <div className="trip-route-picks__actions trip-route-picks__actions--top">
             <button
               type="button"
               className="trip-route-picks__all"
@@ -232,6 +206,32 @@ function TripRoutePicks({
                 すべてルートに入れる
               </button>
             )}
+        <ul className="trip-route-picks__list">
+          {suggestions.map((suggestion) => (
+            <li key={suggestion.scheduleId}>
+              {canSelect && (
+                <input
+                  type="checkbox"
+                  className="trip-route-picks__check"
+                  checked={selected.includes(suggestion.scheduleId)}
+                  onChange={() => toggle(suggestion.scheduleId)}
+                  aria-label={`${suggestion.name}を選ぶ`}
+                />
+              )}
+              <div className="trip-route-picks__body">
+                <p className="trip-route-picks__name" title={suggestion.address}>{suggestion.name}</p>
+                <small>
+                  {formatShortDate(suggestion.date)}
+                  {suggestion.startTime ? ` ${suggestion.startTime}` : ""}・{suggestion.fromTitle ? "場所の欄が空(予定の名前で探します)" : suggestion.title}
+                </small>
+              </div>
+              {/* 行ごとのボタンは文字のリンクに(第8弾 T-1)。17行に青緑の「＋入れる」が並ぶと繰り返しが目立つため。 */}
+              <button type="button" className="trip-route-picks__add" onClick={() => onAdd([suggestion])}>
+                入れる
+              </button>
+            </li>
+          ))}
+        </ul>
           </div>
         )}
         {others > 0 && (
