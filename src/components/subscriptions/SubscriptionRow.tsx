@@ -86,12 +86,16 @@ export function SubscriptionRow({ item, today, unit, onOpen }: Props) {
       </span>
       <ChevronRight size={16} className="lh-row__chev" aria-hidden="true" />
       {status !== "cancelled" && (
-        <span className="subs-row__track" aria-hidden="true">
-          <span
-            className={`subs-row__fill is-${urgency}`}
-            style={{ transform: `scaleX(${status === "active" ? cycleProgress(item, today) : 0})` }}
-          />
-        </span>
+        <>
+          {/* 線の意味を書く(第8弾 M-2): 線は「次の請求まで」の進み具合。右の「あと◯日」と一体。 */}
+          <span className="subs-row__track-label" aria-hidden="true">次の請求まで</span>
+          <span className="subs-row__track" aria-hidden="true">
+            <span
+              className={`subs-row__fill is-${urgency}`}
+              style={{ transform: `scaleX(${status === "active" ? cycleProgress(item, today) : 0})` }}
+            />
+          </span>
+        </>
       )}
     </button>
   );

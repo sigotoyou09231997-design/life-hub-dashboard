@@ -167,7 +167,10 @@ export function ExpenseSummary({ onAddSalary }: Props) {
             <span className="shrink-0"><Badge tone="warning">給与が未入力</Badge></span>
           )}
         </div>
-        <div className="mt-auto pt-6"><BalanceTrend expenses={expenses} /></div>
+        {/* 記録が0件の間は、何も表さない空のグラフ(細い横線だけ)を出さず、1行の文(第8弾 M-3)。 */}
+        <div className="mt-auto pt-6">
+          {expenses.length === 0 ? <p className="finance-trend-empty">記録するとここにペースが出ます</p> : <BalanceTrend expenses={expenses} />}
+        </div>
         <div className="mt-2 flex items-center justify-between border-t border-white/35 pt-3 text-xs text-slate-500">
           <span>{formatDisplayDate(toDateStr(period.periodStart))}から</span>
           <span>使用済み {yen(actualSpending)}</span>
@@ -260,8 +263,6 @@ export function ExpenseSummary({ onAddSalary }: Props) {
           </Card>
         </section>
       )}
-
-      <CashBalanceCard />
 
       {/* 内訳も履歴も空なら、空の箱を2つ並べずに1つにまとめる(第8弾 X-5)。 */}
       {categoryBreakdown.length === 0 && budgetStatuses.length === 0 && recentTransactions.length === 0 ? (
@@ -385,6 +386,9 @@ export function ExpenseSummary({ onAddSalary }: Props) {
       </section>
       </>
       )}
+
+      {/* 財布の現金は、初めに使うのは稀なので下のほうへ(第8弾 M-3)。 */}
+      <CashBalanceCard />
     </div>
   );
 }

@@ -58,14 +58,15 @@ function receiptToDraftTransaction(receipt: ExtractedReceipt): Transaction {
 // 同じ日に「カード」「PayPay」をタブから外した(UI/UX 調査メモ C-2)。どちらも見る場所ではなく
 // 取り込みの方法なので、履歴タブの「ほかの方法」に入れた。タブは6個2段 → 4個1段。
 type Tab = "subs" | "summary" | "salary" | "history";
-const TABS: Tab[] = ["subs", "summary", "salary", "history"];
+// 並びと初期表示はサマリー・履歴・サブスク・給与(第8弾 M-1、2026-10-18)。よく見るものを前に。
+const TABS: Tab[] = ["summary", "history", "subs", "salary"];
 /** 履歴タブの中身。カードの利用明細・PayPay は「ほかの方法」から開く。 */
 type HistoryView = "list" | "card" | "paypay";
 
 export default function ExpensePage() {
   const expenseStatus = useExpenseStatus();
   const showToast = useToast();
-  const [tab, setTab] = useState<Tab>("subs");
+  const [tab, setTab] = useState<Tab>("summary");
   const [editingTransaction, setEditingTransaction] = useState<Transaction | "new" | null>(null);
   const [editingSalary, setEditingSalary] = useState<SalaryEntry | "new" | null>(null);
   const [editingBonus, setEditingBonus] = useState<Transaction | "new" | null>(null);
@@ -135,10 +136,10 @@ export default function ExpensePage() {
       <div className="spatial-page-tabs mx-5 mb-4 lg:mx-8 lg:mb-6 lg:max-w-[840px]">
         <Tabs
           options={[
-            { value: "subs", label: "サブスク" },
             { value: "summary", label: "サマリー" },
-            { value: "salary", label: "給与" },
             { value: "history", label: "履歴" },
+            { value: "subs", label: "サブスク" },
+            { value: "salary", label: "給与" },
           ]}
           value={tab}
           onChange={(next) => {

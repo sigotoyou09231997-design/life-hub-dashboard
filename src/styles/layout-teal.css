@@ -1305,3 +1305,14 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 .trip-agenda-group.is-open .trip-agenda-group__chevron { transform: rotate(180deg); }
 .trip-agenda-group__days { display: flex; flex-direction: column; gap: 0.6rem; padding: 0 0.85rem 0.85rem; border-top: 1px solid var(--warm-line); }
 .trip-agenda-group__date { margin: 0.6rem 0 0.35rem; color: var(--warm-ink-2); font-size: var(--fs-caption); font-weight: 700; }
+
+/* 第8弾 3本目 お金 M-2: サブスクの行の線に「次の請求まで」。解約で浮いたお金の青緑の帯は白い面＋細い線に。 */
+.subs-row:not(.is-cancelled) { padding-bottom: 1.3rem; }
+.subs-row.is-cancelled .subs-row__track-label { display: none; }
+.subs-row__track-label { position: absolute; left: 3.95rem; bottom: 0.75rem; color: var(--warm-ink-3); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.02em; pointer-events: none; }
+.subs-row__track { bottom: 0.45rem !important; }
+.spatial-page .lh-savings.subs-saved,
+.lh-savings.subs-saved { border: 1px solid var(--warm-line) !important; background: var(--warm-surface) !important; }
+
+/* 第8弾 3本目 お金 M-3: 記録0件の黒いカードの1行。 */
+.finance-trend-empty { margin: 0; padding: 1.2rem 0; color: rgba(244, 247, 247, 0.62); font-size: var(--fs-body); }

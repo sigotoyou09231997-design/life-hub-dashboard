@@ -1,4 +1,5 @@
 import type { SalaryEntry } from "../../types";
+import { formatShortDate, toDateStr } from "../../lib/date";
 import { Trash2, Wallet } from "lucide-react";
 import { ListRow } from "../ui/ListRow";
 import { EmptyState } from "../ui/EmptyState";
@@ -25,7 +26,11 @@ export function SalaryList({ salaries, onEdit, onDelete }: Props) {
     );
   }
 
-  const sorted = [...salaries].sort((a, b) => b.month.localeCompare(a.month));
+  const sorted = [...salaries].sort((a, b) => b.month.localeCompare(a.month) || b.createdAt - a.createdAt);
+  // 同じ月に複数ある時(追加の給与・ボーナスを同じ月に入れた時)は、どれがどれか分かるように登録日を添える(第8弾 M-4)。
+  // 種類の区別はデータに無いので、登録日で見分ける。
+  const perMonth = new Map<string, number>();
+  for (const s of salaries) perMonth.set(s.month, (perMonth.get(s.month) ?? 0) + 1);
 
   return (
     <div className="space-y-2">
@@ -40,7 +45,10 @@ export function SalaryList({ salaries, onEdit, onDelete }: Props) {
           <div className="pointer-events-none relative z-10 flex items-center justify-between gap-3 p-3.5">
             <div>
               <span className="text-sm font-medium text-slate-900">{formatMonth(s.month)}</span>
-              <p className="mt-0.5 text-xs text-slate-400">給料日: 毎月{s.payday}日</p>
+              <p className="mt-0.5 text-xs text-slate-400">
+                給料日: 毎月{s.payday}日
+                {(perMonth.get(s.month) ?? 0) > 1 && <span className="ml-2">登録 {formatShortDate(toDateStr(new Date(s.createdAt)))}</span>}
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-slate-900">¥{s.amount.toLocaleString()}</span>
