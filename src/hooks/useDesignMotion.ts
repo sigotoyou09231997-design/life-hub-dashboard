@@ -20,6 +20,7 @@ import { useEffect, useRef } from "react";
 
 const COUNT_SELECTOR = [
   ".warm-amount",
+  ".warm-trip__count-num",
   ".warm-brief__count",
   ".finance-control-center > .finance-balance-module p.tabular-nums",
   ".lh-money__stats dd",

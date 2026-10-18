@@ -40,6 +40,10 @@ const PRESS_TARGETS = [
   ".hub-tap",
   "a.warm-card",
   "a.warm-trip",
+  // ホームの組み直しで足したカードの中の押せる所(2026-10-18)
+  ".lh-week__day",
+  ".lh-subs__row",
+  ".lh-concern__row",
   ".warm-brief__item",
   ".subs-tile",
   ".trip-new",

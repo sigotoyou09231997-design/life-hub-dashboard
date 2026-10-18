@@ -20,16 +20,17 @@
   color: var(--warm-ink);
 }
 
-/* 出現アニメーション（useHubMotion が [data-reveal] に is-revealed を付ける）。 */
+/* 出現アニメーション（useHubMotion が [data-reveal] に is-revealed を付ける）。
+   2026-10-18(「寂しくないホーム」3本目): 下から 8px・240ms・40ms ずつずらす(ずらしは useHubMotion 側)。 */
 .warm-home [data-reveal] {
   opacity: 0;
-  transform: translate3d(0, 10px, 0);
+  transform: translate3d(0, 8px, 0);
 }
 
 .warm-home [data-reveal].is-revealed {
   opacity: 1;
   transform: none;
-  transition: opacity 460ms cubic-bezier(0.16, 0.84, 0.28, 1), transform 460ms cubic-bezier(0.16, 0.84, 0.28, 1);
+  transition: opacity 240ms var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)), transform 240ms var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 /* ---- 日付（画面のいちばん上） ------------------------------------------- */

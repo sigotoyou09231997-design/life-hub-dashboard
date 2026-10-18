@@ -1230,3 +1230,18 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
   .lh-week__day, .lh-money__bar i { transition: none; }
   .lh-week__day:hover { transform: none; }
 }
+
+/* 「寂しくないホーム」3本目(2026-10-18): 7日の帯の点が、開いた時に左から順にぽんと出る(60ms ずつ)。 */
+@keyframes lh-dot-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  60% { opacity: 1; transform: scale(1.25); }
+  to { opacity: 1; transform: scale(1); }
+}
+.lh-week__dot,
+.lh-week__dots em {
+  animation: lh-dot-pop 360ms var(--spring) both;
+  animation-delay: calc(var(--i, 0) * 60ms + 120ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lh-week__dot, .lh-week__dots em { animation: none; }
+}

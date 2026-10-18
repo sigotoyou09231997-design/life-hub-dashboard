@@ -53,7 +53,8 @@ export function useHubMotion<T extends HTMLElement>() {
           // Stagger only within a batch that appears together, capped so a long
           // list never leaves the last card visibly lagging behind.
           const index = Number(element.dataset.reveal) || 0;
-          element.style.transitionDelay = `${Math.min(index, 5) * 65}ms`;
+          // 2026-10-18: 40ms ずつ(「寂しくないホーム」3本目)。
+          element.style.transitionDelay = `${Math.min(index, 5) * 40}ms`;
           element.classList.add("is-revealed");
           observer.unobserve(element);
         });
