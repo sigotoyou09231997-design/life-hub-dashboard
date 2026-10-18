@@ -1,7 +1,7 @@
 import { db } from "../../db/schema";
 import type { TripPackingItem } from "../../types";
 import { TRIP_PACKING_CATEGORIES } from "../../lib/tripCategories";
-import { moveTo, renumberPacking, sortPacking } from "../../lib/packingOrder";
+import { moveTo, packingGroupCount, renumberPacking, sortPacking } from "../../lib/packingOrder";
 import { useLongPressReorder } from "../../hooks/useLongPressReorder";
 import { Card } from "../ui/Card";
 import { ListRow } from "../ui/ListRow";
@@ -54,12 +54,12 @@ export function TripPackingList({ items, onEdit, onDelete }: Props) {
             if (catItems.length === 0) return null;
             // 並べ替えている最中は、落とす位置に動かした並びで見せる(指を離す前に、どこに入るか分かるように)。
             const shown = reorder.preview(cat.value, catItems);
-            const done = catItems.filter((item) => item.checked).length;
+            const { done, total } = packingGroupCount(catItems);
             return (
               <div key={cat.value} className="trip-packing-group">
                 <p className="label-on-photo mb-2 text-sm font-medium text-slate-600">
                   {cat.label}
-                  <span className="trip-packing-group__count">{done}/{catItems.length}</span>
+                  <span className="trip-packing-group__count">{done}/{total}</span>
                 </p>
                 <div className="space-y-2">
                   {shown.map((item) => {

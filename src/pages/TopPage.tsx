@@ -29,7 +29,7 @@ import { HomeWeekStrip } from "../components/home/HomeWeekStrip";
 import { HomeSubscriptions } from "../components/home/HomeSubscriptions";
 import { pairSubscriptions } from "../lib/subscriptions";
 import { useHiddenFeatures } from "../hooks/useHiddenFeatures";
-import { aheadDates, buildConcerns, homeStatusLine, homeSubscriptions, tripCardSize, tripCountdown, upcomingRows, weekStrip } from "../lib/homeLayout";
+import { aheadDates, buildConcerns, homeStatusLine, homeSubscriptions, tripCardSize, tripCountdown, upcomingRows, weekSpendBars, weekStrip } from "../lib/homeLayout";
 
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
@@ -92,7 +92,7 @@ export default function TopPage() {
     const rows = await db.transactions.where("date").between(last7[0], today, true, true).toArray();
     return last7.map((date) => rows.filter((row) => row.type === "expense" && row.date === date).reduce((sum, row) => sum + row.amount, 0));
   }, [today]);
-  const weekMax = Math.max(0, ...(weekSpend ?? []));
+  const weekBars = weekSpend ? weekSpendBars(last7, weekSpend) : [];
   // 使った割合 = 使った額 ÷ (使った額 ＋ 残り)。残りがマイナス(使いすぎ)なら満タン。
   const usedRatio = budget ? (budget.remaining < 0 ? 1 : budget.actualSpending / Math.max(1, budget.actualSpending + budget.remaining)) : 0;
   // 給与がまだ無い時の「今月のお金」。給与が無くても分かる今月の支出を出す(UI/UX 調査メモ A-4)。
@@ -234,12 +234,12 @@ export default function TopPage() {
           {/* 右側: 直近7日の支出の棒(第8弾 H-1)。今日だけ白。 */}
           <div className="lh-money__side" aria-label="直近7日の支出">
             <span className="lh-money__side-label">直近7日の支出</span>
-            {weekSpend && weekMax > 0 ? (
-              <div className="lh-money__chart" role="img" aria-label={last7.map((d, i) => `${formatShortDate(d)} ¥${Math.round(weekSpend[i]).toLocaleString()}`).join("、")}>
-                {weekSpend.map((amount, i) => (
-                  <span key={last7[i]} className={`lh-money__col${last7[i] === today ? " is-today" : ""}`}>
-                    <i style={{ height: `${Math.max(amount > 0 ? 6 : 2, Math.round((amount / weekMax) * 100))}%` }} />
-                    <small>{Number(last7[i].slice(8, 10))}</small>
+            {weekBars.length > 0 ? (
+              <div className="lh-money__chart" role="img" aria-label={weekBars.map((bar) => `${formatShortDate(bar.date)} ¥${Math.round(bar.amount).toLocaleString()}`).join("、")}>
+                {weekBars.map((bar) => (
+                  <span key={bar.date} className={`lh-money__col${bar.date === today ? " is-today" : ""}`}>
+                    <i style={{ height: `${bar.heightPercent}%` }} />
+                    <small>{Number(bar.date.slice(8, 10))}</small>
                   </span>
                 ))}
               </div>

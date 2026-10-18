@@ -21,6 +21,11 @@ export function moveTo<T>(list: T[], from: number, to: number): T[] {
   return next;
 }
 
+/** 持ち物のグループ見出しの「準備済み/全部」(第8弾 T-3)。 */
+export function packingGroupCount(items: { checked: boolean }[]): { done: number; total: number } {
+  return { done: items.filter((item) => item.checked).length, total: items.length };
+}
+
 /** 並べ替えた後の並びに 1 から番号を振り、番号が変わる持ち物だけを返す(書き込む数を減らす)。 */
 export function renumberPacking(ordered: TripPackingItem[]): { id: string; sortOrder: number }[] {
   return ordered

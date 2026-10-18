@@ -129,6 +129,23 @@ export function upcomingRows<E extends TimedSpan & { id?: string; title: string 
   return rows.slice(0, limit);
 }
 
+export interface WeekSpendBar {
+  date: string;
+  amount: number;
+  /** 棒の高さ(%)。0件でなければ最低6%、0件は2%(潰れて見えないため)。 */
+  heightPercent: number;
+}
+
+/** 直近7日の支出の棒(第8弾 H-1)。合計が0(記録が無い)間は空を返し、呼び出し側は案内文を出す。 */
+export function weekSpendBars(dates: string[], amounts: number[]): WeekSpendBar[] {
+  const max = Math.max(0, ...amounts);
+  if (max <= 0) return [];
+  return dates.map((date, i) => {
+    const amount = amounts[i] ?? 0;
+    return { date, amount, heightPercent: Math.max(amount > 0 ? 6 : 2, Math.round((amount / max) * 100)) };
+  });
+}
+
 export interface HomeSubscriptionRow {
   id: string;
   title: string;

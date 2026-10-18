@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TripPackingItem } from "../types";
-import { moveTo, renumberPacking, sortPacking } from "./packingOrder";
+import { moveTo, packingGroupCount, renumberPacking, sortPacking } from "./packingOrder";
 
 function item(id: string, overrides: Partial<TripPackingItem> = {}): TripPackingItem {
   return { id, tripId: "t", title: id, category: "essentials", checked: false, createdAt: 0, ...overrides };
@@ -22,6 +22,12 @@ describe("持ち物の並び順", () => {
     expect(moveTo(["a", "b", "c", "d"], 3, 0)).toEqual(["d", "a", "b", "c"]);
     expect(moveTo(["a", "b", "c"], 1, 1)).toEqual(["a", "b", "c"]);
     expect(moveTo(["a", "b", "c"], 0, 9)).toEqual(["b", "c", "a"]);
+  });
+
+  it("グループ見出しの「準備済み/全部」(第8弾 T-3)", () => {
+    expect(packingGroupCount([item("a", { checked: true }), item("b"), item("c", { checked: true })])).toEqual({ done: 2, total: 3 });
+    expect(packingGroupCount([])).toEqual({ done: 0, total: 0 });
+    expect(packingGroupCount([item("a"), item("b")])).toEqual({ done: 0, total: 2 });
   });
 
   it("1 から振り直して、番号が変わるものだけ返す", () => {
