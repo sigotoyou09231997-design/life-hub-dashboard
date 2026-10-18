@@ -1,5 +1,6 @@
 import type { ElementType } from "react";
 import type { CalendarEvent, Note, SyncedEmail, Task, Trip, TripScheduleItem } from "../types";
+import { formatGmailTimestamp } from "./date";
 import { findAppPage } from "./commandPalette";
 import {
   emailHit,
@@ -201,6 +202,11 @@ function describe(entry: RecentEntry, rows: RecentRows): RecentItem | null {
   }
   const hit = hitFor(entry, rows);
   if (!hit) return null;
+  // メールは件名を出さない(画面を人に見られた時のため。第8弾 D-2)。「Gmail のメール」と日付だけ。
+  if (entry.kind === "email") {
+    const row = rows.emails.get(entry.id);
+    return { key, entry, title: "Gmail のメール", subtitle: `Gmail ・ ${row ? formatGmailTimestamp(row.receivedAt) : ""}`.trim(), to: hit.to };
+  }
   return {
     key,
     entry,

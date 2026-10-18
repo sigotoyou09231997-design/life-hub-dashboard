@@ -59,7 +59,6 @@ export function DesktopSidebar() {
         <span className="sidebar-brand__mark"><Leaf size={18} strokeWidth={1.7} /></span>
         <span>
           <span className="sidebar-brand__name">LIFE HUB</span>
-          <span className="sidebar-brand__tagline">くらしを、ひとつに。</span>
         </span>
       </NavLink>
 

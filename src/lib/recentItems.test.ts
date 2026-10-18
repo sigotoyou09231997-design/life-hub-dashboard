@@ -148,7 +148,8 @@ describe("buildRecentList", () => {
     const items = buildRecentList([entry("trip", "trip1"), entry("email", "m1"), entry("event", "e1")], rows());
     expect(items.map((item) => [item.title, item.to])).toEqual([
       ["夏の京都", "/trips/trip1"],
-      ["ご予約の確認", "/gmail/mail/m1"],
+      // メールは件名を出さない(第8弾 D-2)。
+      ["Gmail のメール", "/gmail/mail/m1"],
       ["歯医者", "/schedule?view=list"],
     ]);
     // 予定の行は「誰の予定か」も持って出る。

@@ -78,7 +78,7 @@ export default defineConfig({
         name: "LIFE HUB",
         short_name: "LIFE HUB",
         description: "生活を一元管理するダッシュボード",
-        theme_color: "#4F46E5",
+        theme_color: "#121416",
         background_color: "#ffffff",
         display: "standalone",
         start_url: "/",

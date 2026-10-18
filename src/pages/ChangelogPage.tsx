@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { CHANGELOG, groupChangelogByDate, unreadChangelog } from "../lib/changelog";
+import { CHANGELOG, groupChangelogByDate, splitChangelogBody, unreadChangelog } from "../lib/changelog";
+import { ChevronDown } from "lucide-react";
 import { getSeenChangelogId, markChangelogSeen } from "../lib/changelogSeen";
 import { formatDisplayDate } from "../lib/date";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -16,6 +17,8 @@ export default function ChangelogPage() {
   }, []);
 
   const unreadIds = new Set(unreadChangelog(seenAtOpen).map((entry) => entry.id));
+  // 表に出すのは題名＋1文。細かい説明は「詳しく」を押した時だけ(第8弾 CL-1)。
+  const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => new Set());
 
   return (
     <div className="spatial-page changelog-page micro-contrast mx-auto max-w-[880px] pb-10 lg:pb-8">
@@ -44,7 +47,36 @@ export default function ChangelogPage() {
                     <Sparkles size={14} />
                     {entry.title}
                   </h3>
-                  <p className="changelog-entry__body">{entry.description}</p>
+                  {(() => {
+                    const { lead, detail } = splitChangelogBody(entry);
+                    const open = openIds.has(entry.id);
+                    return (
+                      <>
+                        <p className="changelog-entry__body">{lead}</p>
+                        {detail && (
+                          <>
+                            <button
+                              type="button"
+                              className="changelog-entry__more"
+                              aria-expanded={open}
+                              onClick={() =>
+                                setOpenIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(entry.id)) next.delete(entry.id);
+                                  else next.add(entry.id);
+                                  return next;
+                                })
+                              }
+                            >
+                              {open ? "閉じる" : "詳しく"}
+                              <ChevronDown size={13} className="changelog-entry__chevron" aria-hidden="true" />
+                            </button>
+                            {open && <p className="changelog-entry__body changelog-entry__detail">{detail}</p>}
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
                 </Card>
               ))}
             </div>

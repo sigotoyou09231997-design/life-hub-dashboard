@@ -17,6 +17,19 @@ export interface ChangelogEntry {
   /** どの画面の話か。「お金管理」「予定・タスク」など、画面の名前をそのまま。 */
   area: string;
   description: string;
+  /** 「詳しく」を押した時に開く細かい説明(第8弾 CL-1、2026-10-18)。無ければ description の2文目以降を詳しくに回す。 */
+  detail?: string;
+}
+
+/** 表に出す1文(60字まで)と、「詳しく」に回す残り。色名・px などの実装の言葉は、これから足す分では書かない。 */
+export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "detail">): { lead: string; detail: string } {
+  if (entry.detail) return { lead: entry.description, detail: entry.detail };
+  const text = entry.description.trim();
+  const m = /^(.+?[。．!?！？])/.exec(text);
+  let lead = m ? m[1] : text;
+  if (lead.length > 60) lead = `${lead.slice(0, 59)}…`;
+  const rest = text.slice(m ? m[1].length : lead.length).trim();
+  return { lead, detail: rest };
 }
 
 /** 新しいものが上。 */

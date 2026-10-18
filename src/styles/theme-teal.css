@@ -870,3 +870,24 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
   .system-section__actions .app-button:hover,
   .profile-module__actions .app-button:hover { background: var(--teal-50); }
 }
+
+/* ============================================================================
+   第8弾 4本目(2026-10-18): 設定・アカウント・更新履歴・重ね表示の仕上げ
+   ========================================================================= */
+/* ST-2 文字だけだった操作は、ボタンの形(白地＋細い枠)。スマホも同じ形。 */
+.system-section__actions .app-button,
+.profile-module__actions .app-button { border: 1px solid var(--warm-line-strong); background: var(--warm-surface); color: var(--teal-700); box-shadow: none; }
+/* ST-3 開発用の識別子は右に小さく。 */
+.settings-version-id { margin-left: 0.4rem; color: var(--warm-ink-3); font-family: var(--font-num); font-size: var(--fs-caption); font-weight: 500; }
+/* AC-1 ログアウトは右下の小さな文字リンク(灰色・押す時だけ赤)。 */
+.account-logout { display: flex; justify-content: flex-end; padding: 0.25rem 0.5rem; }
+.account-logout__link { border: 0; background: transparent; padding: 0.5rem 0.4rem; color: var(--warm-ink-3); font-size: var(--fs-caption); font-weight: 600; }
+.account-logout__link:active, .account-logout__link:hover { color: #dc6355; }
+/* A-3 タグラインはログイン画面とアカウント画面に 14px で。 */
+.brand-tagline { margin: 0; color: var(--warm-ink-3); font-size: 0.875rem; font-weight: 500; letter-spacing: 0.02em; }
+/* CL-1/CL-2 更新履歴: 本文は 13px・補足の色・幅は 40em。「詳しく」は青緑の文字。 */
+.changelog-entry__body { max-width: 40em; color: var(--warm-ink-2); font-size: 0.8125rem; line-height: 1.7; }
+.changelog-entry__more { display: inline-flex; align-items: center; gap: 0.15rem; margin-top: 0.35rem; border: 0; background: transparent; padding: 0.2rem 0.1rem; color: var(--teal-700); font-size: var(--fs-caption); font-weight: 700; }
+.changelog-entry__chevron { transition: transform 240ms var(--ease-out-expo); }
+.changelog-entry__more[aria-expanded="true"] .changelog-entry__chevron { transform: rotate(180deg); }
+.changelog-entry__detail { margin-top: 0.4rem; }

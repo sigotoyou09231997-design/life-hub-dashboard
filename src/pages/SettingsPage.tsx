@@ -11,7 +11,7 @@ import { FeedbackInbox } from "../components/feedback/FeedbackInbox";
 import { GoogleCalendarSyncControl } from "../components/settings/GoogleCalendarSyncControl";
 import { HomeAddressSetting } from "../components/settings/HomeAddressSetting";
 import { useIsFeedbackOwner } from "../hooks/useIsFeedbackOwner";
-import { currentVersion, updateToLatestNow } from "../lib/pwaUpdate";
+import { currentVersion, isUpdateAvailable, subscribeUpdateAvailable, updateToLatestNow } from "../lib/pwaUpdate";
 import { SettingsSection, SettingsToc, type SettingsTocItem } from "../components/settings/SettingsToc";
 import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
@@ -61,6 +61,9 @@ export default function SettingsPage() {
   const isFeedbackOwner = useIsFeedbackOwner() === true;
   const [updating, setUpdating] = useState(false);
   const [versionNote, setVersionNote] = useState<string | null>(null);
+  // 使う人には「最新です」か「新しい版があります」だけを出し、開発用の識別子は右に小さく(第8弾 ST-3)。
+  const [newerAvailable, setNewerAvailable] = useState(() => isUpdateAvailable());
+  useEffect(() => subscribeUpdateAvailable(() => setNewerAvailable(true)), []);
   async function handleUpdateNow() {
     setUpdating(true);
     const result = await updateToLatestNow();
@@ -328,7 +331,10 @@ export default function SettingsPage() {
               <div className="system-state-control">
                 <div>
                   <span>いま使っている版</span>
-                  <strong>{currentVersion()}</strong>
+                  <strong>
+                    {newerAvailable ? "新しい版があります(押すと更新)" : "最新です"}
+                    <span className="settings-version-id">({currentVersion()})</span>
+                  </strong>
                 </div>
                 <small>{versionNote ?? "押すと最新版を確かめます"}</small>
               </div>
