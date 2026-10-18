@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-19-101",
+    date: "2026-10-19",
+    area: "予定・タスク",
+    title: "カレンダーを指で払って月を変えられるように",
+    description:
+      "スマホでカレンダーを左へ払うと次の月、右へ払うと前の月になります。上の ‹ › のボタンも今までどおり使えます。払っただけでは予定の追加は開きません。",
+  },
+  {
     id: "2026-10-18-100",
     date: "2026-10-18",
     area: "設定",

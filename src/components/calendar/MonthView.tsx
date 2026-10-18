@@ -13,6 +13,7 @@ import {
 import { useMemo, type CSSProperties } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatMonthTitle, toDateStr } from "../../lib/date";
+import { useMonthSwipe } from "../../hooks/useMonthSwipe";
 import { getHolidayMapForYears } from "../../lib/holidays";
 import type { DayChip } from "../../lib/eventPeople";
 
@@ -43,6 +44,9 @@ interface Props {
    * AI found stated in an email ("8月17日以降で") that a manually-picked
    * replacement date shouldn't be able to violate. */
   minDate?: string;
+  /** 指で横へ払って月を変えられるようにする(予定・タスクのカレンダー)。‹ › のボタンはそのまま残す。
+   * 日付を選ぶだけの小さなカレンダー(入力欄の中など)には付けない — シートの中で横の指を取らないように。 */
+  swipeable?: boolean;
 }
 
 const WEEKDAY_LABELS = ["月", "火", "水", "木", "金", "土", "日"];
@@ -58,6 +62,7 @@ export function MonthView({
   tripDates,
   dayChips,
   minDate,
+  swipeable = false,
 }: Props) {
   // 帯を出す月表示では、マスの高さは中身に合わせて伸びる(件数の上限を設けないため)。
   // 帯を渡していない画面は今までどおり固定の高さのまま。
@@ -70,8 +75,18 @@ export function MonthView({
     [gridStart, gridEnd],
   );
 
+  // 右へ払うと前の月、左へ払うと次の月(src/hooks/useMonthSwipe.ts)。
+  const swipe = useMonthSwipe(
+    (step) => onMonthChange(step === 1 ? addMonths(currentMonth, 1) : subMonths(currentMonth, 1)),
+    swipeable,
+  );
+
   return (
-    <div className="spatial-calendar">
+    <div
+      ref={swipe.rootRef}
+      className={`spatial-calendar${swipeable ? " spatial-calendar--swipe" : ""}`}
+      {...swipe.rootProps}
+    >
       {/* スマホでは月表示のカードを画面いっぱいまで広げる(src/styles/pages-warm.css)。
           マスは端まで使ってよいが、この見出しだけは端に貼りつくと窮屈なので、
           そちらで内側の余白を戻せるよう名前を付けておく。 */}
@@ -103,7 +118,7 @@ export function MonthView({
         ))}
       </div>
 
-      <div className="spatial-calendar__days grid grid-cols-7">
+      <div ref={swipe.surfaceRef} className="spatial-calendar__days grid grid-cols-7">
         {days.map((day) => {
           const dateStr = toDateStr(day);
           const inMonth = isSameMonth(day, currentMonth);

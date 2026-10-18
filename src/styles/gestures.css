@@ -18,6 +18,11 @@
    払える向きがある行だけに付ける（払えない行の触り心地は今までどおり）。 */
 .swipe-row--enabled { touch-action: pan-y; }
 
+/* 月のカレンダーを横へ払って月を変える（src/hooks/useMonthSwipe.ts）。縦のスクロールと
+   2本指の拡大はブラウザに任せる。マスが指に付いて横へずれた分は、カレンダーの外へ出さない
+   （スマホでは画面の端まで広げてあるので、出すと画面ごと横に揺れる）。 */
+.spatial-calendar--swipe { touch-action: pan-y pinch-zoom; overflow-x: clip; }
+
 /* 払っている間だけ、下の色を敷く台にして、行の外へはみ出した分を隠す。ふだん（idle）は何も付けない —
    行の影やフォーカスの輪を切らず、重なり順（z-index）も包む前と同じにしておくため。 */
 .swipe-row:not([data-swipe-state="idle"]) {
