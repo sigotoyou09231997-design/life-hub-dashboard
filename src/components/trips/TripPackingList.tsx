@@ -47,14 +47,20 @@ export function TripPackingList({ items, onEdit, onDelete }: Props) {
       ) : (
         <>
           <p className="px-1 text-xs text-slate-500">長押しして上下に動かすと、並べ替えられます。</p>
+          {/* PC では2列(広い画面は3列)の格子。グループの見出しに「準備済み/全部」の数(第8弾 T-3)。 */}
+          <div className="trip-packing-groups">
           {TRIP_PACKING_CATEGORIES.map((cat) => {
             const catItems = sortPacking(items.filter((i) => i.category === cat.value));
             if (catItems.length === 0) return null;
             // 並べ替えている最中は、落とす位置に動かした並びで見せる(指を離す前に、どこに入るか分かるように)。
             const shown = reorder.preview(cat.value, catItems);
+            const done = catItems.filter((item) => item.checked).length;
             return (
-              <div key={cat.value}>
-                <p className="label-on-photo mb-2 text-sm font-medium text-slate-600">{cat.label}</p>
+              <div key={cat.value} className="trip-packing-group">
+                <p className="label-on-photo mb-2 text-sm font-medium text-slate-600">
+                  {cat.label}
+                  <span className="trip-packing-group__count">{done}/{catItems.length}</span>
+                </p>
                 <div className="space-y-2">
                   {shown.map((item) => {
                     const index = catItems.indexOf(item);
@@ -87,7 +93,7 @@ export function TripPackingList({ items, onEdit, onDelete }: Props) {
                         >
                           {item.title}
                         </button>
-                        <GripVertical size={16} className="shrink-0 text-slate-300" aria-hidden="true" />
+                        <GripVertical size={16} className="trip-packing-grip shrink-0 text-slate-300" aria-hidden="true" />
                         <button
                           // 確認は聞かない。消したあと5秒間「元に戻す」が出る(UI/UX 調査メモ 第4弾 A-2。
                           // お知らせは TripDetailPage が出す)。
@@ -102,6 +108,7 @@ export function TripPackingList({ items, onEdit, onDelete }: Props) {
                       </ListRow>
                     );
                   })}
+          </div>
                 </div>
               </div>
             );

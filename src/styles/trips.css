@@ -3364,3 +3364,18 @@ a.trip-leg-mode--link {
 .trip-expense-budget-unset__lead { margin: 0; color: var(--warm-ink-2); font-size: var(--fs-body); max-width: 40em; }
 .trip-expense-budget-unset__facts { display: flex; gap: 1rem; margin: 0; color: var(--warm-ink-3); font-size: var(--fs-caption); }
 .trip-expense-budget-unset__facts b { margin-left: 0.25rem; color: var(--warm-ink); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* 第8弾 3本目 旅行 T-3(2026-10-18): 持ち物は PC で2列(1280px 以上は3列)の格子。見出しに「準備済み/全部」。つまみは乗せた時だけ濃く。 */
+.trip-packing-groups { display: flex; flex-direction: column; gap: 1rem; }
+.trip-packing-group { min-width: 0; }
+.trip-packing-group__count { margin-left: 0.4rem; color: var(--warm-ink-3); font-size: var(--fs-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (min-width: 1024px) {
+  .trip-packing-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.25rem; align-items: start; }
+}
+@media (min-width: 1280px) {
+  .trip-packing-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .trip-packing-grip { opacity: 0.45; transition: opacity 160ms ease, color 160ms ease; }
+  .glass-row:hover .trip-packing-grip { opacity: 1; color: var(--warm-ink-2); }
+}
