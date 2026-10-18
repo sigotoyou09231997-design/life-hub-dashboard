@@ -246,6 +246,7 @@ export function CalendarView({
             taskDates={taskDates}
             tripDates={tripDates}
             dayChips={dayChips}
+            swipeable
           />
         )}
       </Card>

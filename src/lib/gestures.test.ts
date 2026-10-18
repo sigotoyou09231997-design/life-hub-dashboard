@@ -4,6 +4,7 @@ import {
   decidePullIntent,
   decideSwipeIntent,
   isPastSwipeThreshold,
+  monthSwipeStep,
   PULL_MAX_PX,
   PULL_THRESHOLD_PX,
   pullDistance,
@@ -142,5 +143,29 @@ describe("同じ指の取り合い(claimGesture)", () => {
     expect(claimGesture("pull", 0)).toBe(true);
     expect(claimGesture("swipe", 1000)).toBe(false);
     expect(claimGesture("swipe", 5000)).toBe(true);
+  });
+});
+
+describe("月のカレンダーを払って月を変える(monthSwipeStep)", () => {
+  const width = 400;
+
+  it("左へ払えば次の月、右へ払えば前の月(幅の 22% 以上)", () => {
+    expect(monthSwipeStep({ offset: -100, width, velocity: 0 })).toBe(1);
+    expect(monthSwipeStep({ offset: 100, width, velocity: 0 })).toBe(-1);
+  });
+
+  it("少ししか動かさずにゆっくり離したら、月は変えない", () => {
+    expect(monthSwipeStep({ offset: -60, width, velocity: -0.1 })).toBeNull();
+    expect(monthSwipeStep({ offset: 0, width, velocity: 0 })).toBeNull();
+  });
+
+  it("短くても同じ向きへ速く払えば(フリック)月を変える。指のぶれ(40px 未満)では変えない", () => {
+    expect(monthSwipeStep({ offset: -50, width, velocity: -0.8 })).toBe(1);
+    expect(monthSwipeStep({ offset: 50, width, velocity: 0.8 })).toBe(-1);
+    expect(monthSwipeStep({ offset: -30, width, velocity: -2 })).toBeNull();
+  });
+
+  it("越えたあとで逆へ速く戻しながら離したら(やっぱりやめた)、月は変えない", () => {
+    expect(monthSwipeStep({ offset: -150, width, velocity: 0.9 })).toBeNull();
   });
 });

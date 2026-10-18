@@ -106,6 +106,33 @@ export function releaseVelocity(samples: readonly { x: number; t: number }[], wi
 }
 
 // ---------------------------------------------------------------------------
+// 月のカレンダーを横へ払って、月を変える(src/hooks/useMonthSwipe.ts)
+
+/**
+ * 月のカレンダーは、幅のこの割合まで払ったら、離した時に月を変える。
+ * 行の払い(SWIPE_COMMIT_RATIO)より軽くしてある — 消える操作と違い、間違えても反対へ払えばすぐ戻るため。
+ */
+export const MONTH_SWIPE_COMMIT_RATIO = 0.22;
+
+/**
+ * 指を離した時に、何か月動かすか(動かさないなら null)。
+ * 右へ払う = 前の月(-1)、左へ払う = 次の月(+1)。紙のカレンダーをめくる向き。
+ * - 幅の MONTH_SWIPE_COMMIT_RATIO を越えていれば動かす。ただし離す直前に逆向きへ速く戻していたら
+ *   (「やっぱりやめた」の動き)動かさない。
+ * - 越えていなくても、同じ向きへ速く払っていれば(フリック)動かす。指のぶれでは動かさない。
+ */
+export function monthSwipeStep(input: { offset: number; width: number; velocity: number }): -1 | 1 | null {
+  const { offset, width, velocity } = input;
+  if (offset === 0) return null;
+  const step = offset > 0 ? -1 : 1;
+  const fast = Math.abs(velocity) >= SWIPE_FLICK_VELOCITY;
+  const sameWay = Math.sign(velocity) === Math.sign(offset);
+  const w = width > 0 ? width : FALLBACK_ROW_WIDTH;
+  if (Math.abs(offset) >= w * MONTH_SWIPE_COMMIT_RATIO) return fast && !sameWay ? null : step;
+  return Math.abs(offset) >= SWIPE_FLICK_MIN_PX && fast && sameWay ? step : null;
+}
+
+// ---------------------------------------------------------------------------
 // 引っ張って更新(A-7)
 
 /** 指の動きに対して、目印が動く割合(引くほど重くなる感じ)。 */
