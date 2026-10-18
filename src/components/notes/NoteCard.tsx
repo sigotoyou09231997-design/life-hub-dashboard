@@ -58,7 +58,8 @@ function NoteSummary({ note }: { note: Note }) {
     );
   }
 
-  return note.body ? <p className="mt-1 line-clamp-2 text-xs text-slate-500">{note.body}</p> : null;
+  // 本文は3行で切り、行間 1.7(第8弾 N-1)。
+  return note.body ? <p className="note-widget__body mt-1 line-clamp-3 text-xs text-slate-500">{note.body}</p> : null;
 }
 
 export function NoteCard({ note, photos = [], onEdit, onDelete }: Props) {
@@ -88,8 +89,8 @@ export function NoteCard({ note, photos = [], onEdit, onDelete }: Props) {
             {/* カード全体が編集ボタンなので、写真は押せる形にしない
                 (押しても編集が開く。大きく見るのは日記の一覧と編集画面から)。 */}
             <PhotoStrip attachments={photos} limit={3} />
+            {/* 「メモ」の札は外した(種類はアイコンで分かる)。カテゴリとタグは残す(第8弾 N-1)。 */}
             <div className="mt-2 flex flex-wrap gap-1.5">
-              <Badge tone={typeDef.tone}>{typeDef.label}</Badge>
               {note.category && <Badge tone="accent">{note.category}</Badge>}
               {note.tags.map((tag) => (
                 <Badge key={tag} tone="neutral">

@@ -120,7 +120,7 @@ export function NoteList({ notes, onEdit, onDelete, onAdd }: Props) {
           <EmptyState title="該当する結果が見つかりませんでした" description="検索条件や絞り込みを変えてみてください。" />
         )
       ) : (
-        <div className="notes-widget-grid grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <div className="notes-widget-grid grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {sorted.map((n) => (
             <NoteCard key={n.id} note={n} photos={photosByNote.get(n.id!) ?? []} onEdit={onEdit} onDelete={onDelete} />
           ))}

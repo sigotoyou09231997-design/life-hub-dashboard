@@ -1316,3 +1316,13 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 
 /* 第8弾 3本目 お金 M-3: 記録0件の黒いカードの1行。 */
 .finance-trend-empty { margin: 0; padding: 1.2rem 0; color: rgba(244, 247, 247, 0.62); font-size: var(--fs-body); }
+
+/* 第8弾 3本目 メモ N-1/N-2: 上の橙の線をやめる。本文は行間 1.7。「タスク化・予定化」は PC では乗せた時だけ。 */
+.spatial-page .note-widget::before,
+.spatial-page .note-widget--checklist::before { display: none; }
+.note-widget__body { line-height: 1.7; }
+@media (hover: hover) and (pointer: fine) {
+  .note-widget .note-widget__actions > button:not(:last-child) { opacity: 0; transition: opacity 160ms ease; }
+  .note-widget:hover .note-widget__actions > button,
+  .note-widget:focus-within .note-widget__actions > button { opacity: 1; }
+}
