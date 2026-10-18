@@ -1326,3 +1326,30 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
   .note-widget:hover .note-widget__actions > button,
   .note-widget:focus-within .note-widget__actions > button { opacity: 1; }
 }
+
+/* 第8弾 3本目 Gmail G-2/G-3: PC の行は 1行目＝差出人＋印＋日付、2行目＝件名、3行目＝抜粋(1行で切る)。絞り込みのチップは 13px・高さ 32px、件数は外側に小さく。 */
+.mail-compact {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "from marks time"
+    "text text text";
+  align-items: center;
+  row-gap: 0.15rem;
+  padding: 0.55rem 0.25rem 0.55rem 0.8rem;
+  font-size: 0.8125rem;
+}
+@container (min-width: 40rem) {
+  .mail-compact {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "from marks time"
+      "text text text";
+  }
+}
+.mail-compact__text { display: grid; row-gap: 0.1rem; }
+.mail-compact__text > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-compact__snippet::before { content: none; margin: 0; }
+.mail-compact__snippet { font-size: var(--fs-caption); }
+.mail-inbox .lh-chip.mail-filter-chip { min-height: 2rem; padding: 0 0.8rem; font-size: 0.8125rem; }
+.lh-chip__count { margin-left: 0.35rem; font-size: 0.7rem; font-weight: 700; color: var(--warm-ink-3); }
+.lh-chip[aria-pressed="true"] .lh-chip__count { color: inherit; opacity: 0.8; }

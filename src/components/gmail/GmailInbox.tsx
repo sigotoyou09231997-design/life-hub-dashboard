@@ -377,29 +377,27 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
           {(
             [
               // 「すべて」は実際には手を付けていないメールだけなので、名前も「未処理」にした(第8弾 G-1、2026-10-18)。内部の値は "all" のまま。
-              ["all", "未処理"],
-              ...(planSuggestions && planSuggestions.length > 0
-                ? ([["plan", `予定候補 ${planSuggestions.length}`]] as const)
-                : []),
-              ...(expenseSuggestions && expenseSuggestions.length > 0
-                ? ([["expense", `支出候補 ${expenseSuggestions.length}`]] as const)
-                : []),
-              ["important", "重要"],
+              ["all", "未処理", undefined],
+              ...(planSuggestions && planSuggestions.length > 0 ? ([["plan", "予定候補", planSuggestions.length]] as const) : []),
+              ...(expenseSuggestions && expenseSuggestions.length > 0 ? ([["expense", "支出候補", expenseSuggestions.length]] as const) : []),
+              ["important", "重要", undefined],
               // 予定候補と同じく、1件も無いときはボタンごと出さない。
-              ...(waitingDays.size > 0 ? ([["waiting", `返信待ち ${waitingDays.size}`]] as const) : []),
-              ["drafted", "AI下書き"],
-              ["sent", "送信済み"],
-              ["read", "既読"],
+              ...(waitingDays.size > 0 ? ([["waiting", "返信待ち", waitingDays.size]] as const) : []),
+              ["drafted", "AI下書き", undefined],
+              ["sent", "送信済み", undefined],
+              ["read", "既読", undefined],
             ] as const
-          ).map(([value, label]) => (
+          ).map(([value, label, count]) => (
+            // 件数は札の外側に小さく(第8弾 G-3)。読み上げでは「予定候補 1」と続けて読まれる。
             <button
               key={value}
               type="button"
               onClick={() => setStatusFilter(value)}
               aria-pressed={statusFilter === value}
-              className="lh-chip"
+              className="lh-chip mail-filter-chip"
             >
               {label}
+              {count !== undefined && <small className="lh-chip__count">{count}</small>}
             </button>
           ))}
         </div>
@@ -501,16 +499,16 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
                           <span className="sr-only">重要</span>
                         </span>
                       )}
-                      {email.status !== "unprocessed" && (
+                      {/* 返信待ちの行では「返信待ち N日」の札だけ(第8弾 G-2)。送信済みの緑の札は出さない。 */}
+                      {email.status !== "unprocessed" && waiting === undefined && (
                         <Badge tone={STATUS_TONE[email.status]} className="mail-mark__badge">
                           {STATUS_LABEL[email.status]}
                         </Badge>
                       )}
                       {waiting !== undefined && (
-                        <span className="mail-mark bg-red-50 text-danger" title={`返信待ち ${waiting}日`}>
+                        <span className="mail-mark bg-red-50 text-danger">
                           <Hourglass size={12} aria-hidden="true" />
-                          <span className="sr-only">返信待ち</span>
-                          {waiting}日
+                          返信待ち {waiting}日
                         </span>
                       )}
                       {isPlan && (
@@ -571,7 +569,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
                     <p className="mt-0.5 truncate text-xs text-slate-500">{snippet}</p>
                     {(email.status !== "unprocessed" || isPlan || isExpense || waiting !== undefined) && (
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                        {email.status !== "unprocessed" && (
+                        {email.status !== "unprocessed" && waiting === undefined && (
                           <Badge tone={STATUS_TONE[email.status]}>{STATUS_LABEL[email.status]}</Badge>
                         )}
                         {waiting !== undefined && (
