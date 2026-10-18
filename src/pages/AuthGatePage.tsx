@@ -103,6 +103,7 @@ export default function AuthGatePage({ addingAccount = false }: Props) {
         <p className="mb-1 text-center text-lg font-semibold text-slate-900">
           {addingAccount ? "アカウントを追加" : "LIFE HUB"}
         </p>
+        {!addingAccount && <p className="brand-tagline mb-2 text-center">くらしを、ひとつに。</p>}
         <p className="mb-5 text-center text-xs text-slate-400">
           {addingAccount
             ? "この端末にもう1つアカウントを追加します。今のアカウントはそのまま残り、いつでも切り替えられます。"

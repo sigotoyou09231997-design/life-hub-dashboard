@@ -70,7 +70,7 @@ export default function AccountPage() {
       <div className="profile-control-panel settings-account-grid grid gap-3 px-5 lg:grid-cols-2 lg:px-8 lg:pt-1">
         <Card className="profile-identity-module lg:col-span-2">
           <div className="profile-module__header">
-            <div className="system-section__identity"><span><UserRound size={17} /></span><div><h2>プロフィール</h2></div></div>
+            <div className="system-section__identity"><span><UserRound size={17} /></span><div><h2>プロフィール</h2><p className="brand-tagline">LIFE HUB — くらしを、ひとつに。</p></div></div>
             <div className={`system-status ${session ? "is-online" : ""}`}><i />{!isSupabaseConfigured ? "利用不可" : session ? "ログイン中" : "未ログイン"}</div>
           </div>
           <div className="profile-identity-content">
@@ -180,9 +180,12 @@ export default function AccountPage() {
         </Link>
 
         {isSupabaseConfigured && session && (
-          <Button variant="danger" className="w-full lg:col-span-2" onClick={handleLogout}>
-            ログアウト
-          </Button>
+          // 幅いっぱいの薄赤の帯はやめ、右下の小さな文字リンクに(第8弾 AC-1)。押す時だけ赤。
+          <div className="account-logout lg:col-span-2">
+            <button type="button" className="account-logout__link" onClick={handleLogout}>
+              ログアウト
+            </button>
+          </div>
         )}
       </div>
     </div>

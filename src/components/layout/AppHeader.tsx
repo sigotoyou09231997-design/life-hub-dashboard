@@ -6,7 +6,6 @@ import { auth, isSupabaseConfigured } from "../../lib/supabase";
 import { avatarColor, avatarInitial, parseSender } from "../../lib/gmail";
 import { formatGmailTimestamp } from "../../lib/date";
 import { useNotificationSignals } from "../../lib/notificationSignals";
-import { useUsageAlerts } from "../../hooks/useFeatureUsage";
 import { useSyncProblems } from "../../lib/syncProblems";
 import { paletteShortcutLabel } from "../../lib/commandPalette";
 import { Sheet } from "../ui/Sheet";
@@ -30,11 +29,10 @@ export function AppHeader() {
   const signals = useNotificationSignals();
   // 使われなくなった機能のお知らせ。数え方が他の通知と違う(1日1回・Supabaseで数える)ので、
   // useNotificationSignals には混ぜずに別に持つ。
-  const usage = useUsageAlerts();
   // サーバーに弾かれて送れずにいる変更。失敗が console にしか出ず、スマホで3週間以上
   // 気づけなかったので(2026-09-21)、ここに出す。
   const syncProblems = useSyncProblems();
-  const notificationCount = signals.total + usage.alerts.length + syncProblems.length;
+  const notificationCount = signals.total + syncProblems.length;
 
   // ⌘K / Ctrl+K でどこからでも、まとめて検索を開く(GlobalSearch.tsx の usePaletteShortcut)。
   // 閉じる関数を作り直さないのは、Sheet が onClose の変化でフォーカスを動かし直すため。
@@ -258,33 +256,7 @@ export function AppHeader() {
               </div>
             )}
 
-            {usage.alerts.length > 0 && (
-              <div>
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-slate-600">最近使われていない機能</p>
-                  <button
-                    type="button"
-                    onClick={usage.dismiss}
-                    className="shrink-0 rounded-full px-2 py-1 text-xs font-medium text-slate-500 transition-colors active:bg-white/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
-                  >
-                    今月は表示しない
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {usage.alerts.map((alert) => (
-                    <Link
-                      key={alert.usage.feature.id}
-                      to="/review"
-                      onClick={() => setNotifOpen(false)}
-                      className="glass-row block rounded-xl p-3 text-left transition-colors active:bg-white/70"
-                    >
-                      <p className="text-sm font-medium text-slate-900">{alert.message}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">{alert.detail}</p>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* 「最近使われていない機能」はベルから外した(第8弾 D-3)。アプリの統計は、ふりかえりの「アプリの使われ方」で見る。 */}
           </div>
         )}
       </Sheet>

@@ -17,10 +17,31 @@ export interface ChangelogEntry {
   /** どの画面の話か。「お金管理」「予定・タスク」など、画面の名前をそのまま。 */
   area: string;
   description: string;
+  /** 「詳しく」を押した時に開く細かい説明(第8弾 CL-1、2026-10-18)。無ければ description の2文目以降を詳しくに回す。 */
+  detail?: string;
+}
+
+/** 表に出す1文(60字まで)と、「詳しく」に回す残り。色名・px などの実装の言葉は、これから足す分では書かない。 */
+export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "detail">): { lead: string; detail: string } {
+  if (entry.detail) return { lead: entry.description, detail: entry.detail };
+  const text = entry.description.trim();
+  const m = /^(.+?[。．!?！？])/.exec(text);
+  let lead = m ? m[1] : text;
+  if (lead.length > 60) lead = `${lead.slice(0, 59)}…`;
+  const rest = text.slice(m ? m[1].length : lead.length).trim();
+  return { lead, detail: rest };
 }
 
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    id: "2026-10-18-100",
+    date: "2026-10-18",
+    area: "設定",
+    title: "設定・アカウント・更新履歴・通知の仕上げ",
+    description:
+      "設定の「書き出す」「復元する」などの文字だけだった操作をボタンの形にしました。更新履歴の欄は、開発用の識別子ではなく「最新です」「新しい版があります(押すと更新)」と出ます。アカウント画面のログアウトは右下の小さなリンクにし、画面のタグラインはログインとアカウントの画面にだけ出します。更新履歴は題名と1文だけを表に出し、細かい説明は「詳しく」で開きます。検索の「最近見たもの」にメールの件名を出さず「Gmail のメール」と日付だけにし、右上の通知から「最近使われていない機能」を外しました(ふりかえりで見られます)。",
+  },
   {
     id: "2026-10-18-99",
     date: "2026-10-18",

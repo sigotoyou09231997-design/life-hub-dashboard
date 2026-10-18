@@ -131,7 +131,8 @@ describe("まとめて検索(何も打っていない時)", () => {
     const recent = await screen.findByRole("group", { name: "最近見たもの" });
     const rows = within(recent).getAllByRole("option");
     // 消えた旅行(引けなかったもの)は出さず、残っているものは新しい順。
-    expect(rows.map((row) => row.textContent)).toEqual([expect.stringContaining("ご予約の確認"), expect.stringContaining("夏の京都")]);
+    // メールは件名を出さず「Gmail のメール」(第8弾 D-2)。
+    expect(rows.map((row) => row.textContent)).toEqual([expect.stringContaining("Gmail のメール"), expect.stringContaining("夏の京都")]);
     expect(rows[1].getAttribute("href")).toBe("/trips/trip1");
   });
 
@@ -243,7 +244,7 @@ describe("最近見たものを残す所", () => {
     );
     renderPalette("/trips/trip1");
     const recent = await screen.findByRole("group", { name: "最近見たもの" });
-    expect(within(recent).getAllByRole("option").map((row) => row.textContent)).toEqual([expect.stringContaining("ご予約の確認")]);
+    expect(within(recent).getAllByRole("option").map((row) => row.textContent)).toEqual([expect.stringContaining("Gmail のメール")]);
   });
 });
 
