@@ -8,6 +8,7 @@ import { monthRange, todayStr } from "../../lib/date";
 import { EXPENSE_CATEGORIES } from "../../lib/categories";
 import { selectBonuses } from "../../lib/bonus";
 import { deleteProjectTagFor } from "../../lib/projectTags";
+import { EXPENSE_INITIAL_TAB, resolveExpenseTabRequest, type ExpenseTab } from "../../lib/expenseTabs";
 import type { ExtractedReceipt } from "../../lib/receiptScan";
 import { AREA_ACCENT_STYLE } from "../../lib/areaColors";
 import { PageHeader } from "../../components/ui/PageHeader";
@@ -57,16 +58,14 @@ function receiptToDraftTransaction(receipt: ExtractedReceipt): Transaction {
 // 開いたときに最初に出るのもサブスク。固定費の中身はそのまま、サブスクの一覧に並ぶ。
 // 同じ日に「カード」「PayPay」をタブから外した(UI/UX 調査メモ C-2)。どちらも見る場所ではなく
 // 取り込みの方法なので、履歴タブの「ほかの方法」に入れた。タブは6個2段 → 4個1段。
-type Tab = "subs" | "summary" | "salary" | "history";
-// 並びと初期表示はサマリー・履歴・サブスク・給与(第8弾 M-1、2026-10-18)。よく見るものを前に。
-const TABS: Tab[] = ["summary", "history", "subs", "salary"];
+type Tab = ExpenseTab;
 /** 履歴タブの中身。カードの利用明細・PayPay は「ほかの方法」から開く。 */
 type HistoryView = "list" | "card" | "paypay";
 
 export default function ExpensePage() {
   const expenseStatus = useExpenseStatus();
   const showToast = useToast();
-  const [tab, setTab] = useState<Tab>("summary");
+  const [tab, setTab] = useState<Tab>(EXPENSE_INITIAL_TAB);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | "new" | null>(null);
   const [editingSalary, setEditingSalary] = useState<SalaryEntry | "new" | null>(null);
   const [editingBonus, setEditingBonus] = useState<Transaction | "new" | null>(null);
@@ -88,18 +87,11 @@ export default function ExpensePage() {
   // 「サブスクを見る」src/lib/commandPalette.ts など)。すでにお金管理の別のタブを見ている時は
   // 同じ画面のまま(作り直されない)なので、印を見てタブを移す。
   useEffect(() => {
-    const requested = searchParams.get("new");
-    const requestedTab = searchParams.get("tab");
-    if (requested !== "expense" && requested !== "salary" && !requestedTab) return;
-    if (requested === "expense") {
-      setTab("history");
-      setEditingTransaction("new");
-    } else if (requested === "salary") {
-      setTab("salary");
-      setEditingSalary("new");
-    } else if (TABS.includes(requestedTab as Tab)) {
-      setTab(requestedTab as Tab);
-    }
+    const resolved = resolveExpenseTabRequest(searchParams.get("new"), searchParams.get("tab"));
+    if (!resolved) return;
+    setTab(resolved.tab);
+    if (resolved.openNew === "expense") setEditingTransaction("new");
+    if (resolved.openNew === "salary") setEditingSalary("new");
     const rest = new URLSearchParams(searchParams);
     rest.delete("new");
     rest.delete("tab");

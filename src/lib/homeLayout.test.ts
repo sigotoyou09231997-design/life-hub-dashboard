@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CalendarEvent, FixedCost, Task } from "../types";
-import { aheadDates, aheadDayLabel, buildConcerns, homeStatusLine, homeSubscriptions, tripCardSize, tripCountdown, upcomingRows, weekStrip } from "./homeLayout";
+import { aheadDates, aheadDayLabel, buildConcerns, homeStatusLine, homeSubscriptions, tripCardSize, tripCountdown, upcomingRows, weekSpendBars, weekStrip } from "./homeLayout";
 
 describe("ホームの組み直し(2026-10-17)", () => {
   it("「今日と、この先」は今日から7日。呼び名は今日・明日・明後日(それより先は無し)", () => {
@@ -79,6 +79,16 @@ describe("ホームの組み直し(2026-10-17)", () => {
     expect(rows.map((r) => `${r.title} ${r.days}${r.soon ? "!" : ""}`)).toEqual(["iCloud 1!", "Spotify 3!", "Netflix 8"]);
     expect(thisMonthCharge).toBe(1490 + 980 + 130 + 6480);
     expect(homeSubscriptions([], "2026-10-17").rows).toEqual([]);
+  });
+
+  it("直近7日の支出の棒(第8弾 H-1): 合計が0の間は空(呼び出し側が案内文を出す)。それ以外は最大の日を100%に", () => {
+    const dates = aheadDates("2026-10-17");
+    expect(weekSpendBars(dates, [0, 0, 0, 0, 0, 0, 0])).toEqual([]);
+    const bars = weekSpendBars(dates, [500, 0, 0, 0, 0, 0, 1000]);
+    expect(bars).toHaveLength(7);
+    expect(bars[0]).toEqual({ date: "2026-10-17", amount: 500, heightPercent: 50 });
+    expect(bars[1]).toEqual({ date: "2026-10-18", amount: 0, heightPercent: 2 });
+    expect(bars[6]).toEqual({ date: "2026-10-23", amount: 1000, heightPercent: 100 });
   });
 
   it("気になること: 赤(返信待ち・予算超え・期限切れ)を先に、琥珀(連携切れ・設定未完)を後に。無ければ空", () => {
