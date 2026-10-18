@@ -1245,3 +1245,41 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) {
   .lh-week__dot, .lh-week__dots em { animation: none; }
 }
+
+/* ============================================================================
+   第8弾 3本目(2026-10-18) ホーム: H-1〜H-5
+   ========================================================================= */
+/* H-1 黒いカード: 左に残り額、右に直近7日の支出の細い棒(今日だけ白)。 */
+.lh-home > .lh-money { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 0.6rem; }
+.lh-money__main { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.lh-money__side { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.lh-money__side-label { color: rgba(244, 247, 247, 0.55); font-size: var(--fs-caption); font-weight: 600; }
+.lh-money__chart { display: flex; align-items: flex-end; gap: 0.35rem; height: 3.4rem; }
+.lh-money__col { display: flex; flex: 1 1 0; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+.lh-money__col i { display: block; width: 100%; max-width: 1.1rem; border-radius: 3px 3px 1px 1px; background: var(--teal-400); opacity: 0.85; }
+.lh-money__col.is-today i { background: #fff; opacity: 1; }
+.lh-money__col small { margin-top: 0.2rem; font-family: var(--font-num); font-size: 0.62rem; color: rgba(244, 247, 247, 0.5); font-variant-numeric: tabular-nums; }
+.lh-money__col.is-today small { color: #fff; }
+.lh-money__chart-note { margin: 0.2rem 0 0; color: rgba(244, 247, 247, 0.55); font-size: var(--fs-caption); }
+.lh-money__bar, .lh-money__bar-note { grid-column: 1 / -1; }
+.lh-money .lh-money__side { position: relative; z-index: 1; }
+@media (min-width: 1024px) {
+  .lh-home > .lh-money { grid-template-columns: minmax(0, 1fr) 17rem; column-gap: 2rem; align-items: end; }
+  .lh-money__side { padding-bottom: 0.4rem; }
+}
+/* H-2 7日とも空の時は、絵と文を中央に。 */
+.lh-week__empty { align-items: center; text-align: center; }
+/* H-4 旅行カード: 「計画中」は黒の半透明の札。下の1行は 12px・500。 */
+.warm-trip__kicker { border-radius: var(--r-pill); background: rgba(8, 16, 28, 0.55); padding: 0.15rem 0.55rem; color: #fff; font-size: var(--fs-caption); font-weight: 600; }
+.warm-trip__facts { font-size: var(--fs-caption); font-weight: 500; }
+/* H-5 次の請求: 区切り線はカードの端から端まで。同じ日の2件目以降は名前・金額だけ。 */
+.lh-subs__row + .lh-subs__row::before { left: 0; right: 0; }
+.lh-subs__row { flex-wrap: wrap; }
+.lh-subs__date { flex: 1 0 100%; margin: 0 0 0.15rem 2.3rem; color: var(--warm-ink-3); font-size: var(--fs-caption); font-weight: 700; }
+.lh-subs__row.is-grouped { padding-top: 0.3rem; }
+@media (min-width: 1024px) {
+  /* H-3 下の3枚は同じ高さ(中身は上づめ、最低 150px)。 */
+  .lh-section--trip, .lh-section--subs, .lh-section--gmail { align-self: stretch; }
+  .lh-section--subs .lh-subs, .lh-section--gmail .lh-group { flex: 1 1 auto; min-height: 9.4rem; align-content: start; }
+  .lh-section--trip .warm-trip, .lh-section--trip.is-compact .warm-trip { flex: 1 1 auto; min-height: 9.4rem; }
+}

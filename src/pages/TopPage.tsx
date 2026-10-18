@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowRight, Bell, CalendarDays, ChevronRight, CreditCard, Leaf, Mail, Plane, Plus, type LucideIcon } from "lucide-react";
 import { db } from "../db/schema";
-import { formatDisplayDate, toDateStr, todayStr } from "../lib/date";
+import { addDays, parseISO } from "date-fns";
+import { formatDisplayDate, formatShortDate, toDateStr, todayStr } from "../lib/date";
 import { occursOn } from "../lib/eventSpan";
 import { parseSender } from "../lib/gmail";
 import { pullBlockedSendersIfDue } from "../lib/blockedSenders";
@@ -85,6 +86,13 @@ export default function TopPage() {
   const statusLine = homeStatusLine(eventsResult ? todayEvents.length : undefined, tasksResult ? todayOpenTasks : undefined);
 
   const { data: budget } = usePayPeriodBudget();
+  // 直近7日の支出(第8弾 H-1): 黒いカードの右側の細い棒。記録が0件の間は棒を出さず1行の文。
+  const last7 = useMemo(() => Array.from({ length: 7 }, (_, i) => toDateStr(addDays(parseISO(today), i - 6))), [today]);
+  const weekSpend = useLiveQuery(async () => {
+    const rows = await db.transactions.where("date").between(last7[0], today, true, true).toArray();
+    return last7.map((date) => rows.filter((row) => row.type === "expense" && row.date === date).reduce((sum, row) => sum + row.amount, 0));
+  }, [today]);
+  const weekMax = Math.max(0, ...(weekSpend ?? []));
   // 使った割合 = 使った額 ÷ (使った額 ＋ 残り)。残りがマイナス(使いすぎ)なら満タン。
   const usedRatio = budget ? (budget.remaining < 0 ? 1 : budget.actualSpending / Math.max(1, budget.actualSpending + budget.remaining)) : 0;
   // 給与がまだ無い時の「今月のお金」。給与が無くても分かる今月の支出を出す(UI/UX 調査メモ A-4)。
@@ -204,6 +212,7 @@ export default function TopPage() {
       {/* 2. 今月のお金(黒)。主役は残り額だけ、ほかは1行の補足。 */}
       {hide.money ? null : budget ? (
         <Link to="/records/expense" className="warm-card lh-money" data-reveal="1">
+          <div className="lh-money__main">
           <span className="lh-money__label">今月、あと使える</span>
           <p className={`warm-amount ${budget.remaining < 0 ? "is-negative" : ""}`}>
             <small>¥</small>
@@ -221,6 +230,23 @@ export default function TopPage() {
           <span className="warm-card__foot">
             支出を見る <ArrowRight size={14} />
           </span>
+          </div>
+          {/* 右側: 直近7日の支出の棒(第8弾 H-1)。今日だけ白。 */}
+          <div className="lh-money__side" aria-label="直近7日の支出">
+            <span className="lh-money__side-label">直近7日の支出</span>
+            {weekSpend && weekMax > 0 ? (
+              <div className="lh-money__chart" role="img" aria-label={last7.map((d, i) => `${formatShortDate(d)} ¥${Math.round(weekSpend[i]).toLocaleString()}`).join("、")}>
+                {weekSpend.map((amount, i) => (
+                  <span key={last7[i]} className={`lh-money__col${last7[i] === today ? " is-today" : ""}`}>
+                    <i style={{ height: `${Math.max(amount > 0 ? 6 : 2, Math.round((amount / weekMax) * 100))}%` }} />
+                    <small>{Number(last7[i].slice(8, 10))}</small>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="lh-money__chart-note">記録するとここにペースが出ます</p>
+            )}
+          </div>
           {/* 今月の「使った割合」の細いバー(2-1)。残りと使った額の合計に対する使った額。 */}
           <span className="lh-money__bar" aria-hidden="true">
             <i style={{ width: `${Math.round(Math.min(100, Math.max(0, usedRatio * 100)))}%` }} />
