@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { parseISO } from "date-fns";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Plus, Calendar as CalendarIcon, CheckSquare, Sparkles } from "lucide-react";
 import { db } from "../db/schema";
@@ -66,6 +67,14 @@ export default function SchedulePage() {
   }, [searchParams]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(todayStr());
+  // ホームの7日の帯(HomeWeekStrip)から ?date=YYYY-MM-DD で来たら、その日を選んだ状態でカレンダーを開く(2026-10-18)。
+  useEffect(() => {
+    const date = searchParams.get("date");
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setSelectedDate(date);
+      setCurrentMonth(parseISO(date));
+    }
+  }, [searchParams]);
   const [addTypeOpen, setAddTypeOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<EditingEvent>(null);
   const [editingTask, setEditingTask] = useState<EditingTask>(null);
