@@ -9,7 +9,6 @@ import { EventList } from "../calendar/EventList";
 import { TaskItem } from "../tasks/TaskItem";
 import { toggleTaskCompletion, deleteTaskWithUndo, postponeTaskToTomorrow } from "../tasks/TaskList";
 import { Card } from "../ui/Card";
-import { EmptyIllustration } from "../ui/EmptyIllustration";
 import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
 import { WeekAheadPanel } from "./WeekAheadPanel";
 import { useIsDesktop } from "../../hooks/useIsDesktop";
@@ -61,11 +60,14 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
             <div><p>{format(now, "M月d日(E)", { locale: ja })}</p></div>
             <b>予定 {todayEvents.length}件</b>
           </div>
-          <div className="planning-timeline-detail">
-            <div className="planning-time-rail" aria-hidden="true">
-              <span>6</span><span>12</span><span>18</span><span>24</span>
-              <i style={{ top: `${currentTimePosition}%` }} />
-            </div>
+          {/* 予定が0件の日は、左の時間の目盛り(6・12・18・24)を出さない(第8弾 S-1)。 */}
+          <div className={`planning-timeline-detail${todayEvents.length === 0 ? " is-plain" : ""}`}>
+            {todayEvents.length > 0 && (
+              <div className="planning-time-rail" aria-hidden="true">
+                <span>6</span><span>12</span><span>18</span><span>24</span>
+                <i style={{ top: `${currentTimePosition}%` }} />
+              </div>
+            )}
             <div className="planning-timeline-content">
               {todayEvents.length > 0 ? (
                 <EventList events={todayEvents} onEdit={onEditEvent} onDelete={onDeleteEvent} onDate={today} />
@@ -81,15 +83,21 @@ export function TodayView({ events, tasks, tripAgenda, onEditEvent, onDeleteEven
 
         <Card className="planning-task-module flex min-h-[250px] flex-col">
           <div className="planning-module-heading"><div><p>今日のタスク</p></div><b>{completedTodayCount} / {allDueTodayTasks.length}</b></div>
-          <div className="planning-task-overview">
-            <div className={`planning-progress-ring ${ringCelebrating ? "is-celebrating" : ""}`} style={{ "--planning-progress": `${taskProgress * 3.6}deg` } as CSSProperties}><span>{taskProgress}<small>%</small></span></div>
-            <div><strong>{allDueTodayTasks.length ? `あと${Math.max(0, allDueTodayTasks.length - completedTodayCount)}件` : "タスクなし"}</strong><p>完了 {completedTodayCount} / 全体 {allDueTodayTasks.length}</p></div>
-          </div>
+          {/* タスクが0件の日は、輪(0%)も箱の中の箱も出さず、1行の文と「＋タスクを追加」だけ(第8弾 S-1)。 */}
+          {allDueTodayTasks.length > 0 && (
+            <div className="planning-task-overview">
+              <div className={`planning-progress-ring ${ringCelebrating ? "is-celebrating" : ""}`} style={{ "--planning-progress": `${taskProgress * 3.6}deg` } as CSSProperties}><span>{taskProgress}<small>%</small></span></div>
+              <div><strong>{`あと${Math.max(0, allDueTodayTasks.length - completedTodayCount)}件`}</strong><p>完了 {completedTodayCount} / 全体 {allDueTodayTasks.length}</p></div>
+            </div>
+          )}
           <div className="planning-task-list">
             {dueTodayTasks.length === 0 ? (
-              <div className="planning-empty-control planning-empty-control--tasks">
-                <div className="planning-compact-empty"><EmptyIllustration kind="tasks" size={56} /><div><strong>今日はすっきり。</strong><p>何か1つ足しますか？</p></div></div>
-                <div className="planning-empty-footer"><span>未完了 0件</span><button type="button" onClick={onAddTask}><Plus size={13} />タスクを追加</button></div>
+              <div className="planning-task-clear">
+                <p>{allDueTodayTasks.length > 0 ? "今日のタスクは全部終わりました。" : "今日のタスクはありません。"}</p>
+                <button type="button" className="lh-add-pill" onClick={onAddTask}>
+                  <Plus size={14} aria-hidden="true" />
+                  タスクを追加
+                </button>
               </div>
             ) : (
               <div className="space-y-2">

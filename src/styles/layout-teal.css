@@ -1283,3 +1283,8 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
   .lh-section--subs .lh-subs, .lh-section--gmail .lh-group { flex: 1 1 auto; min-height: 9.4rem; align-content: start; }
   .lh-section--trip .warm-trip, .lh-section--trip.is-compact .warm-trip { flex: 1 1 auto; min-height: 9.4rem; }
 }
+
+/* 第8弾 3本目 予定・タスク S-1: 予定0件の日は目盛りの列を無くす。タスク0件は1行＋追加。 */
+.planning-timeline-detail.is-plain { grid-template-columns: minmax(0, 1fr); }
+.planning-task-clear { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding: 0.35rem 0.2rem; }
+.planning-task-clear p { margin: 0; color: var(--warm-ink-3); font-size: var(--fs-body); }
