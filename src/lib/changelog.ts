@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-19-102",
+    date: "2026-10-19",
+    area: "全体",
+    title: "背景を白に",
+    description:
+      "画面の背景を、うっすら緑がかった色から白に変えました。ホームの左上にあった薄い緑のにじみも外しています。",
+  },
+  {
     id: "2026-10-19-101",
     date: "2026-10-19",
     area: "予定・タスク",

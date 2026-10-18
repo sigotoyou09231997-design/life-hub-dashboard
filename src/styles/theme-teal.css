@@ -28,8 +28,9 @@
   --ink-black: #121416;
   --ink-black-2: #1d2124;
 
-  /* 地はほんの少しだけ青緑に寄せた灰。白いカードとの境目がはっきりする。 */
-  --warm-ground: #f3f6f6;
+  /* 地は白(2026-10-19 本人「背景は白にしたデザインがいい」)。以前は少し青緑に寄せた灰 #f3f6f6 で、
+     薄い緑の面に見えていた。白いカードとの境目は、細い線と影で分ける。 */
+  --warm-ground: #ffffff;
   --warm-surface-soft: #f3f5f5;
   --warm-surface-sunk: #eceff0;
   --warm-line: rgba(18, 28, 30, 0.07);

@@ -1146,16 +1146,8 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 /* ============================================================================
    「寂しくないホーム」2本目(2026-10-18): 面・形で華やかに(色は白＋青緑＋黒のまま)
    ========================================================================= */
-/* 2-5 ページの地の左上に、ごく薄い青緑のにじみ(固定。カードは白のまま)。 */
+/* 2-5 のページの地の青緑のにじみは、2026-10-19 に外した(本人「背景は白がいい」)。 */
 .lh-home { position: relative; }
-.lh-home::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(900px circle at 10% -10%, rgba(23, 161, 153, 0.08), transparent 60%);
-  pointer-events: none;
-}
 /* 2-2 見出しの左の札 */
 .lh-section__icon {
   display: grid;
