@@ -108,11 +108,11 @@ export function TripPackingList({ items, onEdit, onDelete }: Props) {
                       </ListRow>
                     );
                   })}
-          </div>
                 </div>
               </div>
             );
           })}
+          </div>
         </>
       )}
     </div>
