@@ -206,6 +206,8 @@ function TripRoutePicks({
                 すべてルートに入れる
               </button>
             )}
+          </div>
+        )}
         <ul className="trip-route-picks__list">
           {suggestions.map((suggestion) => (
             <li key={suggestion.scheduleId}>
@@ -232,8 +234,6 @@ function TripRoutePicks({
             </li>
           ))}
         </ul>
-          </div>
-        )}
         {others > 0 && (
           <div className="trip-route-picks__actions">
             <button type="button" className="trip-route-picks__all" onClick={() => onAdd(allSuggestions)}>
