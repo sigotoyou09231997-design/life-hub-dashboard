@@ -1142,3 +1142,90 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
   .lh-section--trip.is-compact .warm-trip { min-height: 10.6rem; }
   .lh-week__strip { gap: 0.4rem; padding: 0 1rem; }
 }
+
+/* ============================================================================
+   「寂しくないホーム」2本目(2026-10-18): 面・形で華やかに(色は白＋青緑＋黒のまま)
+   ========================================================================= */
+/* 2-5 ページの地の左上に、ごく薄い青緑のにじみ(固定。カードは白のまま)。 */
+.lh-home { position: relative; }
+.lh-home::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(900px circle at 10% -10%, rgba(23, 161, 153, 0.08), transparent 60%);
+  pointer-events: none;
+}
+/* 2-2 見出しの左の札 */
+.lh-section__icon {
+  display: grid;
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--teal-50);
+  color: var(--teal-700);
+}
+/* 2-1 黒いカード: 小さな札・使った割合のバー・葉のモチーフ */
+.lh-money__pills { gap: 0.4rem; }
+.lh-money__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.2rem 0.6rem;
+  color: rgba(244, 247, 247, 0.72);
+  font-size: var(--fs-caption);
+}
+.lh-money__bar {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 4px;
+  margin-top: 0.8rem;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.lh-money__bar i { display: block; height: 100%; border-radius: var(--r-pill); background: var(--teal-400); transition: width 600ms var(--ease-out-expo); }
+.lh-money__bar-note { position: relative; z-index: 1; margin-top: 0.35rem; color: rgba(244, 247, 247, 0.55); font-size: var(--fs-caption); }
+.lh-money__leaf {
+  position: absolute;
+  right: -2.5rem;
+  bottom: -3.5rem;
+  z-index: 0;
+  color: #fff;
+  opacity: 0.07;
+  pointer-events: none;
+}
+.lh-money > * { position: relative; z-index: 1; }
+.lh-money > .lh-money__leaf { z-index: 0; }
+/* 2-3 7日の帯のタイルに表情。今日は薄い面＋細い青緑の線。PC ではホバーで少し持ち上がる。 */
+.lh-week__day { border: 1px solid transparent; transition: transform 300ms var(--spring), background-color 200ms ease, border-color 200ms ease; }
+.lh-week__day.is-today { border-color: rgba(23, 161, 153, 0.3); }
+@media (hover: hover) and (pointer: fine) {
+  .lh-week__day:hover { transform: translateY(-2px); background: var(--warm-surface-soft); }
+  .lh-week__day.is-today:hover { background: var(--teal-50); }
+}
+.lh-subs__initial {
+  display: grid;
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+/* 2-4 空の状態に絵 */
+.lh-week__empty { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+.lh-concern-none { display: inline-flex; align-items: center; gap: 0.4rem; }
+.lh-concern-none svg { color: var(--teal-600); }
+@media (prefers-reduced-motion: reduce) {
+  .lh-week__day, .lh-money__bar i { transition: none; }
+  .lh-week__day:hover { transform: none; }
+}

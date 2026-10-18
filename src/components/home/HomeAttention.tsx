@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { Leaf } from "lucide-react";
 import type { Concern } from "../../lib/homeLayout";
 import { openQuickAdd } from "../layout/AddChooser";
 
@@ -31,7 +32,12 @@ export function HomeAttention({ concerns }: { concerns: Concern[] }) {
   }, [concerns]);
 
   if (concerns.length === 0 && leaving.length === 0) {
-    return <p className="lh-concern-none">気になることはありません</p>;
+    return (
+      <p className="lh-concern-none">
+        <Leaf size={15} strokeWidth={1.75} aria-hidden="true" />
+        気になることはありません
+      </p>
+    );
   }
   const shown: { concern: Concern; isLeaving: boolean }[] = [
     ...concerns.map((concern) => ({ concern, isLeaving: false })),

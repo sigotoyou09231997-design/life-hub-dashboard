@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowRight, ChevronRight, Mail, Plane, Plus } from "lucide-react";
+import { ArrowRight, Bell, CalendarDays, ChevronRight, CreditCard, Leaf, Mail, Plane, Plus, type LucideIcon } from "lucide-react";
 import { db } from "../db/schema";
 import { formatDisplayDate, toDateStr, todayStr } from "../lib/date";
 import { occursOn } from "../lib/eventSpan";
@@ -33,9 +33,15 @@ import { aheadDates, buildConcerns, homeStatusLine, homeSubscriptions, tripCardS
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
 /** 区切りの見出し。見出しはカードの外（参考にしたアプリの形）。 */
-function SectionHead({ title, to, trailing }: { title: string; to?: string; trailing?: ReactNode }) {
+function SectionHead({ title, to, trailing, icon: Icon }: { title: string; to?: string; trailing?: ReactNode; icon?: LucideIcon }) {
   return (
     <div className="lh-section__head">
+      {/* 見出しの左の札(「寂しくないホーム」2-2): 28px の角丸の四角(青緑の薄い面)＋アイコン。 */}
+      {Icon && (
+        <span className="lh-section__icon" aria-hidden="true">
+          <Icon size={16} strokeWidth={1.75} />
+        </span>
+      )}
       <h2 className="lh-section__title">{title}</h2>
       {trailing}
       {to && (
@@ -79,6 +85,8 @@ export default function TopPage() {
   const statusLine = homeStatusLine(eventsResult ? todayEvents.length : undefined, tasksResult ? todayOpenTasks : undefined);
 
   const { data: budget } = usePayPeriodBudget();
+  // 使った割合 = 使った額 ÷ (使った額 ＋ 残り)。残りがマイナス(使いすぎ)なら満タン。
+  const usedRatio = budget ? (budget.remaining < 0 ? 1 : budget.actualSpending / Math.max(1, budget.actualSpending + budget.remaining)) : 0;
   // 給与がまだ無い時の「今月のお金」。給与が無くても分かる今月の支出を出す(UI/UX 調査メモ A-4)。
   const monthStart = `${today.slice(0, 7)}-01`;
   const monthSpending = useLiveQuery(async () => {
@@ -202,18 +210,23 @@ export default function TopPage() {
             {/* 支出を記録すると、減った額が「−¥1,280」と浮かんでから、前の残りから数え下がる(第4弾 A-5)。 */}
             <CountingAmount value={budget.remaining} resetKey={toDateStr(budget.period.periodStart)} showDelta />
           </p>
-          <p className="lh-money__line">
-            <span>
+          <p className="lh-money__line lh-money__pills">
+            <span className="lh-money__pill">
               1日あたり <b>¥{Math.round(Math.max(0, budget.perDayUsable)).toLocaleString()}</b>
             </span>
-            <span aria-hidden="true">・</span>
-            <span>
+            <span className="lh-money__pill">
               給料日まで <b>{budget.period.daysUntilNextPayday}日</b>
             </span>
           </p>
           <span className="warm-card__foot">
             支出を見る <ArrowRight size={14} />
           </span>
+          {/* 今月の「使った割合」の細いバー(2-1)。残りと使った額の合計に対する使った額。 */}
+          <span className="lh-money__bar" aria-hidden="true">
+            <i style={{ width: `${Math.round(Math.min(100, Math.max(0, usedRatio * 100)))}%` }} />
+          </span>
+          {budget.actualSpending <= 0 && <span className="lh-money__bar-note">まだ使っていません</span>}
+          <Leaf className="lh-money__leaf" size={220} strokeWidth={0.9} aria-hidden="true" />
         </Link>
       ) : (
         // 給与がまだ無い時。中にリンクが2つあるので、カードそのものはリンクにしない。
@@ -258,7 +271,7 @@ export default function TopPage() {
 
       {/* 2. 気になること(放っておくと困ることだけ)。無い日は1行で、カードは出さない。 */}
       <section className="lh-section lh-section--concern" data-reveal="2" aria-label="気になること">
-        <SectionHead title="気になること" />
+        <SectionHead title="気になること" icon={Bell} />
         <HomeAttention concerns={concerns} />
       </section>
 
@@ -268,7 +281,7 @@ export default function TopPage() {
       {/* 3. 今日と、この先: 7日の帯と、この先の予定・タスク(最大4行)。 */}
       {!hide.schedule && (
         <section className="lh-section lh-section--ahead" data-reveal="3">
-          <SectionHead title="今日と、この先" to="/schedule?view=calendar" />
+          <SectionHead title="今日と、この先" to="/schedule?view=calendar" icon={CalendarDays} />
           <HomeWeekStrip days={strip} rows={upcoming} ready={eventsResult !== undefined && tasksResult !== undefined} onAdd={(kind) => openQuickAdd(kind)} />
         </section>
       )}
@@ -276,7 +289,7 @@ export default function TopPage() {
       {/* 4. 次の旅行。旅行があればいつも写真のカード(30日より先は高さを控えめに)。大きな文字は「あと◯日」「N日目」。 */}
       {!hide.trips && (
         <section className={`lh-section lh-section--trip${tripSize === "compact" ? " is-compact" : ""}`} data-reveal="4">
-          <SectionHead title="次の旅行" to="/trips" />
+          <SectionHead title="次の旅行" to="/trips" icon={Plane} />
           {tripsResult === undefined ? (
             <div className="warm-trip is-compact lh-trip-loading" aria-hidden="true" />
           ) : featuredTrip ? (
@@ -322,7 +335,7 @@ export default function TopPage() {
       {/* 4. サブスクの次の請求。登録が0件ならカードごと出さない。 */}
       {subs.rows.length > 0 && (
         <section className="lh-section lh-section--subs" data-reveal="4">
-          <SectionHead title="次の請求" to="/records/expense?tab=subs" />
+          <SectionHead title="次の請求" to="/records/expense?tab=subs" icon={CreditCard} />
           <HomeSubscriptions rows={subs.rows} thisMonthCharge={subs.thisMonthCharge} />
         </section>
       )}
@@ -330,7 +343,7 @@ export default function TopPage() {
       {/* 4. Gmail。未処理と重要な未読の2行と「開く」。 */}
       {!hide.gmail && (
         <section className="lh-section lh-section--gmail" data-reveal="5">
-          <SectionHead title="Gmail" to={gmailPreview?.connected ? "/gmail" : undefined} />
+          <SectionHead title="Gmail" to={gmailPreview?.connected ? "/gmail" : undefined} icon={Mail} />
           <div className="warm-card lh-group">
             {gmailPreview?.connected ? (
               gmailPreview.total === 0 && gmailPreview.importantUnread === 0 ? (
