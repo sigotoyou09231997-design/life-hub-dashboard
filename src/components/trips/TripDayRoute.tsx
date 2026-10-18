@@ -29,6 +29,16 @@ const MODE_KEY = "lifehub.tripDayRouteMode";
 const MODE_BY_DATE_KEY = "lifehub.tripDayRouteModeByDate";
 /** 外した場所。端末ごとに覚える(同期はしない)。区間ごとの手段(legs)を持っていた頃の値も読めるように同じ鍵。 */
 const CHOICES_KEY = "lifehub.tripDayRouteChoices";
+/** 「自宅」の案内を「あとで」で閉じた印(仕上げ B-2、2026-10-18)。端末に覚える(Supabase には保存しない)。 */
+export const HOME_NOTE_DISMISSED_KEY = "lifehub.tripDayRouteHomeNoteDismissed";
+
+function readHomeNoteDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(HOME_NOTE_DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 const MODE_OPTIONS: { value: LegMode; label: string }[] = [
   { value: "driving", label: LEG_MODE_LABEL.driving },
@@ -102,6 +112,7 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
   const mode: LegMode = pickedModes[date] ?? scheduleMode ?? fallbackMode;
   const followsSchedule = pickedModes[date] === undefined && scheduleMode !== undefined;
   const [excludedKeys, setExcludedKeys] = useState<string[]>(readExcluded);
+  const [homeNoteDismissed, setHomeNoteDismissed] = useState(readHomeNoteDismissed);
   /** 経路に出す場所を選ぶシートを開いているか。 */
   const [open, setOpen] = useState(false);
 
@@ -135,9 +146,9 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
   /** 手段の下に出す、日程との関係。日程に移動手段がある日だけ。 */
   const modeNote =
     scheduleMode === undefined ? null : followsSchedule ? (
-      <p className="text-xs text-slate-500">日程の移動手段（{LEG_MODE_LABEL[scheduleMode]}）に合わせています。</p>
+      <p className="trip-day-route__note">日程の移動手段（{LEG_MODE_LABEL[scheduleMode]}）に合わせています。</p>
     ) : scheduleMode !== mode ? (
-      <p className="text-xs text-slate-500">
+      <p className="trip-day-route__note">
         日程の移動手段は{LEG_MODE_LABEL[scheduleMode]}です。{" "}
         <button type="button" className="underline" onClick={followSchedule}>
           日程に合わせる
@@ -152,14 +163,27 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
     store(CHOICES_KEY, JSON.stringify({ excluded: next }));
   }
 
-  const homeNote = homeSkipped && (
-    <p className="px-1 text-xs text-slate-500">
-      「自宅」は地図に入れていません。
-      <Link to="/settings" className="underline">
-        設定の「自宅の住所」
-      </Link>
-      を入れると、経路の出発・到着に入ります。
-    </p>
+  // 「自宅」の案内(仕上げ B-2): 自宅の住所が入っていない時だけ、1行の補足＋「自宅の住所を入れる」。
+  // 「あとで」で閉じたら、この端末では出さない。住所を入れれば homeSkipped が false になり、何も出ない。
+  const homeNote = homeSkipped && !homeNoteDismissed && (
+    <div className="trip-day-route__home-note">
+      <p className="trip-day-route__note">「自宅」は地図に入れていません。自宅の住所を入れると、経路の出発・到着に入ります。</p>
+      <div className="trip-day-route__home-actions">
+        <Link to="/settings" className="trip-day-route__cta">
+          自宅の住所を入れる
+        </Link>
+        <button
+          type="button"
+          className="trip-day-route__later"
+          onClick={() => {
+            store(HOME_NOTE_DISMISSED_KEY, "1");
+            setHomeNoteDismissed(true);
+          }}
+        >
+          あとで
+        </button>
+      </div>
+    </div>
   );
 
   if (stops.length === 0) {

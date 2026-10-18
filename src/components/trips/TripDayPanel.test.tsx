@@ -73,7 +73,7 @@ describe("PCの日程の右の欄(TripDayPanel)", () => {
     expect(screen.getByRole("button", { name: "場所と移動手段を選ぶ" })).toBeTruthy();
   });
 
-  it("天気は言葉と気温で出す。予報の先の日は、理由を1行で書く", () => {
+  it("天気は言葉と気温で出す。予報の範囲より先の日は、何も出さない(仕上げ B-2)", () => {
     const weather: TripWeather = {
       status: "ok",
       place: { name: "高松市", latitude: 0, longitude: 0 },
@@ -84,9 +84,10 @@ describe("PCの日程の右の欄(TripDayPanel)", () => {
     expect(screen.getByText("高松市の予報")).toBeTruthy();
     cleanup();
     renderPanel({ weather, date: DAY2, dayNumber: 2 });
-    expect(screen.getByText(/より先は、まだ予報が出ていません/)).toBeTruthy();
-    // 左の断り書きをPCでは出さないので、どこの予報かは予報の無い日にも書く。
-    expect(screen.getByText("高松市の予報")).toBeTruthy();
+    expect(screen.queryByText(/より先は、まだ予報が出ていません/)).toBeNull();
+    expect(screen.queryByText("高松市の予報")).toBeNull();
+    // 日の見出しは残る。
+    expect(screen.getByText(/2日目/)).toBeTruthy();
   });
 
   it("その日の費用が無い日は、そう書く", () => {

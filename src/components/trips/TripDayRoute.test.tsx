@@ -171,7 +171,30 @@ describe("TripDayRoute", () => {
     fireEvent.click(screen.getByRole("button", { name: "この日の経路を地図で見る" }));
     expect(mapStops()).toEqual(["東京駅 東京都千代田区", "高松駅 香川県高松市"]);
     expect(screen.queryByRole("checkbox", { name: "自宅" })).toBeNull();
-    expect(screen.getByRole("link", { name: "設定の「自宅の住所」" }).getAttribute("href")).toBe("/settings");
+    expect(screen.getByRole("link", { name: "自宅の住所を入れる" }).getAttribute("href")).toBe("/settings");
+  });
+
+  it("「あとで」で案内を閉じると、この端末では次に開いても出ない(仕上げ B-2)", () => {
+    const props = { items: [item("自宅", "05:00"), ...DAY1.slice(1, 3)], date: DAY };
+    const { unmount } = render(
+      <MemoryRouter>
+        <TripDayRoute {...props} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "この日の経路を地図で見る" }));
+    fireEvent.click(screen.getByRole("button", { name: "あとで" }));
+    expect(screen.queryByRole("link", { name: "自宅の住所を入れる" })).toBeNull();
+    expect(window.localStorage.getItem("lifehub.tripDayRouteHomeNoteDismissed")).toBe("1");
+    unmount();
+    render(
+      <MemoryRouter>
+        <TripDayRoute {...props} />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "この日の経路を地図で見る" }));
+    expect(screen.queryByRole("link", { name: "自宅の住所を入れる" })).toBeNull();
+    // 「自宅」そのものは今までどおり地図に入れない。
+    expect(mapStops()).toEqual(["東京駅 東京都千代田区", "高松駅 香川県高松市"]);
   });
 
   it("uses the home address from the settings in place of 自宅", () => {
@@ -183,7 +206,7 @@ describe("TripDayRoute", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "この日の経路を地図で見る" }));
     expect(mapStops()).toEqual(["栃木県下野市1-2-3", "東京駅 東京都千代田区", "高松駅 香川県高松市"]);
-    expect(screen.queryByRole("link", { name: "設定の「自宅の住所」" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "自宅の住所を入れる" })).toBeNull();
   });
 });
 

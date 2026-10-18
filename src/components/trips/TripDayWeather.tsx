@@ -81,8 +81,10 @@ export function TripWeatherBanner({ placeName, country, horizon, beyondHorizon }
  * (TripDayWeather)と同じ予報を、言葉(晴れ・雨…)と降水確率まで出して少し大きく見せる。
  * 右の欄は横に余裕があるので、見出しの1行に収めるために畳んだものをここで広げる。
  *
- * 予報が無い日も、何も出さないのではなく理由を1行で書く — 欄ごと消えると、
- * 天気が出ない旅行なのか、まだ先の日だからなのかが分からない。
+ * 予報が無い日も、理由を1行で書く — 欄ごと消えると、天気が出ない旅行なのか、まだ先の日だからなのかが
+ * 分からない。ただし予報の範囲より先の日(16日より先)は何も出さない(仕上げ B-2、2026-10-18):
+ * 旅行の数日前までは毎日「まだ予報が出ていません」が並ぶだけで、読むたびに同じ断りになるため。
+ * 予報が出る日になれば、ふつうの形で出る。
  */
 export function TripDayWeatherCard({ weather, date }: { weather?: TripWeather; date: string }) {
   if (!weather) return <p className="trip-day-forecast__note">天気予報を調べています…</p>;
@@ -103,14 +105,11 @@ export function TripDayWeatherCard({ weather, date }: { weather?: TripWeather; d
   if (!forecast) {
     const horizon = forecastHorizon(weather.days);
     const first = weather.days[0]?.date;
+    if (horizon && date > horizon) return null;
     return (
       <div className="trip-day-forecast">
         <p className="trip-day-forecast__note trip-day-forecast__wide">
-          {horizon && date > horizon
-            ? `${formatShortDate(horizon)}より先は、まだ予報が出ていません。`
-            : first && date < first
-              ? "過ぎた日の天気は出せません。"
-              : "この日の予報はありません。"}
+          {first && date < first ? "過ぎた日の天気は出せません。" : "この日の予報はありません。"}
         </p>
         {placeLabel && <small className="trip-day-forecast__place">{placeLabel}</small>}
       </div>
