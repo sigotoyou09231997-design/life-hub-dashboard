@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import type { StripDay, UpcomingRow } from "../../lib/homeLayout";
@@ -34,11 +35,12 @@ export function HomeWeekStrip({ days, rows, ready, onAdd }: Props) {
   return (
     <div className="warm-card lh-week">
       <div className="lh-week__strip" role="list" aria-label="この1週間">
-        {days.map((day) => {
+        {days.map((day, index) => {
           const total = day.events + day.tasks;
           return (
             <Link
               key={day.date}
+              style={{ "--i": index } as CSSProperties}
               to={`/schedule?view=calendar&date=${day.date}`}
               role="listitem"
               className={`lh-week__day${day.isToday ? " is-today" : ""}`}

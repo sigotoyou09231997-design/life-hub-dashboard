@@ -301,7 +301,20 @@ export default function TopPage() {
                 {TRIP_STATUS_LABEL[featuredTrip.status]}
               </span>
               <p className="warm-trip__place">{featuredTrip.name || featuredTrip.destination}</p>
-              {tripCount && <p className="warm-trip__count">{tripCount}</p>}
+              {tripCount && (
+                <p className="warm-trip__count">
+                  {/* 数字だけを別の span に: 開いた時に 0 から数え上がる(useDesignMotion の COUNT_SELECTOR)。「日」が同じ文字にあると数えない決まりのため。 */}
+                  {/^(あと)?(\d+)(日目|日)$/.test(tripCount) ? (
+                    <>
+                      {tripCount.startsWith("あと") && "あと"}
+                      <span className="warm-trip__count-num">{tripCount.replace(/\D/g, "")}</span>
+                      {tripCount.endsWith("日目") ? "日目" : "日"}
+                    </>
+                  ) : (
+                    tripCount
+                  )}
+                </p>
+              )}
               <p className="warm-trip__when warm-trip__facts">
                 <span>{tripWhen}</span>
                 {tripFacts && (
