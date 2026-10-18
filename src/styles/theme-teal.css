@@ -849,3 +849,24 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 .subs-views-row__label { color: var(--warm-ink); font-size: var(--fs-section); font-weight: 600; }
 .subs-views-row .subs-views { margin: 0; }
 .subs-views-row .subs-views [role="tab"] { min-height: 2rem; padding: 0 0.7rem; font-size: 0.8125rem; }
+
+/* 設定・アカウントの操作ボタン(前は幅いっぱいの文字だけの帯): PC では白地＋細い枠の 36px のボタンを横に並べる(第8弾 X-2 / ST-2)。 */
+@media (min-width: 1024px) {
+  .system-section__actions,
+  .profile-module__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; }
+  .system-section__actions .app-button,
+  .profile-module__actions .app-button {
+    width: auto;
+    min-height: 2.25rem;
+    padding: 0 0.9rem;
+    border: 1px solid var(--warm-line-strong);
+    border-radius: var(--r-pill);
+    background: var(--warm-surface);
+    color: var(--teal-700);
+    font-size: var(--fs-body);
+    font-weight: 700;
+    box-shadow: none;
+  }
+  .system-section__actions .app-button:hover,
+  .profile-module__actions .app-button:hover { background: var(--teal-50); }
+}
