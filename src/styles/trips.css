@@ -682,6 +682,11 @@ a.trip-leg-mode--link {
   min-width: 0;
 }
 
+/* 仕上げ B-3(2026-10-18、第6弾 D-11 / 第7弾 F-2): メモのカードは日程の列と同じ幅にする(index.css の max-width: 800px を外す)。
+   そのかわり本文だけは1行を約40字(40em)で止める — 1行が80字を超えると読み返しが増えるため。 */
+.trip-detail-page .trip-memo-note { max-width: none; }
+.trip-memo-note__text { max-width: 40em; }
+
 /* --- 日程タブ: 旅行のメモの「続きを読む」(TripMemoNote) ------------------------
    メモは3行で畳む。押せる所だと分かるよう青緑の字にし、指で押しやすい高さを持たせる。 */
 .trip-memo-note__toggle {

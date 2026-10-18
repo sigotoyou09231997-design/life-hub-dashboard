@@ -33,7 +33,7 @@ export function TripMemoNote({ memo }: { memo: string }) {
       <p
         id={textId}
         ref={textRef}
-        className={`mt-0.5 whitespace-pre-wrap text-sm text-slate-700${open ? "" : " line-clamp-3"}`}
+        className={`trip-memo-note__text mt-0.5 whitespace-pre-wrap text-sm text-slate-700${open ? "" : " line-clamp-3"}`}
       >
         {memo}
       </p>
