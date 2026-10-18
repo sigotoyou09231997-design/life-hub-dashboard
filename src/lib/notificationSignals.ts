@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../db/schema";
 import type { SyncedEmail, Task, Transaction } from "../types";
 import { isOverdue, toDateStr, todayStr } from "./date";
-import { parseSender } from "./gmail";
+import { isUnhandledEmail, parseSender } from "./gmail";
 import {
   forecastOverBudget,
   spendingByCategory,
@@ -46,18 +46,23 @@ async function loadBudgetForecasts(): Promise<CategoryBudgetForecast[]> {
 /** Aggregates the app's "needs your attention" signals for the header bell:
  * unprocessed Gmail (blocked senders excluded, same rule as GmailInbox) and
  * overdue tasks. There's no persisted notification-center table — this is
- * computed live from the same data the Gmail/Schedule screens already show. */
+ * computed live from the same data the Gmail/Schedule screens already show.
+ *
+ * 2026-10-18(第8弾 1-2): Gmail の「未処理」は、ホームのカード・Gmail ページと同じ isUnhandledEmail
+ * (既読でも重要でも返信済みでもない)で数える。前は status が "unprocessed" のものを数えていたので、
+ * 既読や重要にしたメールまでベルに残り、ホーム(0〜2件)とベル(5件)が食い違っていた。
+ * ブロック中の送信者も、Gmail ページと同じく「アカウント＋アドレス」で除く。 */
 export function useNotificationSignals(): NotificationSignals {
   const result = useLiveQuery(async () => {
-    const [unprocessedEmails, blockedSenders, tasks, budgetForecasts] = await Promise.all([
-      db.syncedEmails.where("status").equals("unprocessed").reverse().sortBy("receivedAt"),
+    const [allEmails, blockedSenders, tasks, budgetForecasts] = await Promise.all([
+      db.syncedEmails.orderBy("receivedAt").reverse().toArray(),
       db.blockedSenders.toArray(),
       db.tasks.toArray(),
       loadBudgetForecasts(),
     ]);
-    const blockedSet = new Set(blockedSenders.map((b) => b.email));
-    const gmailUnprocessed = unprocessedEmails
-      .filter((e) => !blockedSet.has(parseSender(e.from).email.toLowerCase()))
+    const blockedSet = new Set(blockedSenders.map((b) => `${b.accountId}:${b.email}`));
+    const gmailUnprocessed = allEmails
+      .filter((e) => isUnhandledEmail(e) && !blockedSet.has(`${e.accountId}:${parseSender(e.from).email.toLowerCase()}`))
       .slice(0, GMAIL_PREVIEW_LIMIT);
     const overdueTasks = tasks.filter((t) => !t.completed && isOverdue(t.dueDate, t.dueTime));
     return {

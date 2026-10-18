@@ -389,6 +389,21 @@ describe("メール一覧 — 開き直した時に空白・誤表示を出さ�
     expect(screen.getAllByRole("link", { name: /一次面接のご案内|説明会の御礼/ })).toHaveLength(2);
   });
 
+  it("絞り込みの先頭は「未処理」。片付いていて空なら「未処理のメールはありません」、検索で空なら「該当する結果」(第8弾 G-1)", async () => {
+    mocks.emails = [email("m1", "読んだメール", { readAt: 5 })];
+    renderInbox({ id: "empty-label" });
+    expect(await screen.findByRole("button", { name: "未処理" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "すべて" })).toBeNull();
+    expect(await screen.findByText("未処理のメールはありません")).toBeTruthy();
+    expect(screen.queryByText("該当する結果が見つかりませんでした")).toBeNull();
+    // 既読の絞り込みにすれば、読んだメールが出る。
+    await userEvent.click(screen.getByRole("button", { name: "既読" }));
+    expect(await screen.findByText("読んだメール")).toBeTruthy();
+    // 検索語で空になった時だけ「該当する結果」。
+    await userEvent.type(screen.getByPlaceholderText("メールを検索"), "ない語");
+    expect(await screen.findByText("該当する結果が見つかりませんでした")).toBeTruthy();
+  });
+
   it("読み出し中に「受信メールはまだありません」を一瞬出さない(初めて開く時も)", async () => {
     renderInbox({ id: "first-open" });
     expect(screen.queryByText("受信メールはまだありません")).toBeNull();
