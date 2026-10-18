@@ -376,7 +376,8 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
               「予定候補」は該当が1件も無いときは出さない — 押しても空の一覧しか出ないため。 */}
           {(
             [
-              ["all", "すべて"],
+              // 「すべて」は実際には手を付けていないメールだけなので、名前も「未処理」にした(第8弾 G-1、2026-10-18)。内部の値は "all" のまま。
+              ["all", "未処理"],
               ...(planSuggestions && planSuggestions.length > 0
                 ? ([["plan", `予定候補 ${planSuggestions.length}`]] as const)
                 : []),
@@ -611,7 +612,17 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
           )}
         </div>
       ) : emails && emails.length > 0 ? (
-        <EmptyState title="該当する結果が見つかりませんでした" description="検索条件を変えてみてください。" />
+        !query.trim() && statusFilter === "all" ? (
+          // 検索も絞り込みも無いのに空 = 片付いている(第8弾 G-1)。「検索条件を変えて」では、メールが消えたように見える。
+          <EmptyState
+            icon={Mail}
+            illustration="mail"
+            title="未処理のメールはありません"
+            description="受信トレイは片付いています。既読や返信待ちは、上の絞り込みから見られます。"
+          />
+        ) : (
+          <EmptyState title="該当する結果が見つかりませんでした" description="検索条件を変えてみてください。" />
+        )
       ) : (
         <EmptyState
           icon={Mail}
