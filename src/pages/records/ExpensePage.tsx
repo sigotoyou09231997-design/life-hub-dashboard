@@ -185,11 +185,11 @@ export default function ExpensePage() {
                 </div>
               </>
             )}
-            <div className="mt-4 flex gap-2">
-              <Button className="flex-1" onClick={() => setEditingSalary("new")}>
-                給与を追加
+            <div className="lh-add-row mt-4 flex gap-2">
+              <Button className="flex-1 lh-add-end" onClick={() => setEditingSalary("new")}>
+                <Plus size={16} aria-hidden="true" /> 給与を追加
               </Button>
-              <Button variant="secondary" className="flex-1" onClick={() => setSalaryCsvImportOpen(true)}>
+              <Button variant="secondary" className="flex-1 lh-add-second" onClick={() => setSalaryCsvImportOpen(true)}>
                 CSVから取込
               </Button>
             </div>
@@ -220,11 +220,11 @@ export default function ExpensePage() {
             {/* 前は4つのボタンを1行に詰めていて、「収支を追/加」と途中で折り返し、
                 「CSVで書き出す」は切れていた(UI/UX 調査メモ B-4)。いちばん使う「収支を追加」
                 だけを大きく置き、残りは「ほかの方法」にまとめる。 */}
-            <div className="finance-history-actions mt-4">
-              <Button className="w-full" onClick={() => setEditingTransaction("new")}>
+            <div className="finance-history-actions lh-add-row mt-4">
+              <Button className="w-full lh-add-end" onClick={() => setEditingTransaction("new")}>
                 <Plus size={16} aria-hidden="true" /> 収支を追加
               </Button>
-              <Button variant="secondary" className="w-full" onClick={() => setMoreMethodsOpen(true)}>
+              <Button variant="secondary" className="w-full lh-add-second" onClick={() => setMoreMethodsOpen(true)}>
                 ほかの方法(レシート・CSV など)
               </Button>
             </div>

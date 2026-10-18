@@ -18,13 +18,10 @@ interface Props {
 
 export function EmptyState({ icon: Icon, illustration, title, description, action, card = false }: Props) {
   const content = (
-    <div
-      className={`empty-state spatial-empty flex flex-col items-center gap-2.5 py-5 text-center sm:py-6 ${
-        illustration ? "has-illustration" : ""
-      }`}
-    >
+    // 形は1つにそろえる(第8弾 X-5、2026-10-18): 線画 64px → 題名 → 1行の説明 → ボタン1つ(幅は文字に合わせる)。上下の余白 32px。
+    <div className={`empty-state spatial-empty lh-empty flex flex-col items-center gap-2.5 py-8 text-center ${illustration ? "has-illustration" : ""}`}>
       {illustration ? (
-        <EmptyIllustration kind={illustration} />
+        <EmptyIllustration kind={illustration} size={64} />
       ) : (
         Icon && (
           <div className="empty-state-icon flex h-11 w-11 items-center justify-center rounded-full bg-accent-light text-accent shadow-[inset_0_1px_rgba(255,255,255,.5)]">
@@ -32,11 +29,15 @@ export function EmptyState({ icon: Icon, illustration, title, description, actio
           </div>
         )
       )}
-      <div>
-        <p className="font-semibold text-slate-900">{title}</p>
-        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+      <div className="lh-empty__copy">
+        <p className="lh-empty__title font-semibold text-slate-900">{title}</p>
+        {description && <p className="lh-empty__desc mt-1 text-sm">{description}</p>}
       </div>
-      {action && <Button onClick={action.onClick}>{action.label}</Button>}
+      {action && (
+        <Button className="lh-empty__action" onClick={action.onClick}>
+          {action.label}
+        </Button>
+      )}
     </div>
   );
 
