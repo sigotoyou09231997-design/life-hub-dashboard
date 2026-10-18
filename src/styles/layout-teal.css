@@ -1288,3 +1288,20 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 .planning-timeline-detail.is-plain { grid-template-columns: minmax(0, 1fr); }
 .planning-task-clear { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; padding: 0.35rem 0.2rem; }
 .planning-task-clear p { margin: 0; color: var(--warm-ink-3); font-size: var(--fs-body); }
+
+/* 第8弾 3本目 予定・タスク S-2/S-3 */
+.week-view__rolling { margin-left: 0.4rem; border: 1px solid var(--warm-line-strong); border-radius: var(--r-pill); background: var(--warm-surface); padding: 0.25rem 0.7rem; color: var(--warm-ink-2); font-size: var(--fs-caption); font-weight: 600; }
+.week-view__rolling.is-on { border-color: var(--teal-500); background: var(--teal-50); color: var(--teal-700); }
+.week-view__bar.is-group { cursor: pointer; font-weight: 700; }
+.trip-agenda-groups { display: flex; flex-direction: column; gap: 0.5rem; }
+.trip-agenda-group { border: 1px solid var(--warm-line); border-radius: var(--r-control); background: var(--warm-surface); overflow: hidden; }
+.trip-agenda-group__head { display: flex; width: 100%; align-items: center; gap: 0.7rem; min-height: 2.75rem; border: 0; background: transparent; padding: 0.55rem 0.85rem; text-align: left; color: var(--warm-ink); }
+.trip-agenda-group__icon { display: grid; flex: 0 0 auto; width: 2rem; height: 2rem; place-items: center; border-radius: var(--r-control); background: var(--teal-50); color: var(--teal-700); }
+.trip-agenda-group__copy { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: 0.1rem; }
+.trip-agenda-group__copy strong { font-size: var(--fs-body); font-weight: 700; }
+.trip-agenda-group__copy small { color: var(--warm-ink-3); font-size: var(--fs-caption); }
+.trip-agenda-group__count { flex: 0 0 auto; color: var(--warm-ink-3); font-size: var(--fs-caption); font-weight: 700; font-variant-numeric: tabular-nums; }
+.trip-agenda-group__chevron { flex: 0 0 auto; color: var(--warm-ink-3); transition: transform 240ms var(--ease-out-expo); }
+.trip-agenda-group.is-open .trip-agenda-group__chevron { transform: rotate(180deg); }
+.trip-agenda-group__days { display: flex; flex-direction: column; gap: 0.6rem; padding: 0 0.85rem 0.85rem; border-top: 1px solid var(--warm-line); }
+.trip-agenda-group__date { margin: 0.6rem 0 0.35rem; color: var(--warm-ink-2); font-size: var(--fs-caption); font-weight: 700; }

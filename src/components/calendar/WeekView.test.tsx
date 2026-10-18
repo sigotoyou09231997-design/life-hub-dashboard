@@ -113,3 +113,39 @@ describe("週表示", () => {
     expect(handlers.onAnchorChange).toHaveBeenLastCalledWith("2026-10-21");
   });
 });
+
+describe("週表示: サブスクのまとめと「今日から7日」(第8弾 S-2)", () => {
+  it("同じ日のサブスクが2件以上なら「サブスク N件」の1本にまとめ、押すと内訳に開く", () => {
+    const chips = new Map([
+      ["2026-10-13", [
+        { key: "s1", label: "Netflix", color: "#111", kind: "fixedCost" as const },
+        { key: "s2", label: "Spotify", color: "#222", kind: "fixedCost" as const },
+        { key: "s3", label: "iCloud", color: "#333", kind: "fixedCost" as const },
+      ]],
+      ["2026-10-15", [{ key: "s4", label: "家賃", color: "#444", kind: "fixedCost" as const }]],
+    ]);
+    renderWeek([], { fixedCostChips: chips });
+    const group = screen.getByRole("button", { name: "サブスク 3件" });
+    expect(screen.queryByText("Netflix")).toBeNull();
+    expect(screen.getByText("家賃")).toBeTruthy();
+    fireEvent.click(group);
+    expect(screen.getByText("Netflix")).toBeTruthy();
+    expect(screen.getByText("iCloud")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "サブスク 3件" })).toBeNull();
+  });
+
+  it("「今日から7日」を押すと、月曜はじまりではなくその日から7日になり、端末に覚える", () => {
+    window.localStorage.removeItem("lifehub.weekViewRolling");
+    const handlers = renderWeek([]);
+    const firstDate = () => document.querySelector(".week-view__date")!.textContent;
+    expect(firstDate()).toBe("12");
+    const toggle = screen.getByRole("button", { name: "今日から7日" });
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(window.localStorage.getItem("lifehub.weekViewRolling")).toBe("1");
+    // 選んだ日(anchor)から7日。今日へ動かす呼び出しも1回出る。
+    expect(firstDate()).toBe("14");
+    expect(handlers.onAnchorChange).toHaveBeenCalledTimes(1);
+    window.localStorage.removeItem("lifehub.weekViewRolling");
+  });
+});

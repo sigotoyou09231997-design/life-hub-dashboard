@@ -8,6 +8,7 @@ import {
   placeOverlapping,
   stripSegments,
   timedBlocksOn,
+  rollingWeekDatesOf,
   weekDatesOf,
   weekTitle,
 } from "./weekLayout";
@@ -16,6 +17,12 @@ type Item = TimedSpan & { id: string };
 
 // 2026-10-12 は月曜。
 const WEEK = weekDatesOf("2026-10-14");
+
+describe("rollingWeekDatesOf(今日から7日)", () => {
+  it("その日から7日(月曜はじまりにしない)", () => {
+    expect(rollingWeekDatesOf("2026-10-18")).toEqual(["2026-10-18", "2026-10-19", "2026-10-20", "2026-10-21", "2026-10-22", "2026-10-23", "2026-10-24"]);
+  });
+});
 
 describe("weekDatesOf / weekTitle", () => {
   it("月曜はじまりの7日を返す(月表示と同じ並び)", () => {

@@ -9,16 +9,7 @@ import { eventChipColor, type DayChip } from "../../lib/eventPeople";
 import { minutesToClock } from "../../lib/eventTime";
 import { getHolidayMapForYears } from "../../lib/holidays";
 import { groupDueTasks } from "../../lib/weekAhead";
-import {
-  assignLanes,
-  blockBox,
-  hourRangeFor,
-  placeOverlapping,
-  stripSegments,
-  timedBlocksOn,
-  weekDatesOf,
-  weekTitle,
-} from "../../lib/weekLayout";
+import { assignLanes, blockBox, hourRangeFor, placeOverlapping, rollingWeekDatesOf, stripSegments, timedBlocksOn, weekDatesOf, weekTitle } from "../../lib/weekLayout";
 
 /** 期限のあるタスクの帯の色。月表示のタスクの点(bg-warning)と同じ色にそろえる。 */
 const TASK_CHIP_COLOR = "#CF9448";
@@ -45,7 +36,25 @@ interface Props {
 type StripEntry =
   | { kind: "event"; key: string; startCol: number; endCol: number; continuesBefore: boolean; continuesAfter: boolean; event: CalendarEvent }
   | { kind: "fixedCost"; key: string; startCol: number; endCol: number; chip: DayChip }
+  /** 同じ日のサブスク(固定費)が2件以上ある時の「サブスク N件」の1本(第8弾 S-2)。押すと内訳に開く。 */
+  | { kind: "fixedCostGroup"; key: string; startCol: number; endCol: number; date: string; chips: DayChip[] }
   | { kind: "task"; key: string; startCol: number; endCol: number; task: Task };
+
+const ROLLING_KEY = "lifehub.weekViewRolling";
+function readRolling(): boolean {
+  try {
+    return window.localStorage.getItem(ROLLING_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function storeRolling(on: boolean) {
+  try {
+    window.localStorage.setItem(ROLLING_KEY, on ? "1" : "0");
+  } catch {
+    // 覚えられない環境でも、この画面を開いている間は効く。
+  }
+}
 
 /** 今の時刻の線を、開いたままでも1分ごとに動かす。 */
 function useMinuteClock(): Date {
@@ -77,7 +86,11 @@ export function WeekView({
   onEditTask,
   onAddEvent,
 }: Props) {
-  const weekDates = useMemo(() => weekDatesOf(anchorDate), [anchorDate]);
+  // 「今日から7日」(第8弾 S-2)。初期は月曜はじまり。選んだら端末に覚える。
+  const [rolling, setRolling] = useState(() => readRolling());
+  const weekDates = useMemo(() => (rolling ? rollingWeekDatesOf(anchorDate) : weekDatesOf(anchorDate)), [anchorDate, rolling]);
+  /** 「サブスク N件」を押して内訳に開いた日。 */
+  const [openSubs, setOpenSubs] = useState<ReadonlySet<string>>(() => new Set());
   const now = useMinuteClock();
   const today = todayStr();
   const holidayMap = useMemo(
@@ -95,7 +108,13 @@ export function WeekView({
       (segment) => ({ kind: "event" as const, ...segment, event: segment.item }),
     );
     weekDates.forEach((date, col) => {
-      for (const chip of fixedCostChips?.get(date) ?? []) {
+      const chips = fixedCostChips?.get(date) ?? [];
+      // 同じ日のサブスクは1本にまとめる(押すと内訳に開く)。枠が縦に伸びないように(第8弾 S-2)。
+      if (chips.length >= 2 && !openSubs.has(date)) {
+        entries.push({ kind: "fixedCostGroup", key: `subs-${date}`, startCol: col, endCol: col, date, chips });
+        return;
+      }
+      for (const chip of chips) {
         entries.push({ kind: "fixedCost", key: chip.key, startCol: col, endCol: col, chip });
       }
     });
@@ -107,7 +126,7 @@ export function WeekView({
     const laned = assignLanes(entries);
     const lanes = laned.reduce((max, entry) => Math.max(max, entry.lane + 1), 0);
     return { laned, lanes };
-  }, [events, tasks, fixedCostChips, weekDates]);
+  }, [events, tasks, fixedCostChips, weekDates, openSubs]);
 
   // 時刻の枠。重なりは日ごとに横へ並べ、枠の上下は週の中でいちばん早い・遅い予定に合わせる。
   const days = useMemo(() => weekDates.map((date) => placeOverlapping(timedBlocksOn(events, date))), [events, weekDates]);
@@ -139,6 +158,20 @@ export function WeekView({
           disabled={weekDates.includes(today)}
         >
           今週
+        </button>
+        <button
+          type="button"
+          className={`week-view__rolling${rolling ? " is-on" : ""}`}
+          aria-pressed={rolling}
+          onClick={() => {
+            const next = !rolling;
+            setRolling(next);
+            storeRolling(next);
+            if (next) onAnchorChange(today);
+          }}
+          title="週の初めを、月曜ではなく今日にする"
+        >
+          今日から7日
         </button>
       </div>
 
@@ -193,6 +226,20 @@ export function WeekView({
                     title={`${entry.event.title}(${time})`}
                   >
                     {entry.event.title}
+                  </button>
+                );
+              }
+              if (entry.kind === "fixedCostGroup") {
+                return (
+                  <button
+                    key={entry.key}
+                    type="button"
+                    className="week-view__bar is-fixed-cost is-group"
+                    style={place}
+                    onClick={() => setOpenSubs((prev) => new Set([...prev, entry.date]))}
+                    title={entry.chips.map((chip) => chip.label).join("、")}
+                  >
+                    サブスク {entry.chips.length}件
                   </button>
                 );
               }

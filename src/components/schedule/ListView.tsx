@@ -7,7 +7,8 @@ import { nextOccurrenceOnOrAfter, spanEndDate } from "../../lib/eventSpan";
 import { EventList } from "../calendar/EventList";
 import { TaskList } from "../tasks/TaskList";
 import { Tabs } from "../ui/Tabs";
-import { TripAgendaList, type TripAgendaEntry } from "./TripAgendaList";
+import type { TripAgendaEntry } from "./TripAgendaList";
+import { TripAgendaGroups } from "./TripAgendaGroups";
 
 interface Props {
   events: CalendarEvent[];
@@ -124,7 +125,8 @@ export function ListView({ events, tasks, tripAgenda, onEditEvent, onDeleteEvent
             {upcomingTripAgenda.length > 0 && (
               <div>
                 <p className="mb-2 text-sm font-medium text-slate-600">今後の旅行の予定</p>
-                <TripAgendaList items={upcomingTripAgenda} />
+                {/* 旅行ごとに1行にまとめ、押すと日ごとに開く(第8弾 S-3)。検索中は中身がそのまま出る。 */}
+                <TripAgendaGroups items={upcomingTripAgenda} forceOpen={q.length > 0} />
               </div>
             )}
           </div>

@@ -37,6 +37,12 @@ export function weekDatesOf(date: string): string[] {
   return Array.from({ length: 7 }, (_, i) => toDateStr(addDays(monday, i)));
 }
 
+/** 「今日から7日」(第8弾 S-2、2026-10-18): 月曜はじまりではなく、その日から7日。週の終わりの日でも先の予定が見える。 */
+export function rollingWeekDatesOf(date: string): string[] {
+  const start = parseISO(date);
+  return Array.from({ length: 7 }, (_, i) => toDateStr(addDays(start, i)));
+}
+
 /** 見出しの「2026年10月12日〜18日」。月や年をまたぐ週は、変わる所だけ書き足す。 */
 export function weekTitle(weekDates: string[]): string {
   const first = parseISO(weekDates[0]);
