@@ -5,6 +5,9 @@ import { EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "../../li
 import { parseCsvRows, decodeCsvFileAuto, decodeCsvFileAs, buildPreview, type CsvEncoding } from "../../lib/csv";
 import { mapCsvRowsToTransactions, type ColumnMapping } from "../../lib/genericCsvImport";
 import { planPendingImport, type PendingChargeDraft } from "../../lib/pendingCardCharges";
+import { isPayPayCsv } from "../../lib/paypayCsv";
+import { importPayPayCsvText, type PayPayImportOutcome } from "../../lib/paypayImport";
+import { PayPayImportResult } from "./PayPayImportResult";
 import { Card } from "../ui/Card";
 import { Select } from "../ui/Select";
 import { Button } from "../ui/Button";
@@ -71,6 +74,8 @@ export function GenericCsvImport({ onClose, destination = "transactions" }: Prop
   const [defaultMethod, setDefaultMethod] = useState("");
 
   const [importing, setImporting] = useState(false);
+  /** PayPay の取引履歴だった時は、列を選ばせずに PayPay の読み方で取り込んだ結果をここに置く。 */
+  const [paypayOutcome, setPayPayOutcome] = useState<PayPayImportOutcome | null>(null);
   const [result, setResult] = useState<{
     total: number;
     imported: number;
@@ -123,6 +128,19 @@ export function GenericCsvImport({ onClose, destination = "transactions" }: Prop
     setFile(f);
     try {
       const { text, encoding: detected } = await decodeCsvFileAuto(f);
+      // PayPay の取引履歴なら、列の指定を挟まずに PayPay の画面と同じ読み方で取り込む。
+      // ここで列を選んで入れると、チャージ・口座への送金まで支出になり、入れ直した時の重複の判定も
+      // PayPay の画面と食い違う(どちらから入れても同じになるように)。
+      if (!toPendingCard && isPayPayCsv(text)) {
+        const outcome = await importPayPayCsvText(text);
+        if (!outcome) {
+          setError("取引データを読み取れませんでした。PayPayの取引履歴CSVか確認してください。");
+          return;
+        }
+        setPayPayOutcome(outcome);
+        showToast(outcome.added.length > 0 ? `${outcome.added.length}件を取り込みました` : "新しく入れる取引はありませんでした");
+        return;
+      }
       const rows = parseCsvRows(text);
       if (rows.length === 0) {
         setError("CSVを読み取れませんでした。ファイル形式を確認してください。");
@@ -228,13 +246,27 @@ export function GenericCsvImport({ onClose, destination = "transactions" }: Prop
     }
   }
 
+  if (paypayOutcome) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-slate-600">
+          PayPay の取引履歴だったので、PayPay の読み方で取り込みました（支払い・送金・受け取りだけを入れ、チャージや口座への送金は入れません）。
+        </p>
+        <PayPayImportResult outcome={paypayOutcome} />
+        <Button className="w-full" onClick={onClose}>
+          閉じる
+        </Button>
+      </div>
+    );
+  }
+
   if (step === "upload") {
     return (
       <div className="space-y-4">
         <p className="text-sm text-slate-600">
           {toPendingCard
             ? "カード会社の利用明細CSVを取り込みます。まだ引き落とされていない利用として記録し、「使えるお金」から先に引きます。取り込む前に、どの列が日付・金額かを次の画面で指定します。"
-            : "銀行明細・クレジットカード明細など、任意のCSVファイルを取り込めます。取り込む前に、どの列が日付・金額かを次の画面で指定します。"}
+            : "銀行明細・クレジットカード明細など、任意のCSVファイルを取り込めます。取り込む前に、どの列が日付・金額かを次の画面で指定します。PayPay の取引履歴は、列を選ばずにそのまま取り込みます。"}
         </p>
         <Button
           variant="secondary"
