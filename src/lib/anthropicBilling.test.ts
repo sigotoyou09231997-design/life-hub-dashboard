@@ -99,9 +99,10 @@ describe("summarizeByMonth(月ごとの合計)", () => {
 });
 
 describe("円・ドルの出し方・Claude の見分け", () => {
-  it("1ドル150円の目安で円に直す。ドルは小数2桁", () => {
-    expect(usdToYen(110)).toBe(16500);
-    expect(usdToYen(121.04)).toBe(18156);
+  it("円に直す。レートを渡さなければ目安(1ドル158円)。ドルは小数2桁", () => {
+    expect(usdToYen(110)).toBe(17380);
+    expect(usdToYen(110, 157.95)).toBe(17375);
+    expect(usdToYen(121.04, 150)).toBe(18156);
     expect(formatUsd(5.5)).toBe("$5.50");
   });
 

@@ -14,6 +14,8 @@ import {
   type SubscriptionItem,
 } from "../../lib/subscriptions";
 import { ServiceIcon } from "./ServiceIcon";
+import { isClaudeSubscription } from "../../lib/anthropicBilling";
+import { splitTaxIncludedYen } from "../../lib/claudePrice";
 
 export type AmountUnit = "month" | "year";
 
@@ -48,6 +50,11 @@ export function SubscriptionRow({ item, today, unit, onOpen }: Props) {
         ? `年 ${yen(yearlyEquivalent(item))}`
         : null;
 
+  // Claude はドルで請求されて消費税が足されるので、登録の金額(税込)に税抜を添える。
+  const taxNote = isClaudeSubscription(cost.title, detail?.serviceKey)
+    ? `税込（税抜 ${yen(splitTaxIncludedYen(cost.amount).netYen)}）`
+    : null;
+
   let note: string;
   if (status === "trial" && next) note = `無料体験 · ${formatShortDate(next)}から請求`;
   else if (status === "scheduled" && next) note = `${formatShortDate(next)}に開始`;
@@ -71,6 +78,7 @@ export function SubscriptionRow({ item, today, unit, onOpen }: Props) {
           {yen(cost.amount)}
           <small>{yearly ? "/年" : "/月"}</small>
         </span>
+        {taxNote && <span className="subs-row__sub">{taxNote}</span>}
         {status === "cancelled" ? (
           converted ? <span className="subs-row__sub">{converted}</span> : null
         ) : (

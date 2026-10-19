@@ -1,4 +1,5 @@
 import type { GmailAccount } from "../types";
+import { FALLBACK_USD_JPY, usdToYenAt } from "./claudePrice";
 import { ensureFreshAccessToken, getMessageBody, getMessageMeta, listMessageIdsByQuery, mapWithConcurrency } from "./gmail";
 
 /**
@@ -12,8 +13,9 @@ import { ensureFreshAccessToken, getMessageBody, getMessageMeta, listMessageIdsB
  * AI は使わない(領収書の形は決まっているので、読み取りは決まりきった文字の拾い出しだけ)。
  */
 
-/** 円に直す目安。サブスクのお手本(src/lib/subscriptionTemplates.ts)と同じ、1ドル150円。実際のカードの請求額とは少し違う。 */
-export const USD_JPY = 150;
+/** 円に直す目安(為替が取れない時)。画面はその日の為替(src/hooks/useUsdJpyRate.ts)で直す。
+ * 2026-10-20 まで 1ドル150円の決め打ちで、実際の請求(10/19 の請求書は 157.95円)とずれていた。 */
+export const USD_JPY = FALLBACK_USD_JPY;
 
 export type ReceiptKind = "subscription" | "credit" | "other";
 
@@ -130,8 +132,8 @@ export function summarizeByMonth(receipts: AnthropicReceipt[]): MonthSummary[] {
     .sort((a, b) => b.month.localeCompare(a.month));
 }
 
-export function usdToYen(usd: number): number {
-  return Math.round(usd * USD_JPY);
+export function usdToYen(usd: number, rate: number = USD_JPY): number {
+  return usdToYenAt(usd, rate);
 }
 
 export function formatUsd(usd: number): string {
