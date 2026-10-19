@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 
 vi.mock("../../lib/currency", () => ({ fetchRateToYen: async () => 157.95 }));
 vi.mock("../../lib/gmail", () => ({}));
@@ -24,31 +24,33 @@ afterEach(() => {
 });
 
 describe("Claude の請求の内訳", () => {
-  it("領収書の税抜・消費税・税込を、その日の為替で円にして出す", async () => {
-    render(<ClaudePriceHint amount="16500" serviceKey="claude-max" onUse={() => {}} />);
-    expect(await screen.findByText("¥17,375")).toBeTruthy();
-    expect(screen.getByText("¥15,795")).toBeTruthy();
-    expect(screen.getByText("¥1,580")).toBeTruthy();
+  it("登録の金額(実際の引き落とし ¥17,980)を、ドルの税抜・消費税の割合で分けて出す", async () => {
+    render(<ClaudePriceHint amount="17980" serviceKey="claude-max" />);
+    expect(await screen.findByText(/今日の為替/)).toBeTruthy();
+    expect(screen.getByText("¥17,980")).toBeTruthy();
+    expect(screen.getByText("¥16,345")).toBeTruthy();
+    expect(screen.getByText("¥1,635")).toBeTruthy();
+    expect(screen.getByText("$110.00")).toBeTruthy();
     expect(screen.getByText(/10\/19 の領収書・Max 5x/)).toBeTruthy();
-    expect(screen.getByText(/1ドル157\.95円（今日の為替）/)).toBeTruthy();
   });
 
-  it("登録の金額が請求と違えば、そろえるボタンを出し、押すと税込の円を渡す", async () => {
-    const onUse = vi.fn();
-    render(<ClaudePriceHint amount="16500" serviceKey="claude-max" onUse={onUse} />);
-    fireEvent.click(await screen.findByRole("button", { name: "金額を ¥17,375（税込）にする" }));
-    expect(onUse).toHaveBeenCalledWith(17375);
+  it("1ドルあたりの値段と、為替だけの額・その差(カードの手数料など)を並べる", async () => {
+    render(<ClaudePriceHint amount="17980" serviceKey="claude-max" />);
+    const note = await screen.findByText(/今日の為替/);
+    expect(note.textContent).toContain("1ドルあたり 163.45円");
+    expect(note.textContent).toContain("今日の為替（1ドル157.95円）だけで計算すると ¥17,375");
+    expect(note.textContent).toContain("差の 3.5% はカード会社の換算や海外利用の手数料");
+    expect(screen.queryByRole("note")).toBeNull();
   });
 
-  it("同じ金額や、為替の動きくらいの差(3%以内)なら、ボタンは出さない", async () => {
-    render(<ClaudePriceHint amount="17600" serviceKey="claude-max" onUse={() => {}} />);
-    await screen.findByText(/今日の為替/);
-    expect(screen.queryByRole("button")).toBeNull();
+  it("登録の金額が為替だけの額より安ければ(古い金額のまま)、明細の額に直すよう知らせる", async () => {
+    render(<ClaudePriceHint amount="16500" serviceKey="claude-max" />);
+    expect((await screen.findByRole("note")).textContent).toContain("為替だけで計算した額（¥17,375）より安く");
   });
 
   it("領収書もプランも無い時は、入れた金額を税込として税抜を出す", () => {
     window.localStorage.clear();
-    render(<ClaudePriceHint amount="17375" serviceKey={null} onUse={() => {}} />);
-    expect(screen.getByText("入れた金額を税込とすると、税抜 ¥15,795・消費税 ¥1,580 です。")).toBeTruthy();
+    render(<ClaudePriceHint amount="17980" serviceKey={null} />);
+    expect(screen.getByText("入れた金額を税込とすると、税抜 ¥16,345・消費税 ¥1,635 です。")).toBeTruthy();
   });
 });

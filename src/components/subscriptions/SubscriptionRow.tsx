@@ -50,7 +50,7 @@ export function SubscriptionRow({ item, today, unit, onOpen }: Props) {
         ? `年 ${yen(yearlyEquivalent(item))}`
         : null;
 
-  // Claude はドルで請求されて消費税が足されるので、登録の金額(税込)に税抜を添える。
+  // Claude はドルで請求されて消費税が足されるので、登録の金額(引き落としの額＝税込)に税抜を添える。
   const taxNote = isClaudeSubscription(cost.title, detail?.serviceKey)
     ? `税込（税抜 ${yen(splitTaxIncludedYen(cost.amount).netYen)}）`
     : null;

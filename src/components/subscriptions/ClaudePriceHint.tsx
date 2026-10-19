@@ -3,11 +3,11 @@ import { loadBilling } from "../../lib/anthropicBilling";
 import { claudeBilledPrice, splitTaxIncludedYen } from "../../lib/claudePrice";
 import { useUsdJpyRate } from "../../hooks/useUsdJpyRate";
 
-/** 登録の金額と請求の差がこの割合までなら、そろえるボタンを出さない。 */
-const CLOSE_ENOUGH_RATIO = 0.03;
-
 const yen = (n: number) => `¥${Math.round(n).toLocaleString()}`;
 const usd = (n: number) => `$${n.toFixed(2)}`;
+
+/** 登録の金額が、為替だけで計算した額よりこの割合以上安ければ、古い金額のままだと知らせる(手数料で高くなることはあっても、安くはならない)。 */
+const BELOW_MARKET_RATIO = 0.01;
 
 function dayLabel(date: string): string {
   const [, m, d] = date.split("-");
@@ -15,19 +15,20 @@ function dayLabel(date: string): string {
 }
 
 interface Props {
-  /** フォームに入っている金額(文字のまま)。 */
+  /** フォームに入っている金額(文字のまま)。実際に引き落とされた額(税込)を入れてもらう。 */
   amount: string;
   serviceKey: string | null;
-  /** 「この金額にする」を押した時。税込の円を渡す。 */
-  onUse: (totalYen: number) => void;
 }
 
 /**
- * Claude のサブスクの金額欄の下に出す、請求の内訳(税抜・消費税・税込を、ドルと円で)。
- * 領収書(Gmail から読んだもの。src/lib/anthropicBilling.ts)があれば実際に払った額、無ければ選んだプランの定価。
- * 円はその日の為替で直す(以前の 1ドル150円の決め打ちだと、実際の請求と千円近くずれた)。
+ * Claude のサブスクの金額欄の下に出す、請求の内訳(税抜・消費税・税込を、ドルと円で)(2026-10-20)。
+ *
+ * Claude はドルで請求され(Max 5x は 税抜 $100 ＋ 消費税 $10 ＝ 税込 $110)、円の引き落としはカード会社が決める。
+ * 為替だけで計算した額より、海外利用の手数料のぶん高くなる(本人の 10/19 の請求は、為替だけなら ¥17,375 のところ、
+ * PayPay銀行の Visa デビットで ¥17,980)。引き落としの額はアプリからは分からないので、登録の金額を正として、
+ * それをドルの税抜・消費税の割合で分けて見せ、為替だけの額と1ドルあたりの値段を並べる。
  */
-export function ClaudePriceHint({ amount, serviceKey, onUse }: Props) {
+export function ClaudePriceHint({ amount, serviceKey }: Props) {
   const [receipts] = useState(() => loadBilling().receipts);
   const { rate, live } = useUsdJpyRate();
   const price = claudeBilledPrice(receipts, serviceKey, rate);
@@ -45,12 +46,18 @@ export function ClaudePriceHint({ amount, serviceKey, onUse }: Props) {
     );
   }
 
+  // 円は登録の金額(無ければ為替だけの額)を、ドルの税抜・消費税の割合で分ける。
+  const totalYen = entered > 0 ? entered : price.totalYen;
+  const taxYen = price.totalUsd > 0 ? Math.round((totalYen * price.taxUsd) / price.totalUsd) : 0;
+  const netYen = totalYen - taxYen;
+  const perUsd = totalYen / price.totalUsd;
+  const markup = perUsd / price.rate - 1;
+  const belowMarket = entered > 0 && entered < price.totalYen * (1 - BELOW_MARKET_RATIO);
+
   const title =
     price.source === "receipt" && price.paidOn
       ? `Claude の請求（${dayLabel(price.paidOn)} の領収書${price.label ? `・${price.label.replace(/^Claude\s*/, "")}` : ""}）`
       : "Claude の請求（定価）";
-  // 為替は毎日動くので、合わせた翌日に数円ずれただけでボタンを出し続けない。カードの換算・手数料の差もこのくらいはある。
-  const differs = Math.abs(entered - price.totalYen) > price.totalYen * CLOSE_ENOUGH_RATIO;
 
   return (
     <div className="claude-price" aria-label="Claude の請求の内訳">
@@ -59,33 +66,36 @@ export function ClaudePriceHint({ amount, serviceKey, onUse }: Props) {
         <div>
           <dt>税抜</dt>
           <dd>
-            {yen(price.netYen)}
+            {yen(netYen)}
             <small>{usd(price.netUsd)}</small>
           </dd>
         </div>
         <div>
           <dt>消費税 10%</dt>
           <dd>
-            {yen(price.taxYen)}
+            {yen(taxYen)}
             <small>{usd(price.taxUsd)}</small>
           </dd>
         </div>
         <div className="is-total">
           <dt>税込</dt>
           <dd>
-            {yen(price.totalYen)}
+            {yen(totalYen)}
             <small>{usd(price.totalUsd)}</small>
           </dd>
         </div>
       </dl>
+      {belowMarket ? (
+        <p className="claude-price__warn" role="note">
+          登録の金額が、為替だけで計算した額（{yen(price.totalYen)}）より安くなっています。銀行やカードの明細にある、実際に引き落とされた額に直してください。
+        </p>
+      ) : null}
       <p className="claude-price__note">
-        1ドル{price.rate.toFixed(2)}円（{live ? "今日の為替" : "目安"}）で円にしています。カード会社の換算で、実際の引き落としは少し違うことがあります。
+        {entered > 0 ? `1ドルあたり ${perUsd.toFixed(2)}円。` : ""}
+        {live ? "今日の為替" : "為替の目安"}（1ドル{price.rate.toFixed(2)}円）だけで計算すると {yen(price.totalYen)}
+        {entered > 0 && markup > 0.005 ? `で、差の ${(markup * 100).toFixed(1)}% はカード会社の換算や海外利用の手数料です。` : "です。"}
+        引き落としはカードの手数料が上乗せされるので、明細の額をそのまま入れてください。
       </p>
-      {differs && (
-        <button type="button" className="claude-price__use" onClick={() => onUse(price.totalYen)}>
-          金額を {yen(price.totalYen)}（税込）にする
-        </button>
-      )}
     </div>
   );
 }

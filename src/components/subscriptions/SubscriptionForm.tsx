@@ -199,10 +199,8 @@ export function SubscriptionForm({ initial, template, onSaved, onCancel, onBack 
           min={1}
           placeholder="0"
         />
-        {/* Claude はドルで請求されて消費税が足されるので、税抜・消費税・税込を出し、請求に合わせられるようにする。 */}
-        {isClaudeSubscription(title, serviceKey) && (
-          <ClaudePriceHint amount={amount} serviceKey={serviceKey} onUse={(total) => setAmount(String(total))} />
-        )}
+        {/* Claude はドルで請求されて消費税が足されるので、登録の金額を税抜・消費税に分けて見せ、為替だけの額と比べる。 */}
+        {isClaudeSubscription(title, serviceKey) && <ClaudePriceHint amount={amount} serviceKey={serviceKey} />}
         {cycle === "yearly" && (
           <SegmentedField
             label="請求の月"
