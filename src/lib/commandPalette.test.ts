@@ -41,8 +41,9 @@ describe("matchActions", () => {
     expect(labels("支出")[0]).toBe("支出を追加");
   });
 
-  it("名前に無くても、言い換えで当たる(固定費 → サブスク)", () => {
-    expect(labels("固定費")).toContain("サブスクを見る");
+  it("名前に無くても、言い換えで当たる(家賃 → 固定費、解約 → サブスク)", () => {
+    expect(labels("家賃")).toContain("固定費を見る");
+    expect(labels("解約")).toContain("サブスクを見る");
   });
 
   it("名前の頭から合うものを、途中で合うものより上に出す", () => {

@@ -31,6 +31,7 @@ import { SubscriptionCalendar } from "./SubscriptionCalendar";
 import { SubscriptionAnalysis } from "./SubscriptionAnalysis";
 import { AnthropicBillingPanel } from "./AnthropicBillingPanel";
 import { isClaudeSubscription } from "../../lib/anthropicBilling";
+import { isFixedExpense } from "../../lib/fixedCosts";
 
 type View = "list" | "calendar" | "analysis";
 
@@ -61,7 +62,7 @@ type AddStep = { template: SubscriptionTemplate | null } | null;
 
 /**
  * お金管理の「サブスク」タブ(2026-10-12、参考: App Store の「サブスクBOX」)。
- * 固定費をサブスク管理として見せる。家賃などの固定費もここに並ぶ。
+ * 固定費のうちサブスクにあたるものを並べる。家賃・光熱費などは「固定費」のタブ(src/components/fixedCosts/FixedCostTab.tsx)。
  *
  *   黒いカード … 月額／年額の合計・今月払う額・次の請求・高い順トップ3
  *   一覧       … 次の請求が近い順(残り日数と進み具合の棒)、無料体験中、開始予定、解約済み
@@ -92,7 +93,8 @@ export function SubscriptionTab() {
   }
 
   const today = todayStr();
-  const items = pairSubscriptions(costs ?? [], details ?? []);
+  // 家賃・光熱費などは「固定費」のタブに並べる(src/lib/fixedCosts.ts)。ここはサブスクだけ。
+  const items = pairSubscriptions(costs ?? [], details ?? []).filter((item) => !isFixedExpense(item.cost));
   const summary = summarizeSubscriptions(items, today);
   const upcoming = sortByNextBilling(summary.active, today);
   const next = upcoming[0];
@@ -145,7 +147,7 @@ export function SubscriptionTab() {
           <small>{unitLabel}</small>
         </p>
         <p className="subs-total__note">
-          {summary.active.length}件のサブスク・固定費
+          {summary.active.length}件のサブスク
           {summary.yearlyCount > 0 &&
             (unit === "year"
               ? ` · 毎月払いは12か月ぶんで合計`
@@ -226,8 +228,8 @@ export function SubscriptionTab() {
             <EmptyState
               icon={CreditCard}
               illustration="subscription"
-              title="サブスク・固定費はまだありません"
-              description="Netflix や家賃など、毎月・毎年払っているものを入れると、合計と次の請求日がひと目で分かります。"
+              title="サブスクはまだありません"
+              description="Netflix や音楽など、毎月・毎年払っているサブスクを入れると、合計と次の請求日がひと目で分かります。家賃や光熱費は「固定費」のタブへ。"
               action={{ label: "サブスクを追加", onClick: openAdd }}
               card
             />

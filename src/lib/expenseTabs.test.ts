@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { EXPENSE_INITIAL_TAB, EXPENSE_TABS, resolveExpenseTabRequest } from "./expenseTabs";
 
 describe("お金管理のタブ(第8弾 M-1)", () => {
-  it("並びはサマリー・履歴・サブスク・給与。初期表示はサマリー", () => {
-    expect(EXPENSE_TABS).toEqual(["summary", "history", "subs", "salary"]);
+  it("並びはサマリー・履歴・固定費・サブスク・給与。初期表示はサマリー", () => {
+    expect(EXPENSE_TABS).toEqual(["summary", "history", "fixed", "subs", "salary"]);
     expect(EXPENSE_INITIAL_TAB).toBe("summary");
   });
 

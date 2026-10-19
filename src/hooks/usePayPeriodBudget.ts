@@ -5,11 +5,15 @@ import { resolveCurrentPeriod, calculatePayPeriodBudget, type CurrentPayPeriod }
 import { toDateStr, todayStr } from "../lib/date";
 import { unsettledTotal } from "../lib/pendingCardCharges";
 import { sumBonusIncome } from "../lib/bonus";
-import { chargeInPeriod, pairSubscriptions } from "../lib/subscriptions";
+import { pairSubscriptions } from "../lib/subscriptions";
+import { periodChargeSplit } from "../lib/fixedCosts";
 
 export interface PayPeriodBudget {
   period: CurrentPayPeriod;
   totalFixedCosts: number;
+  /** totalFixedCosts の内訳: 家賃・光熱費などの固定費と、サブスク(src/lib/fixedCosts.ts)。 */
+  fixedExpenseTotal: number;
+  subscriptionTotal: number;
   actualSpending: number;
   /** カードで使ったが、まだ支出として記録されていないぶん(src/lib/pendingCardCharges.ts)。
    * actualSpending に足したうえで残額を出しているので、画面はこの内訳を出せばよい。 */
@@ -48,10 +52,8 @@ export function usePayPeriodBudget(): { data: PayPeriodBudget | null; loading: b
     // 始まってから数える(src/lib/subscriptions.ts の chargeInPeriod)。付け足しの無い
     // 固定費は、いままでどおり止めていなければ1期に1回ぶん。
     const periodEndStr = toDateStr(subDays(period.nextPayday, 1));
-    const totalFixedCosts = pairSubscriptions(allFixedCosts, subscriptionDetails).reduce(
-      (sum, item) => sum + chargeInPeriod(item, periodStartStr, periodEndStr),
-      0,
-    );
+    const split = periodChargeSplit(pairSubscriptions(allFixedCosts, subscriptionDetails), periodStartStr, periodEndStr);
+    const totalFixedCosts = split.fixed + split.subscriptions;
 
     // カードで使ったが、まだ支出として記録されていないぶんも先に引く。
     // 突き合わせは期の中だけでなく全支出に対して行う — 利用日が期の中でも、
@@ -67,7 +69,17 @@ export function usePayPeriodBudget(): { data: PayPeriodBudget | null; loading: b
       daysUntilNextPayday: period.daysUntilNextPayday,
     });
 
-    return { period, totalFixedCosts, actualSpending, pendingCardSpending, bonusAmount, remaining, perDayUsable };
+    return {
+      period,
+      totalFixedCosts,
+      fixedExpenseTotal: split.fixed,
+      subscriptionTotal: split.subscriptions,
+      actualSpending,
+      pendingCardSpending,
+      bonusAmount,
+      remaining,
+      perDayUsable,
+    };
   }, []);
 
   return { data: result ?? null, loading: result === undefined };

@@ -21,8 +21,8 @@ describe("ホームの「次の請求」", () => {
       <MemoryRouter>
         <HomeSubscriptions
           rows={[
-            { id: "a", title: "iCloud", amount: 130, next: "2026-10-18", days: 1, soon: true },
-            { id: "b", title: "Netflix", amount: 1490, next: "2026-10-25", days: 8, soon: false },
+            { id: "a", title: "iCloud", amount: 130, next: "2026-10-18", days: 1, soon: true, tab: "subs" },
+            { id: "b", title: "Netflix", amount: 1490, next: "2026-10-25", days: 8, soon: false, tab: "subs" },
           ]}
           thisMonthCharge={1620}
         />

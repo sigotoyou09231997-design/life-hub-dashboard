@@ -14,6 +14,7 @@ import {
   StickyNote,
   UserRound,
   Wallet,
+  Home,
 } from "lucide-react";
 
 /*
@@ -113,8 +114,17 @@ const ADD_AND_VIEW_ACTIONS: PaletteAction[] = [
     hint: "お金管理",
     to: "/records/expense?tab=subs",
     icon: Repeat,
-    keywords: ["定期", "固定費", "月額", "解約", "引き落とし"],
+    keywords: ["定期", "月額", "解約", "サブスクリプション"],
     pinned: true,
+  },
+  {
+    // 家賃・光熱費などの固定費(2026-10-20、src/lib/fixedCosts.ts)。サブスクとは別のタブ。
+    id: "view-fixed-costs",
+    label: "固定費を見る",
+    hint: "お金管理",
+    to: "/records/expense?tab=fixed",
+    icon: Home,
+    keywords: ["固定費", "家賃", "光熱費", "電気代", "保険", "通信費", "ローン", "引き落とし"],
   },
   {
     id: "view-calendar",
