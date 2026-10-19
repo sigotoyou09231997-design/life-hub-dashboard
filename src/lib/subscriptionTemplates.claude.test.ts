@@ -15,7 +15,8 @@ describe("Claude の料金の雛形", () => {
     expect(price("claude-pro-yearly")).toBe(10 * price("claude-pro")!);
   });
 
-  it("円(税込)の値: Pro 3,300・年額 33,000・Max 5x 16,500・Max 20x 33,000", () => {
-    expect([price("claude-pro"), price("claude-pro-yearly"), price("claude-max"), price("claude-max-20x")]).toEqual([3300, 33000, 16500, 33000]);
+  // 2026-10-20 に目安のレートを 150円 → 158円にした(実際の請求書は 1ドル157.95円。src/lib/claudePrice.ts)。
+  it("円(税込)の値: Pro 3,476・年額 34,760・Max 5x 17,380・Max 20x 34,760", () => {
+    expect([price("claude-pro"), price("claude-pro-yearly"), price("claude-max"), price("claude-max-20x")]).toEqual([3476, 34760, 17380, 34760]);
   });
 });

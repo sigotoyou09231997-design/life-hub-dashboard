@@ -12,13 +12,12 @@ import {
   type BillingData,
 } from "../../lib/anthropicBilling";
 import { Button } from "../ui/Button";
+import { useUsdJpyRate } from "../../hooks/useUsdJpyRate";
 
 /** 前回の読み込みからこれだけたっていれば、開いた時に自動で読み直す。 */
 const AUTO_REFRESH_AFTER_MS = 12 * 60 * 60 * 1000;
 /** 月ごとの一覧に出す月数。 */
 const SHOWN_MONTHS = 12;
-
-const yen = (usd: number): string => `¥${usdToYen(usd).toLocaleString()}`;
 
 function monthLabel(month: string): string {
   const [year, m] = month.split("-");
@@ -46,6 +45,8 @@ export function AnthropicBillingPanel() {
   const [data, setData] = useState<BillingData>(() => loadBilling());
   const [state, setState] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
+  const { rate, live } = useUsdJpyRate();
+  const yen = (usd: number): string => `¥${usdToYen(usd, rate).toLocaleString()}`;
 
   async function load(current: BillingData) {
     if (!account) return;
@@ -139,7 +140,7 @@ export function AnthropicBillingPanel() {
       )}
 
       <p className="subs-billing__note">
-        領収書のドル（消費税込み）を、1ドル150円の目安で円にしています。実際のカードの請求額とは少し違います。
+        領収書のドル（消費税込み）を、1ドル{rate.toFixed(2)}円（{live ? "今日の為替" : "目安"}）で円にしています。実際のカードの請求額とは少し違います。
         {data.fetchedAt ? ` 最終更新 ${timeLabel(data.fetchedAt)}` : ""}
       </p>
 

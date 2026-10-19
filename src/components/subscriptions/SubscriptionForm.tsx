@@ -18,6 +18,8 @@ import { FormPanel } from "../ui/FormPanel";
 import { FormActions } from "../ui/FormActions";
 import { Button } from "../ui/Button";
 import { ServiceIcon } from "./ServiceIcon";
+import { isClaudeSubscription } from "../../lib/anthropicBilling";
+import { ClaudePriceHint } from "./ClaudePriceHint";
 
 type NotifyValue = "none" | "0" | "1" | "3" | "7";
 
@@ -197,6 +199,8 @@ export function SubscriptionForm({ initial, template, onSaved, onCancel, onBack 
           min={1}
           placeholder="0"
         />
+        {/* Claude はドルで請求されて消費税が足されるので、登録の金額を税抜・消費税に分けて見せ、為替だけの額と比べる。 */}
+        {isClaudeSubscription(title, serviceKey) && <ClaudePriceHint amount={amount} serviceKey={serviceKey} />}
         {cycle === "yearly" && (
           <SegmentedField
             label="請求の月"

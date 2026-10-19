@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
 }));
 
+// その日の為替は取りに行かず、1ドル150円が返ってきたことにする(数字を固定して確かめるため)。
+vi.mock("../../lib/currency", () => ({ fetchRateToYen: async () => 150 }));
 vi.mock("../../db/schema", () => ({ db: { gmailAccounts: { toArray: async () => mocks.accounts } } }));
 vi.mock("dexie-react-hooks", async () => {
   const { useEffect, useState } = await import("react");
@@ -71,9 +73,11 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("AnthropicBillingPanel(Claude の枠の、Anthropic の料金)", () => {
-  it("覚えてある集計を、月ごとに出す。サブスクと追加(APIクレジット)を分け、円とドルの両方を添える", () => {
+  it("覚えてある集計を、月ごとに出す。サブスクと追加(APIクレジット)を分け、円とドルの両方を添える", async () => {
     window.localStorage.setItem("lifeHubAnthropicBilling", JSON.stringify(STORED));
     renderPanel();
+    // 円はその日の為替で直す(ここでは 150円が返る)。
+    expect(await screen.findByText(/1ドル150\.00円（今日の為替）/)).toBeTruthy();
     const list = screen.getByRole("list");
     const rows = list.querySelectorAll("li");
     expect(rows).toHaveLength(2);
@@ -86,7 +90,6 @@ describe("AnthropicBillingPanel(Claude の枠の、Anthropic の料金)", () => 
     expect(rows[1].textContent).toContain("2026年8月");
     expect(rows[1].textContent).toContain("¥16,385");
     expect(screen.getByText(/2か月の合計/).textContent).toContain("¥34,541");
-    expect(screen.getByText(/1ドル150円の目安/)).toBeTruthy();
   });
 
   it("支払いに失敗した通知があれば、赤い知らせで出す", () => {
