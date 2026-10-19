@@ -20,6 +20,7 @@ import { ExpenseList } from "../../components/expense/ExpenseList";
 import { ExpenseForm } from "../../components/expense/ExpenseForm";
 import { ReceiptScanForm } from "../../components/expense/ReceiptScanForm";
 import { SubscriptionTab, openSubscriptionAdd } from "../../components/subscriptions/SubscriptionTab";
+import { FixedCostTab, openFixedCostAdd } from "../../components/fixedCosts/FixedCostTab";
 import { SalaryList } from "../../components/expense/SalaryList";
 import { BonusForm } from "../../components/expense/BonusForm";
 import { BonusList } from "../../components/expense/BonusList";
@@ -130,6 +131,7 @@ export default function ExpensePage() {
           options={[
             { value: "summary", label: "サマリー" },
             { value: "history", label: "履歴" },
+            { value: "fixed", label: "固定費" },
             { value: "subs", label: "サブスク" },
             { value: "salary", label: "給与" },
           ]}
@@ -142,6 +144,7 @@ export default function ExpensePage() {
       </div>
 
       <div className={`spatial-page-content finance-workspace finance-workspace--${tab} px-5 lg:px-8`}>
+        {tab === "fixed" && <FixedCostTab />}
         {tab === "subs" && <SubscriptionTab />}
 
         {tab === "summary" && <ExpenseSummary onAddSalary={() => setEditingSalary("new")} />}
@@ -240,8 +243,10 @@ export default function ExpensePage() {
           サブスクのタブを見ている時だけは「サブスクを追加」(第2弾 S-8。そこで収支が増えても
           画面に出ないので、押した結果が見えなかった)。 */}
       <PageFab
-        onClick={() => (tab === "subs" ? openSubscriptionAdd() : setEditingTransaction("new"))}
-        label={tab === "subs" ? "サブスクを追加" : "収支を追加"}
+        onClick={() =>
+          tab === "subs" ? openSubscriptionAdd() : tab === "fixed" ? openFixedCostAdd() : setEditingTransaction("new")
+        }
+        label={tab === "subs" ? "サブスクを追加" : tab === "fixed" ? "固定費を追加" : "収支を追加"}
       >
         <Plus size={24} />
       </PageFab>

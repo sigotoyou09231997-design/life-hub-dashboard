@@ -23,6 +23,7 @@ import "./styles/theme-teal.css";
 import "./styles/layout-teal.css";
 // お金管理の「サブスク」タブ(2026-10-12)。layout-teal.css の行の一覧の上に足す。
 import "./styles/subscriptions.css";
+import "./styles/fixed-costs.css";
 // 押した感触・アイコンの線の太さ（UI/UX 調査メモ 第4弾 A-1・B-4・B-5）。どの画面にも効くので最後の方に読む。
 import "./styles/touch-tokens.css";
 // 数字用の文字・数字が動く・空の表示の線画(UI/UX 調査メモ 第4弾 B-1・A-5・B-6)。上の各画面の上に足す。

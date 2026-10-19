@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { db } from "../../db/schema";
 import type { BillingCycle, FixedCost, FixedCostAmountChange } from "../../types";
 import { FIXED_COST_CATEGORIES } from "../../lib/categories";
+import { FIXED_EXPENSE_CATEGORIES } from "../../lib/fixedCosts";
 import { changeDiff, changeDiffLabel, sortChanges } from "../../lib/fixedCostHistory";
 import { formatDisplayDate, toDateStr, todayStr } from "../../lib/date";
 import { daysUntil, nextBillingDate, remainingLabel, type SubscriptionItem } from "../../lib/subscriptions";
@@ -31,6 +32,9 @@ const NOTIFY_OPTIONS: { value: NotifyValue; label: string }[] = [
   { value: "7", label: "1週間前" },
 ];
 
+/** サブスクの種類。家賃・光熱費などの種類は「固定費」のタブで選ぶ(選ぶとそちらに並ぶため、ここには出さない)。 */
+const SUBSCRIPTION_CATEGORIES = FIXED_COST_CATEGORIES.filter((name) => !FIXED_EXPENSE_CATEGORIES.includes(name));
+
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
 
 interface Props {
@@ -54,7 +58,7 @@ export function SubscriptionForm({ initial, template, onSaved, onCancel, onBack 
   const today = todayStr();
 
   const [title, setTitle] = useState(cost?.title ?? template?.service ?? "");
-  const [category, setCategory] = useState(cost?.category ?? template?.category ?? FIXED_COST_CATEGORIES[0]);
+  const [category, setCategory] = useState(cost?.category ?? template?.category ?? SUBSCRIPTION_CATEGORIES[0]);
   const [amount, setAmount] = useState(cost?.amount?.toString() ?? template?.price.toString() ?? "");
   const [cycle, setCycle] = useState<BillingCycle>(detail?.cycle ?? template?.cycle ?? "monthly");
   const [dueDay, setDueDay] = useState(cost?.dueDay?.toString() ?? String(Number(today.slice(8, 10))));
@@ -159,13 +163,13 @@ export function SubscriptionForm({ initial, template, onSaved, onCancel, onBack 
           label="名前"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="例: Netflix、家賃"
+          placeholder="例: Netflix"
           required
           autoFocus={!template && !initial}
         />
         <Field label="カテゴリ" as="div">
           <div className="subs-chips subs-chips--wrap">
-            {FIXED_COST_CATEGORIES.map((name) => (
+            {SUBSCRIPTION_CATEGORIES.map((name) => (
               <button
                 key={name}
                 type="button"

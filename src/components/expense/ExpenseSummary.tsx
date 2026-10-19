@@ -126,7 +126,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
     );
   }
 
-  const { period, totalFixedCosts, actualSpending, pendingCardSpending, bonusAmount, remaining, perDayUsable } = data;
+  const { period, fixedExpenseTotal, subscriptionTotal, actualSpending, pendingCardSpending, bonusAmount, remaining, perDayUsable } = data;
 
   // 目標が1件も無ければ null が返り、この節ごと出さない — 貯金を強制しない。
   const savingsPlan = planSavingsGoals(savingsGoals ?? [], remaining);
@@ -143,7 +143,9 @@ export function ExpenseSummary({ onAddSalary }: Props) {
     // 賞与は給与と同じく使えるお金に足しているので、0円のときは行ごと出さない。
     ...(bonusAmount > 0 ? ([["今期の賞与", yen(bonusAmount)]] as [string, string][]) : []),
     // 年払いは請求日がこの期に入るときだけ数える(src/lib/subscriptions.ts の chargeInPeriod)。
-    ["サブスク・固定費", yen(totalFixedCosts)],
+    // 給与から先に引くもの。家賃などの固定費とサブスクを分けて出す(2026-10-20、src/lib/fixedCosts.ts)。
+    ["固定費", yen(fixedExpenseTotal)],
+    ["サブスク", yen(subscriptionTotal)],
     ["記録した収入", yen(totalIncome)],
     ["記録した支出", yen(totalExpense)],
   ];

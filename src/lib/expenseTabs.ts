@@ -1,7 +1,8 @@
-export type ExpenseTab = "subs" | "summary" | "salary" | "history";
+export type ExpenseTab = "subs" | "fixed" | "summary" | "salary" | "history";
 
-/** 並びと初期表示はサマリー・履歴・サブスク・給与(第8弾 M-1、2026-10-18)。よく見るものを前に。 */
-export const EXPENSE_TABS: ExpenseTab[] = ["summary", "history", "subs", "salary"];
+/** 並びと初期表示はサマリー・履歴・サブスク・給与(第8弾 M-1、2026-10-18)。よく見るものを前に。
+ * 2026-10-20 に、家賃・光熱費などの「固定費」をサブスクの前に足した(src/lib/fixedCosts.ts)。 */
+export const EXPENSE_TABS: ExpenseTab[] = ["summary", "history", "fixed", "subs", "salary"];
 export const EXPENSE_INITIAL_TAB: ExpenseTab = "summary";
 
 export interface ExpenseTabRequest {

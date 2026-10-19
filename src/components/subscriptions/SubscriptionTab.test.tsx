@@ -158,15 +158,13 @@ describe("お金管理のサブスクタブ", () => {
     expect(screen.getByText("¥2,640")).toBeTruthy();
   });
 
-  it("分析: 家賃があると、最初はサブスクだけで見せ、切り替えると家賃も入る", async () => {
+  it("家賃などの固定費は「固定費」のタブに並べ、サブスクのタブ(一覧・分析)には出さない(2026-10-20)", async () => {
     mocks.costs.push(cost("r", { title: "家賃", category: "家賃", amount: 78_000, dueDay: 27 }));
     renderTab();
-    fireEvent.click(await screen.findByRole("tab", { name: "分析" }));
-    expect(screen.getByText("サブスク合計")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /^家賃\s*1件/ })).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "家賃なども含める" }));
-    expect(screen.getByRole("button", { name: /^家賃\s*1件/ })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Netflixを開く" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "家賃を開く" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "分析" }));
+    expect(screen.queryByRole("button", { name: "家賃なども含める" })).toBeNull();
   });
 
   it("カレンダー: その月の請求を日付順に並べる", async () => {

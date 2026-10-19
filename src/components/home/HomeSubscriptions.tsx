@@ -21,7 +21,7 @@ export function HomeSubscriptions({ rows, thisMonthCharge }: { rows: HomeSubscri
         const first = grouped && !seen.has(row.next);
         seen.add(row.next);
         return (
-        <Link key={row.id} to="/records/expense?tab=subs" className={`lh-row lh-subs__row${row.soon ? " is-soon" : ""}${grouped && !first ? " is-grouped" : ""}`}>
+        <Link key={row.id} to={`/records/expense?tab=${row.tab}`} className={`lh-row lh-subs__row${row.soon ? " is-soon" : ""}${grouped && !first ? " is-grouped" : ""}`}>
           {first && (
             <span className="lh-subs__date">
               {formatShortDate(row.next)} に{countByDate.get(row.next)}件

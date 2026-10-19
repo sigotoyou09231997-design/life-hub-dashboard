@@ -1,0 +1,300 @@
+/* ============================================================================
+   お金管理「固定費」タブ（2026-10-20）— src/components/fixedCosts/
+
+   本人「デザインはサブスクとは変えて」「ちゃんと合計の給与から引かれるように」。
+   サブスク（黒い合計カード・サービスの色のアイコン・残り日数の棒）とは分けて、
+   白い面と細い線だけの「家計簿」の見た目にする:
+     1. 給与からの引き方 … 給与を1本の帯にして、固定費（黒）・サブスク（青緑）・使った額（薄い青緑）・残り（地）
+     2. 毎月の固定費     … 白い面に黒い大きな数字
+     3. 支払日の順       … 左に日付の札（四角・線だけ）、右に金額
+   色は theme-teal.css の青緑と黒だけ。
+   ========================================================================= */
+
+.fx-home {
+  display: grid;
+  gap: 1.35rem;
+}
+.fx-home > * { min-width: 0; }
+
+@media (min-width: 1024px) {
+  .fx-home {
+    grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+    align-items: start;
+    gap: 1.4rem 1.75rem;
+  }
+  /* 左: 給与からの引き方・毎月の固定費、右: 支払日の順(とその下の止めているもの・追加)。 */
+  .fx-home > .fx-salary { grid-column: 1; grid-row: 1; }
+  .fx-home > .fx-total { grid-column: 1; grid-row: 2; }
+  .fx-home > .fx-list-section { grid-column: 2; grid-row: 1 / span 3; }
+  .fx-home > :not(.fx-salary):not(.fx-total):not(.fx-list-section) { grid-column: 2; }
+}
+
+/* ---------------------------------------------------------------------------
+   1. 給与からの引き方
+   ------------------------------------------------------------------------ */
+.fx-salary {
+  display: grid;
+  gap: 0.85rem;
+  border: 1px solid var(--warm-line);
+  border-radius: var(--r-card);
+  padding: 1.1rem 1.2rem 1rem;
+  background: var(--warm-surface);
+  box-shadow: var(--shadow-rest);
+}
+.fx-salary__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.fx-salary__head small {
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+}
+.fx-salary__title {
+  margin: 0;
+  color: var(--ink-black);
+  font-size: var(--fs-section);
+  font-weight: 600;
+}
+.fx-salary__empty {
+  margin: 0;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-body);
+  line-height: 1.7;
+}
+.fx-salary__bar {
+  display: flex;
+  overflow: hidden;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--warm-surface-sunk);
+}
+.fx-salary__bar > span { height: 100%; }
+.fx-salary__bar > span + span { box-shadow: -2px 0 0 var(--warm-surface); }
+.fx-salary .is-fixed { background: var(--ink-black); }
+.fx-salary .is-subs { background: var(--teal-500); }
+.fx-salary .is-spent { background: var(--teal-100); }
+.fx-salary__rows {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+.fx-salary__rows > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.fx-salary__rows dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-body);
+}
+.fx-salary__rows dt i {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 3px;
+}
+.fx-salary__rows dd {
+  margin: 0;
+  color: var(--ink-black);
+  font-family: var(--font-num);
+  font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+}
+.fx-salary__rows .is-total {
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--warm-line);
+}
+.fx-salary__rows .is-total dt { color: var(--ink-black); font-weight: 600; }
+.fx-salary__rows .is-total dd { font-size: 1.15rem; font-weight: 700; }
+.fx-salary__rows .is-total.is-over dd { color: #9b2c2c; }
+
+/* ---------------------------------------------------------------------------
+   2. 毎月の固定費（白い面に黒い数字。サブスクの黒いカードとは逆）
+   ------------------------------------------------------------------------ */
+.fx-total {
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid var(--warm-line);
+  border-left: 4px solid var(--ink-black);
+  border-radius: var(--r-card);
+  padding: 1.1rem 1.2rem;
+  background: var(--warm-surface);
+}
+.fx-total__label {
+  margin: 0;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.fx-total__amount {
+  margin: 0.2rem 0 0;
+  color: var(--ink-black);
+  font-family: var(--font-num);
+  font-size: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.fx-total__amount small {
+  margin-left: 0.2rem;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+.fx-total__note {
+  margin: 0.35rem 0 0;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+}
+.fx-total__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding-top: 0.8rem;
+  border-top: 1px dashed var(--warm-line-strong);
+}
+.fx-total__stats dt {
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+}
+.fx-total__stats dd {
+  margin: 0.15rem 0 0;
+  overflow: hidden;
+  color: var(--ink-black);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------------------
+   3. 支払日の順（左に日付の札）
+   ------------------------------------------------------------------------ */
+.fx-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--warm-line);
+  border-radius: var(--r-card);
+  background: var(--warm-surface);
+  overflow: hidden;
+}
+.fx-list > li + li { border-top: 1px solid var(--warm-line); }
+.fx-row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: center;
+  width: 100%;
+  min-height: 4rem;
+  padding: 0.7rem 1rem;
+  background: transparent;
+  text-align: left;
+}
+.fx-row:hover { background: color-mix(in srgb, var(--teal-50) 55%, #fff); }
+.fx-row:active { background: var(--teal-50); }
+.fx-row.is-stopped { opacity: 0.6; }
+.fx-day {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  width: 3rem;
+  min-height: 3rem;
+  padding: 0.3rem 0;
+  border: 1px solid var(--warm-line-strong);
+  border-radius: 10px;
+  color: var(--ink-black);
+  line-height: 1;
+}
+.fx-day b {
+  font-family: var(--font-num);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+.fx-day small {
+  margin-top: 0.1rem;
+  color: var(--warm-ink-2);
+  font-size: 0.75rem;
+}
+.fx-day.is-yearly { border-style: dashed; }
+.fx-day .fx-day__month { margin: 0 0 0.15rem; }
+.fx-row__copy {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.fx-row__copy strong {
+  overflow: hidden;
+  color: var(--ink-black);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fx-row__copy small {
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+}
+.fx-row__amount {
+  color: var(--ink-black);
+  font-family: var(--font-num);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fx-row__amount small {
+  margin-left: 0.1rem;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+}
+.fx-stopped-toggle {
+  min-height: 2.75rem;
+  padding: 0.4rem 0;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   フォームの種類のボタン（サブスクのチップとは形を分けて、角の丸い四角）
+   ------------------------------------------------------------------------ */
+.fx-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+.fx-kind {
+  min-height: 2.75rem;
+  border: 1px solid var(--warm-line-strong);
+  border-radius: 10px;
+  padding: 0.35rem 0.5rem;
+  background: #fff;
+  color: var(--warm-ink);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+.fx-kind[aria-pressed="true"] {
+  border-color: var(--ink-black);
+  background: var(--ink-black);
+  color: #fff;
+}
+.fx-actions {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.fx-actions__note {
+  margin: 0;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+}

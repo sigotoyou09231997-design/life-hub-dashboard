@@ -2,6 +2,7 @@ import { addDays, differenceInCalendarDays, parseISO } from "date-fns";
 import { toDateStr } from "./date";
 import { occursOn, spanDayIndex, type TimedSpan } from "./eventSpan";
 import { daysUntil, nextBillingDate, summarizeSubscriptions, type SubscriptionItem } from "./subscriptions";
+import { isFixedExpense } from "./fixedCosts";
 
 /**
  * ホーム(TOP)の組み直し(Cowork「LIFE HUB ホームのレイアウト案」2026-10-16、実装 2026-10-17)。
@@ -154,6 +155,8 @@ export interface HomeSubscriptionRow {
   days: number;
   /** 7日以内の請求(琥珀の点)。 */
   soon: boolean;
+  /** 押した時に開くお金管理のタブ。家賃などの固定費は「固定費」、それ以外は「サブスク」(src/lib/fixedCosts.ts)。 */
+  tab: "fixed" | "subs";
 }
 
 /** 「次の請求」カード: 次に引き落とされる順に最大3件と、今月に実際に請求される合計。止めているものは数えない。 */
@@ -165,7 +168,15 @@ export function homeSubscriptions(items: SubscriptionItem[], today: string, limi
     .slice(0, limit)
     .map(({ item, next }) => {
       const days = daysUntil(next, today);
-      return { id: item.cost.id ?? item.cost.title, title: item.cost.title, amount: item.cost.amount, next, days, soon: days <= SUBSCRIPTION_SOON_DAYS };
+      return {
+        id: item.cost.id ?? item.cost.title,
+        title: item.cost.title,
+        amount: item.cost.amount,
+        next,
+        days,
+        soon: days <= SUBSCRIPTION_SOON_DAYS,
+        tab: isFixedExpense(item.cost) ? ("fixed" as const) : ("subs" as const),
+      };
     });
   return { rows, thisMonthCharge: summarizeSubscriptions(items, today).thisMonthCharge };
 }

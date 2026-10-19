@@ -239,7 +239,7 @@ export function WeekView({
                     onClick={() => setOpenSubs((prev) => new Set([...prev, entry.date]))}
                     title={entry.chips.map((chip) => chip.label).join("、")}
                   >
-                    サブスク {entry.chips.length}件
+                    引き落とし {entry.chips.length}件
                   </button>
                 );
               }

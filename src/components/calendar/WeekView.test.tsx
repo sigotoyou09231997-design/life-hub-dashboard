@@ -115,7 +115,7 @@ describe("週表示", () => {
 });
 
 describe("週表示: サブスクのまとめと「今日から7日」(第8弾 S-2)", () => {
-  it("同じ日のサブスクが2件以上なら「サブスク N件」の1本にまとめ、押すと内訳に開く", () => {
+  it("同じ日の引き落とし(サブスク・固定費)が2件以上なら「引き落とし N件」の1本にまとめ、押すと内訳に開く", () => {
     const chips = new Map([
       ["2026-10-13", [
         { key: "s1", label: "Netflix", color: "#111", kind: "fixedCost" as const },
@@ -125,13 +125,13 @@ describe("週表示: サブスクのまとめと「今日から7日」(第8弾 S
       ["2026-10-15", [{ key: "s4", label: "家賃", color: "#444", kind: "fixedCost" as const }]],
     ]);
     renderWeek([], { fixedCostChips: chips });
-    const group = screen.getByRole("button", { name: "サブスク 3件" });
+    const group = screen.getByRole("button", { name: "引き落とし 3件" });
     expect(screen.queryByText("Netflix")).toBeNull();
     expect(screen.getByText("家賃")).toBeTruthy();
     fireEvent.click(group);
     expect(screen.getByText("Netflix")).toBeTruthy();
     expect(screen.getByText("iCloud")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "サブスク 3件" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "引き落とし 3件" })).toBeNull();
   });
 
   it("「今日から7日」を押すと、月曜はじまりではなくその日から7日になり、端末に覚える", () => {
