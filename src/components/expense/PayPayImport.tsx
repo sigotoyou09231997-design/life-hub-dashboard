@@ -1,18 +1,13 @@
 import { useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, ensureDefaultSettings } from "../../db/schema";
-import { decodePayPayCsvFile, parsePayPayCsv, classifyForHousehold } from "../../lib/paypayCsv";
+import { decodePayPayCsvFile } from "../../lib/paypayCsv";
+import { importPayPayCsvText, type PayPayImportOutcome } from "../../lib/paypayImport";
+import { PayPayImportResult } from "./PayPayImportResult";
 import { Card } from "../ui/Card";
 import { Input } from "../ui/Input";
 import { Button } from "../ui/Button";
 import { useToast } from "../ui/ToastProvider";
-
-interface ImportResult {
-  total: number;
-  householdImported: number;
-  skippedInternal: number;
-  duplicates: number;
-}
 
 function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
@@ -23,7 +18,7 @@ export function PayPayImport() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [balanceInput, setBalanceInput] = useState("");
   const [importing, setImporting] = useState(false);
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [outcome, setOutcome] = useState<PayPayImportOutcome | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const settings = useLiveQuery(() => db.settings.toCollection().first(), []);
@@ -40,67 +35,16 @@ export function PayPayImport() {
   async function handleFile(file: File) {
     setImporting(true);
     setError(null);
-    setResult(null);
+    setOutcome(null);
     try {
       const text = await decodePayPayCsvFile(file);
-      const rows = parsePayPayCsv(text);
-      if (rows.length === 0) {
+      const result = await importPayPayCsvText(text);
+      if (!result) {
         setError("取引データを読み取れませんでした。PayPayの取引履歴CSVか確認してください。");
-        setImporting(false);
         return;
       }
-
-      const [existingLedger, existingTx] = await Promise.all([
-        db.paypayTransactions.toArray(),
-        db.transactions.toArray(),
-      ]);
-      const seenLedgerKeys = new Set(existingLedger.map((r) => r.externalId));
-      const seenTxKeys = new Set(existingTx.filter((t) => t.externalId).map((t) => t.externalId!));
-
-      const now = Date.now();
-      let householdImported = 0;
-      let skippedInternal = 0;
-      let duplicates = 0;
-
-      for (const row of rows) {
-        if (seenLedgerKeys.has(row.externalId)) {
-          duplicates++;
-          continue;
-        }
-        seenLedgerKeys.add(row.externalId);
-        await db.paypayTransactions.add({
-          externalId: row.externalId,
-          date: row.date,
-          amount: row.amount,
-          content: row.content,
-          counterparty: row.counterparty,
-          importedAt: now,
-        });
-
-        const classified = classifyForHousehold(row);
-        if (!classified) {
-          skippedInternal++;
-          continue;
-        }
-        if (seenTxKeys.has(row.externalId)) continue;
-        seenTxKeys.add(row.externalId);
-        await db.transactions.add({
-          type: classified.type,
-          amount: classified.amount,
-          category: classified.category,
-          store: classified.store,
-          memo: classified.memo,
-          method: "電子マネー",
-          date: row.date,
-          isFixed: false,
-          externalId: row.externalId,
-          createdAt: now,
-        });
-        householdImported++;
-      }
-
-      setResult({ total: rows.length, householdImported, skippedInternal, duplicates });
-      showToast(`${householdImported}件を取り込みました`);
+      setOutcome(result);
+      showToast(result.added.length > 0 ? `${result.added.length}件を取り込みました` : "新しく入れる取引はありませんでした");
     } catch {
       setError("CSVの読み込みに失敗しました。ファイル形式を確認してください。");
       showToast("CSVの読み込みに失敗しました", "error");
@@ -153,7 +97,7 @@ export function PayPayImport() {
       <Card>
         <p className="mb-1 text-sm font-medium text-slate-600">PayPay CSV読み込み</p>
         <p className="mb-3 text-xs text-slate-400">
-          PayPayアプリの「取引履歴」からCSVをエクスポートして読み込むと、支払い・送金・受け取りが支出/収入として自動登録されます(チャージや口座出金などウォレット内の移動は残高計算にのみ反映し、お金管理には登録しません)。
+          PayPayアプリの「取引履歴」からCSVをエクスポートして読み込むと、支払い・送金・受け取りが支出/収入として自動登録されます(チャージや口座への送金などウォレット内の移動は残高計算にのみ反映し、お金管理には登録しません)。同じファイルや期間の重なるファイルを入れ直しても、入っている取引は二重になりません。
         </p>
         <Button
           variant="secondary"
@@ -176,14 +120,7 @@ export function PayPayImport() {
 
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
-        {result && (
-          <div className="mt-4 space-y-1 rounded-xl bg-white/40 p-3.5 text-sm text-slate-600">
-            <p>取込対象: {result.total}件</p>
-            <p>お金管理に登録: {result.householdImported}件(支払い・送金・受取)</p>
-            <p>ウォレット内移動としてスキップ: {result.skippedInternal}件(チャージ・口座出金など)</p>
-            <p>重複のためスキップ: {result.duplicates}件</p>
-          </div>
-        )}
+        {outcome && <PayPayImportResult outcome={outcome} />}
       </Card>
     </div>
   );

@@ -1353,3 +1353,40 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 .review-usage-fold__toggle small { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--warm-ink-3); font-size: var(--fs-caption); text-overflow: ellipsis; white-space: nowrap; }
 .review-usage-fold__chevron { flex: 0 0 auto; color: var(--warm-ink-3); transition: transform 240ms var(--ease-out-expo); }
 .review-usage-fold__toggle[aria-expanded="true"] .review-usage-fold__chevron { transform: rotate(180deg); }
+
+/* ============================================================================
+   PayPay の CSV を取り込んだ結果(src/components/expense/PayPayImportResult.tsx、2026-10-20)
+   入った取引を「日付・店・金額」の行で並べる。金額は右にそろえる。
+   ========================================================================= */
+.paypay-result__rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--warm-line);
+}
+.paypay-result__row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--warm-line);
+}
+.paypay-result__date {
+  color: var(--warm-ink-2);
+  font-family: var(--font-num);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.paypay-result__store {
+  overflow: hidden;
+  color: var(--ink-black);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.paypay-result__amount {
+  color: var(--ink-black);
+  font-family: var(--font-num);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-20-103",
+    date: "2026-10-20",
+    area: "お金管理",
+    title: "PayPayのCSV取り込みを直し、入れ直しても二重にならないように",
+    description:
+      "PayPayの取引履歴は「CSVから取込」と「PayPay」のどちらから入れても、支払い・送金・受け取りだけを取り込むようになりました。取り込んだ支出は今の給料の期間の「使えるお金」から引かれ、結果の画面で引いた金額を確かめられます。同じファイルや期間の重なるファイルを入れ直しても、すでに入っている取引は二重になりません。給与が未登録の時や、給料の期間より前の日付の取引は、その旨を表示します。",
+  },
+  {
     id: "2026-10-19-102",
     date: "2026-10-19",
     area: "全体",
