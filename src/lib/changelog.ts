@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-20-104",
+    date: "2026-10-20",
+    area: "お金管理",
+    title: "Claude のサブスクの金額を実際の請求に合わせ、税込・税抜を表示",
+    description:
+      "Claude はドルで請求され消費税が足されるため、円の金額がずれていました。編集画面に税抜・消費税・税込をドルと円で並べ、その日の為替で円にした額に「この金額にする」でそろえられます。一覧にも税込と税抜を並べました。",
+  },
+  {
     id: "2026-10-20-103",
     date: "2026-10-20",
     area: "お金管理",
