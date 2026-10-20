@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-20-108",
+    date: "2026-10-20",
+    area: "お金管理",
+    title: "固定費を写真やメールから追加できるように",
+    description:
+      "「固定費を追加」の一番上の「請求書・明細の写真から入れる」で、写真から名前・種類・金額・支払日を読み取ってフォームに入れます。電気料金や利用料金のお知らせのメールを開くと「固定費に追加」が出て、名前・金額・支払日が入った状態で登録できます。どちらも確かめてから保存します。",
+  },
+  {
     id: "2026-10-20-107",
     date: "2026-10-20",
     area: "お金管理",
