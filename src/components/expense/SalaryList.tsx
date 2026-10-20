@@ -9,6 +9,8 @@ interface Props {
   salaries: SalaryEntry[];
   onEdit: (s: SalaryEntry) => void;
   onDelete: (id: string) => void;
+  /** 給与明細(PDF・CSV)の取り込みを開く。まだ1件も無い時の入口。 */
+  onImportSlip?: () => void;
 }
 
 function formatMonth(month: string): string {
@@ -17,12 +19,17 @@ function formatMonth(month: string): string {
   return `${year}年${Number(m)}月`;
 }
 
-export function SalaryList({ salaries, onEdit, onDelete }: Props) {
+export function SalaryList({ salaries, onEdit, onDelete, onImportSlip }: Props) {
   const confirm = useConfirm();
 
   if (salaries.length === 0) {
     return (
-      <EmptyState icon={Wallet} title="給与がまだ登録されていません" description="下のボタンから登録できます。" />
+      <EmptyState
+        icon={Wallet}
+        title="給与がまだ登録されていません"
+        description="給与明細（PDF）を読み込むか、下の「給与を追加」から入れられます。"
+        action={onImportSlip ? { label: "給与明細を読み込む", onClick: onImportSlip } : undefined}
+      />
     );
   }
 

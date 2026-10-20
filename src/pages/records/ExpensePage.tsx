@@ -155,10 +155,11 @@ export default function ExpensePage() {
               <ListSkeleton />
             ) : (
               <>
-                <SalaryDeductionBreakdown salaries={salaries ?? []} />
+                <SalaryDeductionBreakdown salaries={salaries ?? []} onImportSlip={() => setSalaryCsvImportOpen(true)} />
                 <div className="mt-4">
                   <SalaryList
                     salaries={salaries ?? []}
+                    onImportSlip={() => setSalaryCsvImportOpen(true)}
                     onEdit={(s) => setEditingSalary(s)}
                     onDelete={(id) => {
                       db.salaries.delete(id);

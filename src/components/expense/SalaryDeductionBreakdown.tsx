@@ -1,3 +1,4 @@
+import { FileUp } from "lucide-react";
 import type { SalaryEntry } from "../../types";
 import { aggregateDeductions } from "../../lib/salaryCsv";
 import { Card } from "../ui/Card";
@@ -15,9 +16,11 @@ function formatMonth(month: string): string {
 
 interface Props {
   salaries: SalaryEntry[];
+  /** 給与明細(PDF・CSV)の取り込みを開く。給与タブの一番上から入れるように(下のボタンは「＋」に隠れて見つけにくかった)。 */
+  onImportSlip?: () => void;
 }
 
-export function SalaryDeductionBreakdown({ salaries }: Props) {
+export function SalaryDeductionBreakdown({ salaries, onImportSlip }: Props) {
   if (salaries.length === 0) return null;
 
   const latest = [...salaries].sort((a, b) => b.month.localeCompare(a.month))[0];
@@ -52,6 +55,14 @@ export function SalaryDeductionBreakdown({ salaries }: Props) {
             <p className="mt-1 text-lg font-semibold tabular-nums text-navy">{yen(latest.amount)}</p>
           </div>
         </div>
+        {onImportSlip && (
+          <div className="salary-slip-cta">
+            {latest.grossAmount == null && <p>給与明細（PDF）を読み込むと、総支給と控除の内訳も入ります。</p>}
+            <button type="button" className="salary-slip-cta__btn" onClick={onImportSlip}>
+              <FileUp size={16} aria-hidden="true" /> 給与明細を読み込む
+            </button>
+          </div>
+        )}
       </Card>
 
       {aggregated.length > 0 && (

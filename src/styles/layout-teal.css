@@ -1467,3 +1467,37 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
   font-size: var(--fs-caption);
   font-weight: 600;
 }
+
+/* 給与タブ: 最新の給与のカードの中の「給与明細を読み込む」(2026-10-20)。一番下のボタンは、スマホでは右下の「＋」に隠れて見つけにくかった。 */
+.salary-slip-cta {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--warm-line);
+}
+.salary-slip-cta p {
+  margin: 0;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+}
+.salary-slip-cta__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.75rem;
+  border: 1px solid var(--teal-500);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--teal-700);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+.salary-slip-cta__btn:active { background: var(--teal-50); }
+
+/* スマホ: お金管理の一番下のボタン(給与を追加・明細から取込 など)が、右下の「＋」と下のメニューに隠れないよう、下に余白を足す。 */
+@media (max-width: 1023px) {
+  .finance-page .finance-workspace { padding-bottom: 5rem; }
+}
