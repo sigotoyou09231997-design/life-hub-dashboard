@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-20-106",
+    date: "2026-10-20",
+    area: "お金管理",
+    title: "給与明細のPDFを読み込めるようにしました",
+    description:
+      "給与タブの「明細から取込」で、会社の給与明細(PDF)を選ぶと、手取り(差引支給額)・総支給額・控除の内訳を読み取ります。内容と給料日を確かめてから登録でき、同じ月の給与がすでにあれば明細の内容に置き換えます。給与明細のCSVもこれまでどおり同じボタンから取り込めます。",
+  },
+  {
     id: "2026-10-20-105",
     date: "2026-10-20",
     area: "お金管理",
