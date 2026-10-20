@@ -23,6 +23,10 @@ function writeVersionFile(): Plugin {
 const APP_COMMIT = process.env.COMMIT_REF || process.env.VERCEL_GIT_COMMIT_SHA || "dev";
 
 export default defineConfig({
+  build: {
+    // pdf.js の文字の対応表(.bcmap、src/lib/payslipPdf.ts)は小さくても JS に埋め込まず、別のファイルにして要る時だけ読む。
+    assetsInlineLimit: (file: string) => (file.endsWith(".bcmap") ? false : undefined),
+  },
   define: {
     __APP_COMMIT__: JSON.stringify(APP_COMMIT),
   },
@@ -48,6 +52,9 @@ export default defineConfig({
         // precache/update-banner machinery above is untouched, no need to switch
         // to injectManifest mode just for background push notifications.
         importScripts: ["push-sw.js"],
+        // 給与明細の PDF を読む pdf.js(src/lib/payslipPdf.ts、約360KB)は、PDF を選んだ時にだけ読むので、
+        // 開いた時の取り置き(precache)には入れない(使わない人の更新のたびの読み込みを増やさない)。
+        globIgnores: ["**/node_modules/**/*", "**/pdf-*.js"],
         // 数字用の文字(UI/UX 調査メモ 第4弾 B-1、index.html で Google Fonts から読む)を、
         // 一度読んだら端末に取り置く。このアプリは電波の無い所でも開く PWA なので、
         // 外の配信に毎回取りに行くと、地下や機内で数字だけ端末の文字に戻ってしまう。
