@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-20-107",
+    date: "2026-10-20",
+    area: "お金管理",
+    title: "給与明細を読み込むボタンを、給与タブの一番上に",
+    description:
+      "給与タブの「最新の給与」のカードに「給与明細を読み込む」を置きました。一番下のボタンがスマホで右下の「＋」に隠れていたので、下に余白も足しました。",
+  },
+  {
     id: "2026-10-20-106",
     date: "2026-10-20",
     area: "お金管理",
