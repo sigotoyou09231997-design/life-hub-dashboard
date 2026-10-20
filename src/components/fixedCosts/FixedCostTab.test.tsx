@@ -53,6 +53,16 @@ vi.mock("dexie-react-hooks", async () => {
 const budget = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("../../hooks/usePayPeriodBudget", () => ({ usePayPeriodBudget: () => ({ data: budget.value, loading: false }) }));
 
+vi.mock("../../lib/imageDownscale", () => ({ prepareImageForScan: async () => ({ base64: "abc", mediaType: "image/jpeg" }) }));
+const photo = vi.hoisted(() => ({ result: null as unknown, error: null as Error | null }));
+vi.mock("../../lib/receiptScan", () => ({
+  SUPPORTED_RECEIPT_MEDIA_TYPES: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+  extractFixedCostFromImage: async () => {
+    if (photo.error) throw photo.error;
+    return photo.result;
+  },
+}));
+
 import { FixedCostTab } from "./FixedCostTab";
 
 function cost(id: string, over: Partial<FixedCost>): FixedCost {
@@ -141,5 +151,37 @@ describe("お金管理の固定費タブ", () => {
     await waitFor(() => expect(mocks.saved).toHaveLength(1));
     expect(mocks.saved[0][0]).toMatchObject({ title: "ガス代", category: "水道光熱費", amount: 4500 });
     expect(screen.queryByRole("button", { name: "動画" })).toBeNull();
+  });
+});
+
+describe("写真から固定費を入れる", () => {
+  function pickPhoto() {
+    const input = document.querySelector(".fx-photo input[type=file]") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(["x"], "bill.jpg", { type: "image/jpeg" })] } });
+  }
+
+  it("読み取った名前・種類・金額・支払日がフォームに入り、確かめてから追加できる", async () => {
+    photo.error = null;
+    photo.result = { title: "ガス代", category: "水道光熱費", amount: 4321, cycle: "monthly", dueDay: 12 };
+    renderTab();
+    fireEvent.click((await screen.findAllByRole("button", { name: /固定費を追加/ }))[0]);
+    pickPhoto();
+    expect(await screen.findByText(/写真から読み取って入れました/)).toBeTruthy();
+    expect((screen.getByLabelText("名前") as HTMLInputElement).value).toBe("ガス代");
+    expect((screen.getByPlaceholderText("0") as HTMLInputElement).value).toBe("4321");
+    expect(screen.getByRole("button", { name: "水道光熱費" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "追加する" }));
+    await waitFor(() => expect(mocks.saved).toHaveLength(1));
+    expect(mocks.saved[0][0]).toMatchObject({ title: "ガス代", category: "水道光熱費", amount: 4321, dueDay: 12 });
+  });
+
+  it("AI の残高が足りない時は、手で入れるよう知らせる(フォームはそのまま使える)", async () => {
+    photo.result = null;
+    photo.error = new Error("Anthropic API error: credit balance is too low");
+    renderTab();
+    fireEvent.click((await screen.findAllByRole("button", { name: /固定費を追加/ }))[0]);
+    pickPhoto();
+    expect((await screen.findByRole("alert")).textContent).toContain("AIの利用残高が足りず");
+    expect(screen.getByLabelText("名前")).toBeTruthy();
   });
 });

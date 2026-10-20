@@ -52,3 +52,28 @@ export async function extractReceiptFromImage(imageBase64: string, mediaType: st
   const data = (await res.json()) as { receipt: ExtractedReceipt | null };
   return data.receipt;
 }
+
+/** 固定費の写真(請求書・料金のお知らせ・契約書)から読み取った下書き。サーバー側の ExtractedFixedCost と同じ形。 */
+export interface ExtractedFixedCost {
+  title?: string;
+  category?: string;
+  amount?: number;
+  cycle?: "monthly" | "yearly";
+  dueDay?: number;
+  billingMonth?: number;
+  memo?: string;
+}
+
+/** 固定費の写真を読む(同じ /api/extractReceipt に kind: "fixedCost" を付けて送る)。読み取れなければ null。 */
+export async function extractFixedCostFromImage(imageBase64: string, mediaType: string, today: string): Promise<ExtractedFixedCost | null> {
+  const res = await fetch("/api/extractReceipt", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ imageBase64, mediaType, today, kind: "fixedCost" }),
+  });
+  if (!res.ok) {
+    throw new Error(await readErrorMessage(res, "写真の読み取りに失敗しました"));
+  }
+  const data = (await res.json()) as { fixedCost: ExtractedFixedCost | null };
+  return data.fixedCost;
+}

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { BillingCycle, FixedCost } from "../../types";
-import { FIXED_EXPENSE_CATEGORIES } from "../../lib/fixedCosts";
+import { FIXED_EXPENSE_CATEGORIES, type FixedCostDraft } from "../../lib/fixedCosts";
 import { formatDisplayDate, todayStr } from "../../lib/date";
 import { daysUntil, nextBillingDate, remainingLabel, type SubscriptionItem } from "../../lib/subscriptions";
 import { saveSubscription } from "../../lib/subscriptionStore";
@@ -28,6 +28,8 @@ const CATEGORY_LABEL: Record<string, string> = { その他の固定費: "その�
 
 interface Props {
   initial?: SubscriptionItem;
+  /** 新しく足す時に、先に入れておく値(写真・メールから読み取ったもの)。 */
+  draft?: FixedCostDraft | null;
   onSaved: () => void;
   onCancel: () => void;
 }
@@ -37,19 +39,22 @@ interface Props {
  * サービスを選ぶ段・無料体験・契約開始日は無い。名前・種類・金額・払い方・支払日・通知だけ。
  * 保存先はサブスクと同じ固定費の表(src/lib/subscriptionStore.ts)。種類で「固定費」のタブに並ぶ(src/lib/fixedCosts.ts)。
  */
-export function FixedCostForm({ initial, onSaved, onCancel }: Props) {
+export function FixedCostForm({ initial, draft, onSaved, onCancel }: Props) {
   const cost = initial?.cost;
   const detail = initial?.detail;
   const today = todayStr();
 
-  const [title, setTitle] = useState(cost?.title ?? "");
-  const [category, setCategory] = useState(
-    cost && FIXED_EXPENSE_CATEGORIES.includes(cost.category) ? cost.category : FIXED_EXPENSE_CATEGORIES[0],
+  const [title, setTitle] = useState(cost?.title ?? draft?.title ?? "");
+  const [category, setCategory] = useState(() => {
+    const initialCategory = cost?.category ?? draft?.category;
+    return initialCategory && FIXED_EXPENSE_CATEGORIES.includes(initialCategory) ? initialCategory : FIXED_EXPENSE_CATEGORIES[0];
+  });
+  const [amount, setAmount] = useState(cost?.amount?.toString() ?? draft?.amount?.toString() ?? "");
+  const [cycle, setCycle] = useState<BillingCycle>(detail?.cycle ?? draft?.cycle ?? "monthly");
+  const [dueDay, setDueDay] = useState(cost?.dueDay?.toString() ?? draft?.dueDay?.toString() ?? "27");
+  const [billingMonth, setBillingMonth] = useState(
+    String(detail?.billingMonth ?? draft?.billingMonth ?? Number(today.slice(5, 7))),
   );
-  const [amount, setAmount] = useState(cost?.amount?.toString() ?? "");
-  const [cycle, setCycle] = useState<BillingCycle>(detail?.cycle ?? "monthly");
-  const [dueDay, setDueDay] = useState(cost?.dueDay?.toString() ?? "27");
-  const [billingMonth, setBillingMonth] = useState(String(detail?.billingMonth ?? Number(today.slice(5, 7))));
   const [notify, setNotify] = useState<NotifyValue>(
     cost?.notifyDaysBefore != null ? (String(cost.notifyDaysBefore) as NotifyValue) : "none",
   );
@@ -104,7 +109,7 @@ export function FixedCostForm({ initial, onSaved, onCancel }: Props) {
           onChange={(e) => setTitle(e.target.value)}
           placeholder="例: 家賃、電気代、自動車保険"
           required
-          autoFocus={!initial}
+          autoFocus={!initial && !draft}
         />
         <Field label="種類" as="div">
           <div className="fx-kinds">

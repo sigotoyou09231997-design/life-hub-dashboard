@@ -298,3 +298,34 @@
   color: var(--warm-ink-2);
   font-size: var(--fs-caption);
 }
+
+/* ---------------------------------------------------------------------------
+   写真から入れる(追加のシートの一番上。src/components/fixedCosts/FixedCostPhotoButton.tsx)
+   ------------------------------------------------------------------------ */
+.fx-photo {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.fx-photo__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 3rem;
+  border: 1px dashed var(--ink-black);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink-black);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+.fx-photo__btn:disabled { opacity: 0.6; }
+.fx-photo__btn:active { background: var(--teal-50); }
+.fx-photo__note {
+  margin: 0;
+  color: var(--teal-700);
+  font-size: var(--fs-caption);
+  line-height: 1.6;
+}
+.fx-photo__note.is-error { color: #9b2c2c; }

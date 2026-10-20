@@ -87,3 +87,13 @@ export function salarySplit(input: { salary: number; fixed: number; subscription
     shares: { fixed: share(fixed), subscriptions: share(subscriptions), spent: share(spent), remaining: share(remaining) },
   };
 }
+
+/** 写真やメールから読み取った、固定費のフォームに先に入れておく値(どれも無いことがある)。 */
+export interface FixedCostDraft {
+  title?: string;
+  category?: string;
+  amount?: number;
+  cycle?: "monthly" | "yearly";
+  dueDay?: number;
+  billingMonth?: number;
+}

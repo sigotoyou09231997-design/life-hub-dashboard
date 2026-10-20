@@ -35,6 +35,8 @@ interface ExtractReceiptBody {
   /** 「先月」のような相対的な書き方は無いはずだが、年をまたぐレシート(12/31など)の
    * 年の判断に使う基準日(YYYY-MM-DD)。 */
   today?: string;
+  /** "fixedCost" なら固定費の写真として読む(下の FIXED_COST_SYSTEM_PROMPT)。無ければレシート。 */
+  kind?: string;
 }
 
 function jsonResponse(statusCode: number, body: unknown) {
@@ -104,6 +106,67 @@ export function parseReceiptResponse(text: string): ExtractedReceipt | null {
   return { storeName, date, amount, category, paymentMethod, memo };
 }
 
+// ---------------------------------------------------------------------------
+// 固定費の写真(請求書・料金のお知らせ・契約書)の読み取り(2026-10-20、本人「固定費も写真で追加したい」)。
+// 体の { kind: "fixedCost" } で切り替える。関数を1つ増やすと Vercel の関数の数の上限に近づくので、同じ入り口に足した。
+
+/** src/lib/fixedCosts.ts の FIXED_EXPENSE_CATEGORIES と同じ(netlify/__tests__/extractReceipt.test.ts で突き合わせる)。 */
+export const FIXED_COST_CATEGORIES = ["家賃", "水道光熱費", "通信費", "保険", "ローン", "税金・年金", "教育", "カード", "その他の固定費"];
+
+export interface ExtractedFixedCost {
+  title?: string;
+  category?: string;
+  amount?: number;
+  cycle?: "monthly" | "yearly";
+  dueDay?: number;
+  billingMonth?: number;
+  memo?: string;
+}
+
+export const FIXED_COST_SYSTEM_PROMPT = `あなたは、請求書・料金のお知らせ・契約書・明細の写真から、毎月(または年に1回)決まって払う「固定費」を登録するための情報を読み取る担当です。
+
+渡された画像1枚から、次の形のJSONだけを返してください。説明文もコードフェンスも付けないでください。
+{"fixedCost":{"title":"電気代","category":"水道光熱費","amount":8123,"cycle":"monthly","dueDay":26,"billingMonth":null,"memo":"..."}}
+
+ルール:
+- title は何の支払いかが分かる短い名前(例: 電気代、ガス代、水道代、家賃、スマホ、インターネット、自動車保険、奨学金)。会社名だけにしない。
+- category は次から1つ選ぶ: ${FIXED_COST_CATEGORIES.join("、")}。当てはまらなければ「その他の固定費」。
+- amount は1回に払う金額(税込)を円の整数で入れる。今回の請求額・引き落とし額。読み取れなければ省く。
+- cycle は毎月払いなら "monthly"、年に1回なら "yearly"。分からなければ "monthly"。
+- dueDay は支払日・引き落とし日・口座振替日・お支払期限の「日」(1〜31)。書かれていなければ省く(推測しない)。
+- billingMonth は cycle が "yearly" の時だけ、支払う月(1〜12)。
+- memo には請求元の会社名・契約番号の下4桁など、短い補足だけ。不要なら省く。
+- 固定費の支払いとして読み取れる内容が無ければ {"fixedCost":null} を返す。`;
+
+export function parseFixedCostResponse(text: string): ExtractedFixedCost | null {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+  const raw = (parsed as { fixedCost?: unknown }).fixedCost;
+  if (typeof raw !== "object" || raw === null) return null;
+  const row = raw as Record<string, unknown>;
+
+  const title = typeof row.title === "string" && row.title.trim() ? row.title.trim().slice(0, 60) : undefined;
+  const category = FIXED_COST_CATEGORIES.includes(row.category as string) ? (row.category as string) : undefined;
+  const rawAmount = typeof row.amount === "number" ? row.amount : Number(row.amount);
+  const amount = Number.isFinite(rawAmount) && rawAmount > 0 ? Math.round(rawAmount) : undefined;
+  const cycle = row.cycle === "yearly" ? "yearly" : row.cycle === "monthly" ? "monthly" : undefined;
+  const rawDay = Number(row.dueDay);
+  const dueDay = Number.isInteger(rawDay) && rawDay >= 1 && rawDay <= 31 ? rawDay : undefined;
+  const rawMonth = Number(row.billingMonth);
+  const billingMonth = cycle === "yearly" && Number.isInteger(rawMonth) && rawMonth >= 1 && rawMonth <= 12 ? rawMonth : undefined;
+  const memo = typeof row.memo === "string" && row.memo.trim() ? row.memo.trim().slice(0, 200) : undefined;
+
+  if (!title && !amount) return null;
+  return { title, category, amount, cycle, dueDay, billingMonth, memo };
+}
+
 /** レシート画像から支出を読み取る。AIの読み取り結果は自動確定せず、画面側で必ず
  * 確認・修正の画面を経由してから保存する(LIFE_HUB_CLAUDE_CODE.md §4.7)。 */
 export const handler: Handler = async (event) => {
@@ -144,7 +207,7 @@ export const handler: Handler = async (event) => {
       // thinking(claude-sonnet-5 は指定を省くと考えながら答える)と本文が同じ枠を
       // 分け合うため、1024だと考えている途中で切れて本文が出ないことがある。
       max_tokens: 4000,
-      system: SYSTEM_PROMPT,
+      system: payload.kind === "fixedCost" ? FIXED_COST_SYSTEM_PROMPT : SYSTEM_PROMPT,
       messages: [
         {
           role: "user",
@@ -168,5 +231,6 @@ export const handler: Handler = async (event) => {
     return jsonResponse(502, { error: "AIから読み取り結果を取得できませんでした。もう一度お試しください" });
   }
 
+  if (payload.kind === "fixedCost") return jsonResponse(200, { fixedCost: parseFixedCostResponse(text) });
   return jsonResponse(200, { receipt: parseReceiptResponse(text) });
 };
