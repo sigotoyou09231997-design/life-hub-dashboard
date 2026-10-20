@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Ban, Briefcase, CalendarPlus, Copy, Mail, MailOpen, Receipt, Star } from "lucide-react";
+import { Ban, Briefcase, CalendarPlus, Copy, Home, Mail, MailOpen, Receipt, Star } from "lucide-react";
 import { db } from "../../db/schema";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import {
@@ -33,6 +33,8 @@ import { updateMessageState } from "../../lib/gmailMessageState";
 import { isPlanSuggestion, planSuggestionHint } from "../../lib/mailPlanSuggestion";
 import { expenseSuggestionHint, isExpenseSuggestion } from "../../lib/expenseMailSuggestion";
 import { MailExpenseImport } from "./MailExpenseImport";
+import { isFixedCostMail, toFixedCostDraft } from "../../lib/fixedCostMailSuggestion";
+import { FixedCostForm } from "../fixedCosts/FixedCostForm";
 import { detectJobStageSuggestion } from "../../lib/jobMailSuggestion";
 import { getJobStage } from "../../lib/jobApplications";
 import { AttachmentPicker } from "./AttachmentPicker";
@@ -196,6 +198,8 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
   const [planImportOpen, setPlanImportOpen] = useState(false);
   // このメールから支出を1件作る画面(MailExpenseImport)を開いているか。
   const [expenseImportOpen, setExpenseImportOpen] = useState(false);
+  // このメール(料金のお知らせ・請求)から固定費を1件作るフォームを開いているか(src/lib/fixedCostMailSuggestion.ts)。
+  const [fixedCostImportOpen, setFixedCostImportOpen] = useState(false);
 
   async function handleDismissPlanSuggestion() {
     if (!email.id) return;
@@ -697,13 +701,48 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
     <>
       <MailPlanImport email={email} account={account} open={planImportOpen} onClose={() => setPlanImportOpen(false)} />
       <MailExpenseImport email={email} open={expenseImportOpen} onClose={() => setExpenseImportOpen(false)} />
+      <Sheet open={fixedCostImportOpen} onClose={() => setFixedCostImportOpen(false)} title="固定費に追加">
+        {fixedCostImportOpen && (
+          <FixedCostForm
+            draft={toFixedCostDraft(email)}
+            onSaved={() => {
+              setFixedCostImportOpen(false);
+              showToast("固定費に追加しました。給与から先に引かれます");
+            }}
+            onCancel={() => setFixedCostImportOpen(false)}
+          />
+        )}
+      </Sheet>
     </>
   );
 
   /** 注文確認・領収書らしいメールに出す提案。読み取りは端末の中の文字合わせだけで、
    * AIは呼ばない(src/lib/expenseMailSuggestion.ts)。押すまで支出は増えない。
    * 「あとで」を押すと、このメールにはもう出さない。 */
-  const expenseSuggestionBanner = isExpenseSuggestion(email) && (
+  /** 料金のお知らせ・請求らしいメールには、支出ではなく「固定費に追加」を出す(毎月決まって払うものなので)。
+   * 支出として残したい時のために、文の中に「支出として記録」も置く。「あとで」は支出の提案と同じ印で、両方とも出さなくなる。 */
+  const fixedCostMail = isFixedCostMail(email);
+  const fixedCostDraft = fixedCostMail ? toFixedCostDraft(email) : null;
+  const fixedCostSuggestionBanner = fixedCostMail && (
+    <SuggestionBanner
+      icon={<Home size={16} className="mt-0.5 shrink-0 text-accent" />}
+      onDismiss={handleDismissExpenseSuggestion}
+      actionLabel="固定費に追加"
+      onAction={() => setFixedCostImportOpen(true)}
+    >
+      毎月の支払いのお知らせのようです。固定費に追加しますか?
+      {fixedCostDraft?.amount != null && (
+        <em className="ml-1.5 not-italic text-xs text-slate-500">
+          ({[fixedCostDraft.title, `¥${fixedCostDraft.amount.toLocaleString()}`].filter(Boolean).join("・")})
+        </em>
+      )}
+      <button type="button" className="ml-2 text-xs font-medium text-accent underline-offset-2 hover:underline" onClick={() => setExpenseImportOpen(true)}>
+        支出として記録
+      </button>
+    </SuggestionBanner>
+  );
+
+  const expenseSuggestionBanner = !fixedCostMail && isExpenseSuggestion(email) && (
     <SuggestionBanner
       icon={<Receipt size={16} className="mt-0.5 shrink-0 text-accent" />}
       onDismiss={handleDismissExpenseSuggestion}
@@ -786,6 +825,7 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
         {senderRow}
 
         {planSuggestionBanner}
+        {fixedCostSuggestionBanner}
         {expenseSuggestionBanner}
 
         {jobStageSuggestionBanner}
@@ -890,6 +930,7 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
         </div>
         <div className="mt-3 shrink-0">{senderRow}</div>
         {planSuggestionBanner && <div className="mt-3 shrink-0">{planSuggestionBanner}</div>}
+        {fixedCostSuggestionBanner && <div className="mt-3 shrink-0">{fixedCostSuggestionBanner}</div>}
         {expenseSuggestionBanner && <div className="mt-3 shrink-0">{expenseSuggestionBanner}</div>}
         {jobStageSuggestionBanner && <div className="mt-3 shrink-0">{jobStageSuggestionBanner}</div>}
         <div className="my-4 shrink-0 border-t border-white/40" />

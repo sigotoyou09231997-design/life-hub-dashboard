@@ -3,7 +3,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { Home, Pause, Play, Plus, Trash2 } from "lucide-react";
 import { db } from "../../db/schema";
 import { formatDisplayDate, formatShortDate, toDateStr, todayStr } from "../../lib/date";
-import { isFixedExpense, salarySplit, sortByPayDay } from "../../lib/fixedCosts";
+import { isFixedExpense, salarySplit, sortByPayDay, type FixedCostDraft } from "../../lib/fixedCosts";
 import {
   cycleOf,
   daysUntil,
@@ -23,6 +23,7 @@ import { Sheet } from "../ui/Sheet";
 import { useConfirm } from "../ui/ConfirmProvider";
 import { useToast } from "../ui/ToastProvider";
 import { FixedCostForm } from "./FixedCostForm";
+import { FixedCostPhotoButton } from "./FixedCostPhotoButton";
 
 /** お金管理の「＋」(固定費のタブを見ている時)から、追加のシートを開く合図。 */
 const OPEN_ADD_EVENT = "lifehub:open-fixed-cost-add";
@@ -152,6 +153,9 @@ export function FixedCostTab() {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showStopped, setShowStopped] = useState(false);
+  // 写真から読み取った下書き。読み取るたびにフォームを作り直して(key)、読み取った値を入れ直す。
+  const [draft, setDraft] = useState<FixedCostDraft | null>(null);
+  const [draftKey, setDraftKey] = useState(0);
   const loading = costs === undefined || details === undefined;
   const showSkeleton = useDelayedFlag(loading);
 
@@ -249,15 +253,36 @@ export function FixedCostTab() {
         </>
       )}
 
-      <Sheet open={adding} onClose={() => setAdding(false)} title="固定費を追加">
+      <Sheet
+        open={adding}
+        onClose={() => {
+          setAdding(false);
+          setDraft(null);
+        }}
+        title="固定費を追加"
+      >
         {adding && (
-          <FixedCostForm
-            onSaved={() => {
-              setAdding(false);
-              showToast("追加しました");
-            }}
-            onCancel={() => setAdding(false)}
-          />
+          <>
+            <FixedCostPhotoButton
+              onRead={(read) => {
+                setDraft(read);
+                setDraftKey((key) => key + 1);
+              }}
+            />
+            <FixedCostForm
+              key={draftKey}
+              draft={draft}
+              onSaved={() => {
+                setAdding(false);
+                setDraft(null);
+                showToast("追加しました");
+              }}
+              onCancel={() => {
+                setAdding(false);
+                setDraft(null);
+              }}
+            />
+          </>
         )}
       </Sheet>
 

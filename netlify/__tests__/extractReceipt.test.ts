@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { EXPENSE_CATEGORIES, PAYMENT_METHODS } from "../../src/lib/categories";
-import { parseReceiptResponse, pickResponseText, SYSTEM_PROMPT } from "../functions/extractReceipt";
 import {
+  FIXED_COST_CATEGORIES,
+  FIXED_COST_SYSTEM_PROMPT,
+  parseFixedCostResponse,
+  parseReceiptResponse,
+  pickResponseText,
+  SYSTEM_PROMPT,
+} from "../functions/extractReceipt";
+import { FIXED_EXPENSE_CATEGORIES } from "../../src/lib/fixedCosts";
+import {
+  FIXED_COST_SYSTEM_PROMPT as VERCEL_FIXED_COST_SYSTEM_PROMPT,
+  parseFixedCostResponse as vercelParseFixedCostResponse,
   parseReceiptResponse as vercelParseReceiptResponse,
   pickResponseText as vercelPickResponseText,
   SYSTEM_PROMPT as VERCEL_SYSTEM_PROMPT,
@@ -126,5 +136,38 @@ describe("選択肢の一致", () => {
   it("AIに提示するカテゴリ・支払い方法が、実際のフォームの選択肢と一致する", () => {
     expect(SYSTEM_PROMPT).toContain(EXPENSE_CATEGORIES.join("、"));
     expect(SYSTEM_PROMPT).toContain(PAYMENT_METHODS.join("、"));
+  });
+});
+
+describe("固定費の写真の読み取り(kind: fixedCost、2026-10-20)", () => {
+  it("名前・種類・金額・払い方・支払日を読み取る", () => {
+    const read = parseFixedCostResponse(
+      JSON.stringify({ fixedCost: { title: "電気代", category: "水道光熱費", amount: 8123.4, cycle: "monthly", dueDay: 26, billingMonth: 3, memo: "中国電力" } }),
+    );
+    // 毎月払いでは billingMonth は使わない。
+    expect(read).toEqual({ title: "電気代", category: "水道光熱費", amount: 8123, cycle: "monthly", dueDay: 26, billingMonth: undefined, memo: "中国電力" });
+  });
+
+  it("年に1回のものは払う月も残す。選択肢に無い種類・ありえない日は落とす", () => {
+    const read = parseFixedCostResponse(
+      JSON.stringify({ fixedCost: { title: "自動車保険", category: "車", amount: 36000, cycle: "yearly", dueDay: 40, billingMonth: 11 } }),
+    );
+    expect(read).toEqual({ title: "自動車保険", category: undefined, amount: 36000, cycle: "yearly", dueDay: undefined, billingMonth: 11, memo: undefined });
+  });
+
+  it("名前も金額も読めない・fixedCost:null は null", () => {
+    expect(parseFixedCostResponse(JSON.stringify({ fixedCost: { category: "家賃" } }))).toBeNull();
+    expect(parseFixedCostResponse(JSON.stringify({ fixedCost: null }))).toBeNull();
+  });
+
+  it("Vercel 側と Netlify 側で、指示も読み取りも同じ", () => {
+    expect(VERCEL_FIXED_COST_SYSTEM_PROMPT).toBe(FIXED_COST_SYSTEM_PROMPT);
+    const text = JSON.stringify({ fixedCost: { title: "家賃", category: "家賃", amount: 70000, dueDay: 27 } });
+    expect(vercelParseFixedCostResponse(text)).toEqual(parseFixedCostResponse(text));
+  });
+
+  it("AI に出す固定費の種類が、固定費のフォームの種類と同じ", () => {
+    expect(FIXED_COST_CATEGORIES).toEqual(FIXED_EXPENSE_CATEGORIES);
+    expect(FIXED_COST_SYSTEM_PROMPT).toContain(FIXED_EXPENSE_CATEGORIES.join("、"));
   });
 });
