@@ -1390,3 +1390,80 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+
+/* ============================================================================
+   給与明細(PDF)の読み取り結果(src/components/expense/SalarySlipImport.tsx、2026-10-20)
+   総支給・控除・手取りの3行(手取りだけ太く上に線)と、控除の内訳。
+   ========================================================================= */
+.slip-preview__title {
+  margin: 0;
+  color: var(--ink-black);
+  font-size: var(--fs-section);
+  font-weight: 600;
+}
+.slip-preview__table {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--warm-line);
+  border-radius: 14px;
+  background: var(--warm-surface);
+}
+.slip-preview__table > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.slip-preview__table dt { color: var(--warm-ink-2); font-size: var(--fs-body); }
+.slip-preview__table dd {
+  margin: 0;
+  color: var(--ink-black);
+  font-family: var(--font-num);
+  font-size: var(--fs-body);
+  font-variant-numeric: tabular-nums;
+}
+.slip-preview__table .is-total {
+  margin-top: 0.2rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--warm-line);
+}
+.slip-preview__table .is-total dt { color: var(--ink-black); font-weight: 600; }
+.slip-preview__table .is-total dd { font-size: 1.15rem; font-weight: 700; }
+.slip-preview__caption {
+  margin: 0 0 0.35rem;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+.slip-preview__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.slip-preview__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--warm-line);
+  color: var(--warm-ink);
+  font-size: var(--fs-body);
+}
+.slip-preview__list li span:last-child {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+.slip-preview__note {
+  margin: 0;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-caption);
+  line-height: 1.7;
+}
+.slip-preview__warn {
+  margin: 0;
+  color: #9b2c2c;
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}

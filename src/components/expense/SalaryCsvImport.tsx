@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { db } from "../../db/schema";
 import { parseCsvRows, decodeCsvFileAuto, decodeCsvFileAs, buildPreview, type CsvEncoding } from "../../lib/csv";
 import { mapCsvRowsToSalaries, type SalaryColumnMapping } from "../../lib/salaryCsv";
@@ -10,6 +10,8 @@ import { useToast } from "../ui/ToastProvider";
 
 interface Props {
   onClose: () => void;
+  /** 「明細から取込」で、もう選ばれているファイル(CSV)。あれば、選ぶ段を飛ばしてそのまま読む。 */
+  initialFile?: File;
 }
 
 type Step = "upload" | "mapping" | "result";
@@ -46,7 +48,7 @@ function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
 }
 
-export function SalaryCsvImport({ onClose }: Props) {
+export function SalaryCsvImport({ onClose, initialFile }: Props) {
   const showToast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -149,6 +151,12 @@ export function SalaryCsvImport({ onClose }: Props) {
       return next;
     });
   }
+
+  useEffect(() => {
+    if (initialFile) void handleFileSelected(initialFile);
+    // 開いた時に1回だけ。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleImport() {
     setImporting(true);

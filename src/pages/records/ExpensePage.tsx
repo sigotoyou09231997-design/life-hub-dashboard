@@ -26,7 +26,7 @@ import { BonusForm } from "../../components/expense/BonusForm";
 import { BonusList } from "../../components/expense/BonusList";
 import { SalaryForm } from "../../components/expense/SalaryForm";
 import { SalaryDeductionBreakdown } from "../../components/expense/SalaryDeductionBreakdown";
-import { SalaryCsvImport } from "../../components/expense/SalaryCsvImport";
+import { SalarySlipImport } from "../../components/expense/SalarySlipImport";
 import { PayPayImport } from "../../components/expense/PayPayImport";
 import { PendingCardChargeList } from "../../components/expense/PendingCardChargeList";
 import { GenericCsvImport } from "../../components/expense/GenericCsvImport";
@@ -186,7 +186,7 @@ export default function ExpensePage() {
                 <Plus size={16} aria-hidden="true" /> 給与を追加
               </Button>
               <Button variant="secondary" className="flex-1 lh-add-second" onClick={() => setSalaryCsvImportOpen(true)}>
-                CSVから取込
+                明細から取込
               </Button>
             </div>
           </div>
@@ -363,8 +363,9 @@ export default function ExpensePage() {
         {csvExportOpen && <TransactionCsvExport onClose={() => setCsvExportOpen(false)} />}
       </Sheet>
 
-      <Sheet open={salaryCsvImportOpen} onClose={() => setSalaryCsvImportOpen(false)} title="給与明細CSVから取込">
-        {salaryCsvImportOpen && <SalaryCsvImport onClose={() => setSalaryCsvImportOpen(false)} />}
+      {/* 給与明細の PDF(表の形のもの)か CSV。PDF は読み取って確かめてから登録、CSV は列を選ぶ取り込みへ(SalarySlipImport)。 */}
+      <Sheet open={salaryCsvImportOpen} onClose={() => setSalaryCsvImportOpen(false)} title="給与明細から取込">
+        {salaryCsvImportOpen && <SalarySlipImport onClose={() => setSalaryCsvImportOpen(false)} />}
       </Sheet>
     </div>
   );
