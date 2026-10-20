@@ -5,7 +5,7 @@ const mail = (over: { from?: string; subject?: string; snippet?: string; planTex
   from: "中国電力 <info@example.co.jp>",
   subject: "",
   snippet: "",
-  status: "pending" as const,
+  status: "unprocessed" as const,
   ...over,
 });
 
