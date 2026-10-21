@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
 import { Link } from "react-router-dom";
-import { Bell, CalendarArrowUp, CalendarDays, Database, Image as ImageIcon, LayoutGrid, Mail, PiggyBank, Sparkles, Wallet } from "lucide-react";
+import { CalendarArrowUp, CalendarDays, Database, Image as ImageIcon, LayoutGrid, Mail, PiggyBank, Sparkles, Wallet } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
@@ -10,7 +10,6 @@ import { EventPeopleManager } from "../components/settings/EventPeopleManager";
 import { FeedbackInbox } from "../components/feedback/FeedbackInbox";
 import { GoogleCalendarSyncControl } from "../components/settings/GoogleCalendarSyncControl";
 import { HomeAddressSetting } from "../components/settings/HomeAddressSetting";
-import { useIsFeedbackOwner } from "../hooks/useIsFeedbackOwner";
 import { currentVersion, isUpdateAvailable, subscribeUpdateAvailable, updateToLatestNow } from "../lib/pwaUpdate";
 import { SettingsSection, SettingsToc, type SettingsTocItem } from "../components/settings/SettingsToc";
 import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
@@ -20,16 +19,6 @@ import { startGmailOAuth } from "../lib/gmail";
 import { probeTripCover, type TripCoverProbe } from "../lib/tripCovers";
 import { auth, isSupabaseConfigured } from "../lib/supabase";
 import { getSupabaseDataClient } from "../lib/supabaseData";
-import {
-  isPushConfigured,
-  getPushSubscription,
-  subscribeToPush,
-  unsubscribeFromPush,
-  getDisabledCategories,
-  setDisabledCategories,
-  NOTIFICATION_CATEGORIES,
-  type NotificationCategory,
-} from "../lib/pushNotifications";
 import { CHANGELOG, unreadChangelog } from "../lib/changelog";
 import { getSeenChangelogId } from "../lib/changelogSeen";
 import { formatDisplayDate } from "../lib/date";
@@ -58,7 +47,6 @@ export default function SettingsPage() {
   }, []);
 
   const [session, setSession] = useState<Session | null>(null);
-  const isFeedbackOwner = useIsFeedbackOwner() === true;
   const [updating, setUpdating] = useState(false);
   const [versionNote, setVersionNote] = useState<string | null>(null);
   // 使う人には「最新です」か「新しい版があります」だけを出し、開発用の識別子は右に小さく(第8弾 ST-3)。
@@ -157,50 +145,6 @@ export default function SettingsPage() {
     showToast("予算を削除しました");
   }
 
-  const [pushEnabled, setPushEnabled] = useState(false);
-  const [pushBusy, setPushBusy] = useState(false);
-  const [disabledCategories, setDisabledCategoriesState] = useState<Set<NotificationCategory>>(new Set());
-
-  useEffect(() => {
-    if (!isPushConfigured) return;
-    getPushSubscription().then((sub) => {
-      setPushEnabled(Boolean(sub));
-      if (sub) getDisabledCategories().then(setDisabledCategoriesState);
-    });
-  }, []);
-
-  async function handleTogglePush(next: boolean) {
-    if (!session || pushBusy) return;
-    setPushBusy(true);
-    try {
-      if (next) {
-        await subscribeToPush(gmailAccounts ?? [], session.user.id);
-        setPushEnabled(true);
-        showToast("バックグラウンド通知を有効にしました");
-      } else {
-        await unsubscribeFromPush();
-        setPushEnabled(false);
-        showToast("バックグラウンド通知を無効にしました");
-      }
-    } catch {
-      showToast("通知の設定に失敗しました", "error");
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  async function handleToggleCategory(category: NotificationCategory, enabled: boolean) {
-    const next = new Set(disabledCategories);
-    if (enabled) next.delete(category);
-    else next.add(category);
-    setDisabledCategoriesState(next);
-    try {
-      await setDisabledCategories([...next]);
-    } catch {
-      showToast("通知の設定に失敗しました", "error");
-    }
-  }
-
   async function handleExport() {
     try {
       await exportBackup();
@@ -295,9 +239,7 @@ export default function SettingsPage() {
     }
   }
 
-  // PC の目次(src/components/settings/SettingsToc.tsx)。並びは下の区切りと同じ。通知は
-  // ログインして通知の仕組みがある時しか区切りごと出ないので、目次からも外す。
-  const showNotify = isSupabaseConfigured && isPushConfigured && Boolean(session);
+  // PC の目次(src/components/settings/SettingsToc.tsx)。並びは下の区切りと同じ。
   const tocItems: SettingsTocItem[] = [
     { id: "settings-news", label: "お知らせ", icon: Sparkles },
     { id: "settings-features", label: "使う機能", icon: LayoutGrid },
@@ -306,7 +248,6 @@ export default function SettingsPage() {
     { id: "settings-trip", label: "旅行", icon: ImageIcon },
     { id: "settings-money", label: "お金", icon: PiggyBank },
     { id: "settings-gmail", label: "Gmail", icon: Mail },
-    ...(showNotify ? [{ id: "settings-notify", label: "通知", icon: Bell }] : []),
   ];
 
   return (
@@ -641,7 +582,7 @@ export default function SettingsPage() {
               <p className="system-section__description text-xs text-slate-500">
                 受信メールにAIが返信案を作成します。日時が書かれているメールには「予定を追加しますか?」と提案します
                 (提案するかどうかの判断は端末の中だけで行い、押したときだけ内容を読み取ります)。
-                {!pushEnabled && "連携情報はこの端末にのみ保存されます。"}
+                連携情報はこの端末にのみ保存されます。
               </p>
               <div className="system-state-control">
                 <div><span>接続状態</span><strong>{gmailAccounts && gmailAccounts.length > 0 ? `${gmailAccounts.length} アカウント` : "未接続"}</strong></div>
@@ -674,50 +615,6 @@ export default function SettingsPage() {
             </Card>
           </SettingsSection>
 
-          {showNotify && (
-            <SettingsSection id="settings-notify" label="通知">
-              <Card className="system-section system-section--notify lg:col-span-2">
-                <div className="system-section__header">
-                  <div className="system-section__identity"><span><Bell size={17} /></span><div><h2>バックグラウンド通知</h2></div></div>
-                  <div className={`system-status ${pushEnabled ? "is-online" : ""}`}><i />{pushEnabled ? "有効" : "無効"}</div>
-                </div>
-                <p className="system-section__description text-xs text-slate-500">
-                  アプリを閉じていても、この端末に通知を届けます(refresh tokenなどをサーバーにも保存します)。
-                </p>
-                <div className="mt-3 flex items-center justify-between gap-3 border-t border-white/40 pt-3">
-                  <span className="text-sm text-slate-700">この端末で通知を受け取る</span>
-                  <button
-                    onClick={() => handleTogglePush(!pushEnabled)}
-                    aria-pressed={pushEnabled}
-                    aria-label="バックグラウンド通知を切り替え"
-                    disabled={pushBusy}
-                    className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
-                      pushEnabled ? "bg-accent" : "bg-slate-200"
-                    }`}
-                  >
-                    <span
-                      className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-                        pushEnabled ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-                {pushEnabled && (
-                  <div className="mt-1 space-y-1 border-t border-white/40 pt-1">
-                    {/* 「修正依頼」は持ち主にしか届かないので、持ち主にだけ出す(checkFeedbackAndNotify.ts)。 */}
-                    {NOTIFICATION_CATEGORIES.filter((category) => category.key !== "feedback" || isFeedbackOwner).map((category) => (
-                      <SwitchField
-                        key={category.key}
-                        label={category.label}
-                        checked={!disabledCategories.has(category.key)}
-                        onChange={(checked) => handleToggleCategory(category.key, checked)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </SettingsSection>
-          )}
         </div>
       </div>
     </div>

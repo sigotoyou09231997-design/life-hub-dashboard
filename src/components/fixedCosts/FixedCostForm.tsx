@@ -13,14 +13,6 @@ import { Button } from "../ui/Button";
 
 type NotifyValue = "none" | "0" | "1" | "3" | "7";
 
-const NOTIFY_OPTIONS: { value: NotifyValue; label: string }[] = [
-  { value: "none", label: "しない" },
-  { value: "0", label: "当日" },
-  { value: "1", label: "前日" },
-  { value: "3", label: "3日前" },
-  { value: "7", label: "1週間前" },
-];
-
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}月` }));
 
 /** 種類のボタンに出す名前(「その他の固定費」は、固定費のタブの中なので「その他」で足りる)。 */
@@ -55,7 +47,8 @@ export function FixedCostForm({ initial, draft, onSaved, onCancel }: Props) {
   const [billingMonth, setBillingMonth] = useState(
     String(detail?.billingMonth ?? draft?.billingMonth ?? Number(today.slice(5, 7))),
   );
-  const [notify, setNotify] = useState<NotifyValue>(
+  // 通知の欄は 2026-10-21 に外した(画面外の通知をやめた)。前に入れた値は、保存で消さずにそのまま残す。
+  const [notify] = useState<NotifyValue>(
     cost?.notifyDaysBefore != null ? (String(cost.notifyDaysBefore) as NotifyValue) : "none",
   );
   const [saving, setSaving] = useState(false);
@@ -158,18 +151,6 @@ export function FixedCostForm({ initial, draft, onSaved, onCancel }: Props) {
           onChange={(e) => setDueDay(e.target.value)}
           min={1}
           max={31}
-        />
-      </FormPanel>
-
-      <FormPanel caption="通知">
-        <SegmentedField<NotifyValue>
-          label="支払日の前に知らせる"
-          hint="設定でバックグラウンド通知を有効にしている端末に届きます。"
-          value={notify}
-          onChange={setNotify}
-          separate
-          columns={3}
-          options={NOTIFY_OPTIONS}
         />
       </FormPanel>
 

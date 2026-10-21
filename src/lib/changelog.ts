@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-21-109",
+    date: "2026-10-21",
+    area: "全体",
+    title: "画面の外に届く通知をやめました",
+    description:
+      "アプリを閉じている時にスマホへ届く通知をやめ、設定の「通知」と、予定・タスク・固定費・サブスクの「通知」の欄を外しました。前に入れた通知の時刻は消さずに残してあります。アプリの中のベルや「気になること」、場所で知らせる機能はこれまでどおりです。",
+  },
+  {
     id: "2026-10-20-108",
     date: "2026-10-20",
     area: "お金管理",

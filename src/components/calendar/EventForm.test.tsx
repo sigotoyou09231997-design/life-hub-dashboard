@@ -417,40 +417,26 @@ describe("時刻の入れ方(開始を入れると終了が付いてくる)", ()
   });
 });
 
-describe("通知・カテゴリはプルダウンにしない", () => {
-  it("ボタンで選べ、保存される値は今までと同じ", async () => {
+describe("カテゴリはプルダウンにしない・通知の欄は無い(2026-10-21 に画面外の通知をやめた)", () => {
+  it("カテゴリはボタンで選べ、通知の欄は出さない", async () => {
     const user = userEvent.setup();
     renderForm();
     // iPhone のシートの中でプルダウンの選択肢が離れて出るので、この画面には1つも置かない。
     expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("button", { name: "通知しない" })).toBeNull();
 
     await user.type(screen.getByLabelText("タイトル"), "会議");
-    await user.click(screen.getByRole("button", { name: "30分前" }));
     await user.click(screen.getByRole("button", { name: "仕事" }));
     await user.click(screen.getByRole("button", { name: "予定を追加" }));
 
-    expect(mocks.added[0]).toMatchObject({ notifyMinutesBefore: 30, category: "work" });
+    expect(mocks.added[0]).toMatchObject({ category: "work" });
+    expect(mocks.added[0].notifyMinutesBefore).toBeUndefined();
   });
 
-  it("「通知しない」は今までどおり値を持たない", async () => {
+  it("前に通知を入れていた予定を直しても、その値は消さない", async () => {
     const user = userEvent.setup();
-    renderForm({ ...existingEvent, allDay: false, startTime: "10:00", notifyMinutesBefore: 10 });
-    await user.click(screen.getByRole("button", { name: "通知しない" }));
-    await user.click(screen.getByRole("button", { name: "変更を保存" }));
-    expect(mocks.updated[0].notifyMinutesBefore).toBeUndefined();
-  });
-
-  it("開いた予定の通知とカテゴリが、選ばれた状態で出る", () => {
-    renderForm({ ...existingEvent, allDay: false, startTime: "10:00", notifyMinutesBefore: 1440, category: "important" });
-    expect(screen.getByRole("button", { name: "前日" }).getAttribute("aria-pressed")).toBe("true");
+    renderForm({ ...existingEvent, allDay: false, startTime: "10:00", notifyMinutesBefore: 15, category: "important" });
     expect(screen.getByRole("button", { name: "重要" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "その他" }).getAttribute("aria-pressed")).toBe("false");
-  });
-
-  it("選択肢に無い分数の通知も、消さずに見えるように出す", async () => {
-    const user = userEvent.setup();
-    renderForm({ ...existingEvent, allDay: false, startTime: "10:00", notifyMinutesBefore: 15 });
-    expect(screen.getByRole("button", { name: "15分前" }).getAttribute("aria-pressed")).toBe("true");
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
     expect(mocks.updated[0].notifyMinutesBefore).toBe(15);
   });

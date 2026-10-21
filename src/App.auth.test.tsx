@@ -20,7 +20,7 @@ vi.mock("./lib/supabase", () => ({
   getSupabaseConfig: () => ({ url: "https://test.supabase.co", anonKey: "anon-key" }),
 }));
 vi.mock("./lib/syncRuntime", () => ({ startSync: state.startSync, stopSync: state.stopSync }));
-vi.mock("./lib/pushNotifications", () => ({ clearShownPushNotifications: vi.fn() }));
+vi.mock("./lib/pushNotifications", () => ({ clearShownPushNotifications: vi.fn(), retirePushSubscription: vi.fn(async () => {}) }));
 vi.mock("./db/schema", () => ({
   ensureDefaultSettings: vi.fn(),
   db: {

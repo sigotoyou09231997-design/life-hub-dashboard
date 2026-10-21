@@ -66,39 +66,25 @@ afterEach(cleanup);
 
 // iPhone ではシートの中のプルダウンを押すとキーボードが閉じてシートが動き、選択肢が欄から離れた所に出る
 // (2026-10-12)。予定の画面(EventForm.test.tsx)と同じく、この画面にもプルダウンを置かない。
-describe("通知・カテゴリ・場所の距離はプルダウンにしない", () => {
-  it("ボタンで選べ、保存される値は今までと同じ", async () => {
+describe("カテゴリ・場所の距離はプルダウンにしない・通知の欄は無い(2026-10-21 に画面外の通知をやめた)", () => {
+  it("カテゴリはボタンで選べ、通知の欄は出さない", async () => {
     const user = userEvent.setup();
     renderForm();
     expect(screen.queryByRole("combobox")).toBeNull();
+    expect(screen.queryByRole("button", { name: "通知しない" })).toBeNull();
 
     await user.type(screen.getByLabelText("タイトル"), "書類を出す");
-    await user.click(screen.getByRole("button", { name: "30分前" }));
     await user.click(screen.getByRole("button", { name: "仕事" }));
     await user.click(screen.getByRole("button", { name: "タスクを追加" }));
 
-    expect(mocks.added[0]).toMatchObject({ title: "書類を出す", notifyMinutesBefore: 30, category: "work" });
+    expect(mocks.added[0]).toMatchObject({ title: "書類を出す", category: "work" });
+    expect(mocks.added[0].notifyMinutesBefore).toBeUndefined();
   });
 
-  it("「通知しない」は今までどおり値を持たない", async () => {
+  it("前に通知を入れていたタスクを直しても、その値は消さない", async () => {
     const user = userEvent.setup();
-    renderForm({ ...existingTask, notifyMinutesBefore: 10 });
-    await user.click(screen.getByRole("button", { name: "通知しない" }));
-    await user.click(screen.getByRole("button", { name: "変更を保存" }));
-    expect(mocks.updated[0].notifyMinutesBefore).toBeUndefined();
-  });
-
-  it("開いたタスクの通知とカテゴリが、選ばれた状態で出る", () => {
-    renderForm({ ...existingTask, notifyMinutesBefore: 60, category: "important" });
-    expect(screen.getByRole("button", { name: "1時間前" }).getAttribute("aria-pressed")).toBe("true");
+    renderForm({ ...existingTask, notifyMinutesBefore: 15, category: "important" });
     expect(screen.getByRole("button", { name: "重要" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "その他" }).getAttribute("aria-pressed")).toBe("false");
-  });
-
-  it("選択肢に無い分数の通知も、消さずに見えるように出す", async () => {
-    const user = userEvent.setup();
-    renderForm({ ...existingTask, notifyMinutesBefore: 15 });
-    expect(screen.getByRole("button", { name: "15分前" }).getAttribute("aria-pressed")).toBe("true");
     await user.click(screen.getByRole("button", { name: "変更を保存" }));
     expect(mocks.updated[0].notifyMinutesBefore).toBe(15);
   });

@@ -1,3 +1,5 @@
+# 2026-10-21: Netlify の LIFE HUB のサイト(life-hub-dashboard.netlify.app)は消した(本人「画面外の通知はもういらない」)。
+# この設定と netlify/functions は、通知を戻したくなった時のために残してある(サイトを作り直せばそのまま使える)。
 [build]
   command = "npm run build"
   publish = "dist"

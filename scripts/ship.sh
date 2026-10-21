@@ -118,20 +118,11 @@ done
 E_LIVE=$(date +%s)
 [ "$LIVE" -eq 1 ] && echo "✓ Vercel に出ました: ${SHA:0:7}" || echo "✗ Vercel がまだ ${SHA:0:7} になっていません(20分待ちました)。Vercel の画面を見てください"
 
-step "6/6 Netlify を見る(待たない。ユーザーが使うのは Vercel の方で、Netlify は定期実行の担当)"
-NETLIFY="確認中(ビルドが終わるまで待たない)"
-# 2026-10-21 から、Netlify は通知の関数(netlify/functions)・netlify.toml・package.json が変わった時だけ出す(netlify.toml の ignore)。
-if git -C "$MAIN_DIR" diff --quiet "$SHA^1" "$SHA" -- netlify/functions netlify.toml package.json 2>/dev/null; then
-  echo "Netlify: 出さない(通知の関数は変わっていない。netlify.toml の ignore)"
-  NETLIFY="出さない"
-fi
-if [ "$NETLIFY" != "出さない" ]; then
-  OUT="$(cd "$MAIN_DIR" && npx netlify api listSiteDeploys --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"per_page\":1}" 2>/dev/null || true)"
-  if echo "$OUT" | grep -q "${SHA:0:7}"; then
-    NETLIFY="$(echo "$OUT" | grep -m1 '"state"' | sed 's/.*"state": "\(.*\)".*/\1/')"
-  fi
-  echo "Netlify: $NETLIFY"
-fi
+step "6/6 Netlify は使っていない"
+# 2026-10-21 に Netlify の LIFE HUB のサイトを消した(本人「画面外の通知はもういらない」)。
+# Netlify は画面外の通知(定期実行)のためだけに残していたので、もう出す先が無い。
+NETLIFY="使っていない"
+echo "Netlify: 使っていない(2026-10-21 にサイトを消した)"
 
 finish_feedback "$LIVE" "$DONE_ID" "$MAIN_DIR"
 if [ "$SHOTS" -eq 1 ] && [ -x "$MAIN_DIR/../scripts/lifehub-shots.sh" ]; then
