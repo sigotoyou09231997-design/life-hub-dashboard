@@ -146,3 +146,36 @@ export async function setDisabledCategories(categories: NotificationCategory[]):
   const supabase = await getSupabaseDataClient();
   await supabase.from("push_subscriptions").update({ disabled_categories: categories }).eq("endpoint", subscription.endpoint);
 }
+
+const PUSH_RETIRED_KEY = "lifehub.pushRetired.v1";
+
+/**
+ * 画面外の通知(Web Push)は 2026-10-21 にやめた(本人「画面外もういらない」。送っていた Netlify のサイトを消した)。
+ * 前に通知をオンにしていた端末で、この端末の購読を外し、サーバーに預けていたもの
+ * (push_subscriptions のこの人の行と、Gmail を見張るために預けた gmail_server_accounts の refresh token)を消す。
+ * もう誰も使わないので、Gmail の鍵の控えはこの人の分を全部消す。ログインしている時に1回だけ行い、済んだら端末に印を付ける。
+ */
+export async function retirePushSubscription(userId: string): Promise<void> {
+  try {
+    if (localStorage.getItem(PUSH_RETIRED_KEY)) return;
+  } catch {
+    // 覚えられない端末でも、毎回やって困ることはない(消すものが無ければ何もしない)。
+  }
+  const supabase = await getSupabaseDataClient();
+  let subscription: PushSubscription | null = null;
+  if ("serviceWorker" in navigator) {
+    // ready は Service Worker が無いと終わらないので、getRegistration で見る(clearShownPushNotifications と同じ)。
+    const registration = await navigator.serviceWorker.getRegistration();
+    subscription = (await registration?.pushManager?.getSubscription()) ?? null;
+  }
+  // 送る仕組みがもう無いので、この人の購読はどの端末の分も消す(他の端末を開かなくても片付くように)。
+  await supabase.from("push_subscriptions").delete().eq("user_id", userId);
+  if (subscription) await subscription.unsubscribe();
+  const { error } = await supabase.from("gmail_server_accounts").delete().eq("user_id", userId);
+  if (error) throw error;
+  try {
+    localStorage.setItem(PUSH_RETIRED_KEY, String(Date.now()));
+  } catch {
+    // 印を付けられなくても、次に開いた時にもう一度確かめるだけ。
+  }
+}

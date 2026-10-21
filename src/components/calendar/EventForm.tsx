@@ -50,17 +50,6 @@ interface Props {
   onCancel: () => void;
 }
 
-/** 通知の選択肢。プルダウンにしないのは、選択肢が全部見えて1回で選べるのと、
- * iPhone ではシートの中のプルダウンの選択肢が欄から離れて出るため(2026-10-11の持ち物と同じ)。 */
-const NOTIFY_OPTIONS = [
-  { value: "", label: "通知しない" },
-  { value: "5", label: "5分前" },
-  { value: "10", label: "10分前" },
-  { value: "30", label: "30分前" },
-  { value: "60", label: "1時間前" },
-  { value: "1440", label: "前日" },
-];
-
 /** 保存する値は今までのプルダウンと同じ(category の文字列そのまま)。 */
 const CATEGORY_OPTIONS = SCHEDULE_CATEGORIES.map((c) => ({ value: c.value, label: c.label }));
 
@@ -90,22 +79,13 @@ export function EventForm({ initial, defaultDate, defaultStartTime, onSaved, onC
   const [personIds, setPersonIds] = useState<string[]>(initial?.personIds ?? []);
   const [location, setLocation] = useState(initial?.location ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
-  const [notify, setNotify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
+  // 通知の欄は 2026-10-21 に外した(画面外の通知をやめた)。前に入れた値は、保存で消さずにそのまま残す。
+  const [notify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
   const [repeat, setRepeat] = useState<RepeatRule>(initial?.repeat ?? "none");
   const [repeatUntil, setRepeatUntil] = useState(initial?.repeatUntil ?? "");
   const [saving, setSaving] = useState(false);
   const showToast = useToast();
   const titleId = useId();
-  // 選択肢に無い分数(ほかの経路で入った値)の予定を開いた時も、その値を見えるように1つ足す。
-  // 足さないと、どれも選ばれていない見た目のまま、保存では元の値が残って分かりにくい。
-  // 開いた時の値で決める — 今の値で決めると、ほかを押した途端にその選択肢が消えて戻せなくなる。
-  const notifyOptions = useMemo(() => {
-    const original = initial?.notifyMinutesBefore?.toString();
-    return original && !NOTIFY_OPTIONS.some((o) => o.value === original)
-      ? [...NOTIFY_OPTIONS, { value: original, label: `${original}分前` }]
-      : NOTIFY_OPTIONS;
-  }, [initial?.notifyMinutesBefore]);
-
   // タイトルに書いた日時(「明日19時 歯医者」)。提案として出すだけで、押すまで何も入れない。
   // 編集で開いた予定は、タイトルを書き換えるまで出さない — 「3時のおやつ」のような
   // 今までの予定名を開くたびに、時刻の提案が出てしまうため。
@@ -435,16 +415,6 @@ export function EventForm({ initial, defaultDate, defaultStartTime, onSaved, onC
               </div>
             </div>
           </Field>
-        )}
-        {!allDay && (
-          <SegmentedField
-            label="通知"
-            value={notify}
-            options={notifyOptions}
-            onChange={setNotify}
-            columns={3}
-            separate
-          />
         )}
       </FormPanel>
 

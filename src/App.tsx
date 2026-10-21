@@ -3,7 +3,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import type { Session } from "@supabase/auth-js";
 import { ensureDefaultSettings } from "./db/schema";
 import { auth, isSupabaseConfigured } from "./lib/supabase";
-import { clearShownPushNotifications } from "./lib/pushNotifications";
+import { clearShownPushNotifications, retirePushSubscription } from "./lib/pushNotifications";
 import { flushDueSnoozedNotifications } from "./lib/snoozedNotifications";
 import { startSync, stopSync } from "./lib/syncRuntime";
 import { ensureDataOwner } from "./lib/dataOwner";
@@ -217,6 +217,15 @@ export default function App() {
   useEffect(() => {
     if (session) markLoggedIn();
   }, [session]);
+
+  // 画面外の通知は 2026-10-21 にやめた。前にオンにしていた端末の購読と、サーバーに預けていた分を片付ける
+  // (src/lib/pushNotifications.ts の retirePushSubscription。済んだ端末では何もしない)。
+  useEffect(() => {
+    if (!session || isSharedTripRoute) return;
+    void retirePushSubscription(session.user.id).catch((error) => {
+      console.warn("[push] failed to retire the old push subscription:", error);
+    });
+  }, [session, isSharedTripRoute]);
 
   // ページ切り替え時の「読み込み中…」表示を体感上ほぼ無くすため、ログイン後の暇な
   // タイミング(requestIdleCallback)で全lazyページのJSチャンクを先読みしておく。

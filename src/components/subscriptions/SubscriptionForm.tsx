@@ -24,14 +24,6 @@ import { ClaudePriceHint } from "./ClaudePriceHint";
 
 type NotifyValue = "none" | "0" | "1" | "3" | "7";
 
-const NOTIFY_OPTIONS: { value: NotifyValue; label: string }[] = [
-  { value: "none", label: "しない" },
-  { value: "0", label: "当日" },
-  { value: "1", label: "前日" },
-  { value: "3", label: "3日前" },
-  { value: "7", label: "1週間前" },
-];
-
 /** サブスクの種類。家賃・光熱費などの種類は「固定費」のタブで選ぶ(選ぶとそちらに並ぶため、ここには出さない)。 */
 const SUBSCRIPTION_CATEGORIES = FIXED_COST_CATEGORIES.filter((name) => !FIXED_EXPENSE_CATEGORIES.includes(name));
 
@@ -66,7 +58,8 @@ export function SubscriptionForm({ initial, template, onSaved, onCancel, onBack 
   const [startDate, setStartDate] = useState(detail?.startDate ?? "");
   const [trial, setTrial] = useState(Boolean(detail?.trialEndDate));
   const [trialEndDate, setTrialEndDate] = useState(detail?.trialEndDate ?? "");
-  const [notify, setNotify] = useState<NotifyValue>(
+  // 通知の欄は 2026-10-21 に外した(画面外の通知をやめた)。前に入れた値は、保存で消さずにそのまま残す。
+  const [notify] = useState<NotifyValue>(
     cost?.notifyDaysBefore != null ? (String(cost.notifyDaysBefore) as NotifyValue) : "none",
   );
   const [saving, setSaving] = useState(false);
@@ -259,18 +252,6 @@ export function SubscriptionForm({ initial, template, onSaved, onCancel, onBack 
             error={!trialEndDate ? "終わる日を選んでください" : undefined}
           />
         )}
-      </FormPanel>
-
-      <FormPanel caption="通知">
-        <SegmentedField<NotifyValue>
-          label="請求日の前に知らせる"
-          hint="設定でバックグラウンド通知を有効にしている端末に届きます。無料体験中は、終わる日の前に届きます。"
-          value={notify}
-          onChange={setNotify}
-          separate
-          columns={3}
-          options={NOTIFY_OPTIONS}
-        />
       </FormPanel>
 
       {changes && changes.length > 0 && (

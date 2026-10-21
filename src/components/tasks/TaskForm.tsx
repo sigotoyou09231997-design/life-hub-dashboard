@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckSquare, Clock, MapPin, Repeat } from "lucide-react";
 import { db } from "../../db/schema";
 import type { Task, Priority, RepeatRule, ScheduleCategory } from "../../types";
@@ -31,17 +31,6 @@ const PRIORITY_OPTIONS = [
   { value: "low" as Priority, label: "低" },
 ];
 
-/** 通知の選択肢。値と名前は予定の画面(EventForm)と同じ — ただしタスクには「前日」は今までも無いので足さない。
- * プルダウンにしないのは、iPhone ではシートの中のプルダウンを押すとキーボードが閉じてシートが動き、
- * 選択肢が欄から離れた所に出て、押したつもりが外れるため(2026-10-12。2026-10-11の持ち物と同じ直し方)。 */
-const NOTIFY_OPTIONS = [
-  { value: "", label: "通知しない" },
-  { value: "5", label: "5分前" },
-  { value: "10", label: "10分前" },
-  { value: "30", label: "30分前" },
-  { value: "60", label: "1時間前" },
-];
-
 /** 保存する値は今までのプルダウンと同じ(category の文字列そのまま)。予定の画面と同じ並び・名前。 */
 const CATEGORY_OPTIONS = SCHEDULE_CATEGORIES.map((c) => ({ value: c.value, label: c.label }));
 
@@ -50,20 +39,12 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
   const [priority, setPriority] = useState<Priority>(initial?.priority ?? "medium");
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
   const [dueTime, setDueTime] = useState(initial?.dueTime ?? "");
-  const [notify, setNotify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
+  // 通知の欄は 2026-10-21 に外した(画面外の通知をやめた)。前に入れた値は、保存で消さずにそのまま残す。
+  const [notify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
   const [repeat, setRepeat] = useState<RepeatRule>(initial?.repeat ?? "none");
   const [category, setCategory] = useState<ScheduleCategory>(initial?.category ?? "other");
   const [placeReminder, setPlaceReminder] = useState<PlaceReminderDraft>(EMPTY_PLACE_REMINDER_DRAFT);
   const [saving, setSaving] = useState(false);
-  // 選択肢に無い分数(ほかの経路で入った値)のタスクを開いた時も、その値を見えるように1つ足す
-  // (EventForm と同じ)。開いた時の値で決める — 今の値で決めると、ほかを押した途端に消えて戻せなくなる。
-  const notifyOptions = useMemo(() => {
-    const original = initial?.notifyMinutesBefore?.toString();
-    return original && !NOTIFY_OPTIONS.some((o) => o.value === original)
-      ? [...NOTIFY_OPTIONS, { value: original, label: `${original}分前` }]
-      : NOTIFY_OPTIONS;
-  }, [initial?.notifyMinutesBefore]);
-
   // 場所リマインドはタスクの行と別のテーブルにあるので、開いたときに読み直す
   // (src/lib/placeReminders.ts)。
   const initialId = initial?.id;
@@ -141,7 +122,6 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
           value={dueTime}
           onChange={(e) => setDueTime(e.target.value)}
         />
-        <SegmentedField label="通知" value={notify} options={notifyOptions} onChange={setNotify} columns={3} separate />
       </FormPanel>
 
       <FormPanel caption="場所で知らせる" icon={MapPin}>
