@@ -1,3 +1,8 @@
 [build]
   command = "npm run build"
   publish = "dist"
+  # Netlify は、2分ごと・毎朝などの通知(netlify/functions の定期実行7本)のためだけに残している。
+  # 使う画面は Vercel なので、画面だけの直しでは Netlify に出さない(2026-10-21、本人「netlify に反映はしなくていい」)。
+  # 本番に出すたびに15クレジット使い、出し直しが月170回ほどあって Pro の月3,000クレジットの大半を食っていた。
+  # 関数・この設定・依存が変わった時だけ出す(git diff が空 = 0 で終わる時は出さない)。
+  ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- netlify/functions netlify.toml package.json"

@@ -120,11 +120,18 @@ E_LIVE=$(date +%s)
 
 step "6/6 Netlify を見る(待たない。ユーザーが使うのは Vercel の方で、Netlify は定期実行の担当)"
 NETLIFY="確認中(ビルドが終わるまで待たない)"
-OUT="$(cd "$MAIN_DIR" && npx netlify api listSiteDeploys --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"per_page\":1}" 2>/dev/null || true)"
-if echo "$OUT" | grep -q "${SHA:0:7}"; then
-  NETLIFY="$(echo "$OUT" | grep -m1 '"state"' | sed 's/.*"state": "\(.*\)".*/\1/')"
+# 2026-10-21 から、Netlify は通知の関数(netlify/functions)・netlify.toml・package.json が変わった時だけ出す(netlify.toml の ignore)。
+if git -C "$MAIN_DIR" diff --quiet "$SHA^1" "$SHA" -- netlify/functions netlify.toml package.json 2>/dev/null; then
+  echo "Netlify: 出さない(通知の関数は変わっていない。netlify.toml の ignore)"
+  NETLIFY="出さない"
 fi
-echo "Netlify: $NETLIFY"
+if [ "$NETLIFY" != "出さない" ]; then
+  OUT="$(cd "$MAIN_DIR" && npx netlify api listSiteDeploys --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"per_page\":1}" 2>/dev/null || true)"
+  if echo "$OUT" | grep -q "${SHA:0:7}"; then
+    NETLIFY="$(echo "$OUT" | grep -m1 '"state"' | sed 's/.*"state": "\(.*\)".*/\1/')"
+  fi
+  echo "Netlify: $NETLIFY"
+fi
 
 finish_feedback "$LIVE" "$DONE_ID" "$MAIN_DIR"
 if [ "$SHOTS" -eq 1 ] && [ -x "$MAIN_DIR/../scripts/lifehub-shots.sh" ]; then
