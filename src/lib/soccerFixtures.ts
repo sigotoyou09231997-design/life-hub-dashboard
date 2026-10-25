@@ -21,6 +21,10 @@ import { competitionNameJa, teamNameJa } from "./soccerTeamNames";
 const API = "/api/soccer";
 const TEAMS_KEY = "lifeHubSoccerTeams:v1";
 const SYNCED_AT_KEY = "lifeHubSoccerSyncedAt:v1";
+const SYNC_VERSION_KEY = "lifeHubSoccerSyncVersion:v1";
+/** 取り込む予定の中身(題名・メモの書き方)を変えたら上げる。上げると、6時間待たずに、次に開いた時に全部書き直す。
+ * 1=英語名、2=日本語名・U-NEXT配信の記載。 */
+export const SOCCER_SYNC_VERSION = "2";
 /** 画面を開いた時の自動取得を見送る間隔。日程はそう頻繁には変わらない。 */
 export const SOCCER_AUTO_SYNC_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 export const SOCCER_TITLE_PREFIX = "⚽ ";
@@ -48,6 +52,15 @@ export const SOCCER_LEAGUES: readonly { slug: string; label: string }[] = [
 ];
 
 type FetchLike = (url: string) => Promise<Pick<Response, "ok" | "json">>;
+
+/** この端末にチームの選択が記録されているか(選んでいない=記録なし、と、全部外した=空の記録、を区別する)。 */
+export function hasStoredSoccerTeams(storage: Pick<Storage, "getItem"> = window.localStorage): boolean {
+  try {
+    return storage.getItem(scopedKey(TEAMS_KEY)) !== null;
+  } catch {
+    return false;
+  }
+}
 
 export function loadSoccerTeams(storage: Pick<Storage, "getItem"> = window.localStorage): SoccerTeam[] {
   try {
@@ -78,16 +91,26 @@ export function lastSoccerSyncAt(storage: Pick<Storage, "getItem"> = window.loca
   }
 }
 
+/** 前回の取り込みが、いまの書き方(SOCCER_SYNC_VERSION)での取り込みだったか。 */
+export function soccerSyncIsCurrent(storage: Pick<Storage, "getItem"> = window.localStorage): boolean {
+  try {
+    return storage.getItem(scopedKey(SYNC_VERSION_KEY)) === SOCCER_SYNC_VERSION;
+  } catch {
+    return false;
+  }
+}
+
 function markSoccerSynced(now: number): void {
   try {
     window.localStorage.setItem(scopedKey(SYNCED_AT_KEY), String(now));
+    window.localStorage.setItem(scopedKey(SYNC_VERSION_KEY), SOCCER_SYNC_VERSION);
   } catch {
     // 印を残せないだけ。次に開いた時にもう一度取るだけで済む。
   }
 }
 
-export function shouldAutoSyncSoccer(teams: SoccerTeam[], lastAt: number, now: number): boolean {
-  return teams.length > 0 && now - lastAt >= SOCCER_AUTO_SYNC_COOLDOWN_MS;
+export function shouldAutoSyncSoccer(teams: SoccerTeam[], lastAt: number, now: number, current = true): boolean {
+  return teams.length > 0 && (!current || now - lastAt >= SOCCER_AUTO_SYNC_COOLDOWN_MS);
 }
 
 /** ESPN の順位表(standings)の中の、チーム1件。 */

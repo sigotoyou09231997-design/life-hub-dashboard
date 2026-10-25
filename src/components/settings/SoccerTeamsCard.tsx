@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trophy, X } from "lucide-react";
 import {
   SOCCER_LEAGUES,
@@ -10,6 +10,7 @@ import {
   type SoccerTeam,
 } from "../../lib/soccerFixtures";
 import { teamNameJa } from "../../lib/soccerTeamNames";
+import { pushSoccerTeams, syncSoccerTeams } from "../../lib/soccerTeamsSync";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Select } from "../ui/Select";
@@ -26,6 +27,17 @@ export function SoccerTeamsCard() {
   const [loadingTeams, setLoadingTeams] = useState(false);
   const [busy, setBusy] = useState(false);
   const showToast = useToast();
+
+  // 別の端末で選んだチームに追いつく(開いた時に1回)。
+  useEffect(() => {
+    let cancelled = false;
+    void syncSoccerTeams().then((latest) => {
+      if (!cancelled) setTeams(latest);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function runSync(next: SoccerTeam[], quietIfNothing = false) {
     setBusy(true);
@@ -53,6 +65,7 @@ export function SoccerTeamsCard() {
   function update(next: SoccerTeam[]) {
     setTeams(next);
     saveSoccerTeams(next);
+    void pushSoccerTeams(next);
     void runSync(next, true);
   }
 
