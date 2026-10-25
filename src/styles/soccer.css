@@ -262,36 +262,47 @@
 }
 
 /* ---------------------------------------------------------------------------
-   カレンダー・予定の一覧に出す、2チームの紋章(src/components/calendar/SoccerCrests.tsx)
+   カレンダー・予定の一覧に出す、チームの紋章(src/components/calendar/SoccerCrests.tsx)
+   「[紋章] リバプール vs [紋章] アーセナル」。紋章は、それぞれのチーム名の左に置く。
    ------------------------------------------------------------------------ */
-.soccer-duo {
+.soccer-vs {
   display: inline-flex;
-  flex: none;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 0.15rem 0.4rem;
   vertical-align: middle;
 }
-.soccer-duo__crest,
-.soccer-duo__blank {
+.soccer-vs__team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  min-width: 0;
+}
+.soccer-vs__crest,
+.soccer-vs__blank {
   flex: none;
   border-radius: 999px;
-  background: #fff;
   object-fit: contain;
-  /* 重ねた時に、手前の紋章との境目が見えるように、白い縁を付ける。 */
-  box-shadow: 0 0 0 1.5px #fff;
 }
-.soccer-duo__crest + .soccer-duo__crest,
-.soccer-duo__blank + .soccer-duo__blank,
-.soccer-duo__crest + .soccer-duo__blank,
-.soccer-duo__blank + .soccer-duo__crest {
-  margin-left: -0.28em;
-}
-.soccer-duo__blank {
+.soccer-vs__blank {
   display: inline-grid;
   place-items: center;
   background: var(--teal-50);
 }
+.soccer-vs__v {
+  flex: none;
+  color: var(--warm-ink-2);
+  font-size: 0.72em;
+  font-style: normal;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
 
-/* 月表示のマス: 予定名の代わりに紋章だけを出す(マスが狭く、名前は2文字しか入らないため)。題名は押した先の一覧で読める。 */
+/* 月表示のマス: 予定名の代わりに「紋章 vs 紋章」だけを出す(マスが狭く、名前は2文字しか入らないため)。 */
+.soccer-vs--crests {
+  flex-wrap: nowrap;
+  gap: 2px;
+}
 .spatial-calendar__chip.is-soccer {
   display: flex;
   align-items: center;
@@ -300,37 +311,44 @@
   border-left: 0;
   background: color-mix(in srgb, var(--teal-500) 9%, #fff);
 }
-.spatial-calendar__chip.is-soccer .soccer-duo {
-  font-size: 15px;
+.spatial-calendar__chip.is-soccer .soccer-vs__v {
+  font-size: 8px;
 }
 
-/* 週表示の帯: 紋章のあとに「リバプール vs ブライトン」。 */
+/* 週表示の帯: 「紋章 リバプール vs 紋章 アーセナル」を1行で。 */
 .week-view__bar.is-soccer {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
   border-left-color: var(--teal-500);
   background: color-mix(in srgb, var(--teal-500) 10%, #fff);
   color: var(--ink-black);
 }
 .week-view__bar-text {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.week-view__bar-text .soccer-vs,
+.week-view__event.is-soccer .soccer-vs {
+  flex-wrap: nowrap;
+}
 
-/* 予定の一覧: 紋章を大きく左に置き、左端に青緑の線を引く。 */
+/* 週表示の時刻の枠: 1行目に題名、2行目に時刻。 */
+.week-view__event.is-soccer {
+  border-left-color: var(--teal-500);
+  background: color-mix(in srgb, var(--teal-500) 10%, #fff);
+  color: var(--ink-black);
+}
+.week-view__event.is-soccer strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 予定の一覧: 左端に青緑の線を引く。 */
 .event-row--soccer {
   border-left: 3px solid var(--teal-500);
   background: linear-gradient(100deg, color-mix(in srgb, var(--teal-500) 8%, #fff), #fff 55%);
-}
-.event-row__crests {
-  display: grid;
-  flex: none;
-  place-items: center;
-  align-self: center;
-  min-width: 56px;
-  font-size: 34px;
 }
 .soccer-unext {
   display: inline-flex;
@@ -343,31 +361,4 @@
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1.5;
-}
-
-/* 週表示の時刻の枠: 1行目に紋章と題名、2行目に時刻(枠が1時間ほどしかなくても収まる)。 */
-.week-view__event.is-soccer {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  align-items: center;
-  gap: 0 0.3rem;
-  border-left-color: var(--teal-500);
-  background: color-mix(in srgb, var(--teal-500) 10%, #fff);
-  color: var(--ink-black);
-}
-.week-view__event.is-soccer .soccer-duo {
-  font-size: 14px;
-}
-.week-view__event.is-soccer strong {
-  display: block;
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.week-view__event.is-soccer small {
-  flex: 0 0 100%;
 }

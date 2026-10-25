@@ -17,6 +17,9 @@ export interface SoccerMatchInfo {
   awayId?: string;
   /** 「⚽ 」を除いた題名。例: リバプール vs ブライトン */
   title: string;
+  /** 題名を「 vs 」で分けた、ホーム側・アウェイ側のチーム名。分けられない題名は、全体がホーム側。 */
+  homeName: string;
+  awayName?: string;
   /** 大会名(メモの先頭の行)。例: プレミアリーグ */
   competition?: string;
   /** U-NEXT で配信している試合か(メモに書いてある)。 */
@@ -34,10 +37,14 @@ export function parseSoccerMatch(event: Pick<CalendarEvent, "memo" | "title">): 
   if (!marker) return null;
   const first = memo.split("\n")[0]?.trim();
   const competition = first && !first.startsWith("配信:") && !first.startsWith("日本時間") && !first.startsWith("キックオフ") ? first : undefined;
+  const title = event.title.startsWith(SOCCER_TITLE_PREFIX) ? event.title.slice(SOCCER_TITLE_PREFIX.length) : event.title;
+  const versus = title.indexOf(" vs ");
   return {
     espnId: marker[1],
     ...(marker[2] && marker[3] ? { homeId: marker[2], awayId: marker[3] } : {}),
-    title: event.title.startsWith(SOCCER_TITLE_PREFIX) ? event.title.slice(SOCCER_TITLE_PREFIX.length) : event.title,
+    title,
+    homeName: versus >= 0 ? title.slice(0, versus) : title,
+    ...(versus >= 0 ? { awayName: title.slice(versus + 4) } : {}),
     ...(competition ? { competition } : {}),
     unext: memo.includes("U-NEXT"),
   };

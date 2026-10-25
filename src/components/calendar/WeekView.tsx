@@ -10,7 +10,7 @@ import { minutesToClock } from "../../lib/eventTime";
 import { getHolidayMapForYears } from "../../lib/holidays";
 import { groupDueTasks } from "../../lib/weekAhead";
 import { parseSoccerMatch } from "../../lib/soccerMatch";
-import { SoccerCrests } from "./SoccerCrests";
+import { SoccerMatchTitle } from "./SoccerCrests";
 import { assignLanes, blockBox, hourRangeFor, placeOverlapping, rollingWeekDatesOf, stripSegments, timedBlocksOn, weekDatesOf, weekTitle } from "../../lib/weekLayout";
 
 /** 期限のあるタスクの帯の色。月表示のタスクの点(bg-warning)と同じ色にそろえる。 */
@@ -229,10 +229,9 @@ export function WeekView({
                     title={`${entry.event.title}(${time})`}
                   >
                     {soccer ? (
-                      <>
-                        <SoccerCrests match={soccer} size={16} />
-                        <span className="week-view__bar-text">{soccer.title}</span>
-                      </>
+                      <span className="week-view__bar-text">
+                        <SoccerMatchTitle match={soccer} size={16} />
+                      </span>
                     ) : (
                       entry.event.title
                     )}
@@ -338,8 +337,7 @@ export function WeekView({
                     onClick={() => onEditEvent(event)}
                     title={`${event.title}(${spanTimeText(event, date)})${event.location ? ` ${event.location}` : ""}`}
                   >
-                    {soccer && <SoccerCrests match={soccer} size={16} />}
-                    <strong>{soccer ? soccer.title : event.title}</strong>
+                    <strong>{soccer ? <SoccerMatchTitle match={soccer} size={14} /> : event.title}</strong>
                     <small>{spanTimeText(event, date)}</small>
                   </button>
                 );
