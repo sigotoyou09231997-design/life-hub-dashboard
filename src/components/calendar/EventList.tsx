@@ -10,6 +10,8 @@ import { EmptyState } from "../ui/EmptyState";
 import type { EmptyIllustrationKind } from "../ui/EmptyIllustration";
 import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { isRepeating, repeatLabel } from "../../lib/repeatRule";
+import { parseSoccerMatch } from "../../lib/soccerMatch";
+import { SoccerCrests } from "./SoccerCrests";
 
 interface Props {
   events: CalendarEvent[];
@@ -45,8 +47,9 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
       {sorted.map((ev) => {
         const category = getScheduleCategory(ev.category);
         const span = spanLabel(ev, onDate);
+        const soccer = parseSoccerMatch(ev);
         return (
-          <ListRow key={ev.id} interactive className="p-0">
+          <ListRow key={ev.id} interactive className={`p-0${soccer ? " event-row--soccer" : ""}`}>
             <button
               type="button"
               onClick={() => onEdit(ev)}
@@ -54,9 +57,14 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
               className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             />
             <div className="pointer-events-none relative z-10 flex items-start justify-between gap-3 p-3">
-              <div className="min-w-0">
+              {soccer && (
+                <div className="event-row__crests">
+                  <SoccerCrests match={soccer} size={34} />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 text-sm font-medium text-slate-900" title={ev.title}>
-                  {ev.title}
+                  {soccer ? soccer.title : ev.title}
                 </p>
                 {/* 時刻・場所・カテゴリを1行にまとめる(以前はカテゴリだけ独立した行に
                     置いていて、1件あたり1行ぶん余計に高さを使っていた)。 */}
@@ -77,7 +85,14 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
                       {ev.location}
                     </span>
                   )}
-                  <Badge tone={category.tone}>{category.label}</Badge>
+                  {soccer ? (
+                    <>
+                      {soccer.competition && <Badge tone="accent">{soccer.competition}</Badge>}
+                      {soccer.unext && <span className="soccer-unext">U-NEXT</span>}
+                    </>
+                  ) : (
+                    <Badge tone={category.tone}>{category.label}</Badge>
+                  )}
                   <PersonTags event={ev} people={people} />
                   {isRepeating(ev.repeat) && <Badge tone="accent">{repeatLabel(ev.repeat)}</Badge>}
                 </div>

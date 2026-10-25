@@ -16,6 +16,7 @@ import { formatMonthTitle, toDateStr } from "../../lib/date";
 import { useMonthSwipe } from "../../hooks/useMonthSwipe";
 import { getHolidayMapForYears } from "../../lib/holidays";
 import type { DayChip } from "../../lib/eventPeople";
+import { SoccerCrests } from "./SoccerCrests";
 
 interface Props {
   currentMonth: Date;
@@ -180,11 +181,12 @@ export function MonthView({
                       {chips.map((chip) => (
                         <span
                           key={chip.key}
-                          className={`spatial-calendar__chip ${chip.kind === "fixedCost" ? "is-fixed-cost" : ""}`}
+                          className={`spatial-calendar__chip ${chip.kind === "fixedCost" ? "is-fixed-cost" : ""}${chip.soccer ? " is-soccer" : ""}`}
                           style={{ "--chip-color": chip.color } as CSSProperties}
                           title={chip.label}
+                          aria-label={chip.soccer ? chip.soccer.title : undefined}
                         >
-                          {chip.label}
+                          {chip.soccer ? <SoccerCrests match={chip.soccer} size={15} /> : chip.label}
                         </span>
                       ))}
                     </span>
