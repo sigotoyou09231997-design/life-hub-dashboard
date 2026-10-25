@@ -2,7 +2,10 @@ import { db } from "../db/schema";
 import type { CalendarEvent } from "../types";
 import { scopedKey } from "./accounts";
 import { stableUuid } from "./googleCalendar";
+import { SOCCER_TITLE_PREFIX, soccerCrestUrl } from "./soccerMatch";
 import { competitionNameJa, teamNameJa } from "./soccerTeamNames";
+
+export { SOCCER_TITLE_PREFIX, soccerCrestUrl };
 
 /**
  * 海外サッカーの試合日程を、自分が選んだチームの分だけ予定に入れる(2026-10-25、本人「海外サッカーを追加して、
@@ -23,11 +26,10 @@ const TEAMS_KEY = "lifeHubSoccerTeams:v1";
 const SYNCED_AT_KEY = "lifeHubSoccerSyncedAt:v1";
 const SYNC_VERSION_KEY = "lifeHubSoccerSyncVersion:v1";
 /** 取り込む予定の中身(題名・メモの書き方)を変えたら上げる。上げると、6時間待たずに、次に開いた時に全部書き直す。
- * 1=英語名、2=日本語名・U-NEXT配信の記載。 */
-export const SOCCER_SYNC_VERSION = "2";
+ * 1=英語名、2=日本語名・U-NEXT配信の記載、3=メモの印に紋章用のチームidを足した。 */
+export const SOCCER_SYNC_VERSION = "3";
 /** 画面を開いた時の自動取得を見送る間隔。日程はそう頻繁には変わらない。 */
 export const SOCCER_AUTO_SYNC_COOLDOWN_MS = 6 * 60 * 60 * 1000;
-export const SOCCER_TITLE_PREFIX = "⚽ ";
 const MARKER_RE = /ESPN#(\d+)/;
 
 export interface SoccerTeam {
@@ -51,10 +53,6 @@ export const SOCCER_LEAGUES: readonly { slug: string; label: string; short: stri
   { slug: "eng.2", label: "チャンピオンシップ(イングランド2部)", short: "英2部" },
 ];
 
-/** チームの紋章(ESPN の画像)。 */
-export function soccerCrestUrl(teamId: string): string {
-  return `https://a.espncdn.com/i/teamlogos/soccer/500/${encodeURIComponent(teamId)}.png`;
-}
 
 type FetchLike = (url: string) => Promise<Pick<Response, "ok" | "json">>;
 
@@ -167,7 +165,7 @@ export interface EspnFixture {
   competitions?: {
     timeValid?: boolean;
     venue?: { fullName?: string; address?: { city?: string; country?: string } };
-    competitors?: { homeAway?: string; team?: { displayName?: string } }[];
+    competitors?: { homeAway?: string; id?: string; team?: { id?: string; displayName?: string } }[];
   }[];
 }
 
@@ -225,8 +223,12 @@ export function fixtureToEventFields(fixture: EspnFixture): Omit<CalendarEvent, 
   const jst = toJst(fixture.date);
   if (!jst) return null;
   const competition = fixture.competitions?.[0];
-  const home = competition?.competitors?.find((c) => c.homeAway === "home")?.team?.displayName;
-  const away = competition?.competitors?.find((c) => c.homeAway === "away")?.team?.displayName;
+  const homeSide = competition?.competitors?.find((c) => c.homeAway === "home");
+  const awaySide = competition?.competitors?.find((c) => c.homeAway === "away");
+  const home = homeSide?.team?.displayName;
+  const away = awaySide?.team?.displayName;
+  const homeId = homeSide?.team?.id ?? homeSide?.id;
+  const awayId = awaySide?.team?.id ?? awaySide?.id;
   if (!home || !away) return null;
   const timeKnown = competition?.timeValid !== false;
   const venue = competition?.venue;
@@ -241,7 +243,8 @@ export function fixtureToEventFields(fixture: EspnFixture): Omit<CalendarEvent, 
     isUnextFullCoverage(fixture.season?.displayName) ? "配信: U-NEXT(サッカーパック)でライブ配信" : "",
     timeKnown ? "" : "キックオフ時刻は未定です",
     "日本時間・ESPN の日程から自動で入れた予定です",
-    `ESPN#${fixture.id}`,
+    // 画面が紋章を出すための、チームのid(src/lib/soccerMatch.ts が読む)。
+    `ESPN#${fixture.id}${homeId && awayId ? ` (${homeId}-${awayId})` : ""}`,
   ]
     .filter(Boolean)
     .join("\n");

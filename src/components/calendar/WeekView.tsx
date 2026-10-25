@@ -9,6 +9,8 @@ import { eventChipColor, type DayChip } from "../../lib/eventPeople";
 import { minutesToClock } from "../../lib/eventTime";
 import { getHolidayMapForYears } from "../../lib/holidays";
 import { groupDueTasks } from "../../lib/weekAhead";
+import { parseSoccerMatch } from "../../lib/soccerMatch";
+import { SoccerCrests } from "./SoccerCrests";
 import { assignLanes, blockBox, hourRangeFor, placeOverlapping, rollingWeekDatesOf, stripSegments, timedBlocksOn, weekDatesOf, weekTitle } from "../../lib/weekLayout";
 
 /** 期限のあるタスクの帯の色。月表示のタスクの点(bg-warning)と同じ色にそろえる。 */
@@ -216,16 +218,24 @@ export function WeekView({
               const place = { gridColumn: `${entry.startCol + 1} / ${entry.endCol + 2}`, gridRow: entry.lane + 1 };
               if (entry.kind === "event") {
                 const time = spanTimeText(entry.event, weekDates[entry.startCol]);
+                const soccer = parseSoccerMatch(entry.event);
                 return (
                   <button
                     key={entry.key}
                     type="button"
-                    className={`week-view__bar ${entry.continuesBefore ? "is-cont-before" : ""} ${entry.continuesAfter ? "is-cont-after" : ""}`}
+                    className={`week-view__bar ${entry.continuesBefore ? "is-cont-before" : ""} ${entry.continuesAfter ? "is-cont-after" : ""}${soccer ? " is-soccer" : ""}`}
                     style={{ ...place, "--chip-color": eventChipColor(entry.event, people) } as CSSProperties}
                     onClick={() => onEditEvent(entry.event)}
                     title={`${entry.event.title}(${time})`}
                   >
-                    {entry.event.title}
+                    {soccer ? (
+                      <>
+                        <SoccerCrests match={soccer} size={16} />
+                        <span className="week-view__bar-text">{soccer.title}</span>
+                      </>
+                    ) : (
+                      entry.event.title
+                    )}
                   </button>
                 );
               }
@@ -310,11 +320,12 @@ export function WeekView({
                 // 横並び、1時間半以上は名前を2行まで、その間は名前1行＋時刻。
                 const minutes = block.end - block.start;
                 const size = minutes <= 45 ? "is-short" : minutes >= 90 ? "is-tall" : "";
+                const soccer = parseSoccerMatch(event);
                 return (
                   <button
                     key={`${event.id ?? event.title}-${date}`}
                     type="button"
-                    className={`week-view__event ${size}`}
+                    className={`week-view__event ${size}${soccer ? " is-soccer" : ""}`}
                     style={
                       {
                         top: `${box.top}%`,
@@ -327,7 +338,8 @@ export function WeekView({
                     onClick={() => onEditEvent(event)}
                     title={`${event.title}(${spanTimeText(event, date)})${event.location ? ` ${event.location}` : ""}`}
                   >
-                    <strong>{event.title}</strong>
+                    {soccer && <SoccerCrests match={soccer} size={16} />}
+                    <strong>{soccer ? soccer.title : event.title}</strong>
                     <small>{spanTimeText(event, date)}</small>
                   </button>
                 );

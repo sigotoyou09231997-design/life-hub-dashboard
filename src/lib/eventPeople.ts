@@ -15,6 +15,7 @@
 import type { CalendarEvent, EventPerson } from "../types";
 import { occursOn } from "./eventSpan";
 import { toDateStr } from "./date";
+import { parseSoccerMatch, type SoccerMatchInfo } from "./soccerMatch";
 import { addDays, parseISO } from "date-fns";
 
 export interface PersonColorDef {
@@ -206,6 +207,8 @@ export interface DayChip {
   startTime?: string;
   /** 予定そのものか、予定ではない情報(固定費の支払日など)か。見せ方を変える。 */
   kind: "event" | "fixedCost";
+  /** 取り込んだサッカーの試合なら、紋章と題名(src/lib/soccerMatch.ts)。マスの中は紋章だけで表す。 */
+  soccer?: SoccerMatchInfo;
 }
 
 /** その日の並び。時刻の早い順 → 時刻なし → 同じなら名前順。 */
@@ -239,6 +242,7 @@ export function collectDayChipsInRange(
   for (const event of events) {
     if (!event.date) continue;
     const color = eventChipColor(event, order);
+    const soccer = parseSoccerMatch(event);
     let cursor = rangeStart > event.date ? rangeStart : event.date;
     while (cursor <= rangeEnd) {
       if (occursOn(event, cursor)) {
@@ -249,6 +253,7 @@ export function collectDayChipsInRange(
           color,
           startTime: event.allDay ? undefined : event.startTime,
           kind: "event",
+          ...(soccer ? { soccer } : {}),
         });
         byDate.set(cursor, chips);
       }

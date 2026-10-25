@@ -37,8 +37,8 @@ function fixture(id: string, date: string, season = "2026-27 English Premier Lea
         timeValid: true,
         venue: { fullName: "Emirates Stadium", address: { city: "London" } },
         competitors: [
-          { homeAway: "home", team: { displayName: "Arsenal" } },
-          { homeAway: "away", team: { displayName: "Liverpool" } },
+          { homeAway: "home", team: { id: "359", displayName: "Arsenal" } },
+          { homeAway: "away", team: { id: "364", displayName: "Liverpool" } },
         ],
       },
     ],
@@ -120,7 +120,7 @@ describe("fixtureToEventFields", () => {
       location: "Emirates Stadium、London",
       category: "other",
     });
-    expect(f?.memo).toContain("ESPN#401");
+    expect(f?.memo).toContain("ESPN#401 (359-364)");
     expect(f?.allDay).toBeUndefined();
   });
   it("時刻が決まっていない試合は終日にする", () => {
