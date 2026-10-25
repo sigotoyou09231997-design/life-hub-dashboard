@@ -17,6 +17,7 @@ import {
   fetchLeagueTeams,
   fixtureToEventFields,
   isTargetCompetition,
+  isUnextFullCoverage,
   removeAllSoccerEvents,
   shouldAutoSyncSoccer,
   syncSoccerFixtures,
@@ -68,6 +69,21 @@ describe("isTargetCompetition", () => {
     for (const name of ["2026-27 English Carabao Cup", "English FA Cup", "Copa del Rey", "DFB Pokal", "UEFA Super Cup", "Club Friendly"]) {
       expect(isTargetCompetition(name)).toBe(false);
     }
+  });
+});
+
+describe("U-NEXT の配信", () => {
+  it("プレミアリーグとラ・リーガ1部だけに書く", () => {
+    expect(isUnextFullCoverage("2026-27 English Premier League")).toBe(true);
+    expect(isUnextFullCoverage("2026-27 LALIGA")).toBe(true);
+    expect(isUnextFullCoverage("Spanish LALIGA")).toBe(true);
+    for (const name of ["2026-27 UEFA Champions League", "2026-27 UEFA Europa League", "English League Championship", "Spanish LALIGA 2", "2026-27 German Bundesliga"]) {
+      expect(isUnextFullCoverage(name)).toBe(false);
+    }
+  });
+  it("予定のメモに配信先が入る。CL には入らない", () => {
+    expect(fixtureToEventFields(fixture("1", "2026-11-01T16:30Z"))?.memo).toContain("U-NEXT");
+    expect(fixtureToEventFields(fixture("2", "2026-11-04T20:00Z", "2026-27 UEFA Champions League"))?.memo).not.toContain("U-NEXT");
   });
 });
 
