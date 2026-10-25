@@ -9,6 +9,7 @@ import {
   syncSoccerFixtures,
   type SoccerTeam,
 } from "../../lib/soccerFixtures";
+import { teamNameJa } from "../../lib/soccerTeamNames";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Select } from "../ui/Select";
@@ -104,10 +105,10 @@ export function SoccerTeamsCard() {
                 type="button"
                 disabled={busy}
                 onClick={() => update(teams.filter((t) => t.id !== team.id))}
-                aria-label={`${team.name}を外す`}
+                aria-label={`${teamNameJa(team.name)}を外す`}
                 className="inline-flex min-h-11 items-center gap-1.5 border border-white/60 bg-white/35 px-3 text-sm"
               >
-                {team.name}
+                {teamNameJa(team.name)}
                 <X size={14} aria-hidden />
               </button>
             </li>

@@ -2,6 +2,7 @@ import { db } from "../db/schema";
 import type { CalendarEvent } from "../types";
 import { scopedKey } from "./accounts";
 import { stableUuid } from "./googleCalendar";
+import { competitionNameJa, teamNameJa } from "./soccerTeamNames";
 
 /**
  * 海外サッカーの試合日程を、自分が選んだチームの分だけ予定に入れる(2026-10-25、本人「海外サッカーを追加して、
@@ -124,9 +125,9 @@ export async function fetchLeagueTeams(slug: string, fetchImpl: FetchLike = (u) 
   for (const { id, name } of found) {
     if (seen.has(id)) continue;
     seen.add(id);
-    teams.push({ id, name, league: label });
+    teams.push({ id, name: teamNameJa(name), league: label });
   }
-  return teams.sort((a, b) => a.name.localeCompare(b.name));
+  return teams.sort((a, b) => a.name.localeCompare(b.name, "ja"));
 }
 
 /** ESPN の試合1件(使う項目だけ)。 */
@@ -203,10 +204,12 @@ export function fixtureToEventFields(fixture: EspnFixture): Omit<CalendarEvent, 
   const venue = competition?.venue;
   const location = [venue?.fullName, venue?.address?.city].filter(Boolean).join("、");
   const stripYear = (text: string) => text.replace(/^\d{4}-\d{2,4}\s+/, "");
-  const stage = stripYear(fixture.seasonType?.name ?? "");
+  const stageRaw = stripYear(fixture.seasonType?.name ?? "");
+  // 「Regular Season」は、リーグ戦だと言っているだけなので書かない。
+  const stage = /^regular season$/i.test(stageRaw) ? "" : stageRaw;
   const season = stripYear(fixture.season?.displayName ?? "");
   const memo = [
-    [season, stage && !season.toLowerCase().includes(stage.toLowerCase()) && !stage.toLowerCase().includes(season.toLowerCase()) ? stage : ""].filter(Boolean).join(" "),
+    [competitionNameJa(season), stage && !season.toLowerCase().includes(stage.toLowerCase()) && !stage.toLowerCase().includes(season.toLowerCase()) ? competitionNameJa(stage) : ""].filter(Boolean).join(" "),
     isUnextFullCoverage(fixture.season?.displayName) ? "配信: U-NEXT(サッカーパック)でライブ配信" : "",
     timeKnown ? "" : "キックオフ時刻は未定です",
     "日本時間・ESPN の日程から自動で入れた予定です",
@@ -215,7 +218,7 @@ export function fixtureToEventFields(fixture: EspnFixture): Omit<CalendarEvent, 
     .filter(Boolean)
     .join("\n");
   return {
-    title: `${SOCCER_TITLE_PREFIX}${home} vs ${away}`,
+    title: `${SOCCER_TITLE_PREFIX}${teamNameJa(home)} vs ${teamNameJa(away)}`,
     date: jst.date,
     ...(timeKnown ? { startTime: jst.time } : { allDay: true }),
     ...(location ? { location } : {}),

@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-25-113",
+    date: "2026-10-25",
+    area: "予定・タスク",
+    title: "サッカーのチーム名と大会名が日本語になりました",
+    description:
+      "設定の「海外サッカー」のチーム一覧と、予定に入る試合の題名・メモを日本語にしました(例: アーセナル vs リバプール)。すでに入っている試合も、次に開いた時に日本語に直ります。載っていないチームは英語のまま出ます。",
+  },
+  {
     id: "2026-10-25-112",
     date: "2026-10-25",
     area: "予定・タスク",

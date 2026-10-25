@@ -13,6 +13,7 @@ vi.mock("../db/schema", () => ({
   },
 }));
 
+import { competitionNameJa, teamNameJa } from "./soccerTeamNames";
 import {
   fetchLeagueTeams,
   fixtureToEventFields,
@@ -72,6 +73,28 @@ describe("isTargetCompetition", () => {
   });
 });
 
+describe("日本語の名前", () => {
+  it("チーム名・大会名を日本語にし、知らない名前はそのまま出す", () => {
+    expect(teamNameJa("Paris Saint-Germain")).toBe("パリ・サンジェルマン");
+    expect(teamNameJa("Some New FC")).toBe("Some New FC");
+    expect(competitionNameJa("UEFA Champions League")).toBe("UEFAチャンピオンズリーグ");
+    expect(competitionNameJa("League Phase")).toBe("リーグフェーズ");
+    expect(competitionNameJa("Unknown Cup")).toBe("Unknown Cup");
+  });
+  it("予定の題名とメモが日本語になる", () => {
+    const f = fixtureToEventFields(fixture("2", "2026-11-04T20:00Z", "2026-27 UEFA Champions League", { seasonType: { name: "League Phase" } }));
+    expect(f?.title).toBe("⚽ アーセナル vs リバプール");
+    expect(f?.memo).toContain("UEFAチャンピオンズリーグ リーグフェーズ");
+  });
+});
+
+describe("メモの大会名", () => {
+  it("「Regular Season」は書かない", () => {
+    const f = fixtureToEventFields(fixture("3", "2026-11-04T20:00Z", "2026-27 Dutch Eredivisie", { seasonType: { name: "Regular Season" } }));
+    expect(f?.memo?.split("\n")[0]).toBe("エールディヴィジ");
+  });
+});
+
 describe("U-NEXT の配信", () => {
   it("プレミアリーグとラ・リーガ1部だけに書く", () => {
     expect(isUnextFullCoverage("2026-27 English Premier League")).toBe(true);
@@ -91,7 +114,7 @@ describe("fixtureToEventFields", () => {
   it("日本時間の予定にして、元の試合を見分ける印をメモに残す", () => {
     const f = fixtureToEventFields(fixture("401", "2026-11-01T16:30Z"));
     expect(f).toMatchObject({
-      title: "⚽ Arsenal vs Liverpool",
+      title: "⚽ アーセナル vs リバプール",
       date: "2026-11-02",
       startTime: "01:30",
       location: "Emirates Stadium、London",
@@ -182,7 +205,7 @@ describe("そのほか", () => {
       }),
       };
     });
-    expect(teams.map((t) => t.name)).toEqual(["Arsenal", "Burnley"]);
+    expect(teams.map((t) => t.name)).toEqual(["アーセナル", "バーンリー"]);
     expect(url).toBe("/api/soccer?kind=teams&value=eng.1");
     expect(teams[0].league).toContain("プレミアリーグ");
   });
