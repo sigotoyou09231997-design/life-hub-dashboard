@@ -20,6 +20,8 @@ import { addEmailIfAbsent, dedupeSyncedEmails } from "./syncedEmails";
 
 /** 2026-10-25: 30→365。健診の予約確定メール(44日前)が一覧に出てこなかったため。 */
 const SYNC_WINDOW_DAYS = 365;
+/** これより古いメールは、新しく取り込む時に既読で入れる(未処理に出さない)。 */
+const UNHANDLED_WINDOW_DAYS = 30;
 
 /** 「Gmail側で直接返信されていないか」の確認を1回の同期で何件まで行うか、
  * そのうち何本まで同時にGmail APIへ投げるか。Gmail APIは1分あたりの利用量に
@@ -219,6 +221,9 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
         receivedAt: meta.receivedAt,
         status: "unprocessed" as const,
         createdAt: Date.now(),
+        // 範囲を1年に広げて取り込む古いメール(30日より前)は、記録だけ残して既読で入れる。
+        // 未処理に並べると、済んだ話のメールが一覧を埋めてしまうため。
+        ...(meta.receivedAt < Date.now() - UNHANDLED_WINDOW_DAYS * 24 * 60 * 60 * 1000 ? { readAt: Date.now() } : {}),
       };
       // 存在確認と追加をまとめて行う。読んだ`known`は同期の開始時点のもので、その後に
       // 別のタブやアカウント統合(src/lib/gmailAccounts.ts)が同じメールを入れている
