@@ -26,13 +26,13 @@ describe("SoccerTeamsCard", () => {
     expect(screen.getByText("未設定")).toBeTruthy();
 
     await user.selectOptions(screen.getByLabelText("リーグ"), "eng.1");
-    await waitFor(() => expect(screen.getByRole("option", { name: "Arsenal" })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("option", { name: "アーセナル" })).toBeTruthy());
     await user.selectOptions(screen.getByLabelText("チームを追加"), "359");
 
-    expect(loadSoccerTeams().map((t) => t.name)).toEqual(["Arsenal"]);
+    expect(loadSoccerTeams().map((t) => t.name)).toEqual(["アーセナル"]);
     expect(screen.getByText("1 チーム")).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: "Arsenalを外す" }));
+    await user.click(screen.getByRole("button", { name: "アーセナルを外す" }));
     expect(loadSoccerTeams()).toEqual([]);
   });
 });
