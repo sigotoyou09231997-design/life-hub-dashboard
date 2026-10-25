@@ -127,6 +127,14 @@ export async function fetchTeamFixtures(teamId: string, fetchImpl: FetchLike = (
   return body.events ?? [];
 }
 
+/** U-NEXT のサッカーパックが全試合をライブ配信しているリーグ(2026-27、プレミアリーグ・ラ・リーガ1部)。
+ * 試合ごとの配信予定は U-NEXT に公開の窓口が無く取れないので、リーグ単位で書く。CL/EL などは U-NEXT では
+ * 配信していない(または一部だけ)ので、何も書かない — 見られると思って見逃すより、書かない方が安全。 */
+export function isUnextFullCoverage(seasonName: string | undefined): boolean {
+  const name = (seasonName ?? "").replace(/^\d{4}-\d{2,4}\s+/, "").trim();
+  return /^(English Premier League|(Spanish )?LA ?LIGA)$/i.test(name);
+}
+
 /** リーグ戦と UEFA の大会だけを入れる。国内カップ(FA Cup・Carabao Cup・Copa del Rey など)・スーパーカップ・親善試合は外す。 */
 export function isTargetCompetition(seasonName: string | undefined): boolean {
   const name = seasonName ?? "";
@@ -177,6 +185,7 @@ export function fixtureToEventFields(fixture: EspnFixture): Omit<CalendarEvent, 
   const season = stripYear(fixture.season?.displayName ?? "");
   const memo = [
     [season, stage && !season.toLowerCase().includes(stage.toLowerCase()) && !stage.toLowerCase().includes(season.toLowerCase()) ? stage : ""].filter(Boolean).join(" "),
+    isUnextFullCoverage(fixture.season?.displayName) ? "配信: U-NEXT(サッカーパック)でライブ配信" : "",
     timeKnown ? "" : "キックオフ時刻は未定です",
     "日本時間・ESPN の日程から自動で入れた予定です",
     `ESPN#${fixture.id}`,
