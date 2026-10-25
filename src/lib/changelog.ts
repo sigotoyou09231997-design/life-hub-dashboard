@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-25-110",
+    date: "2026-10-25",
+    area: "予定・タスク",
+    title: "海外サッカーの試合日程を予定に入れられるようになりました",
+    description:
+      "設定の「海外サッカー」で見たいチームを選ぶと、そのチームのリーグ戦とCL/ELの日程が、日本時間で予定に入ります。カップ戦は入りません。日程はネットから取り、開いた時に6時間おきで更新します。チームを外すと、そのチームの今後の試合は予定から消えます。",
+  },
+  {
     id: "2026-10-21-109",
     date: "2026-10-21",
     area: "全体",
