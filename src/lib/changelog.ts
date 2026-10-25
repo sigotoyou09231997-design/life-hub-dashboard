@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-25-114",
+    date: "2026-10-25",
+    area: "予定・タスク",
+    title: "サッカーの日程が、別の端末で選んだチームでも更新されるようになりました",
+    description:
+      "海外サッカーで選んだチームを、同じアカウントの別の端末にも揃えるようにしました。PCで選んでスマホで開いても、日程が更新されます。また、日本語の名前などの書き方を変えた時は、6時間待たずに、次に開いた時に入っている試合を書き直します。",
+  },
+  {
     id: "2026-10-25-113",
     date: "2026-10-25",
     area: "予定・タスク",
