@@ -412,9 +412,9 @@ export async function mapWithConcurrency<T>(items: T[], limit: number, run: (ite
   await Promise.all(workers);
 }
 
-/** 1回の同期で辿るページ数の上限。1ページ100件なので最大500件 —
- * 直近30日の受信トレイがこれを超える場合だけ `complete: false` になる。 */
-const MESSAGE_ID_PAGE_LIMIT = 5;
+/** 1回の同期で辿るページ数の上限。1ページ100件なので最大3000件 —
+ * 直近1年の受信トレイがこれを超える場合だけ `complete: false` になる。 */
+const MESSAGE_ID_PAGE_LIMIT = 30;
 
 /** `complete` は「この期間の受信トレイを最後まで数えきれたか」。false の時に
  * 「Gmail側に無いローカル行を消す」判断をすると、単に取得しきれていないだけの

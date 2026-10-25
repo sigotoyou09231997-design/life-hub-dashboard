@@ -18,7 +18,8 @@ import { needsPlanText } from "./mailPlanSuggestion";
 import { pullMessageStates, pushPendingMessageStates } from "./gmailMessageState";
 import { addEmailIfAbsent, dedupeSyncedEmails } from "./syncedEmails";
 
-const SYNC_WINDOW_DAYS = 30;
+/** 2026-10-25: 30→365。健診の予約確定メール(44日前)が一覧に出てこなかったため。 */
+const SYNC_WINDOW_DAYS = 365;
 
 /** 「Gmail側で直接返信されていないか」の確認を1回の同期で何件まで行うか、
  * そのうち何本まで同時にGmail APIへ投げるか。Gmail APIは1分あたりの利用量に
