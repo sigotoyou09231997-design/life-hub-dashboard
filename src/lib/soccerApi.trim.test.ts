@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { trimFixtures, trimStandings } from "../../api/soccer";
+import { mergeRecent, trimFixtures, trimStandings } from "../../api/soccer";
 
 describe("api/soccer の絞り込み", () => {
   it("日程は、アプリが読む項目だけを残す", () => {
@@ -48,6 +48,17 @@ describe("api/soccer の絞り込み", () => {
   it("日程が無い・壊れた応答でも落ちない", () => {
     expect(trimFixtures(null)).toEqual({ events: [] });
     expect(trimFixtures({})).toEqual({ events: [] });
+  });
+
+  it("直近36時間の終わった試合を足す。古い試合・同じ試合は足さない", () => {
+    const now = Date.parse("2026-10-26T01:00:00Z");
+    const ev = (id: string, date: string) => ({ id, date });
+    const out = mergeRecent(
+      { events: [ev("2", "2026-10-28T20:00Z"), ev("3", "2026-10-26T14:00Z")] },
+      { events: [ev("1", "2026-10-25T17:30Z"), ev("0", "2026-10-20T20:00Z"), ev("3", "2026-10-26T14:00Z")] },
+      now,
+    );
+    expect(out.events.map((e) => e.id)).toEqual(["1", "2", "3"]);
   });
 
   it("順位表から、チームの id と名前だけを重複なく取る", () => {

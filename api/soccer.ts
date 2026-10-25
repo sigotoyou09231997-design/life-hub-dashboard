@@ -59,6 +59,14 @@ export function trimFixtures(body: unknown): { events: RawFixture[] } {
   };
 }
 
+/** 直近(36時間前から)の試合を、これからの試合に足す。同じ試合は、これからの側を残す。 */
+export function mergeRecent(upcoming: { events: RawFixture[] }, recent: { events: RawFixture[] }, now: number): { events: RawFixture[] } {
+  const seen = new Set(upcoming.events.map((e) => e.id));
+  const since = now - 36 * 3600 * 1000;
+  const extra = recent.events.filter((e) => e.id && !seen.has(e.id) && Date.parse(e.date ?? "") >= since);
+  return { events: [...extra, ...upcoming.events] };
+}
+
 /** 順位表の応答から、チームの一覧に使う項目(id と名前)だけを残す。 */
 export function trimStandings(body: unknown): { entries: { team: { id: string; displayName: string } }[] } {
   const entries: { team: { id: string; displayName: string } }[] = [];
@@ -88,6 +96,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const upstream = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!upstream.ok) return res.status(502).json({ error: `ESPN ${upstream.status}` });
+    if (req.query.kind === "fixtures") {
+      // 「これからの試合」の応答には、始まった・終わった試合が出てこない。今日の試合が朝のうちに予定から消えないよう、
+      // 直近の試合(終わったもの)も、別の応答から足す。取れなくても、これからの試合だけは返す。
+      const recent = await fetch(url.replace("?fixture=true", ""), { signal: AbortSignal.timeout(8000) })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null);
+      const body = trimFixtures(await upstream.json());
+      res.setHeader("Cache-Control", "public, s-maxage=900, stale-while-revalidate=3600");
+      return res.status(200).json(mergeRecent(body, trimFixtures(recent), Date.now()));
+    }
     // 日程は頻繁には変わらない。同じ問い合わせを、15分は使い回す(ESPN への問い合わせを減らす)。
     res.setHeader("Cache-Control", "public, s-maxage=900, stale-while-revalidate=3600");
     const body = await upstream.json();
