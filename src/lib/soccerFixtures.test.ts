@@ -18,6 +18,7 @@ import { competitionNameJa, teamNameJa } from "./soccerTeamNames";
 import {
   fetchLeagueTeams,
   fixtureToEventFields,
+  isStillAhead,
   isTargetCompetition,
   isUnextFullCoverage,
   removeAllSoccerEvents,
@@ -182,6 +183,37 @@ describe("syncSoccerFixtures", () => {
     const r = await syncSoccerFixtures([arsenal], NOW, async () => ({ ok: false, json: async () => ({}) }));
     expect(r).toMatchObject({ failedTeams: 1, removed: 0 });
     expect(mocks.events.size).toBe(1);
+  });
+});
+
+describe("今日の試合は、始まっても消さない", () => {
+  const arsenal = { id: "359", name: "Arsenal", league: "x" };
+  beforeEach(() => mocks.events.clear());
+
+  it("isStillAhead: 今日より先と、今日のこれからだけ true", () => {
+    expect(isStillAhead({ date: "2026-10-27" }, "2026-10-26", "10:00")).toBe(true);
+    expect(isStillAhead({ date: "2026-10-26", startTime: "20:00" }, "2026-10-26", "10:00")).toBe(true);
+    expect(isStillAhead({ date: "2026-10-26", startTime: "02:30" }, "2026-10-26", "10:00")).toBe(false);
+    expect(isStillAhead({ date: "2026-10-26", allDay: true }, "2026-10-26", "10:00")).toBe(false);
+    expect(isStillAhead({ date: "2026-10-25", startTime: "23:00" }, "2026-10-26", "10:00")).toBe(false);
+  });
+
+  it("朝のうちに、今日の早朝の試合(日程の応答にはもう出てこない)を消さない。これからの試合が消えた時は消す", async () => {
+    // 2026-10-26 10:00 JST = 01:00 UTC
+    const morning = Date.parse("2026-10-26T01:00:00Z");
+    mocks.events.set("played", { id: "played", title: "⚽ A vs B", date: "2026-10-26", startTime: "02:30", memo: "ESPN#7", createdAt: 1 });
+    mocks.events.set("later", { id: "later", title: "⚽ C vs D", date: "2026-10-26", startTime: "20:00", memo: "ESPN#8", createdAt: 1 });
+    mocks.events.set("next", { id: "next", title: "⚽ E vs F", date: "2026-10-28", startTime: "04:00", memo: "ESPN#9", createdAt: 1 });
+    const r = await syncSoccerFixtures([arsenal], morning, async () => ok([]));
+    expect(r.removed).toBe(2);
+    expect([...mocks.events.keys()]).toEqual(["played"]);
+  });
+
+  it("全部外した時も、始まった今日の試合は残す", async () => {
+    mocks.events.set("played", { id: "played", title: "⚽ A vs B", date: "2026-10-26", startTime: "02:30", memo: "ESPN#7", createdAt: 1 });
+    mocks.events.set("next", { id: "next", title: "⚽ E vs F", date: "2026-10-28", startTime: "04:00", memo: "ESPN#9", createdAt: 1 });
+    expect(await removeAllSoccerEvents(Date.parse("2026-10-26T01:00:00Z"))).toBe(1);
+    expect([...mocks.events.keys()]).toEqual(["played"]);
   });
 });
 

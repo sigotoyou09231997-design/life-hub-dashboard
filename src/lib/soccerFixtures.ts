@@ -26,8 +26,8 @@ const TEAMS_KEY = "lifeHubSoccerTeams:v1";
 const SYNCED_AT_KEY = "lifeHubSoccerSyncedAt:v1";
 const SYNC_VERSION_KEY = "lifeHubSoccerSyncVersion:v1";
 /** 取り込む予定の中身(題名・メモの書き方)を変えたら上げる。上げると、6時間待たずに、次に開いた時に全部書き直す。
- * 1=英語名、2=日本語名・U-NEXT配信の記載、3=メモの印に紋章用のチームidを足した。 */
-export const SOCCER_SYNC_VERSION = "3";
+ * 1=英語名、2=日本語名・U-NEXT配信の記載、3=メモの印に紋章用のチームidを足した、4=今日の試合が消えた件の直し(終わった直近の試合も取る)。 */
+export const SOCCER_SYNC_VERSION = "4";
 /** 画面を開いた時の自動取得を見送る間隔。日程はそう頻繁には変わらない。 */
 export const SOCCER_AUTO_SYNC_COOLDOWN_MS = 6 * 60 * 60 * 1000;
 const MARKER_RE = /ESPN#(\d+)/;
@@ -277,6 +277,13 @@ function sameFields(a: CalendarEvent, b: Omit<CalendarEvent, "id" | "createdAt">
   );
 }
 
+/** その試合は、まだ始まっていないか(今日より先、または今日のこれから)。 */
+export function isStillAhead(event: Pick<CalendarEvent, "date" | "startTime" | "allDay">, today: string, nowTime: string): boolean {
+  if (event.date > today) return true;
+  if (event.date < today) return false;
+  return !event.allDay && !!event.startTime && event.startTime > nowTime;
+}
+
 let running: Promise<SoccerSyncResult> | null = null;
 
 /** 選んだチームの今後の試合を取り込み直す。同時に2本は走らせない。 */
@@ -306,7 +313,9 @@ async function runSync(teams: SoccerTeam[], now: number, fetchImpl?: FetchLike):
     }
   }
 
-  const today = toJst(new Date(now).toISOString())?.date ?? "";
+  const nowJst = toJst(new Date(now).toISOString());
+  const today = nowJst?.date ?? "";
+  const nowTime = nowJst?.time ?? "";
   // 今日以降の予定だけ読む(日付に索引がある)。予定が何千件あっても、起動の邪魔をしない。
   const existingAll = await db.calendarEvents.where("date").aboveOrEqual(today).toArray();
   const existing = new Map<string, CalendarEvent>();
@@ -333,7 +342,9 @@ async function runSync(teams: SoccerTeam[], now: number, fetchImpl?: FetchLike):
   }
   if (failedTeams === 0) {
     for (const [espnId, event] of existing) {
-      if (!desired.has(espnId) && event.id) {
+      // まだ始まっていない試合だけ消す。今日の、始まった・終わった試合は、日程(これからの試合)の応答に出てこないだけなので、
+      // 消してはいけない(2026-10-26、今日の試合が朝のうちに消えた)。時刻が決まっていない今日の試合も、残す。
+      if (!desired.has(espnId) && event.id && isStillAhead(event, today, nowTime)) {
         await db.calendarEvents.delete(event.id);
         result.removed++;
       }
@@ -345,11 +356,13 @@ async function runSync(teams: SoccerTeam[], now: number, fetchImpl?: FetchLike):
 
 /** 選ぶのをやめた時に、そのチームだけの今後の試合を消す(取り込み直しでも消えるが、すぐ消えるように)。 */
 export async function removeAllSoccerEvents(now: number = Date.now()): Promise<number> {
-  const today = toJst(new Date(now).toISOString())?.date ?? "";
+  const nowJst = toJst(new Date(now).toISOString());
+  const today = nowJst?.date ?? "";
   const events = await db.calendarEvents.where("date").aboveOrEqual(today).toArray();
   let removed = 0;
   for (const event of events) {
-    if (event.id && espnIdOfEvent(event) && event.date >= today) {
+    // 始まった・終わった今日の試合は残す(ここで消すのは、これからの試合だけ)。
+    if (event.id && espnIdOfEvent(event) && isStillAhead(event, today, nowJst?.time ?? "")) {
       await db.calendarEvents.delete(event.id);
       removed++;
     }
