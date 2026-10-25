@@ -9,6 +9,7 @@ vi.mock("../db/schema", () => ({
       put: async (row: CalendarEvent) => void mocks.events.set(row.id!, row),
       delete: async (id: string) => void mocks.events.delete(id),
       toArray: async () => [...mocks.events.values()],
+      where: () => ({ aboveOrEqual: (from: string) => ({ toArray: async () => [...mocks.events.values()].filter((e) => e.date >= from) }) }),
     },
   },
 }));

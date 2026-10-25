@@ -20,6 +20,67 @@ export function espnUrlFor(kind: unknown, value: unknown): string | undefined {
   return undefined;
 }
 
+interface RawFixture {
+  id?: string;
+  date?: string;
+  season?: { displayName?: string };
+  seasonType?: { name?: string };
+  competitions?: {
+    timeValid?: boolean;
+    venue?: { fullName?: string; address?: { city?: string } };
+    competitors?: { homeAway?: string; id?: string; team?: { id?: string; displayName?: string } }[];
+  }[];
+}
+
+/** 日程の応答から、アプリが使う項目だけを残す(1チームぶんで約300KBあったのが、数十分の一になる。スマホで読み込む量と解析の手間を減らす)。 */
+export function trimFixtures(body: unknown): { events: RawFixture[] } {
+  const events = (body as { events?: RawFixture[] } | null)?.events ?? [];
+  return {
+    events: events.map((e) => {
+      const c = e.competitions?.[0];
+      return {
+        id: e.id,
+        date: e.date,
+        season: { displayName: e.season?.displayName },
+        seasonType: { name: e.seasonType?.name },
+        competitions: [
+          {
+            timeValid: c?.timeValid,
+            venue: { fullName: c?.venue?.fullName, address: { city: c?.venue?.address?.city } },
+            competitors: (c?.competitors ?? []).map((t) => ({
+              homeAway: t.homeAway,
+              id: t.id,
+              team: { id: t.team?.id, displayName: t.team?.displayName },
+            })),
+          },
+        ],
+      };
+    }),
+  };
+}
+
+/** 順位表の応答から、チームの一覧に使う項目(id と名前)だけを残す。 */
+export function trimStandings(body: unknown): { entries: { team: { id: string; displayName: string } }[] } {
+  const entries: { team: { id: string; displayName: string } }[] = [];
+  const seen = new Set<string>();
+  const walk = (node: unknown) => {
+    if (Array.isArray(node)) return node.forEach(walk);
+    if (!node || typeof node !== "object") return;
+    const record = node as { entries?: { team?: { id?: string; displayName?: string } }[] };
+    for (const entry of record.entries ?? []) {
+      const id = entry.team?.id;
+      const displayName = entry.team?.displayName;
+      if (id && displayName && !seen.has(id)) {
+        seen.add(id);
+        entries.push({ team: { id, displayName } });
+      }
+    }
+    Object.values(record).forEach((value) => value && typeof value === "object" && walk(value));
+  };
+  walk(body);
+  return { entries };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "GET only" });
   const url = espnUrlFor(req.query.kind, req.query.value);
@@ -29,7 +90,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!upstream.ok) return res.status(502).json({ error: `ESPN ${upstream.status}` });
     // 日程は頻繁には変わらない。同じ問い合わせを、15分は使い回す(ESPN への問い合わせを減らす)。
     res.setHeader("Cache-Control", "public, s-maxage=900, stale-while-revalidate=3600");
-    return res.status(200).json(await upstream.json());
+    const body = await upstream.json();
+    return res.status(200).json(req.query.kind === "fixtures" ? trimFixtures(body) : trimStandings(body));
   } catch {
     return res.status(502).json({ error: "ESPN unreachable" });
   }

@@ -46,6 +46,26 @@ function normalize(value: unknown): SoccerTeam[] | null {
   );
 }
 
+const CHECKED_AT_KEY = "lifeHubSoccerTeamsCheckedAt:v1";
+/** 起動のたびにサーバーへ聞かない間隔。画面を行き来するたびに通信が走らないように。 */
+export const SOCCER_TEAMS_CHECK_COOLDOWN_MS = 10 * 60 * 1000;
+
+export function shouldCheckSoccerTeams(now: number, storage: Pick<Storage, "getItem"> = window.localStorage): boolean {
+  try {
+    return now - (Number(storage.getItem(scopedKey(CHECKED_AT_KEY))) || 0) >= SOCCER_TEAMS_CHECK_COOLDOWN_MS;
+  } catch {
+    return true;
+  }
+}
+
+export function markSoccerTeamsChecked(now: number, storage: Pick<Storage, "setItem"> = window.localStorage): void {
+  try {
+    storage.setItem(scopedKey(CHECKED_AT_KEY), String(now));
+  } catch {
+    // 印を残せないだけ。次にもう一度聞くだけで済む。
+  }
+}
+
 /** 選択を送る。送れなければ「未送信」の印を残して、次の機会に送り直す。 */
 export async function pushSoccerTeams(
   teams: SoccerTeam[],
