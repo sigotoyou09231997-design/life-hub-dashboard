@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-25-118",
+    date: "2026-10-25",
+    area: "全体",
+    title: "アプリを開いた時の重さを減らしました",
+    description:
+      "海外サッカーの取り込みを、開いて数秒たってから走らせるようにしました。取り込む日程のデータ量も約20分の1にし、紋章の画像も軽いものに変えました。サーバーへの確認も、10分以内に何度も開いた時は省きます。",
+  },
+  {
     id: "2026-10-25-117",
     date: "2026-10-25",
     area: "予定・タスク",
