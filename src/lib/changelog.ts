@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-25-115",
+    date: "2026-10-25",
+    area: "予定・タスク",
+    title: "海外サッカーの設定を、リーグごとに選べる見やすい画面にしました",
+    description:
+      "設定の「海外サッカー」を作り直しました。上に選んだチームの数と紋章を並べ、選んだチームはリーグごとに分けて表示します。チームはリーグのタブを切り替えながら、紋章つきの一覧から押して選べます。もう一度押せば外せます。",
+  },
+  {
     id: "2026-10-25-114",
     date: "2026-10-25",
     area: "予定・タスク",
