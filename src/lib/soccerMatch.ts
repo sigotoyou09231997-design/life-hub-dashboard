@@ -26,9 +26,9 @@ export interface SoccerMatchInfo {
   unext: boolean;
 }
 
-/** チームの紋章(ESPN の画像)。 */
+/** チームの紋章(ESPN の画像)。元は500pxで1枚36KBほどあり、小さく出すだけなので、ESPN の画像サーバーで64pxに縮めたものを読む(5KBほど)。 */
 export function soccerCrestUrl(teamId: string): string {
-  return `https://a.espncdn.com/i/teamlogos/soccer/500/${encodeURIComponent(teamId)}.png`;
+  return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/${encodeURIComponent(teamId)}.png&w=64&h=64`;
 }
 
 export function parseSoccerMatch(event: Pick<CalendarEvent, "memo" | "title">): SoccerMatchInfo | null {

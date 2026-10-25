@@ -38,6 +38,6 @@ describe("parseSoccerMatch", () => {
   });
 
   it("紋章のアドレス", () => {
-    expect(soccerCrestUrl("359")).toBe("https://a.espncdn.com/i/teamlogos/soccer/500/359.png");
+    expect(soccerCrestUrl("359")).toBe("https://a.espncdn.com/combiner/i?img=/i/teamlogos/soccer/500/359.png&w=64&h=64");
   });
 });

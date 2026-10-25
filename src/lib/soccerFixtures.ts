@@ -307,7 +307,8 @@ async function runSync(teams: SoccerTeam[], now: number, fetchImpl?: FetchLike):
   }
 
   const today = toJst(new Date(now).toISOString())?.date ?? "";
-  const existingAll = await db.calendarEvents.toArray();
+  // 今日以降の予定だけ読む(日付に索引がある)。予定が何千件あっても、起動の邪魔をしない。
+  const existingAll = await db.calendarEvents.where("date").aboveOrEqual(today).toArray();
   const existing = new Map<string, CalendarEvent>();
   for (const event of existingAll) {
     const espnId = espnIdOfEvent(event);
@@ -345,7 +346,7 @@ async function runSync(teams: SoccerTeam[], now: number, fetchImpl?: FetchLike):
 /** 選ぶのをやめた時に、そのチームだけの今後の試合を消す(取り込み直しでも消えるが、すぐ消えるように)。 */
 export async function removeAllSoccerEvents(now: number = Date.now()): Promise<number> {
   const today = toJst(new Date(now).toISOString())?.date ?? "";
-  const events = await db.calendarEvents.toArray();
+  const events = await db.calendarEvents.where("date").aboveOrEqual(today).toArray();
   let removed = 0;
   for (const event of events) {
     if (event.id && espnIdOfEvent(event) && event.date >= today) {
