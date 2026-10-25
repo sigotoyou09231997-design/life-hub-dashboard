@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-25-112",
+    date: "2026-10-25",
+    area: "予定・タスク",
+    title: "海外サッカーのチーム一覧が取れない不具合を直しました",
+    description:
+      "設定の「海外サッカー」でチーム一覧と試合日程が読み込めなかったのを直しました。ネットの日程を、ブラウザからではなくアプリのサーバー経由で取るようにしました。",
+  },
+  {
     id: "2026-10-25-111",
     date: "2026-10-25",
     area: "予定・タスク",

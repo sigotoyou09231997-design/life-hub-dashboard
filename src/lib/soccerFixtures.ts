@@ -7,8 +7,8 @@ import { stableUuid } from "./googleCalendar";
  * 海外サッカーの試合日程を、自分が選んだチームの分だけ予定に入れる(2026-10-25、本人「海外サッカーを追加して、
  * ネットからスケジュールを取得して入れたい。全部じゃなくて自分が見たいチームの」「日本時間で」)。
  *
- * - データ元は ESPN の公開API(キー不要・ブラウザから直接読める)。公式の窓口ではないので、形が変わったら
- *   ここだけ直す。読めなかった時は何も消さずに、次の機会にやり直す。
+ * - データ元は ESPN の公開API(キー不要)。ブラウザから直接は読めない(CORS)ので、api/soccer.ts が代わりに取る。
+ *   公式の窓口ではないので、形が変わったら ここ と api/soccer.ts だけ直す。読めなかった時は何も消さずに、次の機会にやり直す。
  * - 入れるのは、リーグ戦と UEFA の大会(CL/EL/カンファレンス)。国内カップ・スーパーカップ・親善試合は入れない。
  * - 時刻は日本時間。端末の時差設定に関わらず Asia/Tokyo で日付と時刻を作る。
  * - 予定のidは ESPN の試合idから毎回同じ値を作る(stableUuid)。選んだ2チームが当たる試合が1件になり、
@@ -17,7 +17,7 @@ import { stableUuid } from "./googleCalendar";
  *   選ぶのをやめたチームの試合・日程が変わって消えた試合は、全チームの取得に成功した時だけ消す。
  */
 
-const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer";
+const API = "/api/soccer";
 const TEAMS_KEY = "lifeHubSoccerTeams:v1";
 const SYNCED_AT_KEY = "lifeHubSoccerSyncedAt:v1";
 /** 画面を開いた時の自動取得を見送る間隔。日程はそう頻繁には変わらない。 */
@@ -89,20 +89,42 @@ export function shouldAutoSyncSoccer(teams: SoccerTeam[], lastAt: number, now: n
   return teams.length > 0 && now - lastAt >= SOCCER_AUTO_SYNC_COOLDOWN_MS;
 }
 
-/** 選ぶ画面用: そのリーグのチーム一覧。 */
-export async function fetchLeagueTeams(slug: string, fetchImpl: FetchLike = (u) => fetch(u)): Promise<SoccerTeam[]> {
-  const response = await fetchImpl(`${ESPN_BASE}/${slug}/teams`);
-  if (!response.ok) throw new Error(`ESPN ${slug} ${"status" in response ? String((response as Response).status) : ""}`);
-  const body = (await response.json()) as {
-    sports?: { leagues?: { name?: string; teams?: { team?: { id?: string; displayName?: string } }[] }[] }[];
-  };
-  const league = body.sports?.[0]?.leagues?.[0];
-  const label = SOCCER_LEAGUES.find((l) => l.slug === slug)?.label ?? league?.name ?? slug;
-  const teams: SoccerTeam[] = [];
-  for (const entry of league?.teams ?? []) {
+/** ESPN の順位表(standings)の中の、チーム1件。 */
+interface StandingsNode {
+  entries?: { team?: { id?: string; displayName?: string } }[];
+  [key: string]: unknown;
+}
+
+/** 順位表の中の「entries」を、どの深さにあっても集める(リーグによって、グループ分けの層が違う)。 */
+function collectStandingsTeams(node: unknown, out: { id: string; name: string }[]): void {
+  if (Array.isArray(node)) {
+    for (const item of node) collectStandingsTeams(item, out);
+    return;
+  }
+  if (!node || typeof node !== "object") return;
+  const record = node as StandingsNode;
+  for (const entry of record.entries ?? []) {
     const id = entry.team?.id;
     const name = entry.team?.displayName;
-    if (id && name) teams.push({ id, name, league: label });
+    if (id && name) out.push({ id, name });
+  }
+  for (const value of Object.values(record)) if (value && typeof value === "object") collectStandingsTeams(value, out);
+}
+
+/** 選ぶ画面用: そのリーグのチーム一覧。
+ * チーム一覧は ESPN の順位表(standings)から取る(api/soccer.ts が中継する)。 */
+export async function fetchLeagueTeams(slug: string, fetchImpl: FetchLike = (u) => fetch(u)): Promise<SoccerTeam[]> {
+  const response = await fetchImpl(`${API}?kind=teams&value=${encodeURIComponent(slug)}`);
+  if (!response.ok) throw new Error(`ESPN ${slug}`);
+  const found: { id: string; name: string }[] = [];
+  collectStandingsTeams(await response.json(), found);
+  const label = SOCCER_LEAGUES.find((l) => l.slug === slug)?.label ?? slug;
+  const seen = new Set<string>();
+  const teams: SoccerTeam[] = [];
+  for (const { id, name } of found) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    teams.push({ id, name, league: label });
   }
   return teams.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -121,7 +143,7 @@ export interface EspnFixture {
 }
 
 export async function fetchTeamFixtures(teamId: string, fetchImpl: FetchLike = (u) => fetch(u)): Promise<EspnFixture[]> {
-  const response = await fetchImpl(`${ESPN_BASE}/all/teams/${teamId}/schedule?fixture=true`);
+  const response = await fetchImpl(`${API}?kind=fixtures&value=${encodeURIComponent(teamId)}`);
   if (!response.ok) throw new Error(`ESPN team ${teamId}`);
   const body = (await response.json()) as { events?: EspnFixture[] };
   return body.events ?? [];

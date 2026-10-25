@@ -9,7 +9,7 @@ vi.mock("../ui/ToastProvider", () => ({ useToast: () => vi.fn() }));
 import { SoccerTeamsCard } from "./SoccerTeamsCard";
 import { loadSoccerTeams } from "../../lib/soccerFixtures";
 
-const teamsBody = { sports: [{ leagues: [{ teams: [{ team: { id: "359", displayName: "Arsenal" } }, { team: { id: "364", displayName: "Liverpool" } }] }] }] };
+const teamsBody = { children: [{ standings: { entries: [{ team: { id: "359", displayName: "Arsenal" } }, { team: { id: "364", displayName: "Liverpool" } }] } }] };
 
 afterEach(() => {
   cleanup();

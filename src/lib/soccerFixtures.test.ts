@@ -172,13 +172,18 @@ describe("そのほか", () => {
   });
 
   it("チーム一覧を名前順に読む", async () => {
-    const teams = await fetchLeagueTeams("eng.1", async () => ({
+    let url = "";
+    const teams = await fetchLeagueTeams("eng.1", async (u) => {
+      url = u;
+      return {
       ok: true,
       json: async () => ({
-        sports: [{ leagues: [{ teams: [{ team: { id: "2", displayName: "Burnley" } }, { team: { id: "1", displayName: "Arsenal" } }] }] }],
+        children: [{ standings: { entries: [{ team: { id: "2", displayName: "Burnley" } }, { team: { id: "1", displayName: "Arsenal" } }] } }],
       }),
-    }));
+      };
+    });
     expect(teams.map((t) => t.name)).toEqual(["Arsenal", "Burnley"]);
+    expect(url).toBe("/api/soccer?kind=teams&value=eng.1");
     expect(teams[0].league).toContain("プレミアリーグ");
   });
 
