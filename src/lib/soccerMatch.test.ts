@@ -12,6 +12,8 @@ describe("parseSoccerMatch", () => {
       homeId: "364",
       awayId: "359",
       title: "リバプール vs アーセナル",
+      homeName: "リバプール",
+      awayName: "アーセナル",
       competition: "プレミアリーグ",
       unext: true,
     });
@@ -21,12 +23,18 @@ describe("parseSoccerMatch", () => {
     const m = parseSoccerMatch({ title: "⚽ A vs B", memo: "UEFAチャンピオンズリーグ リーグフェーズ\nESPN#9" });
     expect(m).toMatchObject({ espnId: "9", title: "A vs B", competition: "UEFAチャンピオンズリーグ リーグフェーズ", unext: false });
     expect(m?.homeId).toBeUndefined();
+    expect(m).toMatchObject({ homeName: "A", awayName: "B" });
   });
 
   it("ふつうの予定は null。メモの先頭が配信の行なら大会名にしない", () => {
     expect(parseSoccerMatch({ title: "歯医者", memo: "メモ" })).toBeNull();
     expect(parseSoccerMatch({ title: "歯医者" })).toBeNull();
     expect(parseSoccerMatch({ title: "⚽ A vs B", memo: "配信: U-NEXT\nESPN#1" })?.competition).toBeUndefined();
+  });
+
+  it("「 vs 」が無い題名は、全体をホーム側の名前にする", () => {
+    expect(parseSoccerMatch({ title: "⚽ 特別試合", memo: "ESPN#2" })).toMatchObject({ homeName: "特別試合" });
+    expect(parseSoccerMatch({ title: "⚽ 特別試合", memo: "ESPN#2" })?.awayName).toBeUndefined();
   });
 
   it("紋章のアドレス", () => {

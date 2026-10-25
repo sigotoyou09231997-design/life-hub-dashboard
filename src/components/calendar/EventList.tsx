@@ -11,7 +11,7 @@ import type { EmptyIllustrationKind } from "../ui/EmptyIllustration";
 import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { isRepeating, repeatLabel } from "../../lib/repeatRule";
 import { parseSoccerMatch } from "../../lib/soccerMatch";
-import { SoccerCrests } from "./SoccerCrests";
+import { SoccerMatchTitle } from "./SoccerCrests";
 
 interface Props {
   events: CalendarEvent[];
@@ -57,14 +57,9 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
               className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             />
             <div className="pointer-events-none relative z-10 flex items-start justify-between gap-3 p-3">
-              {soccer && (
-                <div className="event-row__crests">
-                  <SoccerCrests match={soccer} size={34} />
-                </div>
-              )}
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-2 text-sm font-medium text-slate-900" title={ev.title}>
-                  {soccer ? soccer.title : ev.title}
+                  {soccer ? <SoccerMatchTitle match={soccer} size={22} /> : ev.title}
                 </p>
                 {/* 時刻・場所・カテゴリを1行にまとめる(以前はカテゴリだけ独立した行に
                     置いていて、1件あたり1行ぶん余計に高さを使っていた)。 */}
