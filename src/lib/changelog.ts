@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-26-119",
+    date: "2026-10-26",
+    area: "予定・タスク",
+    title: "サッカーの今日の試合が、朝のうちに消える不具合を直しました",
+    description:
+      "今日の早朝にあった試合が、日程の更新で予定から消えていたのを直しました。始まった・終わった試合は消さず、消えてしまった試合も次に開いた時に戻ります。",
+  },
+  {
     id: "2026-10-25-118",
     date: "2026-10-25",
     area: "全体",
