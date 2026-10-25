@@ -30,6 +30,7 @@ import { ListSkeleton } from "../components/ui/ListSkeleton";
 import { useDelayedFlag } from "../hooks/useDelayedFlag";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
 import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
+import { useSoccerAutoSync } from "../hooks/useSoccerAutoSync";
 import { usePullToRefresh } from "../hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "../components/ui/PullToRefreshIndicator";
 import { refreshScheduleSources } from "../lib/scheduleRefresh";
@@ -144,6 +145,7 @@ export default function SchedulePage() {
   const replyWaiting = useReplyWaiting();
   // Googleカレンダーの取り込みを入にしてあれば、開いた時に取り込む(10分に1回まで)。
   useGoogleCalendarAutoSync();
+  useSoccerAutoSync();
   // 画面を下へ引っ張ると、端末間の同期と Googleカレンダーの取り込みを今すぐ走らせる
   // (UI/UX 調査メモ 第4弾 A-7。中身は src/lib/scheduleRefresh.ts)。指で触った時だけ。
   const pull = usePullToRefresh(async () => {
