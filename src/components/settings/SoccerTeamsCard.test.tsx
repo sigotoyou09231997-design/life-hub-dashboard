@@ -11,6 +11,15 @@ import { loadSoccerTeams } from "../../lib/soccerFixtures";
 
 const teamsBody = { children: [{ standings: { entries: [{ team: { id: "359", displayName: "Arsenal" } }, { team: { id: "364", displayName: "Liverpool" } }] } }] };
 
+function stubFetch() {
+  const fetchMock = vi.fn(async (url: string) => ({
+    ok: true,
+    json: async () => (url.includes("kind=fixtures") ? { events: [] } : teamsBody),
+  }));
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -18,21 +27,42 @@ afterEach(() => {
 });
 
 describe("SoccerTeamsCard", () => {
-  it("リーグを選ぶとチームが出て、選ぶと覚える。外すと消える", async () => {
-    const fetchMock = vi.fn(async (url: string) => ({ ok: true, json: async () => (url.includes("/teams/") ? { events: [] } : teamsBody) }));
-    vi.stubGlobal("fetch", fetchMock);
+  it("リーグのチームを押して選び、もう一度押すか「外す」で外せる", async () => {
+    stubFetch();
     const user = userEvent.setup();
     render(<SoccerTeamsCard />);
-    expect(screen.getByText("未設定")).toBeTruthy();
+    expect(screen.getByText(/まだ選んでいません/)).toBeTruthy();
 
-    await user.selectOptions(screen.getByLabelText("リーグ"), "eng.1");
-    await waitFor(() => expect(screen.getByRole("option", { name: "アーセナル" })).toBeTruthy());
-    await user.selectOptions(screen.getByLabelText("チームを追加"), "359");
+    const tile = await screen.findByRole("button", { name: "アーセナル" });
+    expect(tile.getAttribute("aria-pressed")).toBe("false");
+    await user.click(tile);
 
     expect(loadSoccerTeams().map((t) => t.name)).toEqual(["アーセナル"]);
-    expect(screen.getByText("1 チーム")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "アーセナル" }).getAttribute("aria-pressed")).toBe("true");
+    // 選んだチームの欄に、リーグごとに並ぶ
+    expect(screen.getByText("プレミアリーグ(イングランド)")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "アーセナルを外す" }));
     expect(loadSoccerTeams()).toEqual([]);
+    expect(screen.getByRole("button", { name: "アーセナル" }).getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("リーグのタブを切り替えると、そのリーグのチーム一覧を読む(読んだリーグは読み直さない)", async () => {
+    const fetchMock = stubFetch();
+    const user = userEvent.setup();
+    render(<SoccerTeamsCard />);
+    await screen.findByRole("button", { name: "アーセナル" });
+    await user.click(screen.getByRole("tab", { name: "ラ・リーガ" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/soccer?kind=teams&value=esp.1"));
+    await user.click(screen.getByRole("tab", { name: "プレミア" }));
+    await screen.findByRole("button", { name: "アーセナル" });
+    expect(fetchMock.mock.calls.filter(([u]) => String(u).includes("value=eng.1"))).toHaveLength(1);
+  });
+
+  it("一覧が取れなかった時は、読み直すボタンを出す", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, json: async () => ({}) })));
+    render(<SoccerTeamsCard />);
+    expect(await screen.findByText(/チーム一覧を取れませんでした/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "もう一度読み込む" })).toBeTruthy();
   });
 });

@@ -38,18 +38,23 @@ export interface SoccerTeam {
 }
 
 /** 選ぶ画面に出すリーグ。日本人選手の所属が多いリーグまで入れている。 */
-export const SOCCER_LEAGUES: readonly { slug: string; label: string }[] = [
-  { slug: "eng.1", label: "プレミアリーグ(イングランド)" },
-  { slug: "esp.1", label: "ラ・リーガ(スペイン)" },
-  { slug: "ger.1", label: "ブンデスリーガ(ドイツ)" },
-  { slug: "ita.1", label: "セリエA(イタリア)" },
-  { slug: "fra.1", label: "リーグ・アン(フランス)" },
-  { slug: "ned.1", label: "エールディヴィジ(オランダ)" },
-  { slug: "por.1", label: "リーガ・ポルトガル" },
-  { slug: "sco.1", label: "スコットランド・プレミアシップ" },
-  { slug: "bel.1", label: "ベルギー・プロリーグ" },
-  { slug: "eng.2", label: "チャンピオンシップ(イングランド2部)" },
+export const SOCCER_LEAGUES: readonly { slug: string; label: string; short: string }[] = [
+  { slug: "eng.1", label: "プレミアリーグ(イングランド)", short: "プレミア" },
+  { slug: "esp.1", label: "ラ・リーガ(スペイン)", short: "ラ・リーガ" },
+  { slug: "ger.1", label: "ブンデスリーガ(ドイツ)", short: "ブンデス" },
+  { slug: "ita.1", label: "セリエA(イタリア)", short: "セリエA" },
+  { slug: "fra.1", label: "リーグ・アン(フランス)", short: "リーグ・アン" },
+  { slug: "ned.1", label: "エールディヴィジ(オランダ)", short: "オランダ" },
+  { slug: "por.1", label: "リーガ・ポルトガル", short: "ポルトガル" },
+  { slug: "sco.1", label: "スコットランド・プレミアシップ", short: "スコットランド" },
+  { slug: "bel.1", label: "ベルギー・プロリーグ", short: "ベルギー" },
+  { slug: "eng.2", label: "チャンピオンシップ(イングランド2部)", short: "英2部" },
 ];
+
+/** チームの紋章(ESPN の画像)。 */
+export function soccerCrestUrl(teamId: string): string {
+  return `https://a.espncdn.com/i/teamlogos/soccer/500/${encodeURIComponent(teamId)}.png`;
+}
 
 type FetchLike = (url: string) => Promise<Pick<Response, "ok" | "json">>;
 
