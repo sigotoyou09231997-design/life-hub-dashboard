@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-25-111",
+    date: "2026-10-25",
+    area: "予定・タスク",
+    title: "サッカーの予定に「U-NEXTで配信」と出るようになりました",
+    description:
+      "プレミアリーグとラ・リーガの試合の予定のメモに、U-NEXT(サッカーパック)でライブ配信と書きます。CLなどU-NEXTで配信していない大会には書きません。すでに入っている試合も、次に開いた時に書き足されます。",
+  },
+  {
     id: "2026-10-25-110",
     date: "2026-10-25",
     area: "予定・タスク",
