@@ -30,6 +30,7 @@ import { Button } from "../components/ui/Button";
 import { AmountInput, Input } from "../components/ui/Input";
 import { Select } from "../components/ui/Select";
 import { SwitchField } from "../components/ui/SwitchField";
+import { SoccerTeamsCard } from "../components/settings/SoccerTeamsCard";
 import { HiddenFeaturesCard } from "../components/settings/HiddenFeaturesCard";
 import { SHEET_DEBUG_KEY } from "../components/ui/Sheet";
 import { useToast } from "../components/ui/ToastProvider";
@@ -351,6 +352,8 @@ export default function SettingsPage() {
 
           <SettingsSection id="settings-schedule" label="予定">
             <EventPeopleManager />
+
+            <SoccerTeamsCard />
 
             <Card className="system-section system-section--calendar">
               <div className="system-section__header">

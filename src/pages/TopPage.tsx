@@ -13,6 +13,7 @@ import { usePayPeriodBudget } from "../hooks/usePayPeriodBudget";
 import { useHubMotion } from "../hooks/useHubMotion";
 import { useReplyWaiting } from "../hooks/useReplyWaiting";
 import { useGoogleCalendarAutoSync } from "../hooks/useGoogleCalendarAutoSync";
+import { useSoccerAutoSync } from "../hooks/useSoccerAutoSync";
 import { useWithoutPendingDeletes } from "../hooks/usePendingDeletes";
 import { useNotificationSignals } from "../lib/notificationSignals";
 import { useHomeAddress } from "../lib/homePlace";
@@ -119,6 +120,7 @@ export default function TopPage() {
   };
   // Googleカレンダーの同期を入にしてあれば、開いた時に同期する(10分に1回まで)。
   useGoogleCalendarAutoSync();
+  useSoccerAutoSync();
 
   // ブロック中の送信者リストは端末ごとのローカルで、同期の対象外。TOP は受信トレイを開かずに眺める画面なので、
   // ここでも取り込む(src/lib/blockedSenders.ts)。
