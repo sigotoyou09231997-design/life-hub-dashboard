@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-10-25-117",
+    date: "2026-10-25",
+    area: "予定・タスク",
+    title: "サッカーの紋章を、チーム名の左に置く形にしました",
+    description:
+      "紋章を2つ並べる形をやめて、「紋章 リバプール vs 紋章 アーセナル」のように、それぞれのチーム名の左に紋章を置きました。月表示のマスは、場所が狭いので「紋章 vs 紋章」だけです。予定の一覧と週表示も同じ形です。",
+  },
+  {
     id: "2026-10-25-116",
     date: "2026-10-25",
     area: "予定・タスク",
