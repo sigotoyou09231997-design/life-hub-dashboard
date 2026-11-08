@@ -299,6 +299,14 @@ describe("続けて並ぶ移動は1本の「つなぎ」に(第6弾 D-1)", () =>
     expect(screen.getAllByRole("listitem")).toHaveLength(3);
   });
 
+  it("「並べ替え」を押している間は、札(つなぎ)は出さない。動かせない行が混ざって見えないように", () => {
+    renderList(MOVES, { onReorder: () => {} });
+    fireEvent.click(screen.getByRole("button", { name: "並べ替え" }));
+    // MOVES は5件。並べ替え中は、札を含まず1件ずつの行だけになる。
+    expect(screen.getAllByRole("listitem")).toHaveLength(5);
+    expect(document.querySelector(".trip-timeline__item--connector")).toBeNull();
+  });
+
   it("移動しか無い日・移動で始まる日・移動で終わる日も崩れない", () => {
     renderList([MOVES[1], MOVES[2]]);
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
