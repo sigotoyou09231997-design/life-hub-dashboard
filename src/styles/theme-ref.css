@@ -122,15 +122,16 @@
 /* ---------------------------------------------------------------------------
    ホーム: 区切りの見出し — アイコンの札をやめ、太い見出し＋右に小さい「すべて見る」
    ------------------------------------------------------------------------ */
-.lh-home .lh-section__icon { display: none; }
-.lh-home .lh-section__head { margin-bottom: 0.15rem; }
-.lh-home .lh-section__title {
+.lh-section__icon { display: none; }
+.lh-section__head { margin-bottom: 0.15rem; }
+.lh-section__title,
+.app-shell .lh-section__title {
   color: var(--warm-ink);
   font-size: 1.125rem;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
-.lh-home .lh-section__head .warm-card__go {
+.lh-section__head .warm-card__go {
   color: var(--ref-700);
   font-size: var(--fs-caption);
   font-weight: 700;
@@ -139,14 +140,18 @@
 /* ---------------------------------------------------------------------------
    ホーム: カード — 線を消して影で浮かせる。行の区切りも薄く。
    ------------------------------------------------------------------------ */
-.lh-home .warm-card:not(.lh-money) {
+.lh-home .warm-card:not(.lh-money),
+.lh-finance .lh-group,
+.lh-finance .lh-savings {
   border-color: transparent;
   box-shadow: var(--shadow-rest);
 }
-.lh-home .lh-row + .lh-row::before { background: rgba(15, 59, 54, 0.05); }
-.lh-home .lh-row__icon { border-radius: 12px; }
-.lh-home .lh-tone--neutral { background: var(--ref-50); color: var(--ref-700); }
+.lh-row + .lh-row::before { background: rgba(15, 59, 54, 0.05); }
+.lh-row__icon { border-radius: 12px; }
+.lh-tone--neutral { background: var(--ref-50); color: var(--ref-700); }
 .lh-home .lh-row__copy strong { font-weight: 700; }
+.lh-row__icon--initial { background: var(--ref-50); color: var(--ref-700); font-weight: 800; }
+.lh-row__value { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* 気になること: 右の文字は小さな札に（押せる所だと分かるように）。 */
 .lh-home .lh-concern__cta {
@@ -192,6 +197,25 @@
 /* Gmail 未接続: 点線の箱をやめ、アイコンの台＋文の1行に。 */
 .lh-home .warm-empty { border: 0; background: transparent; padding: 0.4rem 0.2rem; }
 .lh-home .warm-empty__icon { border-radius: 12px; background: var(--ref-50); color: var(--ref-700); }
+
+/* ---------------------------------------------------------------------------
+   お金管理: 「使えるお金」もホームと同じ深い青緑の面に（第2弾・一貫性）
+   参考: @vponamariov「Consistency matters」— 同じ役割の物は、どの画面でも同じ見た目に。
+   ------------------------------------------------------------------------ */
+.finance-control-center > .finance-balance-module {
+  border: 0;
+  background:
+    radial-gradient(420px circle at 100% 0%, rgba(124, 194, 184, 0.22), transparent 60%),
+    linear-gradient(155deg, var(--ref-700) 0%, var(--ref-800) 55%, var(--ref-900) 100%);
+  box-shadow: 0 14px 34px rgba(15, 59, 54, 0.22);
+}
+.finance-control-center > .finance-balance-module::after { display: none; }
+
+/* 貯金目標: 薄い青緑のにじみをやめ、白い面＋大きな数字だけ（強弱は数字の大きさで）。 */
+.spatial-page .lh-finance .lh-savings,
+.lh-finance .lh-savings { border-color: transparent !important; background: #fff !important; }
+.lh-savings__kicker { color: var(--ref-700); }
+.lh-savings__amount { color: var(--ref-800); }
 
 /* ---------------------------------------------------------------------------
    全画面: 右下の「＋」と、下のナビ
