@@ -89,7 +89,7 @@
 .lh-home > .lh-money::after { display: none; }
 .lh-home > a.lh-money:hover { border-color: transparent; box-shadow: 0 18px 40px rgba(15, 59, 54, 0.28); }
 .lh-home .lh-money__label {
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.86);
   font-size: var(--fs-caption);
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -112,7 +112,7 @@
   font-size: var(--fs-body);
   font-weight: 700;
 }
-.lh-home .lh-money__side-label { color: rgba(255, 255, 255, 0.62); }
+.lh-home .lh-money__side-label { color: rgba(255, 255, 255, 0.86); }
 .lh-home .lh-money__col i { background: rgba(255, 255, 255, 0.28); opacity: 1; }
 .lh-home .lh-money__col.is-today i { background: #fff; }
 .lh-home .lh-money__bar { background: rgba(255, 255, 255, 0.14); }
@@ -165,7 +165,7 @@
   color: #fff;
   box-shadow: 0 6px 14px rgba(27, 94, 87, 0.28);
 }
-.lh-home .lh-week__day.is-today small { color: rgba(255, 255, 255, 0.78); }
+.lh-home .lh-week__day.is-today small { color: rgba(255, 255, 255, 0.9); }
 .lh-home .lh-week__day.is-today .lh-week__dot { background: #fff; }
 .lh-home .lh-week__day.is-today em { color: #fff; }
 @media (hover: hover) and (pointer: fine) {
@@ -212,8 +212,8 @@
   background: var(--ref-700);
   box-shadow: 0 6px 14px rgba(27, 94, 87, 0.3);
 }
-.glass-nav nav :is(a, button) svg { color: #8a9694 !important; }
-.glass-nav nav :is(a, button) span:not(.absolute) { color: #8a9694 !important; }
+.glass-nav nav :is(a, button) svg { color: #5d6966 !important; }
+.glass-nav nav :is(a, button) span:not(.absolute) { color: #5d6966 !important; }
 .glass-nav nav :is(a, button).is-active svg,
 .glass-nav nav :is(a, button).is-active span:not(.absolute) { color: #fff !important; }
 
