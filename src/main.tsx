@@ -34,6 +34,8 @@ import "./styles/numbers-empty.css";
 import "./styles/gestures.css";
 // 「元に戻す」付きのお知らせ(UI/UX 調査メモ 第4弾 A-2)。
 import "./styles/undo-toast.css";
+// 参考 UI/UX の上塗り(2026-11-09・見本)。この1行を外せば前の見た目に戻る。
+import "./styles/theme-ref.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()

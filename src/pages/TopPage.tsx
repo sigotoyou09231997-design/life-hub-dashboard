@@ -34,6 +34,13 @@ import { aheadDates, buildConcerns, homeStatusLine, homeSubscriptions, tripCardS
 
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
+/** 見出しの上の小さなあいさつ(参考 UI の「Good morning, Alex」)。時刻だけで決める。 */
+function greeting(hour: number): string {
+  if (hour >= 4 && hour < 11) return "おはようございます";
+  if (hour >= 11 && hour < 18) return "こんにちは";
+  return "こんばんは";
+}
+
 /** 区切りの見出し。見出しはカードの外（参考にしたアプリの形）。 */
 function SectionHead({ title, to, trailing, icon: Icon }: { title: string; to?: string; trailing?: ReactNode; icon?: LucideIcon }) {
   return (
@@ -207,6 +214,7 @@ export default function TopPage() {
     <div className={`warm-home lh-home${hide.money ? " lh-home--no-money" : ""}${hide.trips ? " lh-home--no-trips" : ""}${subs.rows.length === 0 ? " lh-home--no-subs" : ""}`} ref={motionRef}>
       {/* 1. 今日の1行。表紙ではなく見出しの大きさ(--fs-page)。 */}
       <header className="lh-today">
+        <p className="lh-today__hello">{greeting(new Date().getHours())}</p>
         <h1 className="lh-today__date">{formatDisplayDate(today)}</h1>
         <p className="lh-today__status">{statusLine || " "}</p>
       </header>
