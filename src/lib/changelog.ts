@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-123",
+    date: "2026-11-09",
+    area: "予定・タスク",
+    title: "タスクの札をすっきりさせました",
+    description:
+      "1件のタスクに、優先度・期限・カテゴリの色付きの札がいくつも並んで、どれが大事か分かりにくくなっていました。色を付けるのは「期限切れ」と「優先度 高」だけにし、ほかは灰色の文字1行にまとめています。表示している内容と機能は変わりません。",
+  },
+  {
     id: "2026-11-09-122",
     date: "2026-11-09",
     area: "全体",
