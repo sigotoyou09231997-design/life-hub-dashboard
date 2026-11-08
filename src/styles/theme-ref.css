@@ -250,3 +250,36 @@
   background: var(--ref-700);
   color: #fff;
 }
+
+/* ---------------------------------------------------------------------------
+   タスクの補足の札 — 60/30/10 の色の配分（第3弾。参考 @_georgemoller「The 60/30/10 rule」）
+   白が6割・深い青緑が3割・目立たせる色は1割。前は1件のタスクに、橙(優先度 中)・赤(期限切れ)・緑(プライベート)・
+   青緑(仕事)と4色の札が並び、どれも同じ強さで目に入った。色を付けるのは「期限切れ」と「優先度 高」だけにし、
+   ほかは灰色の文字1行（背景なし）。札そのものも中身も消していない。
+   ------------------------------------------------------------------------ */
+.task-meta { column-gap: 0.75rem; row-gap: 0.25rem; }
+.task-meta > span {
+  padding: 0;
+  background: transparent !important;
+  color: var(--warm-ink-3) !important;
+  font-size: var(--fs-caption);
+  font-weight: 500;
+}
+.task-meta > .task-meta__priority.is-high { color: #b42318 !important; font-weight: 700; }
+.task-meta > .task-meta__priority.is-high::before,
+.task-meta > .task-meta__due.is-overdue::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-right: 0.3rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+/* 期限切れだけは札のまま（1割の目立たせる色）。 */
+.task-meta > .task-meta__due.is-overdue {
+  padding: 0.1rem 0.55rem;
+  background: #fdecea !important;
+  color: #b42318 !important;
+  font-weight: 700;
+}
+.task-meta > .task-meta__due.is-overdue::before { display: none; }

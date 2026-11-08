@@ -163,19 +163,20 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
                 書き込みが済んだら、ふつうの line-through に入れ替わる。 */}
             <span className={completion ? "task-strike is-striking" : "task-strike"}>{task.title}</span>
           </p>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <Badge tone={PRIORITY_TONE[task.priority]}>優先度 {PRIORITY_LABEL[task.priority]}</Badge>
+          {/* 補足の札。色を付けるのは「期限切れ」と「優先度 高」だけ(60/30/10 の色の配分。theme-ref.css の .task-meta)。 */}
+          <div className="task-meta mt-1 flex flex-wrap items-center gap-1.5">
+            <Badge tone={PRIORITY_TONE[task.priority]} className={`task-meta__priority is-${task.priority}`}>優先度 {PRIORITY_LABEL[task.priority]}</Badge>
             {task.dueDate && (
               // 期限は "2026-08-21 10:00" のようなISO表記だと、これだけでバッジ列が
               // 折り返して1件あたり1行増えていた。今日/明日など読んで分かる短い形にする。
-              <Badge tone={overdue ? "danger" : "neutral"}>
+              <Badge tone={overdue ? "danger" : "neutral"} className={overdue ? "task-meta__due is-overdue" : "task-meta__due"}>
                 {overdue ? "期限切れ " : "期限 "}
                 {formatCompactDate(task.dueDate)}
                 {task.dueTime ? ` ${task.dueTime}` : ""}
               </Badge>
             )}
-            {isRepeating(task.repeat) && <Badge tone="accent">{repeatLabel(task.repeat)}</Badge>}
-            <Badge tone={category.tone}>{category.label}</Badge>
+            {isRepeating(task.repeat) && <Badge tone="accent" className="task-meta__repeat">{repeatLabel(task.repeat)}</Badge>}
+            <Badge tone={category.tone} className="task-meta__category">{category.label}</Badge>
           </div>
         </button>
 
