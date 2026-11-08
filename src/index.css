@@ -2228,3 +2228,30 @@ body .text-sm { line-height: 1.5; }
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
+
+/* 起動の待ちが終わらない時の知らせ(src/lib/bootStall.ts。2026-11-09「切り替えて戻ると真っ白から動かない」)。
+   1回読み込み直しても止まった時だけ出る。白いままにしないため。 */
+.boot-stall {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  text-align: center;
+}
+.boot-stall__title { margin: 0; color: #141618; font-size: 1rem; font-weight: 700; }
+.boot-stall__note { margin: 0; max-width: 20rem; color: #5d6468; font-size: 0.875rem; line-height: 1.6; }
+.boot-stall__button {
+  margin-top: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: #1b5e57;
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}

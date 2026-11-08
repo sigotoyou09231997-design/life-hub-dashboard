@@ -7,6 +7,7 @@ import { clearShownPushNotifications, retirePushSubscription } from "./lib/pushN
 import { flushDueSnoozedNotifications } from "./lib/snoozedNotifications";
 import { startSync, stopSync } from "./lib/syncRuntime";
 import { ensureDataOwner } from "./lib/dataOwner";
+import { useBootStallWatch } from "./lib/bootStall";
 import { IS_ADDING_ACCOUNT } from "./lib/accounts";
 import { isOAuthConsentPath, rememberPendingConsent } from "./lib/oauthConsent";
 import { refreshViewportGap } from "./lib/viewport";
@@ -196,6 +197,11 @@ export default function App() {
     };
   }, []);
   const isAuthCallbackRoute = location.pathname === "/auth/callback";
+  // 起動の待ち(ログインの確認 → 同期の準備)。この間は下で白い待ち画面を出す。終わらない時の立て直しは src/lib/bootStall.ts。
+  const bootWaiting = Boolean(
+    isSupabaseConfigured && !isSharedTripRoute && (session === undefined || (session && !syncReady)) && !isAuthCallbackRoute,
+  );
+  const bootGaveUp = useBootStallWatch(bootWaiting);
 
   useEffect(() => {
     // 共有リンクの人の端末に、この人のものではない設定やDBを作らない。
@@ -282,13 +288,24 @@ export default function App() {
     );
   }
 
-  if (isSupabaseConfigured && (session === undefined || (session && !syncReady)) && !isAuthCallbackRoute) {
+  if (bootWaiting) {
     // 一瞬でも未ログイン画面がちらつくのを避けるための空白 — セッション確認は
     // 通常ミリ秒単位(localStorageから即読める)なので、ローディング表示は最小限でよい。
+    // 待ちが終わらない時は useBootStallWatch が1回だけ読み込み直し、それでもだめならボタンを出す(src/lib/bootStall.ts)。
     return (
       <>
         <AmbientBackground />
-        <div className="min-h-screen" />
+        <div className="min-h-screen">
+          {bootGaveUp && (
+            <div className="boot-stall" role="alert">
+              <p className="boot-stall__title">読み込みに時間がかかっています</p>
+              <p className="boot-stall__note">通信が戻っていないかもしれません。もう一度読み込むと開けることが多いです。</p>
+              <button type="button" className="boot-stall__button" onClick={() => window.location.reload()}>
+                読み込み直す
+              </button>
+            </div>
+          )}
+        </div>
       </>
     );
   }
