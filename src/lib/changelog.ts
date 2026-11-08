@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-121",
+    date: "2026-11-09",
+    area: "デザイン",
+    title: "お金管理の見た目をホームとそろえました",
+    description:
+      "お金管理の「使えるお金」を、ホームと同じ深い青緑の面にしました。見出し・行・カテゴリの頭文字の丸も、どの画面でも同じ形にそろえています。貯金目標は薄い色のにじみをやめ、白い面に大きな数字だけを置きました。機能と登録したデータは変わりません。",
+  },
+  {
     id: "2026-11-09-120",
     date: "2026-11-09",
     area: "デザイン",
