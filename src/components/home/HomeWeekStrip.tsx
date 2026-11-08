@@ -22,7 +22,7 @@ interface Props {
 export function HomeWeekStrip({ days, rows, ready, onAdd }: Props) {
   const addButtons = (
     <div className="lh-week__add">
-      <button type="button" className="lh-add-pill" onClick={() => onAdd("event")}>
+      <button type="button" className="lh-add-pill is-primary" onClick={() => onAdd("event")}>
         <Plus size={14} aria-hidden="true" />
         予定
       </button>

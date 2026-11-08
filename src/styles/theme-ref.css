@@ -1,0 +1,228 @@
+/* ============================================================================
+   参考 UI/UX の上塗り（2026-11-09・見本）
+
+   本人「デザインを大幅に変えたい」→ 参考に X の UI/UX の Before/After 系の投稿
+   （@MONABLIZUIUX ほか @designstudioux・@steveschoger など）を指定。
+   そこから借りた決めごと:
+     1. 主役の色は「深い青緑」1色。明るい青緑(#17a199)より落ち着いた #1b5e57。
+        ボタン・選んでいる所・大きな面はこの色。
+     2. 1つの面で押す所は1つだけ強くする（主＝塗り、副＝線だけ）。
+     3. 文字の強弱をはっきり: 小さい札 → 大きい見出し → 説明 → 操作。
+     4. 線で区切らず、余白と柔らかい影で分ける。数字は右に揃える。
+     5. 下のナビは、選んでいる所だけ深い青緑の丸い札（アイコン＋名前を白で）。
+   main.tsx で一番最後に読み込む。この1行を外せば前の見た目に戻る。
+   中身・リンク・ボタンの働きは変えない。
+   ========================================================================= */
+
+:root {
+  --ref-900: #0f3b36;
+  --ref-800: #144a44;
+  --ref-700: #1b5e57;
+  --ref-600: #24726a;
+  --ref-500: #2f8a80;
+  --ref-100: #dcebe8;
+  --ref-50: #eef6f4;
+
+  /* 今までの青緑の名前を、深い青緑へ読み替える（全画面の選択・ボタンがこの色になる）。 */
+  --teal-700: var(--ref-800);
+  --teal-600: var(--ref-700);
+  --teal-500: var(--ref-700);
+  --teal-400: #7cc2b8;
+  --teal-100: var(--ref-100);
+  --teal-50: var(--ref-50);
+  --color-accent: var(--ref-700);
+  --hub-blue: var(--ref-700);
+
+  /* 線は薄く、影で浮かせる。 */
+  --warm-line: rgba(15, 59, 54, 0.06);
+  --shadow-rest: 0 1px 2px rgba(15, 40, 38, 0.04), 0 6px 20px rgba(15, 40, 38, 0.06);
+  --r-card: 20px;
+}
+
+.planning-page,
+.finance-page,
+.notes-page,
+.mail-page,
+.trips-page,
+.trip-detail-page,
+.review-page {
+  --page-tone: var(--ref-700);
+  --page-tint: rgba(27, 94, 87, 0.08);
+}
+
+/* ---------------------------------------------------------------------------
+   ホーム: 見出し（あいさつ → 日付 → 一言）
+   ------------------------------------------------------------------------ */
+.lh-home { gap: 1.5rem; }
+.lh-today { display: flex; flex-direction: column; gap: 0.15rem; padding-top: 0.25rem; }
+.lh-today__hello {
+  margin: 0;
+  color: var(--warm-ink-3);
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+.lh-home .lh-today__date {
+  margin: 0;
+  color: var(--warm-ink);
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.lh-home .lh-today__status {
+  margin: 0.1rem 0 0;
+  color: var(--warm-ink-2);
+  font-size: var(--fs-body);
+}
+
+/* ---------------------------------------------------------------------------
+   ホーム: 今月のお金 — 黒 → 深い青緑の大きな面。主役は残り額、操作は白い札1つ。
+   ------------------------------------------------------------------------ */
+.lh-home > .lh-money {
+  border: 0;
+  background:
+    radial-gradient(420px circle at 100% 0%, rgba(124, 194, 184, 0.22), transparent 60%),
+    linear-gradient(155deg, var(--ref-700) 0%, var(--ref-800) 55%, var(--ref-900) 100%);
+  box-shadow: 0 14px 34px rgba(15, 59, 54, 0.22);
+  padding: 1.4rem 1.35rem 1.25rem;
+}
+.lh-home > .lh-money::after { display: none; }
+.lh-home > a.lh-money:hover { border-color: transparent; box-shadow: 0 18px 40px rgba(15, 59, 54, 0.28); }
+.lh-home .lh-money__label {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+.lh-home > .lh-money .warm-amount { font-size: 2.6rem; font-weight: 800; }
+.lh-home .lh-money__pill {
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.86);
+}
+.lh-home .lh-money__pill b { color: #fff; }
+/* 「支出を見る」は白い札（参考の Explore ボタン）。カード全体のリンクの、目に見える入口。 */
+.lh-home > .lh-money .warm-card__foot {
+  align-self: flex-start;
+  margin-top: 1rem;
+  padding: 0.5rem 0.95rem;
+  border-radius: var(--r-pill);
+  background: #fff;
+  color: var(--ref-800);
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+.lh-home .lh-money__side-label { color: rgba(255, 255, 255, 0.62); }
+.lh-home .lh-money__col i { background: rgba(255, 255, 255, 0.28); opacity: 1; }
+.lh-home .lh-money__col.is-today i { background: #fff; }
+.lh-home .lh-money__bar { background: rgba(255, 255, 255, 0.14); }
+.lh-home .lh-money__bar i { background: #fff; }
+.lh-home .lh-money__leaf { display: none; }
+
+/* ---------------------------------------------------------------------------
+   ホーム: 区切りの見出し — アイコンの札をやめ、太い見出し＋右に小さい「すべて見る」
+   ------------------------------------------------------------------------ */
+.lh-home .lh-section__icon { display: none; }
+.lh-home .lh-section__head { margin-bottom: 0.15rem; }
+.lh-home .lh-section__title {
+  color: var(--warm-ink);
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.lh-home .lh-section__head .warm-card__go {
+  color: var(--ref-700);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------------------
+   ホーム: カード — 線を消して影で浮かせる。行の区切りも薄く。
+   ------------------------------------------------------------------------ */
+.lh-home .warm-card:not(.lh-money) {
+  border-color: transparent;
+  box-shadow: var(--shadow-rest);
+}
+.lh-home .lh-row + .lh-row::before { background: rgba(15, 59, 54, 0.05); }
+.lh-home .lh-row__icon { border-radius: 12px; }
+.lh-home .lh-tone--neutral { background: var(--ref-50); color: var(--ref-700); }
+.lh-home .lh-row__copy strong { font-weight: 700; }
+
+/* 気になること: 右の文字は小さな札に（押せる所だと分かるように）。 */
+.lh-home .lh-concern__cta {
+  padding: 0.28rem 0.7rem;
+  border-radius: var(--r-pill);
+  background: var(--ref-50);
+  color: var(--ref-700);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+}
+
+/* 7日の帯: 今日だけ深い青緑で塗る（参考の日付チップ）。 */
+.lh-home .lh-week__day.is-today {
+  border-color: transparent;
+  background: var(--ref-700);
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(27, 94, 87, 0.28);
+}
+.lh-home .lh-week__day.is-today small { color: rgba(255, 255, 255, 0.78); }
+.lh-home .lh-week__day.is-today .lh-week__dot { background: #fff; }
+.lh-home .lh-week__day.is-today em { color: #fff; }
+@media (hover: hover) and (pointer: fine) {
+  .lh-home .lh-week__day.is-today:hover { background: var(--ref-800); }
+}
+
+/* 「＋予定」は塗り（主）、「＋タスク」は線だけ（副）。 */
+.lh-home .lh-add-pill {
+  border: 1.5px solid var(--ref-100);
+  background: #fff;
+  color: var(--ref-700);
+  font-weight: 700;
+}
+.lh-home .lh-add-pill.is-primary {
+  border-color: var(--ref-700);
+  background: var(--ref-700);
+  color: #fff;
+}
+.lh-home .lh-add-pill.is-primary:hover { background: var(--ref-800); }
+
+/* 旅行の写真カード: 下だけ暗くして文字を写真の上に（参考の Deep Blue Highs）。 */
+.lh-home .warm-trip { border-radius: var(--r-card); box-shadow: 0 12px 30px rgba(15, 40, 38, 0.16); }
+
+/* Gmail 未接続: 点線の箱をやめ、アイコンの台＋文の1行に。 */
+.lh-home .warm-empty { border: 0; background: transparent; padding: 0.4rem 0.2rem; }
+.lh-home .warm-empty__icon { border-radius: 12px; background: var(--ref-50); color: var(--ref-700); }
+
+/* ---------------------------------------------------------------------------
+   全画面: 右下の「＋」と、下のナビ
+   ------------------------------------------------------------------------ */
+#page-fab-root > button {
+  background: var(--ref-700) !important;
+  box-shadow: 0 10px 24px rgba(15, 59, 54, 0.32) !important;
+}
+
+.glass-nav {
+  border: 0;
+  border-radius: 26px;
+  box-shadow: 0 10px 32px rgba(15, 40, 38, 0.14);
+}
+/* 選んでいる所の後ろを滑る札を、深い青緑の塗りに。中のアイコンと名前は白。 */
+.glass-nav nav::before {
+  border-radius: 18px;
+  background: var(--ref-700);
+  box-shadow: 0 6px 14px rgba(27, 94, 87, 0.3);
+}
+.glass-nav nav :is(a, button) svg { color: #8a9694 !important; }
+.glass-nav nav :is(a, button) span:not(.absolute) { color: #8a9694 !important; }
+.glass-nav nav :is(a, button).is-active svg,
+.glass-nav nav :is(a, button).is-active span:not(.absolute) { color: #fff !important; }
+
+/* ---------------------------------------------------------------------------
+   全画面: タブ（選んでいる所だけ深い青緑の塗り）
+   ------------------------------------------------------------------------ */
+.spatial-page .spatial-tabs button[aria-selected="true"],
+.spatial-tabs .spatial-tabs__tab.is-selected {
+  border-color: var(--ref-700);
+  background: var(--ref-700);
+  color: #fff;
+}
