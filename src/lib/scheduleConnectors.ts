@@ -27,6 +27,10 @@ export function connectorKey(items: TripScheduleItem[]): string {
 /**
  * 1日の予定(並び順どおり)を、場所の予定と「つなぎ」に分ける。open に鍵がある(か expandAll)つなぎは、
  * 札の後ろに中の予定を1件ずつ続けて出す(編集・並べ替えは開いた状態で今までどおり)。
+ *
+ * expandAll(「並べ替え」を押している間)は、札は出さない。並べ替えは1件ずつの行で動くため、
+ * 札を残すと動かせない行が1つ混ざって見え、「動かそうとしても動かない」になっていた(2026-11-08、
+ * 要望の受信箱)。手で開いた時(open)は、また畳めるように札を残す。
  */
 export function segmentSchedule(
   items: TripScheduleItem[],
@@ -46,7 +50,7 @@ export function segmentSchedule(
     const group = items.slice(i, j);
     const key = connectorKey(group);
     const open = Boolean(options.expandAll || options.open?.has(key));
-    segments.push({ kind: "connector", key, items: group, next: items[j] ?? null, open });
+    if (!options.expandAll) segments.push({ kind: "connector", key, items: group, next: items[j] ?? null, open });
     if (open) for (const inner of group) segments.push({ kind: "item", item: inner });
     i = j;
   }

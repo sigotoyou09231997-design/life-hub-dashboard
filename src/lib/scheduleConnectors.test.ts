@@ -31,11 +31,15 @@ describe("続けて並ぶ移動を1本の「つなぎ」に(第6弾 D-1)", () =>
     expect(segments.every((s) => s.kind !== "connector" || !s.open)).toBe(true);
   });
 
-  it("開いているつなぎは、札の後ろに中の予定を1件ずつ続ける。expandAll なら全部", () => {
+  it("開いているつなぎは、札の後ろに中の予定を1件ずつ続ける", () => {
     const opened = segmentSchedule(DAY, { open: new Set(["m1+m2+m3"]) });
     expect(opened.map((s) => (s.kind === "item" ? s.item.id : "札"))).toEqual(["wake", "札", "m1", "m2", "m3", "udon", "札"]);
+  });
+
+  it("expandAll(並べ替え中)は、札を出さず予定だけにする(札は動かせないので、混ざると並べ替えられない行に見える)", () => {
     const all = segmentSchedule(DAY, { expandAll: true });
     expect(all.filter((s) => s.kind === "item")).toHaveLength(DAY.length);
+    expect(all.some((s) => s.kind === "connector")).toBe(false);
   });
 
   it("移動しか無い日・移動で始まる日も崩れない", () => {
