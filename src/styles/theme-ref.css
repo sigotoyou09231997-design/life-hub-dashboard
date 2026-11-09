@@ -509,3 +509,22 @@
 }
 .spatial-page .spatial-calendar__cell.is-today:not(.is-selected)::after { background: var(--ref-700); }
 .week-view__day.is-today { background-color: rgba(27, 94, 87, 0.04); }
+
+/* ---------------------------------------------------------------------------
+   黒の取り残し（第20回の点検。全15画面を撮って、黒い面が残っている所を機械で拾った）
+   - メモの絞り込みの札・旅行のルートの日にちの札: 選んでいる所は黒 → 深い青緑（タブ・下のナビ・選ぶボタンと同じ）
+   - 固定費の「給与の内訳」の棒: 固定費=黒・サブスク=深い青緑・使った分=薄い青緑で、黒と深い青緑が
+     どちらも濃く見分けにくかった → 同じ色みの濃・中・淡の3段に（下の凡例の点も同じクラスなので揃う）
+   - サブスクの頭文字の丸(U-NEXT の黒など)はサービスの色なので触らない。
+   ------------------------------------------------------------------------ */
+.lh-chip[aria-pressed="true"] { border-color: var(--ref-700); background: var(--ref-700); color: #fff; }
+.trip-route__day.is-active,
+.trip-day-pick__chip.is-active { border-color: var(--ref-700); background: var(--ref-700); }
+.fx-salary .is-fixed { background: var(--ref-800); }
+.fx-salary .is-subs { background: #5aa197; }
+.fx-salary .is-spent { background: var(--ref-100); }
+/* 固定費の「毎月の固定費」のカードの左の太い線(黒)と、選んでいる札(黒)も深い青緑に。 */
+.fx-total { border-left-color: var(--ref-700); }
+.fx-kind[aria-pressed="true"] { border-color: var(--ref-700); background: var(--ref-700); }
+/* チェックボックス・ラジオ・スライダーの色(ブラウザ標準の青が出ていた所)も主役の色に。 */
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--ref-700); }
