@@ -1,0 +1,119 @@
+/* AIの最新情報(2026-11-10)。ホームの3枚と、/ai-news の一覧に使うカード。
+   色は白い面＋深い青緑(theme-ref.css の決めごと)。写真が無い記事は、出どころごとの薄い色の面に頭文字。 */
+
+.ai-news-card {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--warm-line, rgba(0, 0, 0, 0.08));
+  border-radius: var(--r-card, 18px);
+  background: var(--warm-surface, #fff);
+  box-shadow: var(--shadow-rest, 0 1px 2px rgba(0, 0, 0, 0.04));
+  color: var(--warm-ink, #1a1a1a);
+  text-decoration: none;
+  transition: transform 180ms var(--ease-out-expo, ease-out), box-shadow 180ms var(--ease-out-expo, ease-out);
+}
+.ai-news-card:active { transform: scale(0.99); }
+@media (hover: hover) {
+  .ai-news-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08); }
+}
+.ai-news-card:focus-visible { outline: 2px solid #1b5e57; outline-offset: 2px; }
+
+.ai-news-card__media {
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--ai-tone, #e6f0ee);
+}
+.ai-news-card__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ai-news-card__mark {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--ai-tone-ink, #1b5e57);
+  font-family: var(--font-mincho, serif);
+  font-size: 2.4rem;
+  font-weight: 600;
+  opacity: 0.85;
+}
+.ai-news-card--tone-a { --ai-tone: #e4efec; --ai-tone-ink: #1b5e57; }
+.ai-news-card--tone-b { --ai-tone: #e8eef6; --ai-tone-ink: #35527a; }
+.ai-news-card--tone-c { --ai-tone: #eceae4; --ai-tone-ink: #4a4636; }
+.ai-news-card--tone-d { --ai-tone: #f1ece4; --ai-tone-ink: #7a5a2a; }
+.ai-news-card--tone-e { --ai-tone: #e7efe4; --ai-tone-ink: #3b6a2e; }
+
+.ai-news-card__body { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: 0.4rem; padding: 0.8rem 2.2rem 0.95rem 0.95rem; }
+.ai-news-card__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.15rem 0.5rem; color: var(--warm-ink-3, #777); font-size: var(--fs-caption, 0.75rem); }
+.ai-news-card__source { color: #1b5e57; font-weight: 600; }
+.ai-news-card__lang { border: 1px solid var(--warm-line, rgba(0, 0, 0, 0.12)); border-radius: 999px; padding: 0 0.4rem; font-size: 0.6875rem; }
+.ai-news-card__title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  font-size: var(--fs-body, 0.9375rem);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.ai-news-card__summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--warm-ink-2, #555);
+  font-size: var(--fs-caption, 0.8125rem);
+  line-height: 1.55;
+}
+.ai-news-card__go { position: absolute; right: 0.8rem; bottom: 0.9rem; color: var(--warm-ink-3, #999); }
+
+/* ホーム: スマホは横に流す(次のカードが少し見えて、横に動かせると分かる)。PC は3枚を並べる。 */
+.ai-news-row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(78%, 17rem);
+  gap: 0.75rem;
+  margin: 0 -1rem;
+  overflow-x: auto;
+  padding: 0.1rem 1rem 0.5rem;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.ai-news-row::-webkit-scrollbar { display: none; }
+.ai-news-row > * { scroll-snap-align: start; }
+@media (min-width: 1024px) {
+  .lh-section--ainews { grid-column: 1 / -1; }
+  .ai-news-row { grid-auto-flow: row; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-columns: auto; margin: 0; overflow: visible; padding: 0; }
+}
+
+/* ページ: 幅に応じて並ぶ。 */
+.ai-news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16.5rem), 1fr)); gap: 0.85rem; }
+.ai-news-note { margin: 0; color: var(--warm-ink-2, #666); font-size: var(--fs-caption, 0.8125rem); }
+.ai-news-foot { margin: 0.5rem 0 0; color: var(--warm-ink-3, #888); font-size: var(--fs-caption, 0.75rem); line-height: 1.6; }
+.ai-news-refresh {
+  display: flex; width: 2.5rem; height: 2.5rem; align-items: center; justify-content: center;
+  border: 1px solid var(--warm-line, rgba(0, 0, 0, 0.1)); border-radius: 999px; background: var(--warm-surface, #fff); color: var(--warm-ink, #222);
+}
+.ai-news-refresh:disabled { opacity: 0.5; }
+.ai-news-refresh__spin { animation: ai-news-spin 900ms linear infinite; }
+@keyframes ai-news-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ai-news-refresh__spin { animation: none; }
+  .ai-news-card { transition: none; }
+}
+
+/* ページの一覧: スマホは「左に小さな写真、右に文字」の横長カードにする。
+   縦長のカードを40枚そのまま積むと、画面の約35個ぶん(ほぼ3万px)の長さになる。 */
+@media (max-width: 639px) {
+  .ai-news-grid { gap: 0.6rem; }
+  .ai-news-grid .ai-news-card { flex-direction: row; align-items: stretch; }
+  .ai-news-grid .ai-news-card__media { aspect-ratio: auto; width: 6.5rem; flex: 0 0 6.5rem; }
+  .ai-news-grid .ai-news-card__mark { font-size: 1.6rem; }
+  .ai-news-grid .ai-news-card__body { gap: 0.3rem; padding: 0.7rem 2rem 0.75rem 0.8rem; }
+  .ai-news-grid .ai-news-card__title { font-size: 0.875rem; -webkit-line-clamp: 3; }
+  .ai-news-grid .ai-news-card__summary { display: none; }
+  .ai-news-grid .ai-news-card__go { bottom: 0.7rem; }
+}

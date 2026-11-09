@@ -28,6 +28,7 @@ import { TripInviteBanner } from "../components/trips/TripInviteBanner";
 import { HomeAttention } from "../components/home/HomeAttention";
 import { HomeWeekStrip } from "../components/home/HomeWeekStrip";
 import { HomeSubscriptions } from "../components/home/HomeSubscriptions";
+import { HomeAiNews } from "../components/home/HomeAiNews";
 import { pairSubscriptions } from "../lib/subscriptions";
 import { useHiddenFeatures } from "../hooks/useHiddenFeatures";
 import { aheadDates, buildConcerns, homeStatusLine, homeSubscriptions, tripCardSize, tripCountdown, upcomingRows, weekSpendBars, weekStrip } from "../lib/homeLayout";
@@ -452,6 +453,9 @@ export default function TopPage() {
           </div>
         </section>
       )}
+
+      {/* 5. AIの最新情報(2026-11-10)。記事が取れていない間は出さない。 */}
+      <HomeAiNews head={(props) => <SectionHead {...props} />} />
 
       {/* 追加の入口(UI/UX 調査メモ A-3)。ホームは何を足すか決まらないので、選ぶシートを開く。 */}
       <PageFab onClick={openAddChooser} label="追加する">

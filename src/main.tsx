@@ -26,6 +26,7 @@ import "./styles/subscriptions.css";
 import "./styles/fixed-costs.css";
 // 設定の「海外サッカー」(2026-10-25)。
 import "./styles/soccer.css";
+import "./styles/ai-news.css";
 // 押した感触・アイコンの線の太さ（UI/UX 調査メモ 第4弾 A-1・B-4・B-5）。どの画面にも効くので最後の方に読む。
 import "./styles/touch-tokens.css";
 // 数字用の文字・数字が動く・空の表示の線画(UI/UX 調査メモ 第4弾 B-1・A-5・B-6)。上の各画面の上に足す。
