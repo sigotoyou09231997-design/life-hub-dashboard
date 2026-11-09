@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-136",
+    date: "2026-11-09",
+    area: "デザイン",
+    title: "影をやわらかくしました",
+    description:
+      "お金のカード、右下の「＋」、下のナビなどの影が、横に広がって少し重たく見えていました。影を真下に、輪郭が溶けるようにぼかして、軽く上品に見えるようにしています。",
+  },
+  {
     id: "2026-11-09-135",
     date: "2026-11-09",
     area: "全体",
