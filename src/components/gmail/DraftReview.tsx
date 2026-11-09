@@ -384,7 +384,7 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
       }
       showToast("下書きを保存しました");
     } catch {
-      showToast("保存に失敗しました", "error");
+      showToast("保存できませんでした。もう一度お試しください", "error");
     } finally {
       setSaving(false);
     }
@@ -432,7 +432,7 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
       } catch {
         // Verification itself failed (e.g. offline) — fall through to the failure toast.
       }
-      showToast("送信に失敗しました", "error");
+      showToast("送れませんでした。もう一度お試しください", "error");
     } finally {
       setSending(false);
     }

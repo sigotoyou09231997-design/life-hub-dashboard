@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-137",
+    date: "2026-11-09",
+    area: "全体",
+    title: "うまくいかなかった時の言葉を分かりやすく",
+    description:
+      "「送信に失敗しました」「書き出しに失敗しました」のように、起きたことだけを伝えていたお知らせを、「送れませんでした。もう一度お試しください」のように、次にどうすればいいかまで書く形にしました。アカウント画面の同期で、機械向けのエラー文がそのまま出ていた所も直しています。",
+  },
+  {
     id: "2026-11-09-136",
     date: "2026-11-09",
     area: "デザイン",

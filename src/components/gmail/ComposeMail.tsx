@@ -98,7 +98,7 @@ export function ComposeMail({ account, onSent }: Props) {
       setHasDraft(false);
       onSent?.();
     } catch {
-      showToast("送信に失敗しました", "error");
+      showToast("送れませんでした。もう一度お試しください", "error");
     } finally {
       setSending(false);
     }
