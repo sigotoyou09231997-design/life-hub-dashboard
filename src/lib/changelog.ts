@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-126",
+    date: "2026-11-09",
+    area: "デザイン",
+    title: "PCの左のメニューをすっきり",
+    description:
+      "PCの左のメニューで、選んでいる所を「左の縦線＋薄い面」の2つで示していたのを、薄い面と太い文字だけにしました。ロゴの台と上の「＋追加」ボタンは黒から深い青緑にして、ほかの画面の主役の色とそろえています。",
+  },
+  {
     id: "2026-11-09-125",
     date: "2026-11-09",
     area: "全体",
