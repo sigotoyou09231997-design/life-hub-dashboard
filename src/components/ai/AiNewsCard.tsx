@@ -9,6 +9,8 @@ const SOURCE_TONE: Record<string, string> = {
   google: "ai-news-card--tone-d",
   deepmind: "ai-news-card--tone-d",
   techcrunch: "ai-news-card--tone-e",
+  anthropic: "ai-news-card--tone-f",
+  "anthropic-eng": "ai-news-card--tone-f",
 };
 
 /** 1本の記事のカード。押すと元の記事を新しいタブで開く。 */

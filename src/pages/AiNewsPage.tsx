@@ -44,7 +44,7 @@ export default function AiNewsPage() {
         {!loading && !failed && items.length > 0 && shown.length === 0 && <p className="ai-news-note">この絞り込みに当てはまる記事はありません。</p>}
 
         <p className="ai-news-foot">
-          記事は元のサイトで開きます。英語の記事はそのまま英語で出ます。Anthropic は RSS を出していないため、ここには入っていません。
+          記事は元のサイトで開きます。英語の記事はそのまま英語で出ます。Anthropic の記事は、公式サイトの一覧を RSS にして公開している有志のデータ経由で取っています。
         </p>
       </div>
     </div>

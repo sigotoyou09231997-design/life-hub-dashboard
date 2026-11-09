@@ -108,6 +108,10 @@ export interface NewsFeed {
 }
 
 export const NEWS_FEEDS: readonly NewsFeed[] = [
+  // Anthropic は自分では RSS を出していない。GitHub で公開されている有志の変換(Olshansk/rss-feeds)が、
+  // 公式サイトの記事一覧を毎日読んで RSS にしている。記事の中身・リンクは公式サイトのもの。止まったら、ここだけ外す/差し替える。
+  { id: "anthropic", name: "Anthropic", lang: "en", official: true, url: "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_news.xml" },
+  { id: "anthropic-eng", name: "Anthropic Engineering", lang: "en", official: true, url: "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_anthropic_engineering.xml" },
   { id: "itmedia", name: "ITmedia AI+", lang: "ja", official: false, url: "https://rss.itmedia.co.jp/rss/2.0/aiplus.xml" },
   { id: "zenn", name: "Zenn(AI)", lang: "ja", official: false, url: "https://zenn.dev/topics/ai/feed" },
   { id: "openai", name: "OpenAI", lang: "en", official: true, url: "https://openai.com/news/rss.xml" },
@@ -205,7 +209,7 @@ export function parseFeed(xml: string, feed: NewsFeed, limit = 12): NewsItem[] {
 
 /** 全部の記事を新しい順に並べ、同じ記事(同じURL)は1つにして、上から limit 件。日付の無い記事は最後。
  * 1つの出どころが一覧を占領しないよう、出どころごとに perSource 件まで(投稿の多いサイトに、公式の発表が押し流されないため)。 */
-export function mergeNews(lists: NewsItem[][], limit = 40, perSource = 7): NewsItem[] {
+export function mergeNews(lists: NewsItem[][], limit = 70, perSource = 10): NewsItem[] {
   const seen = new Set<string>();
   const all = lists.flat().filter((i) => (seen.has(i.url) ? false : (seen.add(i.url), true)));
   all.sort((a, b) => (Date.parse(b.publishedAt ?? "") || 0) - (Date.parse(a.publishedAt ?? "") || 0));
