@@ -101,6 +101,7 @@ export default function TopPage() {
     return last7.map((date) => rows.filter((row) => row.type === "expense" && row.date === date).reduce((sum, row) => sum + row.amount, 0));
   }, [today]);
   const weekBars = weekSpend ? weekSpendBars(last7, weekSpend) : [];
+  const todaySpend = weekSpend ? weekSpend[weekSpend.length - 1] : 0;
   // 使った割合 = 使った額 ÷ (使った額 ＋ 残り)。残りがマイナス(使いすぎ)なら満タン。
   const usedRatio = budget ? (budget.remaining < 0 ? 1 : budget.actualSpending / Math.max(1, budget.actualSpending + budget.remaining)) : 0;
   // 給与がまだ無い時の「今月のお金」。給与が無くても分かる今月の支出を出す(UI/UX 調査メモ A-4)。
@@ -243,7 +244,12 @@ export default function TopPage() {
           </div>
           {/* 右側: 直近7日の支出の棒(第8弾 H-1)。今日だけ白。 */}
           <div className="lh-money__side" aria-label="直近7日の支出">
-            <span className="lh-money__side-label">直近7日の支出</span>
+            <span className="lh-money__side-label">
+              直近7日の支出
+              {/* 目立たせる1本(今日)には数字も添える(2026-11-09、参考 @nizamdesign の Before/After —
+                  棒グラフは強調する1本にだけ値の札)。今日まだ使っていない日は出さない。 */}
+              {todaySpend > 0 && <b className="lh-money__today-amt">今日 ¥{Math.round(todaySpend).toLocaleString()}</b>}
+            </span>
             {weekBars.length > 0 ? (
               <div className="lh-money__chart" role="img" aria-label={weekBars.map((bar) => `${formatShortDate(bar.date)} ¥${Math.round(bar.amount).toLocaleString()}`).join("、")}>
                 {weekBars.map((bar) => (

@@ -554,3 +554,16 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
 @media (prefers-reduced-motion: reduce) {
   .page-skeleton.is-shown > *, .page-skeleton__tabs > span { animation: none; }
 }
+
+/* 直近7日の支出の見出しに「今日 ¥…」を添える（第23回。参考 @nizamdesign。TopPage.tsx）。 */
+.lh-home .lh-money__side-label { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+.lh-money__today-amt {
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--r-pill);
+  background: #fff;
+  color: var(--ref-800);
+  font-family: var(--font-num);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
