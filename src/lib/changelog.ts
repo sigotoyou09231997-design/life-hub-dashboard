@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-143",
+    date: "2026-11-10",
+    area: "全体",
+    title: "追加・保存ボタンに、押すと何が起きるかを書きました",
+    description:
+      "サブスク・固定費・賞与・求人の入力画面の下のボタンを、「追加する」「登録する」「保存する」から「サブスクに追加」「固定費に追加」「賞与を登録」「応募を保存」に変えました。求人は社名が空のあいだ「社名を入れてください」と出ます。",
+  },
+  {
     id: "2026-11-09-142",
     date: "2026-11-09",
     area: "ホーム",
