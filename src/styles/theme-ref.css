@@ -37,6 +37,14 @@
   --warm-line: rgba(15, 59, 54, 0.06);
   --shadow-rest: 0 1px 2px rgba(15, 40, 38, 0.04), 0 6px 20px rgba(15, 40, 38, 0.06);
   --r-card: 20px;
+
+  /* 文字の大きさは4段・太さは3段（第9弾。参考 @MichaelFilipiuk「フォントサイズとウェイトを少なく使う。少ない方が多い」
+     — 28/20/14/13 と 700/600/400）。前の5段(36/24/16/14/12)のうち、ページ見出しを 24→28、区切りの見出しを 16→20、
+     補足を 12→13 に。大きな金額(--fs-display)は数字の主役なので別枠のまま。 */
+  --fs-page: 1.75rem;
+  --fs-section: 1.25rem;
+  --fs-body: 0.875rem;
+  --fs-caption: 0.8125rem;
 }
 
 .planning-page,
@@ -64,8 +72,8 @@
 .lh-home .lh-today__date {
   margin: 0;
   color: var(--warm-ink);
-  font-size: 1.75rem;
-  font-weight: 800;
+  font-size: var(--fs-page);
+  font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
@@ -94,7 +102,7 @@
   font-weight: 600;
   letter-spacing: 0.06em;
 }
-.lh-home > .lh-money .warm-amount { font-size: 2.6rem; font-weight: 800; }
+.lh-home > .lh-money .warm-amount { font-size: 2.6rem; font-weight: 700; }
 .lh-home .lh-money__pill {
   border: 0;
   background: rgba(255, 255, 255, 0.12);
@@ -127,8 +135,8 @@
 .lh-section__title,
 .app-shell .lh-section__title {
   color: var(--warm-ink);
-  font-size: 1.125rem;
-  font-weight: 800;
+  font-size: var(--fs-section);
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 .lh-section__head .warm-card__go {
@@ -150,7 +158,7 @@
 .lh-row__icon { border-radius: 12px; }
 .lh-tone--neutral { background: var(--ref-50); color: var(--ref-700); }
 .lh-home .lh-row__copy strong { font-weight: 700; }
-.lh-row__icon--initial { background: var(--ref-50); color: var(--ref-700); font-weight: 800; }
+.lh-row__icon--initial { background: var(--ref-50); color: var(--ref-700); font-weight: 700; }
 .lh-row__value { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* 気になること: 右の文字は小さな札に（押せる所だと分かるように）。 */
@@ -350,7 +358,7 @@
 }
 .lh-empty.empty-state.spatial-empty > .empty-state-icon svg,
 .lh-empty .empty-state-icon svg { width: 26px; height: 26px; }
-.lh-empty__title { font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
+.lh-empty__title { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
 .lh-empty__desc { max-width: 22em; margin-inline: auto; color: var(--warm-ink-3); line-height: 1.6; }
 .lh-empty__action { margin-top: 0.4rem; }
 
@@ -362,3 +370,8 @@
    ------------------------------------------------------------------------ */
 :root { --r-nested: 10px; }
 .glass-row { border-radius: var(--r-nested) !important; }
+
+/* ページの見出しは 28px・700（第9弾）。 */
+.spatial-page-header__title,
+.app-shell .spatial-page-header__title { font-size: var(--fs-page); font-weight: 700; letter-spacing: -0.02em; }
+.lh-empty__title { font-size: 1rem; }
