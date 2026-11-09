@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-138",
+    date: "2026-11-09",
+    area: "予定・タスク",
+    title: "カレンダーの「今日」の色をそろえました",
+    description:
+      "カレンダー(月・週)とサブスクのカレンダーで、今日の日付が黒い丸、選んだ日が灰色の面になっていました。ホームと同じ深い青緑の丸と、薄い青緑の面にそろえています。",
+  },
+  {
     id: "2026-11-09-137",
     date: "2026-11-09",
     area: "全体",
