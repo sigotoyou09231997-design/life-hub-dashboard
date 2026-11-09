@@ -55,7 +55,7 @@ describe("応募先の「今の段階」", () => {
 
     await user.type(screen.getByLabelText("会社名"), "株式会社ABC");
     await user.click(screen.getByRole("button", { name: "一次面接" }));
-    await user.click(screen.getByRole("button", { name: "保存する" }));
+    await user.click(screen.getByRole("button", { name: "応募を保存" }));
 
     expect(mocks.added[0]).toMatchObject({ companyName: "株式会社ABC", stage: "interview1" });
   });
@@ -67,7 +67,7 @@ describe("応募先の「今の段階」", () => {
     expect(screen.getByRole("button", { name: "応募済み" }).getAttribute("aria-pressed")).toBe("false");
 
     await user.click(screen.getByRole("button", { name: "内定" }));
-    await user.click(screen.getByRole("button", { name: "保存する" }));
+    await user.click(screen.getByRole("button", { name: "応募を保存" }));
     expect(mocks.updated[0].stage).toBe("offer");
   });
 });

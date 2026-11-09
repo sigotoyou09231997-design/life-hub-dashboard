@@ -147,7 +147,7 @@ describe("お金管理の固定費タブ", () => {
     fireEvent.change(screen.getByLabelText("名前"), { target: { value: "ガス代" } });
     fireEvent.click(screen.getByRole("button", { name: "水道光熱費" }));
     fireEvent.change(screen.getByPlaceholderText("0"), { target: { value: "4500" } });
-    fireEvent.click(screen.getByRole("button", { name: "追加する" }));
+    fireEvent.click(screen.getByRole("button", { name: "固定費に追加" }));
     await waitFor(() => expect(mocks.saved).toHaveLength(1));
     expect(mocks.saved[0][0]).toMatchObject({ title: "ガス代", category: "水道光熱費", amount: 4500 });
     expect(screen.queryByRole("button", { name: "動画" })).toBeNull();
@@ -170,7 +170,7 @@ describe("写真から固定費を入れる", () => {
     expect((screen.getByLabelText("名前") as HTMLInputElement).value).toBe("ガス代");
     expect((screen.getByPlaceholderText("0") as HTMLInputElement).value).toBe("4321");
     expect(screen.getByRole("button", { name: "水道光熱費" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(screen.getByRole("button", { name: "追加する" }));
+    fireEvent.click(screen.getByRole("button", { name: "固定費に追加" }));
     await waitFor(() => expect(mocks.saved).toHaveLength(1));
     expect(mocks.saved[0][0]).toMatchObject({ title: "ガス代", category: "水道光熱費", amount: 4321, dueDay: 12 });
   });

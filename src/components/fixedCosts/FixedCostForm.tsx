@@ -160,7 +160,7 @@ export function FixedCostForm({ initial, draft, onSaved, onCancel }: Props) {
           キャンセル
         </Button>
         <Button type="submit" disabled={saving}>
-          {initial ? "変更を保存" : "追加する"}
+          {initial ? "変更を保存" : "固定費に追加"}
         </Button>
       </FormActions>
     </form>

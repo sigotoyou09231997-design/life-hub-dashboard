@@ -286,7 +286,7 @@ export function SubscriptionForm({ initial, template, onSaved, onCancel, onBack 
           キャンセル
         </Button>
         <Button type="submit" disabled={saving}>
-          {initial ? "変更を保存" : "追加する"}
+          {initial ? "変更を保存" : "サブスクに追加"}
         </Button>
       </FormActions>
     </form>

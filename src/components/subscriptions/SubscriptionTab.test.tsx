@@ -131,7 +131,7 @@ describe("お金管理のサブスクタブ", () => {
 
     expect((screen.getByLabelText("名前") as HTMLInputElement).value).toBe("Netflix");
     expect((screen.getByLabelText(/毎月の金額/) as HTMLInputElement).value).toBe("1590");
-    fireEvent.click(screen.getByRole("button", { name: "追加する" }));
+    fireEvent.click(screen.getByRole("button", { name: "サブスクに追加" }));
 
     await waitFor(() => expect(mocks.saved).toHaveLength(1));
     const [record, detail] = mocks.saved[0] as [FixedCost, Partial<SubscriptionDetail>];

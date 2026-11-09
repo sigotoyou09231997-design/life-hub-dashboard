@@ -74,7 +74,7 @@ export function BonusForm({ initial, onSaved, onCancel }: Props) {
           キャンセル
         </Button>
         <Button type="submit" disabled={saving}>
-          {initial ? "変更を保存" : "登録する"}
+          {initial ? "変更を保存" : "賞与を登録"}
         </Button>
       </FormActions>
     </form>

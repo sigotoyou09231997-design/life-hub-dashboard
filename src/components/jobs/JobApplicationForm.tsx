@@ -205,7 +205,7 @@ export function JobApplicationForm({ initial, onSaved, onCancel }: Props) {
           やめる
         </Button>
         <Button type="submit" className="flex-1" disabled={!companyName.trim() || saving}>
-          保存する
+          {companyName.trim() ? "応募を保存" : "社名を入れてください"}
         </Button>
       </FormActions>
     </form>
