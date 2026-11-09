@@ -283,3 +283,25 @@
   font-weight: 700;
 }
 .task-meta > .task-meta__due.is-overdue::before { display: none; }
+
+/* ---------------------------------------------------------------------------
+   大きな金額だけ、丸みのある数字に（第4弾。参考 @marcelkargul「モバイルデザインのヒント: SF Pro Rounded を使って」）
+   iPhone・Mac の Safari では端末の丸い数字(ui-rounded = SF Pro Rounded)、無い所は今までどおり Manrope。
+   読み込む文字は増えない（端末の文字なので）。小さな数字・一覧の金額はそのまま（丸いのは主役の数字だけ）。
+   「¥」は数字より小さく薄く（参考のセント部分と同じ考え方。主役は数字）。
+   ------------------------------------------------------------------------ */
+:root .warm-amount,
+:root .lh-savings__amount,
+:root .subs-total__amount,
+:root .finance-control-center > .finance-balance-module .num {
+  font-family: ui-rounded, "SF Pro Rounded", var(--font-num);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.lh-home > .lh-money .warm-amount small {
+  margin-right: 0.08em;
+  font-size: 0.5em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+  vertical-align: 0.55em;
+}
