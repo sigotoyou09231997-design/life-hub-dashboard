@@ -26,7 +26,11 @@ import type { CSSProperties } from "react";
  * （--tone-*）は予定のカテゴリなど「データの色」として残っているので、そちらは変えない。
  * 元の機能別の値は git の履歴（この行の1つ前）にある。
  */
-const TEAL_ACCENT = { "--color-accent": "#17a199", "--color-accent-light": "rgba(235, 248, 246, .9)" } as CSSProperties;
+/**
+ * 2026-11-09: 深い青緑 #1b5e57 へ(src/styles/theme-ref.css の --ref-700 と同じ値。変えるときは両方を直すこと)。
+ * ここがインラインで #17a199 のままだったので、各画面の中の主役のボタン(bg-accent)だけが前の明るい青緑で残っていた。
+ */
+const TEAL_ACCENT = { "--color-accent": "#1b5e57", "--color-accent-light": "rgba(238, 246, 244, .9)" } as CSSProperties;
 
 export const AREA_ACCENT_STYLE: Record<"money" | "schedule" | "notes" | "trips" | "gmail", CSSProperties> = {
   money: TEAL_ACCENT,
