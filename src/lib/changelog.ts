@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-140",
+    date: "2026-11-09",
+    area: "全体",
+    title: "読み込み中は、画面の形を先に出すようにしました",
+    description:
+      "ページを切り替えた時やアプリを開いた時の読み込み中は、小さな「読み込み中…」か真っ白な画面でした。これから出る画面の形(見出し・タブ・カード)を薄い灰色で先に出して、読み込んでいることが分かるようにしています。すぐ読み終わる時は、ちらつかないよう何も出しません。",
+  },
+  {
     id: "2026-11-09-139",
     date: "2026-11-09",
     area: "デザイン",
