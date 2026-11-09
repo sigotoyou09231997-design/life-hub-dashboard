@@ -483,7 +483,7 @@ textarea.field-shell {
 }
 
 .time-quick__chip:focus-visible {
-  outline: 3px solid var(--teal-500, #17a199);
+  outline: 3px solid var(--teal-500, #1b5e57);
   outline-offset: 2px;
 }
 
@@ -502,7 +502,7 @@ textarea.field-shell {
   max-width: 100%;
   min-height: 2.25rem;
   padding: 0.35rem 0.9rem;
-  border: 1px solid rgba(23, 161, 153, 0.3);
+  border: 1px solid rgba(27, 94, 87, 0.3);
   border-radius: var(--r-pill);
   background: var(--teal-50, #ebf8f6);
   color: var(--teal-700, #0f736e);
@@ -522,7 +522,7 @@ textarea.field-shell {
 
 
 .title-when__chip:focus-visible {
-  outline: 3px solid var(--teal-500, #17a199);
+  outline: 3px solid var(--teal-500, #1b5e57);
   outline-offset: 2px;
 }
 

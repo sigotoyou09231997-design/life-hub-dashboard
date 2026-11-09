@@ -18,8 +18,8 @@
   gap: 0.7rem;
   padding: 1.1rem 1.2rem 1.15rem;
   background:
-    radial-gradient(420px circle at 92% 0%, rgba(23, 161, 153, 0.38), transparent 60%),
-    radial-gradient(300px circle at -10% 120%, rgba(23, 161, 153, 0.2), transparent 55%),
+    radial-gradient(420px circle at 92% 0%, rgba(27, 94, 87, 0.38), transparent 60%),
+    radial-gradient(300px circle at -10% 120%, rgba(27, 94, 87, 0.2), transparent 55%),
     linear-gradient(160deg, #1d2226 0%, var(--ink-black) 62%);
   color: #f4f7f7;
 }

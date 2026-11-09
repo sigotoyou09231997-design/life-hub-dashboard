@@ -869,7 +869,7 @@
 }
 
 .week-view__strip-add:hover {
-  background: rgba(23, 161, 153, 0.06);
+  background: rgba(27, 94, 87, 0.06);
 }
 
 .week-view__bar {
@@ -962,7 +962,7 @@ button.week-view__bar:hover {
 }
 
 .week-view__day.is-today {
-  background-color: rgba(23, 161, 153, 0.04);
+  background-color: rgba(27, 94, 87, 0.04);
 }
 
 /* 空いている30分。押せる所だと分かるよう、指を乗せた時だけ「＋ 14:30」を出す。 */
@@ -984,7 +984,7 @@ button.week-view__bar:hover {
 
 .week-view__slot:hover,
 .week-view__slot:focus-visible {
-  background: rgba(23, 161, 153, 0.08);
+  background: rgba(27, 94, 87, 0.08);
   color: var(--teal-700);
 }
 

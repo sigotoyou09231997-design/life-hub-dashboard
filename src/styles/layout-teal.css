@@ -258,7 +258,7 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
   border-radius: 50%;
   background: var(--teal-500);
   color: #fff;
-  box-shadow: 0 6px 14px rgba(23, 161, 153, 0.3);
+  box-shadow: 0 6px 14px rgba(27, 94, 87, 0.3);
 }
 .lh-home .warm-brief__item.is-alert .warm-brief__label svg {
   background: #dc6355;
@@ -453,9 +453,9 @@ a.lh-row:hover .lh-row__chev { transform: translateX(3px); }
 /* 貯金目標 — 参考の「節約実績」。青緑の薄い面に、大きな青緑の金額 */
 .spatial-page .lh-savings,
 .lh-savings {
-  border: 1px solid rgba(23, 161, 153, 0.18) !important;
+  border: 1px solid rgba(27, 94, 87, 0.18) !important;
   background:
-    radial-gradient(420px circle at 100% 0%, rgba(60, 186, 178, 0.16), transparent 60%),
+    radial-gradient(420px circle at 100% 0%, rgba(124, 194, 184, 0.16), transparent 60%),
     linear-gradient(160deg, #ffffff, var(--teal-50)) !important;
 }
 .lh-savings__kicker {
@@ -1197,7 +1197,7 @@ button.lh-setup__row, a.lh-setup__row { cursor: pointer; }
 .lh-money > .lh-money__leaf { position: absolute; z-index: 0; }
 /* 2-3 7日の帯のタイルに表情。今日は薄い面＋細い青緑の線。PC ではホバーで少し持ち上がる。 */
 .lh-week__day { border: 1px solid transparent; transition: transform 300ms var(--spring), background-color 200ms ease, border-color 200ms ease; }
-.lh-week__day.is-today { border-color: rgba(23, 161, 153, 0.3); }
+.lh-week__day.is-today { border-color: rgba(27, 94, 87, 0.3); }
 @media (hover: hover) and (pointer: fine) {
   .lh-week__day:hover { transform: translateY(-2px); background: var(--warm-surface-soft); }
   .lh-week__day.is-today:hover { background: var(--teal-50); }
