@@ -846,8 +846,8 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 .lh-empty__desc { color: var(--warm-ink-2); font-size: 0.8125rem; }
 
 /* X-6 サブスクの二段目のタブ: 見出しの行の右の小さな切り替え(上のタブと見分けがつくように)。 */
-.subs-views-row { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
-.subs-views-row__label { color: var(--warm-ink); font-size: var(--fs-section); font-weight: 600; }
+.subs-views-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.subs-views-row__label { white-space: nowrap; color: var(--warm-ink); font-size: var(--fs-section); font-weight: 600; }
 .subs-views-row .subs-views { margin: 0; }
 .subs-views-row .subs-views [role="tab"] { min-height: 2rem; padding: 0 0.7rem; font-size: 0.8125rem; }
 
