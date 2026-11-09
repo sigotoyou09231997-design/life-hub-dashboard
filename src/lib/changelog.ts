@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-133",
+    date: "2026-11-09",
+    area: "全体",
+    title: "入力欄に入力例を足しました",
+    description:
+      "給料日・サブスクの請求日・固定費の支払日のように「毎月何日か」を入れる欄と、メールアドレスの欄に、薄い字の入力例(「例: 25」など)を出すようにしました。何をどう入れればいいか、入れる前に分かります。",
+  },
+  {
     id: "2026-11-09-132",
     date: "2026-11-09",
     area: "お金管理",

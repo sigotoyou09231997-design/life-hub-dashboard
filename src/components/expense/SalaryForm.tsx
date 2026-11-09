@@ -65,6 +65,7 @@ export function SalaryForm({ initial, onSaved, onCancel }: Props) {
           inputMode="numeric"
           value={payday}
           onChange={(e) => setPayday(e.target.value)}
+          placeholder="例: 25"
           min={1}
           max={31}
         />
