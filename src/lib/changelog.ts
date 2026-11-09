@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-129",
+    date: "2026-11-09",
+    area: "デザイン",
+    title: "文字の大きさと太さの種類を減らしました",
+    description:
+      "画面ごとに少しずつ違っていた文字の大きさを、ページの見出し・区切りの見出し・本文・補足の4段にまとめました。ページの見出しと区切りの見出しは少し大きく、補足の小さな文字は少しだけ大きくして読みやすくしています。太さも3種類にそろえました。",
+  },
+  {
     id: "2026-11-09-128",
     date: "2026-11-09",
     area: "デザイン",
