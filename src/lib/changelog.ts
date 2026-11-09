@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-139",
+    date: "2026-11-09",
+    area: "デザイン",
+    title: "黒のまま残っていた所をそろえました",
+    description:
+      "メモの絞り込みの札、旅行のルートの日にち、固定費のカードの線など、選んでいる所や目印が黒のまま残っていたのを、ほかと同じ深い青緑にしました。固定費の「給与からの引き方」の棒は、濃い・中くらい・薄いの3段の色にして見分けやすくしています。チェックボックスもブラウザの青から深い青緑になります。",
+  },
+  {
     id: "2026-11-09-138",
     date: "2026-11-09",
     area: "予定・タスク",
