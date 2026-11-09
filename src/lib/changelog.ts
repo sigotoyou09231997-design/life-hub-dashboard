@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-127",
+    date: "2026-11-09",
+    area: "デザイン",
+    title: "何もない時の表示と、各画面のボタンの色をそろえました",
+    description:
+      "まだ何も登録していない時の表示を、やわらかい丸の上のアイコン、太い題名、灰色の説明、ボタン1つの順にそろえました。あわせて、予定・お金管理・メモ・旅行・Gmail の画面の中で、主役のボタンだけ前の明るい青緑のまま残っていたのを、ほかと同じ深い青緑に直しています。",
+  },
+  {
     id: "2026-11-09-126",
     date: "2026-11-09",
     area: "デザイン",
