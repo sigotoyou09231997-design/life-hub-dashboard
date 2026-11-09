@@ -305,3 +305,25 @@
   color: rgba(255, 255, 255, 0.72);
   vertical-align: 0.55em;
 }
+
+/* ---------------------------------------------------------------------------
+   PC の左のメニューと上の「＋追加」（第6弾。参考 @marcelkargul「サイドバーをクリーンに保つ」）
+   - 選んでいる所は、左の縦線をやめて、薄い面＋太い文字だけ（線と面の2つで知らせていた）。
+   - 項目の間は詰め、グループの間（区切り線）を広く。近い物は近くに置く。
+   - ロゴの台と「＋追加」は黒 → 深い青緑（ホーム・下のナビ・右下の「＋」と同じ主役の色）。
+   ------------------------------------------------------------------------ */
+@media (min-width: 1024px) {
+  .sidebar-nav__group { gap: 0.125rem; }
+  .sidebar-nav__divider { margin: 1.1rem 0.6rem; background: rgba(15, 59, 54, 0.08); }
+}
+.sidebar-brand__mark { background: var(--ref-700); color: #fff; }
+.sidebar-link { color: var(--warm-ink-2); font-weight: 500; }
+.sidebar-link--active {
+  background: var(--ref-50);
+  color: var(--ref-800);
+  font-weight: 700;
+}
+.sidebar-link--active svg { color: var(--ref-700); }
+.sidebar-link--active .sidebar-link__indicator { display: none; }
+.app-header__add { background: var(--ref-700); }
+.app-header__add:hover { background: var(--ref-800); }
