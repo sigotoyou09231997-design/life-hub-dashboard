@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-142",
+    date: "2026-11-09",
+    area: "ホーム",
+    title: "今日使った金額をグラフの上に出しました",
+    description:
+      "ホームの「直近7日の支出」の棒グラフで、白く目立たせている今日の分の金額を、右上に「今日 ¥1,280」のように小さく出すようにしました。まだ使っていない日は出ません。",
+  },
+  {
     id: "2026-11-09-141",
     date: "2026-11-09",
     area: "デザイン",
