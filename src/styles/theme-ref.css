@@ -454,3 +454,16 @@
   font-weight: 700;
   letter-spacing: -0.01em;
 }
+
+/* ---------------------------------------------------------------------------
+   ページの見出しとホームの日付を明朝に（第15弾。参考 @IHayato のアプリの作り直し — 見出しだけ明朝、本文はゴシック。
+   本人の好み「日本の暮らし系の雑誌・ブランドサイトの上品さ・温かみ」(2026-09-13)にも沿う）。
+   本文・数字・ボタンはそのまま。明朝は端末の字(ヒラギノ明朝・游明朝)なので、読み込む文字は増えない。
+   ------------------------------------------------------------------------ */
+:root { --font-mincho: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", YuMincho, "Noto Serif JP", serif; }
+.app-shell .spatial-page-header__title,
+.lh-home .lh-today__date {
+  font-family: var(--font-mincho);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
