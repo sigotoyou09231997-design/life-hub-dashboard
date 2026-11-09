@@ -129,7 +129,7 @@ async function recordQuickExpense(plan: QuickExpensePlan): Promise<void> {
       action: { label: "元に戻す", onClick: () => Promise.all([db.transactions.delete(id), deleteProjectTagFor(id)]) },
     });
   } catch {
-    showToast("記録できませんでした", "error");
+    showToast("記録できませんでした。もう一度お試しください", "error");
   }
 }
 

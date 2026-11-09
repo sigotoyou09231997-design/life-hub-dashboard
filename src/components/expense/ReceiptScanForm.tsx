@@ -61,7 +61,7 @@ export function ReceiptScanForm({ onExtracted, onCancel }: Props) {
       onExtracted(receipt);
     } catch (error) {
       setStatus("error");
-      setErrorMessage(error instanceof Error ? error.message : "レシートの読み取りに失敗しました");
+      setErrorMessage(error instanceof Error ? error.message : "レシートを読み取れませんでした。写真を撮り直してお試しください");
     }
   }
 

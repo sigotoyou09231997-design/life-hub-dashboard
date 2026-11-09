@@ -21,7 +21,7 @@ function describeGenerateError(err: unknown): string {
     if (err.status === 502 || err.status === 503 || err.status === 504) return "生成に時間がかかりすぎて失敗しました。もう一度お試しください";
     if (err.status === 401 || err.status === 403) return "AI機能の認証エラーです。解決しない場合は管理者に連絡してください";
   }
-  return "AI下書きの作成に失敗しました";
+  return "AI下書きを作れませんでした。もう一度お試しください";
 }
 
 interface Props {
