@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Field } from "./Field";
 
@@ -44,15 +45,22 @@ export function SegmentedField<T extends string>({
       >
         {options.map((option) => {
           const Icon = option.icon;
+          const selected = option.value === value;
           return (
             <button
               key={option.value}
               type="button"
               className={`segmented__option${stacked ? " segmented__option--stacked" : ""}`}
-              aria-pressed={option.value === value}
+              aria-pressed={selected}
               onClick={() => onChange(option.value)}
             >
-              {Icon && <Icon size={15} strokeWidth={2.1} />}
+              {/* 選んでいる方には ✓ も付ける(色だけで見分けさせない。2026-11-09、参考 @kawai_design「UIの改善ビフォーアフター20選」18
+                  「選択状態を色だけに頼らない」)。アイコン付きの選択肢は、選んでいる間だけアイコンを ✓ に替える。 */}
+              {selected ? (
+                <Check className="segmented__check" size={15} strokeWidth={2.6} aria-hidden="true" />
+              ) : (
+                Icon && <Icon size={15} strokeWidth={2.1} />
+              )}
               {option.label}
             </button>
           );

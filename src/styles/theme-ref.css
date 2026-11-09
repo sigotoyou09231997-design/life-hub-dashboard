@@ -400,3 +400,16 @@
 @media (prefers-reduced-motion: reduce) {
   .toast-repeat { animation: none; }
 }
+
+/* ---------------------------------------------------------------------------
+   選ぶボタン（支出/収入・カテゴリなど）— 選んでいる方は ✓ ＋ 深い青緑（第11弾。参考 @kawai_design
+   「UIの改善ビフォーアフター20選」18「選択状態を色だけに頼らない」。✓ は SegmentedField.tsx）。
+   黒い塗りだったのを、ほかの「選んでいる所」(タブ・下のナビ)と同じ深い青緑に。
+   ------------------------------------------------------------------------ */
+.segmented__option[aria-pressed="true"],
+.segmented--separate .segmented__option[aria-pressed="true"] {
+  border-color: var(--ref-700) !important;
+  background: var(--ref-700) !important;
+  color: #fff !important;
+}
+.segmented__check { flex-shrink: 0; }
