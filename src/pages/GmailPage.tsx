@@ -275,7 +275,7 @@ export default function GmailPage() {
             <ChevronLeft size={22} />
           </button>
           <GmailLogo size={22} />
-          <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">Gmail</h1>
+          <h1 className="mail-page-title truncate text-xl font-semibold tracking-[-0.02em] text-slate-900 lg:text-[1.65rem]">Gmail</h1>
           {selectedAccount && (
             selectedAccount.reauthRequiredAt ? (
               <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-danger">
