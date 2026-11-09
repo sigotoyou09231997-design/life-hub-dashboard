@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-135",
+    date: "2026-11-09",
+    area: "全体",
+    title: "赤い文字を読みやすくしました",
+    description:
+      "「削除」などの赤い文字が、白い背景の上では薄くて読みにくくなっていました。文字の赤だけを少し濃くしています。赤いボタンやエラーのお知らせの色は変わりません。",
+  },
+  {
     id: "2026-11-09-134",
     date: "2026-11-09",
     area: "デザイン",
