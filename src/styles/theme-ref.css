@@ -375,3 +375,28 @@
 .spatial-page-header__title,
 .app-shell .spatial-page-header__title { font-size: var(--fs-page); font-weight: 700; letter-spacing: -0.02em; }
 .lh-empty__title { font-size: 1rem; }
+
+/* ---------------------------------------------------------------------------
+   同じお知らせが続けて出た時の「×N」（第10弾。参考 @kamranbekirovyz・@keviduk。toastStore.ts）
+   出し直さずに数を添え、その札だけ小さく揺らす。動きを減らす設定では揺らさない。
+   ------------------------------------------------------------------------ */
+.toast-repeat {
+  flex-shrink: 0;
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.18);
+  font-size: var(--fs-caption);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  animation: toast-repeat-nudge 360ms ease-out;
+}
+@keyframes toast-repeat-nudge {
+  0% { transform: translateX(0) scale(1.25); }
+  25% { transform: translateX(-3px) scale(1.15); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-1px); }
+  100% { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast-repeat { animation: none; }
+}

@@ -144,4 +144,28 @@ describe("お知らせ(toastStore)", () => {
     expect(inner).toHaveBeenCalledWith("replaced");
     expect(getToastSnapshot()?.message).toBe("保存しました");
   });
+
+  it("同じお知らせが出ている間にもう一度出たら、出し直さずに数を数え、時間を数え直す(参考 @kamranbekirovyz・@keviduk)", () => {
+    const first = showToast("保存しました");
+    vi.advanceTimersByTime(TOAST_DURATION_MS - 500);
+    const second = showToast("保存しました");
+    expect(second).toBe(first);
+    expect(getToastSnapshot()).toMatchObject({ message: "保存しました", count: 2 });
+    // 数え直したので、最初の時間切れの時刻を過ぎても残っている
+    vi.advanceTimersByTime(1000);
+    expect(getToastSnapshot()?.count).toBe(2);
+    vi.advanceTimersByTime(TOAST_DURATION_MS);
+    expect(getToastSnapshot()).toBeNull();
+  });
+
+  it("文・色が違う時と、ボタン付きの時は、今までどおり置き換える", () => {
+    showToast("保存しました");
+    showToast("保存しました", "error");
+    expect(getToastSnapshot()).toMatchObject({ tone: "error", count: 1 });
+    const onClose = vi.fn();
+    showToast("削除しました", { action: { label: "元に戻す", onClick: () => undefined }, onClose });
+    showToast("削除しました", { action: { label: "元に戻す", onClick: () => undefined } });
+    expect(onClose).toHaveBeenCalledWith("replaced");
+    expect(getToastSnapshot()?.count).toBe(1);
+  });
 });
