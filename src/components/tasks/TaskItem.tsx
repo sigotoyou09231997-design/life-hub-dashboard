@@ -188,7 +188,7 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
               className="flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-xs font-medium text-slate-500 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
             >
               <CalendarArrowDown size={14} />
-              明日へ
+              <span className="hidden sm:inline">明日へ</span>
             </button>
           )}
           {!indent && (

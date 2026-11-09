@@ -48,11 +48,16 @@
   gap: 0.75rem;
 }
 .fx-salary__head small {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--warm-ink-2);
   font-size: var(--fs-caption);
 }
 .fx-salary__title {
   margin: 0;
+  white-space: nowrap;
   color: var(--ink-black);
   font-size: var(--fs-section);
   font-weight: 600;

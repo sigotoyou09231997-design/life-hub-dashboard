@@ -76,11 +76,11 @@ export function TripLeadCard({ trip, onDelete }: Props) {
             {trip.destination}
           </span>
         )}
-        <span>
+        <span className="trip-lead__dates">
           <CalendarRange size={14} />
           {formatDisplayDate(trip.startDate)} 〜 {formatDisplayDate(trip.endDate)}
         </span>
-        <span>{tripDurationLabel(trip.startDate, trip.endDate)}</span>
+        <span className="trip-lead__nights">{tripDurationLabel(trip.startDate, trip.endDate)}</span>
       </p>
 
       <div className="trip-lead__stats">

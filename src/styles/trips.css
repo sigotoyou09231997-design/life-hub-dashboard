@@ -506,6 +506,11 @@
    では列を増やさず、2列のまま1枚を大きく見せる。 */
 
 @media (max-width: 400px) {
+  /* 行き先と「3泊4日」を1行目、日付を2行目に。以前は日付が長くて「3泊4日」だけが
+     3行目にぽつんと落ちていた(2026-11-10)。 */
+  .trip-lead__meta > span { white-space: nowrap; }
+  .trip-lead__meta > .trip-lead__dates { order: 3; flex-basis: 100%; }
+  .trip-lead__meta > .trip-lead__nights { order: 2; }
   .trip-lead { min-height: 17.5rem; padding: 1.1rem; }
   .trip-lead__name { font-size: 1.8rem; }
   .trip-lead__stats { gap: 0.4rem; }

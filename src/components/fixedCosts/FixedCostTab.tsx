@@ -98,7 +98,7 @@ function SalaryBreakdown() {
     <section className="fx-salary" data-page-block aria-label="給与からの引き方">
       <div className="fx-salary__head">
         <p className="fx-salary__title">給与からの引き方</p>
-        <small>{formatShortDate(toDateStr(data.period.periodStart))}からの給料の期間</small>
+        <small>{formatShortDate(toDateStr(data.period.periodStart))}からの期間</small>
       </div>
       <div className="fx-salary__bar" aria-hidden="true">
         <span className="is-fixed" style={{ width: pct(split.shares.fixed) }} />
