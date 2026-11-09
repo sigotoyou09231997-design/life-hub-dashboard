@@ -44,6 +44,7 @@
 .ai-news-card--tone-b { --ai-tone: #e8eef6; --ai-tone-ink: #35527a; }
 .ai-news-card--tone-c { --ai-tone: #eceae4; --ai-tone-ink: #4a4636; }
 .ai-news-card--tone-d { --ai-tone: #f1ece4; --ai-tone-ink: #7a5a2a; }
+.ai-news-card--tone-f { --ai-tone: #f4e6dc; --ai-tone-ink: #a8552f; }
 .ai-news-card--tone-e { --ai-tone: #e7efe4; --ai-tone-ink: #3b6a2e; }
 
 .ai-news-card__body { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: 0.4rem; padding: 0.8rem 2.2rem 0.95rem 0.95rem; }

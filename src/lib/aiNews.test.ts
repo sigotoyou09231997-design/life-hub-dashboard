@@ -24,6 +24,24 @@ describe("AIニュース", () => {
     expect(picks.map((i) => i.title)).toEqual(["新しい英語", "日本語", "公式"]);
   });
 
+  it("Anthropic の最近の発表は、ホームの3枚に必ず入る。古ければ入れない", () => {
+    const now = Date.parse("2026-11-10T12:00:00Z");
+    const e1 = item({ title: "英語1", publishedAt: "2026-11-10T10:00:00Z" });
+    const e2 = item({ title: "英語2", publishedAt: "2026-11-10T09:00:00Z" });
+    const ja = item({ title: "日本語", lang: "ja", publishedAt: "2026-11-10T08:00:00Z" });
+    const an = item({ title: "Anthropic の発表", sourceId: "anthropic", official: true, publishedAt: "2026-11-09T00:00:00Z" });
+    expect(pickHomeNews([e1, e2, ja, an], 3, now).map((i) => i.title)).toEqual(["英語1", "日本語", "Anthropic の発表"].sort((a, b) => [e1, e2, ja, an].findIndex((i) => i.title === a) - [e1, e2, ja, an].findIndex((i) => i.title === b)));
+    const old = item({ title: "古い発表", sourceId: "anthropic", official: true, publishedAt: "2026-10-01T00:00:00Z" });
+    expect(pickHomeNews([e1, e2, ja, old], 3, now).map((i) => i.title)).toEqual(["英語1", "英語2", "日本語"]);
+  });
+
+  it("Anthropic で絞り込める(本編もエンジニアリングも)", () => {
+    const a = item({ sourceId: "anthropic" });
+    const b = item({ sourceId: "anthropic-eng" });
+    const c = item({});
+    expect(filterNews([a, b, c], "anthropic")).toEqual([a, b]);
+  });
+
   it("ホームの3枚: 記事が少なくても出せる", () => {
     expect(pickHomeNews([])).toEqual([]);
     const only = item({});

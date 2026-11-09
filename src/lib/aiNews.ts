@@ -1,9 +1,9 @@
 /**
  * AIの最新情報(2026-11-10、本人「AIに関する最新情報ページを作成して。TOPにも表示。カードで出したい」)。
  *
- * 公式ブログ・ニュースサイトの RSS を、api/soccer.ts の kind=news が代わりに取って1つの一覧にして返す
+ * 公式ブログ・ニュースサイトの RSS(Anthropic は有志の変換経由) を、api/soccer.ts の kind=news が代わりに取って1つの一覧にして返す
  * (ブラウザから直接は CORS で読めない。api/ の関数の数が上限なので、新しい関数は足さず相乗りしている)。
- * 出どころの一覧は api/soccer.ts の NEWS_FEEDS。Anthropic は RSS を出していないので入っていない。
+ * 出どころの一覧は api/soccer.ts の NEWS_FEEDS。
  * 取れなかった時は、前に取れた一覧(端末に30分ぶん覚えている)を出す。
  */
 
@@ -19,10 +19,11 @@ export interface AiNewsItem {
   image?: string;
 }
 
-export type AiNewsFilter = "all" | "ja" | "official";
+export type AiNewsFilter = "all" | "anthropic" | "ja" | "official";
 
 export const AI_NEWS_FILTERS: readonly { key: AiNewsFilter; label: string }[] = [
   { key: "all", label: "すべて" },
+  { key: "anthropic", label: "Anthropic" },
   { key: "ja", label: "日本語" },
   { key: "official", label: "公式の発表" },
 ];
@@ -66,7 +67,12 @@ export async function fetchAiNews(): Promise<AiNewsItem[]> {
   return items;
 }
 
+export function isAnthropic(item: Pick<AiNewsItem, "sourceId">): boolean {
+  return item.sourceId.startsWith("anthropic");
+}
+
 export function filterNews(items: readonly AiNewsItem[], filter: AiNewsFilter): AiNewsItem[] {
+  if (filter === "anthropic") return items.filter(isAnthropic);
   if (filter === "ja") return items.filter((i) => i.lang === "ja");
   if (filter === "official") return items.filter((i) => i.official);
   return [...items];
@@ -89,14 +95,17 @@ export function timeAgoJa(iso: string | undefined, now = Date.now()): string {
 }
 
 /** ホームの3枚。新しい順の先頭だけだと、投稿の多い1つのサイトで埋まるので、
- * 「いちばん新しい日本語の記事」「いちばん新しい公式の発表」「そのほかでいちばん新しい記事」の順に選び、新しい順に並べ直す。 */
-export function pickHomeNews(items: readonly AiNewsItem[], count = 3): AiNewsItem[] {
+ * 「Anthropic の最近(2週間以内)の発表」「いちばん新しい日本語の記事」「いちばん新しい公式の発表」の順に選び、
+ * 足りなければ新しい順で埋めて、最後に新しい順へ並べ直す。Claude を使っているので Anthropic を先に拾う(2026-11-10、本人の希望)。 */
+export function pickHomeNews(items: readonly AiNewsItem[], count = 3, now = Date.now()): AiNewsItem[] {
   const chosen: AiNewsItem[] = [];
   const take = (item: AiNewsItem | undefined) => {
     if (item && !chosen.includes(item)) chosen.push(item);
   };
+  const recentMs = 14 * 24 * 3600 * 1000;
+  take(items.find((i) => isAnthropic(i) && now - (Date.parse(i.publishedAt ?? "") || 0) < recentMs));
   take(items.find((i) => i.lang === "ja"));
-  take(items.find((i) => i.official));
+  take(items.find((i) => i.official && !isAnthropic(i)));
   for (const item of items) {
     if (chosen.length >= count) break;
     take(item);

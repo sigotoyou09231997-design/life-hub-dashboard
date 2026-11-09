@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-147",
+    date: "2026-11-10",
+    area: "AI",
+    title: "AIの最新情報に、Anthropic(Claude)の発表を入れました",
+    description:
+      "Anthropic の公式ニュースとエンジニアリングの記事を、AIの最新情報のページに加え、絞り込みに「Anthropic」を足しました。ホームの3枚にも、2週間以内の Anthropic の発表があれば必ず1枚入ります。Anthropic は記事の配信を出していないため、公式サイトの一覧を配信の形にして公開している有志のデータ経由で取っています。",
+  },
+  {
     id: "2026-11-10-146",
     date: "2026-11-10",
     area: "AI",
