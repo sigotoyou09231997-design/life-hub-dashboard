@@ -327,3 +327,29 @@
 .sidebar-link--active .sidebar-link__indicator { display: none; }
 .app-header__add { background: var(--ref-700); }
 .app-header__add:hover { background: var(--ref-800); }
+
+/* ---------------------------------------------------------------------------
+   何もない時の表示（第7弾。参考 @Abmankendrick「Which One Looks Better? — Empty State」の A）
+   線画・アイコンを、薄い青緑のやわらかい丸の上に置く → 太い題名 → 灰色の説明 → 主役のボタン1つ。
+   丸の大きさは決まった寸法（引き伸ばさない。2026-09-07 の「空状態は引き伸ばさない」を守る）。
+   ------------------------------------------------------------------------ */
+.lh-empty.has-illustration > svg:first-child {
+  box-sizing: content-box;
+  padding: 1.1rem;
+  border-radius: 50%;
+  background: var(--ref-50);
+}
+.lh-empty.empty-state.spatial-empty > .empty-state-icon,
+.lh-empty .empty-state-icon {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: var(--ref-50);
+  color: var(--ref-700);
+  box-shadow: none;
+}
+.lh-empty.empty-state.spatial-empty > .empty-state-icon svg,
+.lh-empty .empty-state-icon svg { width: 26px; height: 26px; }
+.lh-empty__title { font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
+.lh-empty__desc { max-width: 22em; margin-inline: auto; color: var(--warm-ink-3); line-height: 1.6; }
+.lh-empty__action { margin-top: 0.4rem; }
