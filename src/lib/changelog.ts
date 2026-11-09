@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-145",
+    date: "2026-11-10",
+    area: "全体",
+    title: "うまくいかなかった時の表示に、次にすることを書きました",
+    description:
+      "「記録できませんでした」「コピーに失敗しました」「AI下書きの作成に失敗しました」「CSVの読み込みに失敗しました」「レシートの読み取りに失敗しました」「提案を取得できませんでした」の6つに、「もう一度お試しください」「ファイル形式を確認してください」「写真を撮り直してください」など、次にすることを足しました。",
+  },
+  {
     id: "2026-11-10-144",
     date: "2026-11-10",
     area: "全体",

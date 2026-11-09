@@ -47,7 +47,7 @@ export function PayPayImport() {
       showToast(result.added.length > 0 ? `${result.added.length}件を取り込みました` : "新しく入れる取引はありませんでした");
     } catch {
       setError("CSVの読み込みに失敗しました。ファイル形式を確認してください。");
-      showToast("CSVの読み込みに失敗しました", "error");
+      showToast("CSVを読み込めませんでした。ファイル形式を確認してください", "error");
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";

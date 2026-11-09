@@ -50,7 +50,7 @@ export function PlaceSuggestPanel({ tripName, destination, schedule, routePlaces
       setChoices(defaultChoices(next.suggestions));
       setState("done");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "提案を取得できませんでした");
+      setError(err instanceof Error ? err.message : "提案を取得できませんでした。もう一度お試しください");
       setState("error");
     }
   }
