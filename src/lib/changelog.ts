@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-132",
+    date: "2026-11-09",
+    area: "お金管理",
+    title: "「今期のまとめ」をタイルにしました",
+    description:
+      "お金管理のサマリーの「今期のまとめ」(給与・固定費・サブスク・収入・支出)を、5行の一覧から2列のタイルに変えました。小さな見出しの下に金額を大きめに置いたので、ひと目で比べやすくなります。数字の中身は変わりません。",
+  },
+  {
     id: "2026-11-09-131",
     date: "2026-11-09",
     area: "全体",

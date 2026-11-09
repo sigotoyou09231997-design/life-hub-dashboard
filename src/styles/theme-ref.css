@@ -413,3 +413,44 @@
   color: #fff !important;
 }
 .segmented__check { flex-shrink: 0; }
+
+/* ---------------------------------------------------------------------------
+   お金管理「今期のまとめ」を2列のタイルに（第12弾。参考 @F1_Dashboard の明るい画面の作り直し —
+   数字は「小さな見出し＋大きな数字」のタイルにして、ひと目で比べられるように）。
+   前は5行の「名前……金額」の一覧で、金額が右端に寄って比べにくかった。中身(5つの数字)と計算は同じ。
+   数が奇数なら、最後の1枚は横いっぱい。
+   ------------------------------------------------------------------------ */
+.lh-finance .finance-summary-module.lh-group {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-content: start;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.lh-finance .finance-summary-module > .lh-row--plain {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.3rem;
+  min-height: 4.5rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: var(--r-nested, 10px);
+  background: #fff;
+  box-shadow: var(--shadow-rest);
+}
+.lh-finance .finance-summary-module > .lh-row--plain::before { display: none !important; }
+.lh-finance .finance-summary-module > .lh-row--plain:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.lh-finance .finance-summary-module .lh-row__label {
+  color: var(--warm-ink-3);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+}
+.lh-finance .finance-summary-module .lh-row__value {
+  color: var(--warm-ink);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
