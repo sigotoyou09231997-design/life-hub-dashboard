@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-125",
+    date: "2026-11-09",
+    area: "全体",
+    title: "確認画面のボタンを分かりやすく",
+    description:
+      "削除などの確認画面で、やめる側のボタンを「キャンセル」から「やめておく」にしました。「キャンセル」だと、削除を取り消すのか画面を閉じるだけなのか一瞬迷うためです。押すと何も起きないことが、ボタンの文字だけで分かります。",
+  },
+  {
     id: "2026-11-09-124",
     date: "2026-11-09",
     area: "デザイン",
