@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-131",
+    date: "2026-11-09",
+    area: "全体",
+    title: "選んでいる項目に ✓ を付けました",
+    description:
+      "「支出／収入」やカテゴリなど、入力画面で選ぶボタンは、選んでいるかどうかを色だけで見分けていました。選んでいる方に ✓ も付け、色もほかの「選んでいる所」と同じ深い青緑にそろえました。",
+  },
+  {
     id: "2026-11-09-130",
     date: "2026-11-09",
     area: "全体",
