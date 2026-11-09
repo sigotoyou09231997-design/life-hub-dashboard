@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-146",
+    date: "2026-11-10",
+    area: "AI",
+    title: "「AIの最新情報」のページを作り、ホームにもカードで出しました",
+    description:
+      "OpenAI・Google・DeepMindの公式の発表と、ITmedia AI+・Zenn・TechCrunchのAI記事を、新しい順にカードで並べたページを作りました。「すべて」「日本語」「公式の発表」で絞り込め、カードを押すと元の記事が開きます。ホームには、最新の日本語の記事・公式の発表・もう1本の計3枚を、スマホは横に流す形・PCは3枚並びで出します。取れなかった時は前に取れた記事を出します。Anthropic は記事の配信(RSS)を出していないため、ここには入っていません。",
+  },
+  {
     id: "2026-11-10-145",
     date: "2026-11-10",
     area: "全体",
