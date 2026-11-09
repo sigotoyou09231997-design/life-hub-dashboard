@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-124",
+    date: "2026-11-09",
+    area: "デザイン",
+    title: "大きな金額を、丸みのある数字に",
+    description:
+      "ホームの「あと使える」、お金管理の「使えるお金」、貯金目標、サブスクの合計など、主役の大きな金額を iPhone の丸みのある数字(SF Pro Rounded)で表示するようにしました。ホームの「¥」は数字より小さくして、金額そのものが目に入るようにしています。iPhone・Mac の Safari 以外では今までの数字のままです。",
+  },
+  {
     id: "2026-11-09-123",
     date: "2026-11-09",
     area: "予定・タスク",
