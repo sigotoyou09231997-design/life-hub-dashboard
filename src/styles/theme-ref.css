@@ -528,3 +528,29 @@
 .fx-kind[aria-pressed="true"] { border-color: var(--ref-700); background: var(--ref-700); }
 /* チェックボックス・ラジオ・スライダーの色(ブラウザ標準の青が出ていた所)も主役の色に。 */
 input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--ref-700); }
+
+/* ---------------------------------------------------------------------------
+   読み込み中の下書き（第21回。参考 @bzagrodzki「Your users deserve a loading state」。PageSkeleton.tsx）
+   ------------------------------------------------------------------------ */
+.page-skeleton { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; max-width: 72rem; margin: 0 auto; padding: 1rem; }
+.page-skeleton:not(.is-shown) { min-height: 8rem; }
+.page-skeleton.is-shown > *,
+.page-skeleton__tabs > span {
+  border-radius: var(--r-nested, 10px);
+  background: linear-gradient(90deg, #eef2f1 0%, #f6f8f8 50%, #eef2f1 100%);
+  background-size: 200% 100%;
+  animation: page-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.page-skeleton__title { width: 9rem; height: 1.75rem; }
+.page-skeleton__sub { width: 14rem; height: 0.9rem; margin-top: -0.35rem; }
+.page-skeleton.is-shown > .page-skeleton__tabs { display: flex; gap: 0.5rem; background: none; animation: none; }
+.page-skeleton__tabs > span { width: 4.5rem; height: 2.4rem; border-radius: var(--r-pill); }
+.page-skeleton__card { height: 7rem; border-radius: var(--r-card) !important; }
+.page-skeleton__card--tall { height: 12rem; }
+@keyframes page-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-skeleton.is-shown > *, .page-skeleton__tabs > span { animation: none; }
+}

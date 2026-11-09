@@ -20,6 +20,7 @@ import { InAppFeedbackButton } from "./components/feedback/FeedbackButton";
 import { AddChooserHost } from "./components/layout/AddChooser";
 import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AmbientBackground } from "./components/layout/AmbientBackground";
+import { PageSkeleton } from "./components/ui/PageSkeleton";
 import { AppHeader } from "./components/layout/AppHeader";
 import { DesktopSidebar } from "./components/layout/DesktopSidebar";
 import { QuickActionBar } from "./components/layout/QuickActionBar";
@@ -56,13 +57,7 @@ const SHARED_TRIP_PREFIX = "/share/trip/";
 function LazyRoute({ children }: { children: ReactNode }) {
   return (
     <Suspense
-      fallback={
-        <div className="flex min-h-32 items-center justify-center px-5" role="status" aria-live="polite">
-          <div className="glass-row rounded-full px-4 py-2 text-xs font-medium text-slate-500/80">
-            読み込み中…
-          </div>
-        </div>
-      }
+      fallback={<PageSkeleton />}
     >
       {children}
     </Suspense>
@@ -296,6 +291,8 @@ export default function App() {
       <>
         <AmbientBackground />
         <div className="min-h-screen">
+          {/* 待っている間は、白いままにせず画面の形の下書きを出す(0.6秒たってから。src/components/ui/PageSkeleton.tsx)。 */}
+          {!bootGaveUp && <PageSkeleton delayMs={600} />}
           {bootGaveUp && (
             <div className="boot-stall" role="alert">
               <p className="boot-stall__title">読み込みに時間がかかっています</p>
