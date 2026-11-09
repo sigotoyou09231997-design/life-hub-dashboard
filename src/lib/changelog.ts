@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-134",
+    date: "2026-11-09",
+    area: "デザイン",
+    title: "見出しを明朝体にしました",
+    description:
+      "ホームの日付と、各ページのいちばん上の見出し(「お金管理」など)を、明朝体にしました。本文・数字・ボタンは今までどおりのゴシックです。雑誌のような落ち着いた印象になります。",
+  },
+  {
     id: "2026-11-09-133",
     date: "2026-11-09",
     area: "全体",
