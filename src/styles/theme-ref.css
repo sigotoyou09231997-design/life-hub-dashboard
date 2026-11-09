@@ -353,3 +353,12 @@
 .lh-empty__title { font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
 .lh-empty__desc { max-width: 22em; margin-inline: auto; color: var(--warm-ink-3); line-height: 1.6; }
 .lh-empty__action { margin-top: 0.4rem; }
+
+/* ---------------------------------------------------------------------------
+   カードの中のカードは、角の丸みを小さく（第8弾。参考 @maybepratikk「内側の半径 = 外側の半径 − 余白」）
+   外のカードは 20px・中の余白は 12〜20px なので、計算どおりなら中は 0〜8px。0 だと角ばりすぎるので、
+   中の行・箱(.glass-row = ListRow)は 10px にした（前は 14px で、外の 20px と余白の割に丸すぎ、
+   角の外側の余白がふくらんで見えていた）。外のカード・ボタン・札の丸みは変えない。
+   ------------------------------------------------------------------------ */
+:root { --r-nested: 10px; }
+.glass-row { border-radius: var(--r-nested) !important; }
