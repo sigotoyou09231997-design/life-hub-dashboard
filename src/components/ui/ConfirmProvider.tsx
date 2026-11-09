@@ -23,7 +23,9 @@ export interface ConfirmOptions {
   message?: string;
   /** 実行する側のボタン。既定は「削除する」。 */
   confirmLabel?: string;
-  /** やめる側のボタン。既定は「キャンセル」。 */
+  /** やめる側のボタン。既定は「やめておく」。
+   * 2026-11-09 に「キャンセル」から変えた(参考 @UXRishi「Delete Modal UX Tip」: 「No / Yes」より「No, keep it / Yes, Delete!」)。
+   * 「キャンセル」は、削除を取り消すのか、この画面を閉じるのかが一瞬迷う。押すと何も起きないことを、ボタンの文字で言い切る。 */
   cancelLabel?: string;
   /** 消す操作でなければ "default"(青いボタン)にする。既定は "danger"。 */
   tone?: "danger" | "default";
@@ -69,7 +71,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             )}
             <FormActions>
               <Button type="button" variant="secondary" onClick={() => settle(false)}>
-                {request.cancelLabel ?? "キャンセル"}
+                {request.cancelLabel ?? "やめておく"}
               </Button>
               <Button
                 type="button"

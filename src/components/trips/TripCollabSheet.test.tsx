@@ -120,7 +120,7 @@ describe("TripCollabSheet", () => {
       renderSheet("owner");
       await userEvent.click(await screen.findByRole("button", { name: "外す" }));
       expect(await screen.findByText(/外した瞬間から/)).toBeTruthy();
-      await userEvent.click(screen.getByRole("button", { name: "キャンセル" }));
+      await userEvent.click(screen.getByRole("button", { name: "やめておく" }));
       expect(mocks.removed).toEqual([]);
       // もう一度開いて、今度は確認で「外す」。確認のシートの「外す」は、一覧の「外す」より後ろに出る。
       await userEvent.click(screen.getByRole("button", { name: "外す" }));
