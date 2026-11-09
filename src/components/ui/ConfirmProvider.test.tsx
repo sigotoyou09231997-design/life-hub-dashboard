@@ -54,7 +54,7 @@ describe("アプリ内の確認ダイアログ", () => {
     renderHarness({ title: "「歯医者」を削除しますか?" });
 
     await user.click(screen.getByRole("button", { name: "消す" }));
-    await user.click(screen.getByRole("button", { name: "キャンセル" }));
+    await user.click(screen.getByRole("button", { name: "やめておく" }));
 
     expect(document.getElementById("result")?.textContent).toBe("false");
   });

@@ -276,7 +276,7 @@ describe("旅行の予定の入力: 削除", () => {
 
     await user.click(screen.getByRole("button", { name: "この予定を削除" }));
     const ask = screen.getByRole("dialog", { name: "「桂浜」を削除しますか?" });
-    await user.click(within(ask).getByRole("button", { name: "キャンセル" }));
+    await user.click(within(ask).getByRole("button", { name: "やめておく" }));
     expect(onDelete).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "この予定を削除" }));

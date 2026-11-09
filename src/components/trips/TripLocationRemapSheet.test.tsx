@@ -95,8 +95,8 @@ describe("TripLocationRemapSheet", () => {
     renderSheet(onClose);
     paste("霊山寺 → 霊山寺 徳島県鳴門市大麻町");
     fireEvent.click(screen.getByRole("button", { name: /書き換える（/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "キャンセル" }));
-    await waitFor(() => expect(screen.queryByRole("button", { name: "キャンセル" })).toBeNull());
+    fireEvent.click(await screen.findByRole("button", { name: "やめておく" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "やめておく" })).toBeNull());
     expect(mocks.scheduleUpdate).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
