@@ -462,6 +462,7 @@
    ------------------------------------------------------------------------ */
 :root { --font-mincho: "Hiragino Mincho ProN", "Hiragino Mincho Pro", "Yu Mincho", YuMincho, "Noto Serif JP", serif; }
 .app-shell .spatial-page-header__title,
+.app-shell .mail-page-title,
 .lh-home .lh-today__date {
   font-family: var(--font-mincho);
   font-weight: 600;
@@ -567,3 +568,6 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+
+/* Gmail の見出しも、ほかのページと同じ大きさ・明朝に（第25回。GmailPage.tsx の .mail-page-title）。 */
+.app-shell .mail-page-title { font-size: var(--fs-page); }
