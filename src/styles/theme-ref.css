@@ -489,3 +489,23 @@
 #page-fab-root > button { box-shadow: 0 14px 30px -12px rgba(15, 59, 54, 0.6), 0 2px 4px rgba(15, 59, 54, 0.12) !important; }
 .glass-nav { box-shadow: 0 16px 40px -18px rgba(15, 40, 38, 0.35), 0 1px 3px rgba(15, 40, 38, 0.06); }
 .lh-home .lh-week__day.is-today { box-shadow: 0 8px 16px -8px rgba(27, 94, 87, 0.55); }
+
+/* ---------------------------------------------------------------------------
+   カレンダーの「今日」も深い青緑に（第19回。一貫性 — 第2弾の @vponamariov「同じ役割の物はどの画面でも同じ見た目に」の続き）
+   ホームの7日の帯の今日は深い青緑の塗りなのに、カレンダー(月・週・サブスクのカレンダー)の今日だけ黒い丸、
+   選んだ日の面は灰色だった。今日=深い青緑の丸、選んだ日=薄い青緑の面にそろえる。
+   ------------------------------------------------------------------------ */
+.spatial-calendar__cell.is-today > span:first-child,
+.spatial-calendar__cell.is-today > :first-child,
+.week-view__day-head.is-today .week-view__date,
+.subs-calendar__cell.is-today .subs-calendar__day {
+  background: var(--ref-700) !important;
+  color: #fff !important;
+}
+.spatial-page .spatial-calendar__cell.is-selected,
+.spatial-page .calendar-workspace__month .spatial-calendar__cell.is-selected {
+  background: var(--ref-50);
+  box-shadow: none;
+}
+.spatial-page .spatial-calendar__cell.is-today:not(.is-selected)::after { background: var(--ref-700); }
+.week-view__day.is-today { background-color: rgba(27, 94, 87, 0.04); }
