@@ -78,6 +78,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <CheckCircle2 size={16} className="shrink-0" />
             )}
             <span className={hasAction ? "undo-toast__message" : undefined}>{toast.message}</span>
+            {toast.count > 1 && (
+              // 同じお知らせが続けて出た回数。数が変わるたびに描き直して、揺れを1回だけ流す(theme-ref.css の .toast-repeat)。
+              <span key={toast.count} className="toast-repeat" aria-label={`${toast.count}回目`}>
+                ×{toast.count}
+              </span>
+            )}
             {toast.actionLabel && (
               <>
                 <button type="button" className="undo-toast__action" onClick={() => runToastAction(toast.id)}>

@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-09-130",
+    date: "2026-11-09",
+    area: "全体",
+    title: "同じお知らせは出し直さないようにしました",
+    description:
+      "画面の下に出る短いお知らせ(「保存しました」など)が、同じ内容で続けて出た時に、毎回下から出し直していました。新しい知らせなのか同じものなのか分かりにくいので、出ているお知らせはそのままにして「×2」と回数を添え、軽く揺らすようにしました。「元に戻す」付きのお知らせは今までどおりです。",
+  },
+  {
     id: "2026-11-09-129",
     date: "2026-11-09",
     area: "デザイン",

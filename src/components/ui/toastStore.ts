@@ -51,6 +51,8 @@ export interface ToastView {
   duration: number;
   /** 指が乗っている・ボタンに焦点がある間は止める(時間切れまで読めないと押せないため)。 */
   paused: boolean;
+  /** 同じお知らせが続けて出た回数(1 から)。2 以上なら「×N」を添える。 */
+  count: number;
 }
 
 export const TOAST_DURATION_MS = 2500;
@@ -106,6 +108,20 @@ function close(id: number, reason: ToastCloseReason): boolean {
  */
 export function showToast(message: string, toneOrOptions?: ToastTone | ToastOptions): number {
   const options: ToastOptions = typeof toneOrOptions === "string" ? { tone: toneOrOptions } : (toneOrOptions ?? {});
+  // 同じお知らせ(同じ文・同じ色・ボタン無し)が出ている間にもう一度出たら、出し直さずに「×2」と数を添えて
+  // 揺らし、時間を数え直す(2026-11-09。参考 @kamranbekirovyz「同じスナックバーを2回出さず、振る」・
+  // @keviduk「3つの作業に3つのトーストは要らない。1つにまとめて数を出す」)。前は同じ文が下から出し直されて、
+  // 新しい知らせが来たのか、同じものなのか見分けにくかった。ボタン付き(「元に戻す」)は、押す相手が変わるので今までどおり置き換える。
+  const tone = options.tone ?? "success";
+  if (live && !live.action && !live.onClose && !options.action && !options.onClose && live.view.message === message && live.view.tone === tone) {
+    const entry = live;
+    clearTimeout(entry.timer);
+    const duration = options.duration ?? TOAST_DURATION_MS;
+    entry.view = { ...entry.view, count: entry.view.count + 1, duration, paused: false };
+    startTimer(entry, duration);
+    emit();
+    return entry.view.id;
+  }
   // 前のお知らせの onClose が、さらにお知らせを出すこともある(削除に失敗した時など)。
   // 残っている限り閉じ続けて、どれの onClose も取りこぼさない。
   while (live) close(live.view.id, "replaced");
@@ -120,6 +136,7 @@ export function showToast(message: string, toneOrOptions?: ToastTone | ToastOpti
       actionLabel: options.action?.label,
       duration,
       paused: false,
+      count: 1,
     },
     action: options.action,
     onClose: options.onClose,
