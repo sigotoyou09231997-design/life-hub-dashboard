@@ -219,6 +219,7 @@ export function SubscriptionForm({ initial, template, onSaved, onCancel, onBack 
           inputMode="numeric"
           value={dueDay}
           onChange={(e) => setDueDay(e.target.value)}
+          placeholder="例: 15"
           min={1}
           max={31}
         />

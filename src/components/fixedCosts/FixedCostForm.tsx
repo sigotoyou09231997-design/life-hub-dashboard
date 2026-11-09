@@ -149,6 +149,7 @@ export function FixedCostForm({ initial, draft, onSaved, onCancel }: Props) {
           inputMode="numeric"
           value={dueDay}
           onChange={(e) => setDueDay(e.target.value)}
+          placeholder="例: 27"
           min={1}
           max={31}
         />

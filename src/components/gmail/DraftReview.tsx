@@ -594,6 +594,7 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
       <Input
         label="宛先"
         type="email"
+        placeholder="例: name@example.com"
         value={toText}
         onChange={(e) => setToText(e.target.value)}
         disabled={generating || alreadySent || undoActive}

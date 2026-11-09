@@ -129,6 +129,7 @@ export default function AuthGatePage({ addingAccount = false }: Props) {
             label="メールアドレス"
             type="email"
             autoComplete="email"
+            placeholder="例: name@example.com"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
