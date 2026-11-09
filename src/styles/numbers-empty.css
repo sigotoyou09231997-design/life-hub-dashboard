@@ -88,9 +88,9 @@
 
 /* ホームの黒いカードの上では、白に寄せた青緑で。 */
 .lh-money .num-delta {
-  background: rgba(60, 186, 178, 0.22);
+  background: rgba(124, 194, 184, 0.22);
   color: #9be6df;
-  box-shadow: 0 0 0 1px rgba(60, 186, 178, 0.28);
+  box-shadow: 0 0 0 1px rgba(124, 194, 184, 0.28);
 }
 
 @keyframes num-delta-float {
@@ -117,7 +117,7 @@
   color: var(--teal-600);
 }
 /* 下敷きは透ける青緑。白い面でも、お金管理の履歴のような灰色の面でも、同じくらい見える。 */
-.empty-illust .ei-blob { fill: rgba(23, 161, 153, 0.1); stroke: none; }
+.empty-illust .ei-blob { fill: rgba(27, 94, 87, 0.1); stroke: none; }
 .empty-illust .ei-paper { fill: var(--warm-surface, #fff); }
 .empty-illust .ei-accent { fill: var(--teal-100); }
 .empty-illust .ei-soft { stroke: var(--teal-400); }

@@ -41,8 +41,8 @@
   border-radius: var(--r-card);
   padding: 1.2rem 1.25rem 1.1rem;
   background:
-    radial-gradient(520px circle at var(--mx, 85%) var(--my, -10%), rgba(60, 186, 178, 0.28), transparent 46%),
-    radial-gradient(380px circle at 110% 120%, rgba(23, 161, 153, 0.18), transparent 55%),
+    radial-gradient(520px circle at var(--mx, 85%) var(--my, -10%), rgba(124, 194, 184, 0.28), transparent 46%),
+    radial-gradient(380px circle at 110% 120%, rgba(27, 94, 87, 0.18), transparent 55%),
     linear-gradient(160deg, #1d2226 0%, var(--ink-black) 62%);
   box-shadow: var(--shadow-rest);
   color: #f4f7f7;
@@ -450,7 +450,7 @@ button.lh-row:focus-visible { outline: 2px solid var(--teal-500); outline-offset
   text-align: center;
   transition: transform 380ms var(--spring), box-shadow 300ms ease, border-color 200ms ease;
 }
-.subs-tile:hover { border-color: rgba(23, 161, 153, 0.35); transform: translateY(-2px); }
+.subs-tile:hover { border-color: rgba(27, 94, 87, 0.35); transform: translateY(-2px); }
 .subs-tile strong {
   display: -webkit-box;
   overflow: hidden;

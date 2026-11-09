@@ -109,7 +109,7 @@
 .trip-detail-page,
 .review-page {
   --page-tone: var(--teal-500);
-  --page-tint: rgba(23, 161, 153, 0.1);
+  --page-tint: rgba(27, 94, 87, 0.1);
 }
 
 ::selection { background: var(--teal-100); color: var(--ink-black); }
@@ -122,7 +122,7 @@
   border-color: var(--warm-line);
   border-radius: var(--r-card) !important;
   background:
-    radial-gradient(420px circle at var(--mx, -999px) var(--my, -999px), rgba(23, 161, 153, 0.07), transparent 42%),
+    radial-gradient(420px circle at var(--mx, -999px) var(--my, -999px), rgba(27, 94, 87, 0.07), transparent 42%),
     var(--warm-surface);
   transition:
     transform 420ms var(--ease-out-expo),
@@ -134,7 +134,7 @@
   a.warm-card:hover,
   .warm-card:hover,
   .glass-card:hover {
-    border-color: rgba(23, 161, 153, 0.18);
+    border-color: rgba(27, 94, 87, 0.18);
     box-shadow: var(--shadow-float);
   }
   a.warm-card:hover { transform: translateY(-3px); }
@@ -169,12 +169,12 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
    2. 今日のまとめ — 参考の「節約実績」の、青緑の薄い面＋大きな青緑の数字
    ------------------------------------------------------------------------ */
 .warm-brief__item {
-  border: 1px solid rgba(23, 161, 153, 0.16);
+  border: 1px solid rgba(27, 94, 87, 0.16);
   background: linear-gradient(135deg, var(--teal-50), #f5fbfa 70%);
   transition: transform 360ms var(--spring), box-shadow 300ms ease, border-color 300ms ease;
 }
 .warm-brief__item:hover {
-  border-color: rgba(23, 161, 153, 0.32);
+  border-color: rgba(27, 94, 87, 0.32);
   box-shadow: var(--shadow-float);
   transform: translateY(-2px);
 }
@@ -206,8 +206,8 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
   border: 1px solid rgba(255, 255, 255, 0.06);
   background:
     /* 右上の青緑の光は 2026-10-18(「寂しくないホーム」2-1)に少し強めた(.28/46% → .34/58%)。 */
-    radial-gradient(520px circle at var(--mx, 85%) var(--my, 10%), rgba(23, 161, 153, 0.34), transparent 58%),
-    radial-gradient(380px circle at 110% 120%, rgba(23, 161, 153, 0.18), transparent 55%),
+    radial-gradient(520px circle at var(--mx, 85%) var(--my, 10%), rgba(27, 94, 87, 0.34), transparent 58%),
+    radial-gradient(380px circle at 110% 120%, rgba(27, 94, 87, 0.18), transparent 55%),
     linear-gradient(160deg, #1d2226 0%, var(--ink-black) 62%);
   box-shadow: var(--shadow-rest);
   color: #f4f7f7;
@@ -251,7 +251,7 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
   /* 出現の順番待ち（useHubMotion が付ける transition-delay）が残っていると、
      傾きがマウスから0.3秒遅れてついてくるので、乗っている間は待たない。 */
   transition-delay: 0s !important;
-  border-color: rgba(60, 186, 178, 0.3);
+  border-color: rgba(124, 194, 184, 0.3);
   box-shadow: var(--shadow-float);
 }
 
@@ -331,12 +331,12 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
    （詳細度が高い）で塗っているので、ここだけ !important で上から塗る。 */
 #page-fab-root > button {
   background: var(--ink-black) !important;
-  box-shadow: var(--shadow-float), 0 0 0 0 rgba(23, 161, 153, 0.4);
+  box-shadow: var(--shadow-float), 0 0 0 0 rgba(27, 94, 87, 0.4);
   transition: transform 420ms var(--spring), box-shadow 300ms ease;
 }
 #page-fab-root > button:hover {
   transform: translateY(-2px) rotate(90deg);
-  box-shadow: var(--shadow-float), 0 0 0 6px rgba(23, 161, 153, 0.16);
+  box-shadow: var(--shadow-float), 0 0 0 6px rgba(27, 94, 87, 0.16);
 }
 
 .warm-check[aria-pressed="true"] {
@@ -495,14 +495,14 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 .app-header__add:focus-visible { outline: 2px solid var(--teal-500); outline-offset: 2px; }
 
 .app-header__search-field:hover {
-  border-color: rgba(23, 161, 153, 0.35);
+  border-color: rgba(27, 94, 87, 0.35);
   background: #fff;
 }
 .app-header__search-field:focus-visible {
   outline: none;
   border-color: var(--teal-500);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(23, 161, 153, 0.18);
+  box-shadow: 0 0 0 3px rgba(27, 94, 87, 0.18);
 }
 .app-header__search-field > svg { flex-shrink: 0; color: var(--warm-ink-2); }
 .app-header__search-field-label {
@@ -715,7 +715,7 @@ a.warm-card:hover .warm-card__foot svg { transform: translateX(4px); }
 .spatial-page .planning-empty-footer > span i,
 .spatial-page .planning-time-rail i {
   background: var(--teal-500);
-  box-shadow: 0 0 0 3px rgba(23, 161, 153, 0.14);
+  box-shadow: 0 0 0 3px rgba(27, 94, 87, 0.14);
 }
 .spatial-page .planning-empty-footer button { color: var(--teal-700); }
 .spatial-page .spatial-calendar__cell.is-selected { box-shadow: inset 0 0 0 1px var(--teal-500); }
