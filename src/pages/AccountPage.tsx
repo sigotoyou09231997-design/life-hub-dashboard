@@ -53,7 +53,9 @@ export default function AccountPage() {
       const summary = await syncNow();
       showToast(summary);
     } catch (err) {
-      showToast(`同期に失敗しました: ${err instanceof Error ? err.message : String(err)}`);
+      // 機械のエラー文はお知らせに出さず、記録だけ残す(2026-11-09、参考 @rrr_craft「UXライティング」②読み手の言葉で)。
+      console.error("[sync] manual sync failed:", err);
+      showToast("同期できませんでした。通信を確かめてもう一度お試しください", "error");
     } finally {
       setSyncing(false);
     }

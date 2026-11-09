@@ -151,7 +151,7 @@ export default function SettingsPage() {
       await exportBackup();
       showToast("バックアップを書き出しました");
     } catch {
-      showToast("書き出しに失敗しました", "error");
+      showToast("書き出せませんでした。もう一度お試しください", "error");
     }
   }
 
@@ -165,7 +165,7 @@ export default function SettingsPage() {
       downloadIcs(buildCalendarIcs(events), calendarIcsFilename());
       showToast(`${events.length}件の予定を書き出しました`);
     } catch {
-      showToast("書き出しに失敗しました", "error");
+      showToast("書き出せませんでした。もう一度お試しください", "error");
     }
   }
 
@@ -184,7 +184,7 @@ export default function SettingsPage() {
       await importBackup(file);
       showToast("データを復元しました");
     } catch {
-      showToast("復元に失敗しました。ファイルの形式を確認してください。", "error");
+      showToast("復元できませんでした。LIFE HUB で書き出したファイルか確かめてください", "error");
     } finally {
       e.target.value = "";
     }
