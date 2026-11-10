@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-156",
+    date: "2026-11-10",
+    area: "旅行",
+    title: "旅行の日程で、前と時間が重なっている所に一言を出しました",
+    description:
+      "同じ日の中で、前の日程が終わる前に次の日程が始まっていると、その日程に「前の日程と時間が重なっています」と出ます(開始と終了の時刻が入っている日程が対象。宿泊と、何日かにまたがる日程は対象外)。直すのは今までどおり日程を開いて時刻を変えます。(X の @FaizalSukaimi の、旅程の時間チェックから)",
+  },
+  {
     id: "2026-11-10-155",
     date: "2026-11-10",
     area: "AI",

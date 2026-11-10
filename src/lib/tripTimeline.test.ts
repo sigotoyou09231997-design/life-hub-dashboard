@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { timelineTimeParts } from "./tripTimeline";
+import { timelineTimeParts, findTimeClashes } from "./tripTimeline";
 
 describe("時間軸の左の列に出す時刻", () => {
   it("開始時刻だけなら、時刻をそのまま出す", () => {
@@ -31,5 +31,30 @@ describe("時間軸の左の列に出す時刻", () => {
     expect(timelineTimeParts(stay, "2026-12-27")).toEqual({ main: "15:00", sub: "から", plain: false });
     expect(timelineTimeParts(stay, "2026-12-28")).toEqual({ main: "終日", plain: true });
     expect(timelineTimeParts(stay, "2026-12-29")).toEqual({ main: "10:00", sub: "まで", plain: false });
+  });
+});
+
+
+describe("findTimeClashes", () => {
+  const d = "2026-11-10";
+  const item = (id: string, startTime?: string, endTime?: string, extra: Record<string, unknown> = {}) => ({ id, date: d, startTime, endTime, ...extra });
+
+  it("前の日程の終わりより早く始まる日程を返す", () => {
+    const clashes = findTimeClashes([item("a", "10:00", "12:00"), item("b", "11:30", "13:00"), item("c", "13:00")]);
+    expect([...clashes]).toEqual(["b"]);
+  });
+
+  it("ちょうど終わりに始まるのは重なりではない", () => {
+    expect(findTimeClashes([item("a", "10:00", "12:00"), item("b", "12:00", "13:00")]).size).toBe(0);
+  });
+
+  it("宿泊・何日かにまたがる日程・終了時刻の無い日程は、前の側にならない", () => {
+    expect(findTimeClashes([item("a", "10:00", "23:00", { type: "lodging" }), item("b", "11:00")]).size).toBe(0);
+    expect(findTimeClashes([item("a", "10:00", "23:00", { endDate: "2026-11-12" }), item("b", "11:00")]).size).toBe(0);
+    expect(findTimeClashes([item("a", "10:00"), item("b", "11:00")]).size).toBe(0);
+  });
+
+  it("開始時刻の無い日程は数えない", () => {
+    expect(findTimeClashes([item("a", "10:00", "12:00"), item("b")]).size).toBe(0);
   });
 });
