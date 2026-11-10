@@ -751,3 +751,21 @@ p {
   background: var(--ref-700);
   color: #fff;
 }
+
+/* 第61弾: 旅行の詳細で日程以外のタブを開くと、表紙は1行に畳まれ、スマホでは日付が「京都 · 11月16日…」と
+   途中で切れて、何日の旅行か読めなかった。日付を、帯の下の全幅の自分の行に出して全部見せる
+   (ボタンの列の横だと細く、「(月)」の途中で折れた)。題名と「あと◯日」・ボタンは今までどおり1行目。 */
+@media (max-width: 639px) {
+  .trip-detail-page .trip-detail-hero.is-compact { flex-wrap: wrap; row-gap: 0.15rem; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content { display: contents; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__title { order: 1; flex: 1 1 auto; min-width: 0; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content > span { order: 2; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__bar { order: 3; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content p {
+    order: 4;
+    flex: 1 0 100%;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+}

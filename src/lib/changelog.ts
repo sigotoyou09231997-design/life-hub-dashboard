@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-181",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "旅行の詳細(日程以外のタブ)で、日付が途中で切れないようにしました",
+    description:
+      "スマホで費用・持ち物などのタブを開くと、上の帯の日付が「京都 · 11月16日…」と切れて、何日の旅行か読めませんでした。日付を題名の下の自分の行に出して、全部見えるようにしました。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-11-180",
     date: "2026-11-11",
     area: "デザイン",
