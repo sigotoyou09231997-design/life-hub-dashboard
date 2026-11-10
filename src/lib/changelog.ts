@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-167",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "文の折り返しを、アプリ全体で文節にそろえました",
+    description:
+      "「設／定されていません」「日／程も」のように言葉の途中で折れていた文を、全画面で文節で折るようにしました(これまでは画面ごとに直していました)。段落の最後の行に1〜2文字だけ残らないようにもしています。",
+  },
+  {
     id: "2026-11-10-166",
     date: "2026-11-10",
     area: "デザイン",
