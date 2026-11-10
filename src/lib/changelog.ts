@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-164",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "ふりかえりの気分のグラフで、「ふつう」「わるい」が折れるのを直しました",
+    description:
+      "PC幅で、グラフの左の目盛りの「ふつ／う」「わる／い」が2行に折れていたので、幅を広げて1行にしました。下の日付の並びも同じ幅だけずらしてあります。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-10-163",
     date: "2026-11-10",
     area: "デザイン",
