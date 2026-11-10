@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-168",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "サブスクの一覧で、長いサービス名を切らずに見せるようにしました",
+    description:
+      "「Nintendo Swit…」のように途中で切れていた名前を、2行まで折り返して全部見せます。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-10-167",
     date: "2026-11-10",
     area: "デザイン",

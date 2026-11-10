@@ -660,3 +660,14 @@ body {
 p {
   text-wrap: pretty;
 }
+
+/* 第48弾: サブスクの一覧で、長い名前(「Nintendo Switch Online」)が「Nintendo Swit…」と途中で切れていた。
+   2行まで折り返して全部見せる(それ以上は…)。名前は何のサービスかを見分ける一番の手がかりなので、切らない。 */
+.subs-row .lh-row__copy > strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  text-overflow: clip;
+}
