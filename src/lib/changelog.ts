@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-160",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "ふりかえりの収支のマイナスを「−¥5,520」と書くようにしました",
+    description:
+      "支出が収入を上回った時、「¥-5,520」と、記号が円マークの後ろに付いていました。お金管理の一覧と同じ「−¥5,520」にそろえました。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-10-159",
     date: "2026-11-10",
     area: "デザイン",
