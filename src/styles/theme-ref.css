@@ -739,3 +739,15 @@ p {
   background: var(--ref-700);
   color: #fff;
 }
+
+/* 第60弾: 予定の入力の「開始 9:00」「長さ 1時間」のクイック選択は、選ぶと黒に塗られていた(同じ画面の「しない」「時間を決める」
+   「その他」は深い青緑)。前回(第59弾)のサブスクのカテゴリと同じ黒の取り残し。選んだものは深い青緑にそろえる。
+   同じ黒塗りの指定が残っていた3つ(人の絞り込みの「すべて」・固定費の種類・カレンダーの表示切り替え)もあわせて。 */
+.time-quick__chip[aria-pressed="true"],
+.person-filter .person-chip--all.is-on,
+.calendar-mode__btn.is-on,
+.fx-kind[aria-pressed="true"] {
+  border-color: var(--ref-700);
+  background: var(--ref-700);
+  color: #fff;
+}

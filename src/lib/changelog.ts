@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-180",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "予定の入力の「開始」「長さ」のクイック選択を、選ぶと深い青緑にしました",
+    description:
+      "「9:00」「1時間」のように選ぶボタンだけが黒に塗られていたので、同じ画面の他の選択と同じ深い青緑にそろえました。黒のまま残っていた、人の絞り込み・固定費の種類・カレンダーの表示切り替えの選択も同じにしました。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-11-179",
     date: "2026-11-11",
     area: "デザイン",
