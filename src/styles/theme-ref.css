@@ -606,3 +606,12 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
    文字は残す(読み上げと、列の幅をそろえるため)。見た目だけ透明にする。
    前は同じ「11/10(火)」が全行に並び、読む前に目が同じ文字を何度も拾っていた。 */
 .lh-week__date.is-repeat { color: transparent; user-select: none; }
+
+/* 第39弾: Gmail が未接続の画面は「接続状態」「Gmail未接続」「● 未接続」と同じことを3回言っていた。
+   タイトルの「Gmail未接続」だけ残し、ボタンの横の「● 未接続」は出さない。
+   スマホでは、押す所が1つだけなので横いっぱいにする(画面を撮って見つけた直し)。 */
+.mail-connect-action > span { display: none !important; }
+@media (max-width: 1023px) {
+  .mail-connect-action { justify-content: stretch !important; }
+  .mail-connect-action > button { width: 100%; }
+}
