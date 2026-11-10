@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-177",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "入力画面の見出しに、絵が付く所と付かない所が混ざっていたのをそろえました",
+    description:
+      "旅行・固定費・サブスク・メモなどの入力画面で、「どこへ」には絵が付くのに「だれと」「そのほか」には付かず、文字の左端もずれていました。見出しの言葉から絵を決めて、すべて付けました。",
+  },
+  {
     id: "2026-11-11-176",
     date: "2026-11-11",
     area: "デザイン",
