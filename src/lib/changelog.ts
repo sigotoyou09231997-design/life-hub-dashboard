@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-159",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "Gmail未接続の画面で、同じ「未接続」の繰り返しを減らしました",
+    description:
+      "ボタンの横の「● 未接続」をやめ(タイトルの「Gmail未接続」と同じ内容だったため)、スマホでは「Gmailを接続」を横いっぱいにしました。",
+  },
+  {
     id: "2026-11-10-158",
     date: "2026-11-10",
     area: "デザイン",
