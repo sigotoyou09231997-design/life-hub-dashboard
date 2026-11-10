@@ -643,3 +643,9 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   word-break: auto-phrase;
   text-wrap: pretty;
 }
+
+/* 第46弾: ルートの「日程に入っている場所」の説明が長く、「予／定は」のように途中で折れていた。文節で折る。 */
+.trip-route-picks__lead {
+  word-break: auto-phrase;
+  text-wrap: pretty;
+}
