@@ -649,3 +649,14 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   word-break: auto-phrase;
   text-wrap: pretty;
 }
+
+/* 第47弾: 日本語の文の折り返しを、アプリ全体で文節にする。
+   これまで「設／定されていません」「日／程も」のように言葉の途中で折れる所を、画面ごとに見つけては直していた
+   (第41・42・43・45・46弾)。全体に当てれば、新しく足す文も同じ折り方になる。
+   auto-phrase は1つの文節が1行に収まらない時は今までどおり途中で折る。未対応の端末は今までどおり。 */
+body {
+  word-break: auto-phrase;
+}
+p {
+  text-wrap: pretty;
+}
