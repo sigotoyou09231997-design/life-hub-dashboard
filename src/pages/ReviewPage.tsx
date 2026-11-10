@@ -35,6 +35,11 @@ function yen(n: number): string {
   return `¥${Math.round(n).toLocaleString()}`;
 }
 
+/** 負の金額は「¥-5,520」ではなく「−¥5,520」(お金管理の一覧と同じ書き方。第40弾)。 */
+function signedYen(n: number): string {
+  return n < 0 ? `−${yen(-n)}` : yen(n);
+}
+
 function MetricCard({ icon: Icon, label, value, note }: { icon: LucideIcon; label: string; value: string; note?: string }) {
   return (
     <Card className="review-metric p-4 lg:col-span-3 lg:p-5">
@@ -440,7 +445,7 @@ export default function ReviewPage() {
             <MetricCard
               icon={Wallet}
               label="収支"
-              value={yen(summary.incomeTotal - summary.expenseTotal)}
+              value={signedYen(summary.incomeTotal - summary.expenseTotal)}
               note={`収入 ${yen(summary.incomeTotal)} − 支出 ${yen(summary.expenseTotal)}`}
             />
 
