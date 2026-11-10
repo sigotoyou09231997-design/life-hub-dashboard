@@ -769,3 +769,12 @@ p {
     white-space: normal;
   }
 }
+
+/* 第62弾: 「すべて見る →」のリンクは高さ20pxしかなく、指で押しにくかった(見た目の文字は小さいまま)。
+   目に見えない当たり判定を、上下に 0.7rem・左右に 0.5rem 足して、44px 以上の的にする(第35弾の×と同じやり方)。 */
+.warm-card__go { position: relative; }
+.warm-card__go::after {
+  content: "";
+  position: absolute;
+  inset: -0.7rem -0.5rem;
+}
