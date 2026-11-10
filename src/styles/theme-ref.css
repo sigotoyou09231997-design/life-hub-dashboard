@@ -719,3 +719,9 @@ p {
 .system-section .switch-row__copy .field__label {
   text-wrap: balance;
 }
+
+/* 第55弾: 設定のカードの入力欄(自宅の住所)は、フォームの枠の中で使う余白(0.9rem)がそのまま付いて、
+   説明文より右へひっこんで始まっていた。カードの中では左右の余白を外して、説明文と左端・右端をそろえる。 */
+.system-section > .field:not(.switch-field) {
+  padding-inline: 0;
+}
