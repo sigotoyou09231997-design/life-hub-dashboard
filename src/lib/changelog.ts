@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-183",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "小さすぎた文字(9〜11px)を、11〜12px前後に上げました",
+    description:
+      "画面の文字を全部測って見つけた直しです。黒いカードの小見出し(1日あたり・今月払う額・次の請求)、空の時の案内文とボタン(予定・メモ・旅行)。カレンダーの曜日・日付・祝日名は、マス目に収めるため変えていません。",
+  },
+  {
     id: "2026-11-11-182",
     date: "2026-11-11",
     area: "デザイン",
