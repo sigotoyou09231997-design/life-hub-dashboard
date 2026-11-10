@@ -778,3 +778,30 @@ p {
   position: absolute;
   inset: -0.7rem -0.5rem;
 }
+
+/* 第63弾: 画面の文字を全部測ると、読む文なのに 10〜11px のものが4種類あった(スマホ幅)。
+   黒いカードの小見出し(1日あたり・今月払う額・次の請求) 10.6px、「新しい旅行」の説明 10.2px、
+   空の時の「メモを書く」「旅行を追加」ボタン 10.9px。どれも 12px 前後に上げる(カレンダーの日付の数字 10px は、
+   マス目に収める数字なので今回は触らない)。 */
+.subs-total__stats dt,
+.lh-money__stats dt,
+.lh-finance__stats dt {
+  font-size: 0.75rem;
+}
+.trip-new .trip-new__copy small {
+  font-size: 0.8rem;
+}
+.spatial-page .notes-empty-control__action button,
+.spatial-page .destination-empty-control__action button {
+  font-size: 0.78rem;
+}
+
+/* 第63弾(続き): 読む文なのに 9〜10px だったものを、種類ごとに上げる(スマホ幅の実測)。
+   カレンダーの曜日(9.6px)と祝日名(10px)は、TimeTree の実測に合わせた寸法なので触らない(pages-warm.css に理由あり)。空の「静かな一日です」の補足 9.9→12px、
+   「予定を追加」(空の時の小さなボタン) 9.3→12px、メモ0件の3つの箱の名前 9.6→11px と説明 9.9→12px、
+   行き先の空の説明 10.2→12px。 */
+.planning-compact-empty p { font-size: 0.75rem; }
+.planning-empty-footer button { font-size: 0.75rem; }
+.notes-empty-control__types > div > span { font-size: 0.7rem; }
+.notes-empty-control__action p span { font-size: 0.75rem; }
+.destination-empty-control__copy p { font-size: 0.75rem; }
