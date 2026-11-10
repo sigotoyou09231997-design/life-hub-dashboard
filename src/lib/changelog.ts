@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-185",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "タスクの長い英数字の名前が、途中で切れたまま「…」が出ないのを直しました",
+    description:
+      "スペースの無い長い英数字(URL や型番など)のタスク名が、右端で欠けて見えたので、2行に折り返して「…」で省略するようにしました。(長い名前を入れて画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-11-184",
     date: "2026-11-11",
     area: "デザイン",
