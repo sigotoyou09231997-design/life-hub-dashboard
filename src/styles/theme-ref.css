@@ -631,3 +631,9 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   word-break: auto-phrase;
   text-wrap: balance;
 }
+
+/* 第43弾: メモのカードの本文が、行の頭に「で、」だけ残るような折れ方をしていた(PC幅)。文節で折って、行の長さをならす。 */
+.note-widget__body {
+  word-break: auto-phrase;
+  text-wrap: pretty;
+}
