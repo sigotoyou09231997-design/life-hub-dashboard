@@ -9,7 +9,7 @@
  */
 import { scopedKey } from "./accounts";
 
-export type HideableFeature = "schedule" | "money" | "notes" | "gmail" | "trips" | "review";
+export type HideableFeature = "schedule" | "money" | "notes" | "gmail" | "trips" | "ai" | "review";
 
 export interface HideableFeatureInfo {
   key: HideableFeature;
@@ -26,6 +26,7 @@ export const HIDEABLE_FEATURES: HideableFeatureInfo[] = [
   { key: "notes", label: "メモ・リスト", note: "メモ・チェックリスト", prefixes: ["/records/notes"] },
   { key: "gmail", label: "Gmail", note: "受信メール・返信の下書き", prefixes: ["/gmail"] },
   { key: "trips", label: "旅行計画", note: "旅行・日程・費用・持ち物・ルート", prefixes: ["/trips"] },
+  { key: "ai", label: "AIの最新情報", note: "AI・Anthropic などのニュース", prefixes: ["/ai-news"] },
   { key: "review", label: "ふりかえり", note: "お金・予定の集計", prefixes: ["/review"] },
 ];
 
