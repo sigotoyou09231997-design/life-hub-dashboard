@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-173",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "サブスクの一覧で、「次の請求まで」と上の行の間をあけました",
+    description:
+      "「毎月11日・AI・仕事」と「次の請求まで」の2行がくっついて、1つの文のように読めたので、行の下に余白を足して間をあけました。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-10-172",
     date: "2026-11-10",
     area: "デザイン",
