@@ -637,3 +637,9 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   word-break: auto-phrase;
   text-wrap: pretty;
 }
+
+/* 第45弾: 設定の各カードの説明文が「データは消／えません」「別／の端末」のように途中で折れていた。文節で折る。 */
+.system-section__description {
+  word-break: auto-phrase;
+  text-wrap: pretty;
+}

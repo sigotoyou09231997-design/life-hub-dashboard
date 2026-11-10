@@ -267,7 +267,7 @@ export default function SettingsPage() {
               </div>
               <p className="system-section__description text-xs text-slate-500">
                 このアプリに入った変更を、使う人から見た形でまとめています。
-                最終更新 {formatDisplayDate(CHANGELOG[0].date)}。
+                <span className="whitespace-nowrap">最終更新 {formatDisplayDate(CHANGELOG[0].date)}。</span>
               </p>
               {/* 「反映された?」をその場で確かめる(2026-10-12)。押すと、公開されている版と見比べて、違えば切り替える。 */}
               <div className="system-state-control">
