@@ -277,6 +277,20 @@ export function GlobalSearch({ open, onClose }: Props) {
     return { events, tasks, notes, trips, tripSchedule, emails };
   }, [searching]);
 
+  // 検索欄に「いま探せる件数」を出す(第31弾・@techno_bibi「検索フォームへのストック件数表示」)。
+  // 開いた時だけ件数を数える(中身は読まない)。まだ数え終わっていない間は今までの文言のまま。
+  const stockCount = useLiveQuery(async () => {
+    if (!open) return null;
+    const counts = await Promise.all([
+      db.calendarEvents.count(),
+      db.tasks.count(),
+      db.notes.count(),
+      db.trips.count(),
+      db.syncedEmails.count(),
+    ]);
+    return counts.reduce((sum, n) => sum + n, 0);
+  }, [open]);
+
   const recentKey = recentEntries.map((entry) => `${entry.kind}:${entry.id}`).join("|");
   const recentRows = useLiveQuery(
     () => (open && !searching && recentEntries.length > 0 ? loadRecentRows(recentEntries) : emptyRecentRows()),
@@ -426,7 +440,7 @@ export function GlobalSearch({ open, onClose }: Props) {
             setActive(null);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="探したい言葉や、やりたいこと"
+          placeholder={stockCount ? `予定・メモ・メールなど ${stockCount.toLocaleString("ja-JP")}件から探す` : "探したい言葉や、やりたいこと"}
           aria-label="まとめて検索"
           role="combobox"
           aria-expanded="true"

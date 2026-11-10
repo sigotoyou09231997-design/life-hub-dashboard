@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-150",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "検索欄に、いま探せる件数を出しました",
+    description:
+      "まとめて検索を開くと、入力欄に「予定・メモ・メールなど ○○件から探す」と出ます。どれくらいの中から探しているかが分かります。(X の @techno_bibi の、検索フォームにストック件数を出す工夫から)",
+  },
+  {
     id: "2026-11-10-149",
     date: "2026-11-10",
     area: "デザイン",
