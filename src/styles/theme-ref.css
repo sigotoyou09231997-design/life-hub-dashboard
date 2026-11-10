@@ -725,3 +725,9 @@ p {
 .system-section > .field:not(.switch-field) {
   padding-inline: 0;
 }
+
+/* 第56弾: 予定を追加の「日付 → 終わる日」で、右の欄の「同じ日に終わる」が「同じ日に終わ…」と切れていた(スマホ幅)。
+   左の開始日は短い(11/11(水))ので、その分を右の終了日の欄に回す。 */
+.range-field {
+  grid-template-columns: minmax(0, 0.82fr) auto minmax(0, 1.18fr);
+}

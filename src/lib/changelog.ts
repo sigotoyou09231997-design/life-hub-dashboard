@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-176",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "予定の入力で、「同じ日に終わる」が切れないようにしました",
+    description:
+      "日付と終わる日を並べた欄で、右の「同じ日に終わる」が「同じ日に終わ…」と切れていたので、短い開始日の欄を少し狭め、終わる日の欄を広げました。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-10-175",
     date: "2026-11-10",
     area: "デザイン",
