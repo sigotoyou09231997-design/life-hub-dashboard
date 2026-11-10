@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-158",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "買い物リストのカードで、値段が無い時の「¥0 / ¥0」をやめました",
+    description:
+      "値段を入れていない買い物リストは、「¥0 / ¥0」の代わりに「1/3 購入済み」と出します。値段を入れたリストは今までどおり金額です。画面を撮って見つけた直しです。",
+  },
+  {
     id: "2026-11-10-157",
     date: "2026-11-10",
     area: "デザイン",
