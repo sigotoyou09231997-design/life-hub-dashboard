@@ -678,3 +678,16 @@ p {
 .profile-gmail-module {
   min-height: auto;
 }
+
+/* 第50弾: メモが0件の時の3つの箱で、「チェックリスト」が「チェックリス／ト」と1文字だけ折れていた(スマホ幅)。
+   箱の中を縦に並べ(絵・名前・数)、名前は折らない。 */
+.notes-empty-control__types > div {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+.notes-empty-control__types > div > span {
+  white-space: nowrap;
+}
