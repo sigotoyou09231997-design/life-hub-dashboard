@@ -591,3 +591,13 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
 @media (prefers-reduced-motion: reduce) {
   .button-spinner { animation-duration: 2.4s; }
 }
+
+/* 第35弾: シートの「閉じる」の押せる範囲を 44px 以上にする。見た目の丸(2.3rem≒37px)は変えず、
+   透明な当たり判定を周りに 0.25rem ずつ足す。小さい丸は指で押し外しやすい
+   (Apple のガイドラインの 44pt。@UXRishi 系の「押しやすさ」の話)。 */
+.sheet-close { position: relative; }
+.sheet-close::after {
+  content: "";
+  position: absolute;
+  inset: -0.25rem;
+}

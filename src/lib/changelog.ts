@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-154",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "シートの「閉じる」を押しやすくしました",
+    description:
+      "見た目は変えずに、右上の×の押せる範囲を指で押しやすい大きさ(44px以上)に広げました。押し外して閉じられない、がへります。",
+  },
+  {
     id: "2026-11-10-153",
     date: "2026-11-10",
     area: "デザイン",
