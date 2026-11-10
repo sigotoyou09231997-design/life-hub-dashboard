@@ -2567,8 +2567,15 @@ a.trip-leg-mode--link {
   white-space: nowrap;
 }
 
+/* 第32弾: メモを先に・濃く、住所は控えめに。よく見るのはメモで、住所は地図ボタンで足りる
+   (@techno_bibi「普段見ないURLや住所より、よく使うメモやボタンを目立たせる」)。 */
 .trip-rtime__memo {
+  color: var(--hub-ink);
   white-space: normal;
+}
+
+.trip-rtime__address {
+  font-size: 0.78rem;
 }
 
 /* 元になった日程を開く(「時間で見る」の各場所の下)。 */
