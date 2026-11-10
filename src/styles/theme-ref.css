@@ -615,3 +615,11 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   .mail-connect-action { justify-content: stretch !important; }
   .mail-connect-action > button { width: 100%; }
 }
+
+/* 第41弾: 「気になること」の文が、狭い所(PC幅の右の列)で「同期す／る」のように1文字だけ次の行へ落ちていた。
+   文節で折り(auto-phrase)、行の長さをならす(balance)。未対応の端末では今までどおり。
+   前の改行直しは単語のまとまりごとだったが、ここは1つの長い文なのでこの指定が合う。 */
+.lh-concern__row .lh-row__copy strong {
+  word-break: auto-phrase;
+  text-wrap: balance;
+}
