@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-184",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "ホームの「次はどこへ」(旅行が無い時)の文字を読めるようにしました",
+    description:
+      "写真が無いカードが白い地のままで、白い文字の「次はどこへ」「旅の計画を立てましょう」がほとんど読めませんでした。写真が無い時は深い青緑の面にしました(写真のある旅行のカードは今までどおり)。(画面の文字と地の明るさを全部測って見つけた直し)",
+  },
+  {
     id: "2026-11-11-183",
     date: "2026-11-11",
     area: "デザイン",
