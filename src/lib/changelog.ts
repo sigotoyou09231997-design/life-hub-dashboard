@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-171",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "ふりかえりの「アプリの使われ方」の帯で、切れた補足を出さないようにしました",
+    description:
+      "スマホ幅で、題名の右の補足が「機能の使い方・よく…」と途中で切れて読めなかったので、スマホでは題名と開閉の矢印だけにしました(PC幅は今までどおり)。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-10-170",
     date: "2026-11-10",
     area: "デザイン",

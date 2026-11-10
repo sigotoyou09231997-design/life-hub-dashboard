@@ -691,3 +691,10 @@ p {
 .notes-empty-control__types > div > span {
   white-space: nowrap;
 }
+
+/* 第51弾: ふりかえりの「アプリの使われ方」の開閉の帯で、右の補足が「機能の使い方・よく…」と途中で切れて
+   スマホでは読めなかった。読めない補足は出さず、題名と開閉の矢印だけにする(PC幅は全部入るので残す)。 */
+@media (max-width: 639px) {
+  .review-usage-fold__toggle small { display: none; }
+  .review-usage-fold__title { flex: 1 1 auto; }
+}
