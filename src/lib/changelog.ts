@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-157",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "ホームの「今日と、この先」で、同じ日付を繰り返さないようにしました",
+    description:
+      "同じ日の予定やタスクが並ぶとき、日付は先頭の行にだけ出し、2行目からは見えなくしました(列の幅は変わりません)。実際の画面を撮って見つけた直しです。",
+  },
+  {
     id: "2026-11-10-156",
     date: "2026-11-10",
     area: "旅行",

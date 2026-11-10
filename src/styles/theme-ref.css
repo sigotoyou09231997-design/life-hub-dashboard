@@ -601,3 +601,8 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   position: absolute;
   inset: -0.25rem;
 }
+
+/* 第37弾: 「今日と、この先」の一覧で、前の行と同じ日付は淡く消す(日付ごとの先頭の行にだけ出す)。
+   文字は残す(読み上げと、列の幅をそろえるため)。見た目だけ透明にする。
+   前は同じ「11/10(火)」が全行に並び、読む前に目が同じ文字を何度も拾っていた。 */
+.lh-week__date.is-repeat { color: transparent; user-select: none; }

@@ -66,13 +66,13 @@ export function HomeWeekStrip({ days, rows, ready, onAdd }: Props) {
       ) : (
         <>
           <div className="lh-week__rows">
-            {rows.map((row) => (
+            {rows.map((row, index) => (
               <Link
                 key={row.key}
                 to={row.kind === "event" ? `/schedule?view=calendar&date=${row.date}` : "/schedule?view=list"}
                 className={`lh-week__row is-${row.kind}`}
               >
-                <span className="lh-week__date">{formatShortDate(row.date)}</span>
+                <span className={`lh-week__date${index > 0 && rows[index - 1].date === row.date ? " is-repeat" : ""}`}>{formatShortDate(row.date)}</span>
                 <span className="lh-week__time">{row.time ?? (row.kind === "event" ? "終日" : "")}</span>
                 <strong>{row.title}</strong>
                 {row.kind === "task" && <small>タスク</small>}
