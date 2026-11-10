@@ -20,6 +20,7 @@ import { ProgressBar } from "../ui/ProgressBar";
 import { Button } from "../ui/Button";
 import { ListSkeleton } from "../ui/ListSkeleton";
 import { CashBalanceCard } from "./CashBalanceCard";
+import { CategoryIcon } from "./CategoryIcon";
 import { CountingAmount } from "../ui/CountingAmount";
 
 function yen(n: number): string {
@@ -314,7 +315,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
                   どれくらい使ったかより「あと何円使えるか」が知りたい行なので、棒の意味を変える。 */}
               {budgetStatuses.map((status) => (
                 <div key={status.category} className="lh-row lh-row--bar">
-                  <span className="lh-row__icon lh-row__icon--initial" aria-hidden="true">{status.category.slice(0, 1)}</span>
+                  <span className="lh-row__icon lh-row__icon--initial" aria-hidden="true"><CategoryIcon category={status.category} /></span>
                   <div className="lh-row__copy">
                     <div className="flex items-baseline justify-between gap-3 text-xs">
                       <strong className="lh-row__label">{status.category}</strong>
@@ -351,7 +352,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
 
               {unbudgetedBreakdown.map(([category, amount]) => (
                 <div key={category} className="lh-row lh-row--bar">
-                  <span className="lh-row__icon lh-row__icon--initial" aria-hidden="true">{category.slice(0, 1)}</span>
+                  <span className="lh-row__icon lh-row__icon--initial" aria-hidden="true"><CategoryIcon category={category} /></span>
                   <div className="lh-row__copy">
                     <div className="flex justify-between text-xs"><strong className="lh-row__label">{category}</strong><span className="font-semibold tabular-nums text-slate-800">{yen(amount)}</span></div>
                     <ProgressBar value={totalExpense > 0 ? (amount / totalExpense) * 100 : 0} />
@@ -377,7 +378,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
                   className={`lh-row__icon lh-row__icon--initial ${transaction.type === "income" ? "is-income" : ""}`}
                   aria-hidden="true"
                 >
-                  {transaction.category.slice(0, 1)}
+                  <CategoryIcon category={transaction.category} />
                 </span>
                 <div className="lh-row__copy"><strong>{transaction.category}</strong><small>{formatDisplayDate(transaction.date)}</small></div>
                 <span className={`lh-row__value ${transaction.type === "income" ? "text-success" : ""}`}>{transaction.type === "income" ? "+" : "−"}{yen(transaction.amount)}</span>
