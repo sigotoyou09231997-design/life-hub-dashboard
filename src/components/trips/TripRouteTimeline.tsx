@@ -45,8 +45,8 @@ export function TripRouteTimeline({ stops, modeOf, focusedId, onOpenSchedule }: 
               <div className="trip-rtime__body">
                 <h3>{place.name}</h3>
                 {stop.title && <p className="trip-rtime__title">{stop.title}</p>}
-                <p className="trip-rtime__address" title={place.address}>{place.address}</p>
                 {place.memo && <p className="trip-rtime__memo">{place.memo}</p>}
+                <p className="trip-rtime__address" title={place.address}>{place.address}</p>
                 {stop.source && onOpenSchedule && (
                   <button
                     type="button"
