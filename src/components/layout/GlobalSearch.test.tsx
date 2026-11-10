@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
 function table(rows: () => Record<string, unknown>[]) {
   return {
     toArray: async () => rows(),
+    count: async () => rows().length,
     bulkGet: async (ids: string[]) => ids.map((id) => rows().find((row) => row.id === id)),
   };
 }
@@ -88,6 +89,14 @@ function renderPalette(path = "/") {
   );
   return { onClose };
 }
+
+describe("検索欄の件数", () => {
+  it("開くと、探せる件数が入力欄の案内に出る", async () => {
+    renderPalette();
+    // 旅行1件+メール1件(beforeEach)。数え終わるまでは今までの文言。
+    expect(await screen.findByPlaceholderText(/\d+件から探す/)).toBeTruthy();
+  });
+});
 
 const optionLabels = () => screen.getAllByRole("option").map((option) => option.textContent ?? "");
 const selectedOption = () => screen.getAllByRole("option").find((option) => option.getAttribute("aria-selected") === "true");
