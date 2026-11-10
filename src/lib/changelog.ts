@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-182",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "「すべて見る」のリンクを、指で押しやすくしました",
+    description:
+      "ホームなどの「すべて見る →」は、押せる高さが20pxしかありませんでした。文字の見た目は変えずに、押せる範囲だけを44px以上に広げました。(画面の中の押せるものを全部測って見つけた直し)",
+  },
+  {
     id: "2026-11-11-181",
     date: "2026-11-11",
     area: "デザイン",
