@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-153",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "PCの左メニューで、ロゴとアイコンの左端をそろえました",
+    description:
+      "ロゴの左端が、その下のメニューのアイコンより少し左にずれていたので、縦にそろえました。(X の @karrisaarinen の、左端の位置合わせの話から)",
+  },
+  {
     id: "2026-11-10-152",
     date: "2026-11-10",
     area: "デザイン",
