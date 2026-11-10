@@ -275,7 +275,7 @@ export function FixedCostTab() {
               onSaved={() => {
                 setAdding(false);
                 setDraft(null);
-                showToast("追加しました");
+                showToast("追加しました", { action: { label: "続けて追加", onClick: () => setAdding(true) } });
               }}
               onCancel={() => {
                 setAdding(false);

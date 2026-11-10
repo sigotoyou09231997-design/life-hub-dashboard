@@ -353,7 +353,7 @@ export function SubscriptionTab() {
               onBack={() => setAddStep(null)}
               onSaved={() => {
                 closeAdd();
-                showToast("追加しました");
+                showToast("追加しました", { action: { label: "続けて追加", onClick: openAdd } });
               }}
               onCancel={closeAdd}
             />
