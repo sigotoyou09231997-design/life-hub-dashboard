@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-169",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "アカウントの画面で、カードの下の空きを詰めました",
+    description:
+      "PC幅で、「端末間同期」と「Gmail」のカードが、中身は2〜3行なのに高く伸びて下が空いていたので、中身の高さに合わせました。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-10-168",
     date: "2026-11-10",
     area: "デザイン",

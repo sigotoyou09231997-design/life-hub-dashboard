@@ -671,3 +671,10 @@ p {
   white-space: normal;
   text-overflow: clip;
 }
+
+/* 第49弾: アカウントの「端末間同期」「Gmail」は、中身が2〜3行なのに PC 幅で最低の高さ(17rem)が付き、
+   下が半分ほど空いていた。中身の高さに合わせる(空のカードを引き伸ばさない、という本人の好みと同じ)。 */
+.profile-sync-module,
+.profile-gmail-module {
+  min-height: auto;
+}
