@@ -230,8 +230,8 @@ export function SoccerTeamsCard() {
         </section>
 
         {teams.length > 0 && (
-          <Button variant="secondary" className="soccer__sync" disabled={busy} onClick={() => void runSync(teams)}>
-            <RefreshCw size={16} aria-hidden className={busy ? "animate-spin" : ""} />
+          <Button variant="secondary" className="soccer__sync" loading={busy} onClick={() => void runSync(teams)}>
+            {!busy && <RefreshCw size={16} aria-hidden />}
             {busy ? "取り込み中…" : "今すぐ取り込む"}
           </Button>
         )}

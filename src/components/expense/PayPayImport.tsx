@@ -102,10 +102,10 @@ export function PayPayImport() {
         <Button
           variant="secondary"
           className="w-full"
-          disabled={importing}
+          loading={importing}
           onClick={() => fileInputRef.current?.click()}
         >
-          {importing ? "読み込み中..." : "CSVファイルを選択"}
+          {importing ? "読み込み中…" : "CSVファイルを選択"}
         </Button>
         <input
           ref={fileInputRef}

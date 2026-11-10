@@ -157,8 +157,8 @@ export default function AuthGatePage({ addingAccount = false }: Props) {
 
           {error && <p className="text-sm text-danger">{error}</p>}
 
-          <Button type="submit" className="w-full" disabled={busy}>
-            {busy ? "処理中..." : mode === "register" ? "登録する" : "ログイン"}
+          <Button type="submit" className="w-full" loading={busy}>
+            {busy ? "処理中…" : mode === "register" ? "登録する" : "ログイン"}
           </Button>
         </form>
 

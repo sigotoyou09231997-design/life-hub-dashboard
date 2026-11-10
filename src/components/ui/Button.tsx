@@ -20,12 +20,16 @@ const sizeClasses: Record<Size, string> = {
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
+  /** 処理中。くるくると aria-busy を付け、押せなくする。文字は薄くせず読めるまま(第29弾・@kawai_design 16)。 */
+  loading?: boolean;
 }
 
 export function Button({
   variant = "primary",
   size = "md",
   className = "",
+  loading = false,
+  disabled,
   children,
   ...props
 }: Props) {
@@ -34,13 +38,17 @@ export function Button({
   return (
     <button
       className={twMerge(
-        "app-button inline-flex min-h-11 items-center justify-center gap-2 rounded-none font-medium transition-all duration-200 ease-out disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none",
+        "app-button inline-flex min-h-11 items-center justify-center gap-2 rounded-none font-medium transition-all duration-200 ease-out disabled:opacity-40 data-[loading]:disabled:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 motion-reduce:transition-none",
         variantClasses[variant],
         sizeClasses[size],
         className,
       )}
       {...props}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      data-loading={loading || undefined}
     >
+      {loading && <span className="button-spinner" aria-hidden />}
       {children}
     </button>
   );

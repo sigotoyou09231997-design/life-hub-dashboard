@@ -571,3 +571,19 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
 
 /* Gmail の見出しも、ほかのページと同じ大きさ・明朝に（第25回。GmailPage.tsx の .mail-page-title）。 */
 .app-shell .mail-page-title { font-size: var(--fs-page); }
+
+/* 第29弾: 処理中のボタン。文字は薄くせず(読めるまま)、左に小さなくるくるを出す。
+   参考: @kawai_design「UIの改善ビフォーアフター20選」の16(処理中の表示)。 */
+.button-spinner {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: button-spin 0.7s linear infinite;
+}
+@keyframes button-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .button-spinner { animation-duration: 2.4s; }
+}
