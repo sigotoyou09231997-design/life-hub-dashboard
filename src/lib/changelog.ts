@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-155",
+    date: "2026-11-10",
+    area: "AI",
+    title: "AIの最新情報を、メニューと検索から開けるようにしました",
+    description:
+      "PCの左メニュー・スマホの「すべて」・まとめて検索に「AIの最新情報」を足しました(今まではホームの「すべて見る」からだけでした)。設定の「使う機能」で、使わなければメニューとホームのカードごと隠せます。",
+  },
+  {
     id: "2026-11-10-154",
     date: "2026-11-10",
     area: "デザイン",

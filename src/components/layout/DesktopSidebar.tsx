@@ -9,6 +9,7 @@ import {
   Mail,
   NotebookPen,
   Plane,
+  Newspaper,
   Settings,
   UserRound,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const PRIMARY_NAV = [
 ];
 
 const SECONDARY_NAV = [
+  { to: "/ai-news", label: "AIの最新情報", icon: Newspaper },
   { to: "/review", label: "ふりかえり", icon: LineChart },
   { to: "/settings", label: "設定", icon: Settings },
 ];

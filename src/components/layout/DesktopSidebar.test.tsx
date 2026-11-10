@@ -18,17 +18,17 @@ function names(): string[] {
 describe("PC のサイドバー", () => {
   it("何も隠していなければ、全部並ぶ", () => {
     render(<MemoryRouter><DesktopSidebar /></MemoryRouter>);
-    expect(names()).toEqual(["ホーム", "予定・タスク", "お金管理", "メモ・リスト", "Gmail", "旅行計画", "ふりかえり", "設定"]);
+    expect(names()).toEqual(["ホーム", "予定・タスク", "お金管理", "メモ・リスト", "Gmail", "旅行計画", "AIの最新情報", "ふりかえり", "設定"]);
   });
 
   it("設定の「使う機能」で隠した機能は出さない(ふりかえりも)。ホームと設定は残る", () => {
     saveHiddenFeatures(["gmail", "review", "money"]);
     render(<MemoryRouter><DesktopSidebar /></MemoryRouter>);
-    expect(names()).toEqual(["ホーム", "予定・タスク", "メモ・リスト", "旅行計画", "設定"]);
+    expect(names()).toEqual(["ホーム", "予定・タスク", "メモ・リスト", "旅行計画", "AIの最新情報", "設定"]);
   });
 
   it("全部隠しても、ホームと設定は出る", () => {
-    saveHiddenFeatures(["schedule", "money", "notes", "gmail", "trips", "review"]);
+    saveHiddenFeatures(["schedule", "money", "notes", "gmail", "trips", "ai", "review"]);
     render(<MemoryRouter><DesktopSidebar /></MemoryRouter>);
     expect(names()).toEqual(["ホーム", "設定"]);
   });

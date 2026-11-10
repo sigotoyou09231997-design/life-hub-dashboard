@@ -455,7 +455,7 @@ export default function TopPage() {
       )}
 
       {/* 5. AIの最新情報(2026-11-10)。記事が取れていない間は出さない。 */}
-      <HomeAiNews head={(props) => <SectionHead {...props} />} />
+      {!hiddenFeatures.includes("ai") && <HomeAiNews head={(props) => <SectionHead {...props} />} />}
 
       {/* 追加の入口(UI/UX 調査メモ A-3)。ホームは何を足すか決まらないので、選ぶシートを開く。 */}
       <PageFab onClick={openAddChooser} label="追加する">

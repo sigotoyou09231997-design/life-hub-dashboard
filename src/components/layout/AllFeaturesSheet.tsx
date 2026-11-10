@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CalendarDays, ChevronLeft, ChevronRight, Home, LineChart, Mail, Pencil, Plane, Plus, RotateCcw, Settings as SettingsIcon, StickyNote, Trash2, Wallet, type LucideIcon } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Home, LineChart, Mail, Newspaper, Pencil, Plane, Plus, RotateCcw, Settings as SettingsIcon, StickyNote, Trash2, Wallet, type LucideIcon } from "lucide-react";
 import { Sheet } from "../ui/Sheet";
 import { Button } from "../ui/Button";
 import { useHiddenFeatures } from "../../hooks/useHiddenFeatures";
@@ -38,6 +38,7 @@ const FEATURES: FeatureLink[] = [
   { to: "/records/notes", label: "メモ・リスト", icon: StickyNote, ...FEATURE_TONE },
   { to: "/trips", label: "旅行計画", icon: Plane, ...FEATURE_TONE },
   { to: "/gmail", label: "Gmail", icon: Mail, ...FEATURE_TONE },
+  { to: "/ai-news", label: "AIの最新情報", icon: Newspaper, ...FEATURE_TONE },
   { to: "/review", label: "ふりかえり", icon: LineChart, ...FEATURE_TONE },
   { to: "/settings", label: "設定", icon: SettingsIcon, ...FEATURE_TONE },
 ];

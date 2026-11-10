@@ -15,6 +15,7 @@ import {
   UserRound,
   Wallet,
   Home,
+  Newspaper,
 } from "lucide-react";
 
 /*
@@ -42,6 +43,7 @@ export const APP_PAGES: AppPage[] = [
   { path: "/records/notes", label: "メモ・リスト", icon: NotebookPen, keywords: ["メモ", "リスト", "買い物", "チェックリスト", "日記"] },
   { path: "/gmail", label: "Gmail", icon: Mail, keywords: ["メール", "受信"] },
   { path: "/trips", label: "旅行計画", icon: Plane, keywords: ["旅行", "旅", "しおり"] },
+  { path: "/ai-news", label: "AIの最新情報", icon: Newspaper, keywords: ["AI", "ニュース", "Claude", "Anthropic", "OpenAI", "最新情報"] },
   { path: "/review", label: "ふりかえり", icon: LineChart, keywords: ["振り返り", "レビュー", "使い方"] },
   { path: "/settings", label: "設定", icon: Settings, keywords: ["せってい", "通知", "背景"] },
   { path: "/account", label: "アカウント", icon: UserRound, keywords: ["ログイン", "同期", "プロフィール"] },
