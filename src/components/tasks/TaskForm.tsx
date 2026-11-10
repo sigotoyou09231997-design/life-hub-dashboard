@@ -124,7 +124,7 @@ export function TaskForm({ initial, parentTaskId, onSaved, onCancel }: Props) {
         />
       </FormPanel>
 
-      <FormPanel caption="場所で知らせる" icon={MapPin}>
+      <FormPanel caption="場所" icon={MapPin}>
         <PlaceReminderField value={placeReminder} onChange={setPlaceReminder} />
       </FormPanel>
 
