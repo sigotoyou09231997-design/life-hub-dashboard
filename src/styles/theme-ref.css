@@ -731,3 +731,11 @@ p {
 .range-field {
   grid-template-columns: minmax(0, 0.82fr) auto minmax(0, 1.18fr);
 }
+
+/* 第59弾: サブスクのカテゴリ(動画・音楽…)のチップは、選ぶと黒に塗られていた。同じ画面のタブ(サブスク・給与)も、
+   メモの絞り込みのチップも、選んだものは深い青緑なので、ここだけ黒が浮いていた。深い青緑にそろえる。 */
+.subs-chip[aria-pressed="true"] {
+  border-color: var(--ref-700);
+  background: var(--ref-700);
+  color: #fff;
+}
