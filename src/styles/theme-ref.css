@@ -323,6 +323,10 @@
 @media (min-width: 1024px) {
   .sidebar-nav__group { gap: 0.125rem; }
   .sidebar-nav__divider { margin: 1.1rem 0.6rem; background: rgba(15, 59, 54, 0.08); }
+  /* 第34弾: ロゴの左端を、メニューのアイコンの左端(.95rem)にそろえる。
+     前はロゴが .5rem、アイコンが .95rem で、縦に並べると左がずれていた
+     (@karrisaarinen「左右の位置合わせか中央揃えか、縦のリズムをそろえる」)。 */
+  .sidebar-brand { padding-left: 0.95rem; }
 }
 .sidebar-brand__mark { background: var(--ref-700); color: #fff; }
 .sidebar-link { color: var(--warm-ink-2); font-weight: 500; }
