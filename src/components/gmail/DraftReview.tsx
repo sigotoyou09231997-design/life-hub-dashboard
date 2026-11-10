@@ -650,11 +650,12 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
           className="flex-1"
           onClick={handleGenerate}
           disabled={generating || sending || undoActive}
+          loading={generating}
         >
-          {generating ? "生成中..." : "再生成"}
+          {generating ? "生成中…" : "再生成"}
         </Button>
-        <Button type="button" variant="secondary" className="flex-1" onClick={handleSave} disabled={saving || generating || undoActive}>
-          {saving ? "保存中..." : "保存"}
+        <Button type="button" variant="secondary" className="flex-1" onClick={handleSave} disabled={saving || generating || undoActive} loading={saving}>
+          {saving ? "保存中…" : "保存"}
         </Button>
         {!alreadySent && (
           <Button
@@ -681,8 +682,9 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
           className="w-full"
           onClick={handleStartSend}
           disabled={sending || generating || !bodyText.trim() || !toText.trim() || !subjectText.trim() || alreadySent}
+          loading={sending}
         >
-          {alreadySent ? "送信済み" : sending ? "送信中..." : "送信する"}
+          {alreadySent ? "送信済み" : sending ? "送信中…" : "送信する"}
         </Button>
       )}
     </>

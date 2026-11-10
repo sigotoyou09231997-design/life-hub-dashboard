@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-148",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "処理中のボタンに、くるくるを出すようにしました",
+    description:
+      "メールの送信・下書きの生成と保存・ログイン・CSVの読み込み・場所の検索・サッカーの取り込みで、処理中は文字を薄くせず、左に小さなくるくるを出して押せなくします。止まったのか動いているのか分かりやすくなります。",
+  },
+  {
     id: "2026-11-10-147",
     date: "2026-11-10",
     area: "AI",

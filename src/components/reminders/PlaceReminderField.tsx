@@ -148,8 +148,8 @@ export function PlaceReminderField({ value, onChange }: Props) {
                 placeholder="地名で探す(例: 東京駅)"
                 className="field-shell min-w-0 flex-1"
               />
-              <Button type="button" variant="secondary" onClick={() => void runSearch()} disabled={searching}>
-                <Search size={16} />
+              <Button type="button" variant="secondary" onClick={() => void runSearch()} loading={searching}>
+                {!searching && <Search size={16} />}
                 {searching ? "検索中…" : "探す"}
               </Button>
             </div>

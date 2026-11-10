@@ -178,8 +178,8 @@ export function ComposeMail({ account, onSent }: Props) {
           送信を取り消す（{undoSecondsLeft}）
         </Button>
       ) : (
-        <Button type="button" className="w-full" onClick={handleStartSend} disabled={!canSend}>
-          {sending ? "送信中..." : "送信する"}
+        <Button type="button" className="w-full" onClick={handleStartSend} disabled={!canSend} loading={sending}>
+          {sending ? "送信中…" : "送信する"}
         </Button>
       )}
     </div>
