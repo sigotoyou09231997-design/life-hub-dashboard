@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-152",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "お金管理のサマリーで、カテゴリを頭文字ではなく絵で見せました",
+    description:
+      "食費・交通費・娯楽などの行の左が、「食」「交」のような1文字の札から、小さな絵に変わりました。ひと目で見分けやすくなります。自分で足したカテゴリは今までどおり頭文字です。",
+  },
+  {
     id: "2026-11-10-151",
     date: "2026-11-10",
     area: "デザイン",
