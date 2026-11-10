@@ -708,3 +708,14 @@ p {
    2行が1つの文のように読めた。行の下の余白を 0.45rem 足し、線の説明の字を少し下げて、間をあける。 */
 .subs-row:not(.is-cancelled) { padding-bottom: 1.75rem; }
 .subs-row__track-label { bottom: 0.8rem; }
+
+/* 第54弾: 設定のスイッチの行は、文字が説明文より右へ 0.9rem ずれて始まっていた(「使う機能」の説明は左端、
+   その下の「予定・タスク」は右にひっこむ)。行の左右の余白と同じだけ外へ出して、文字の左端を説明文にそろえる
+   (押した時の薄い面は今までどおり余白ぶん広い)。名前が2行に折れる時、「出す」だけが残らないよう行をならす。 */
+.system-section .switch-row {
+  margin-inline: -0.9rem;
+  width: calc(100% + 1.8rem);
+}
+.system-section .switch-row__copy .field__label {
+  text-wrap: balance;
+}
