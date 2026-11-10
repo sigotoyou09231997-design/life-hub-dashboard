@@ -18,9 +18,9 @@ afterEach(cleanup);
 const row = (name: string) => screen.getByRole("switch", { name: new RegExp(name) });
 
 describe("設定の「使う機能」", () => {
-  it("6つの機能が、ぜんぶオンで並ぶ。ホームと設定は並ばない(隠せない)", () => {
+  it("7つの機能が、ぜんぶオンで並ぶ。ホームと設定は並ばない(隠せない)", () => {
     render(<HiddenFeaturesCard />);
-    expect(screen.getAllByRole("switch").map((el) => el.getAttribute("aria-checked"))).toEqual(["true", "true", "true", "true", "true", "true"]);
+    expect(screen.getAllByRole("switch").map((el) => el.getAttribute("aria-checked"))).toEqual(["true", "true", "true", "true", "true", "true", "true"]);
     expect(screen.queryByRole("switch", { name: /ホーム/ })).toBeNull();
     expect(screen.queryByRole("switch", { name: /設定/ })).toBeNull();
     expect(screen.getByText(/データは消えません/)).toBeTruthy();
