@@ -805,3 +805,10 @@ p {
 .notes-empty-control__types > div > span { font-size: 0.7rem; }
 .notes-empty-control__action p span { font-size: 0.75rem; }
 .destination-empty-control__copy p { font-size: 0.75rem; }
+
+/* 第64弾: ホームの「次はどこへ」(旅行がまだ無い時のカード)は写真が無く、白い下地に白い文字だったため、
+   「次はどこへ」「旅の計画を立てましょう」がほとんど読めなかった(下の暗い帯にだけ文字が乗っていた)。
+   写真が無い時は、深い青緑の面にして、白い文字がはっきり読めるようにする。写真のあるカードは変えない。 */
+.warm-trip__photo:not([style]) {
+  background: linear-gradient(160deg, var(--ref-700) 0%, #0f3b36 100%);
+}
