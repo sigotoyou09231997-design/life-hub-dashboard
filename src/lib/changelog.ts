@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-10-162",
+    date: "2026-11-10",
+    area: "デザイン",
+    title: "旅行の「新しい旅行」とお金管理の小見出しの折り返しを直しました",
+    description:
+      "「持／ち物」のように文の途中で1文字だけ次の行に落ちていた2か所を、文節で折るようにしました。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-10-161",
     date: "2026-11-10",
     area: "デザイン",

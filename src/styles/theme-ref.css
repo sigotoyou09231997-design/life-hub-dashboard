@@ -623,3 +623,11 @@ input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color:
   word-break: auto-phrase;
   text-wrap: balance;
 }
+
+/* 第42弾: 文の途中で1〜2文字だけ次の行へ落ちる所(画面を撮って見つけた2か所)を、文節で折る。
+   「…・持／ち物をまとめられます」(旅行の「新しい旅行」)と、「…あたりの／平均)」(お金管理の黒いカードの小見出し)。 */
+.trip-new__copy small,
+.lh-finance__stats dt {
+  word-break: auto-phrase;
+  text-wrap: balance;
+}
