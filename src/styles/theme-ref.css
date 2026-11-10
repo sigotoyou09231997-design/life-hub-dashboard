@@ -812,3 +812,13 @@ p {
 .warm-trip__photo:not([style]) {
   background: linear-gradient(160deg, var(--ref-700) 0%, #0f3b36 100%);
 }
+
+/* 第66弾: 第65弾(タスク)の続き。メモのカードと旅行の日程の名前も、スペースの無い長い英数字だと右端で欠けて
+   「…」が出なかった。行数を絞る(line-clamp)所はすべて、どこでも折り返せるようにして、折り返した末尾を「…」にする。
+   ふつうの日本語・短い英数字の見え方は変わらない。 */
+.line-clamp-1,
+.line-clamp-2,
+.line-clamp-3,
+.trip-timeline__title {
+  overflow-wrap: anywhere;
+}
