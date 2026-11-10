@@ -32,7 +32,7 @@ const CAPTION_ICONS: Record<string, LucideIcon> = {
   整理のしかた: FolderOpen,
   項目: ListChecks,
   商品: ShoppingBasket,
-  場所で知らせる: MapPin,
+  場所: MapPin,
   詳細: Info,
   費用: Wallet,
   何にいくら: Wallet,

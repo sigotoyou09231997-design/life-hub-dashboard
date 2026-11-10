@@ -172,7 +172,7 @@ export function ShoppingForm({ initial, onSaved, onCancel }: Props) {
       </FormPanel>
 
       {/* 「駅に着いたら買い物リストを見る」のための場所リマインド。 */}
-      <FormPanel caption="場所で知らせる">
+      <FormPanel caption="場所">
         <PlaceReminderField value={placeReminder} onChange={setPlaceReminder} />
       </FormPanel>
 

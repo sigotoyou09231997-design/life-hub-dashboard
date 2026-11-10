@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-178",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "タスクと買い物リストの入力で、「場所で知らせる」の重なりをやめました",
+    description:
+      "見出しも、その下のスイッチも、どちらも「場所で知らせる」で同じ言葉が2つ並んでいたので、見出しを「場所」にしました。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-11-177",
     date: "2026-11-11",
     area: "デザイン",
