@@ -155,7 +155,7 @@ export function TaskItem({ task, allTasks, onToggle, onEdit, onDelete, onAddSubt
         >
           <p
             title={task.title}
-            className={`line-clamp-2 text-sm font-medium ${
+            className={`line-clamp-2 break-words [overflow-wrap:anywhere] text-sm font-medium ${
               task.completed ? "text-slate-400 line-through" : completion ? "text-slate-400" : "text-slate-900"
             }`}
           >
