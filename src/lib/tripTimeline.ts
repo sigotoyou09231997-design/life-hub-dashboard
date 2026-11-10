@@ -33,3 +33,33 @@ export function timelineTimeParts(
   // 「終日」「時刻未設定」。列の幅に収まる短い言い方にする。
   return { main: text === "時刻未設定" ? "時刻なし" : text, plain: true };
 }
+
+/**
+ * 同じ日の中で、前の日程の終わりより早く始まる日程を見つける(第36弾)。
+ * 参考: @FaizalSukaimi「旅程ビルダー: 時間のチェックと、ワンタップの直し」。直しの操作までは付けず、
+ * 「前と重なっています」と気づかせるところまで。
+ *
+ * 当てるのは、1日で終わる・開始と終了の両方の時刻がある日程の「次」に来る、開始時刻のある日程だけ。
+ * 宿泊(チェックイン・アウトの時刻で動く)と、何日かにまたがる日程は対象にしない。
+ * 開始時刻が前の終了時刻と同じ(ちょうど乗り換え)は重なりではない。
+ */
+export function findTimeClashes(
+  items: ReadonlyArray<{ id?: string; type?: string; date: string; endDate?: string; startTime?: string; endTime?: string }>,
+): Set<string> {
+  const clashes = new Set<string>();
+  const toMin = (time: string | undefined): number | null => {
+    const m = time ? /^(\d{1,2}):(\d{2})$/.exec(time) : null;
+    return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+  };
+  const timed = items
+    .filter((item) => item.type !== "lodging" && (!item.endDate || item.endDate === item.date))
+    .map((item) => ({ item, start: toMin(item.startTime), end: toMin(item.endTime) }))
+    .filter((entry): entry is { item: (typeof items)[number]; start: number; end: number | null } => entry.start !== null)
+    .sort((a, b) => a.start - b.start);
+  let latestEnd: number | null = null;
+  for (const entry of timed) {
+    if (latestEnd !== null && entry.start < latestEnd && entry.item.id) clashes.add(entry.item.id);
+    if (entry.end !== null && entry.end > entry.start) latestEnd = Math.max(latestEnd ?? 0, entry.end);
+  }
+  return clashes;
+}

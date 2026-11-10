@@ -3391,3 +3391,11 @@ a.trip-leg-mode--link {
   .trip-packing-grip { opacity: 0.45; transition: opacity 160ms ease, color 160ms ease; }
   .glass-row:hover .trip-packing-grip { opacity: 1; color: var(--warm-ink-2); }
 }
+
+/* 第36弾: 前の日程と時間が重なっている時の一言(@FaizalSukaimi「旅程の時間チェック」)。押す所ではないので、色と小さな文字だけ。 */
+.trip-timeline__clash {
+  margin-top: 0.1rem;
+  color: var(--color-warning, #b45309);
+  font-size: var(--fs-caption, 0.75rem);
+  font-weight: 600;
+}

@@ -4,7 +4,7 @@ import { useLongPressReorder } from "../../hooks/useLongPressReorder";
 import type { Attachment, TripExpense, TripScheduleItem } from "../../types";
 import { formatDisplayDate, formatShortDate } from "../../lib/date";
 import { occurringOn, spanLabel } from "../../lib/eventSpan";
-import { timelineTimeParts } from "../../lib/tripTimeline";
+import { findTimeClashes, timelineTimeParts } from "../../lib/tripTimeline";
 import { getTripScheduleType } from "../../lib/tripCategories";
 import { isLifeMarker } from "../../lib/scheduleRhythm";
 import { connectorMinutes, connectorModes, formatMinutes, segmentSchedule } from "../../lib/scheduleConnectors";
@@ -191,6 +191,7 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
         // 時刻の順。並べ替えた日は、その順(src/lib/scheduleOrder.ts)。
         const dayItems = orderScheduleDay(occurringOn(items, date));
         const forecast = forecastForDate(forecasts, date);
+        const clashIds = findTimeClashes(dayItems);
         const canReorder = Boolean(onReorder) && dayItems.length > 1;
         const sorting = canReorder && sortingDay === date;
         // 長押しで動かしている間は、落とす位置へ動かした並びで見せる。
@@ -280,6 +281,9 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                             <p className="trip-timeline__title line-clamp-2" title={item.title}>
                               {item.title}
                             </p>
+                            {item.id && clashIds.has(item.id) && (
+                              <p className="trip-timeline__clash">前の日程と時間が重なっています</p>
+                            )}
                             {/* 2行目(灰色の補足): 場所・移動手段・金額と払った人・またがる日数。場所は押すとルートのその場所へ(押せるので下線で応える)。 */}
                             {(item.location || item.endLocation || showTransport || expense || span) && (
                               <div className="trip-timeline__meta">
