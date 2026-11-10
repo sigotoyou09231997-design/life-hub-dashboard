@@ -179,8 +179,8 @@ function MoodTrendChart({ points }: { points: MoodPoint[] }) {
   return (
     <div className="review-mood">
       <div className="flex gap-2">
-        {/* 目盛りの文字は幅を固定する。下の日付の並びを同じ幅だけ右へずらして頭を揃えるため。 */}
-        <div className="flex w-9 shrink-0 flex-col justify-between py-[10px] text-[10px] text-slate-400" style={{ height }}>
+        {/* 目盛りの文字は幅を固定する(PC幅では文字が大きくなり、2.25rem だと「ふつう」が「ふつ／う」に折れたので 2.75rem)。下の日付の並びを同じ幅だけ右へずらして頭を揃えるため。 */}
+        <div className="flex w-11 shrink-0 flex-col justify-between whitespace-nowrap py-[10px] text-[10px] text-slate-400" style={{ height }}>
           {MOOD_LANES.map((lane) => (
             <span key={lane.score}>{lane.label}</span>
           ))}
@@ -241,7 +241,7 @@ function MoodTrendChart({ points }: { points: MoodPoint[] }) {
           )}
         </svg>
       </div>
-      <div className="mt-1 flex pl-[calc(2.25rem+0.5rem)]">
+      <div className="mt-1 flex pl-[calc(2.75rem+0.5rem)]">
         {points.map((point) => (
           <span key={point.key} className="min-w-0 flex-1 text-center text-[10px] text-slate-400">
             {point.label}
