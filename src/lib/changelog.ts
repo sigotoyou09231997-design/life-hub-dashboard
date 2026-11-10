@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-179",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "サブスクのカテゴリのチップを、選ぶと黒でなく深い青緑にしました",
+    description:
+      "サブスクの追加・編集で、カテゴリ(動画・音楽・AI・仕事…)の選んだチップだけが黒でした。同じ画面のタブや、メモの絞り込みと同じ深い青緑にそろえました。(画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-11-178",
     date: "2026-11-11",
     area: "デザイン",
