@@ -1,4 +1,7 @@
+import { useState } from "react";
 import type { Attachment, Note } from "../../types";
+import { splitMemoTasks } from "../../lib/memoTasks";
+import { MemoTaskSheet } from "./MemoTaskSheet";
 import { db } from "../../db/schema";
 import { todayStr } from "../../lib/date";
 import { getNoteType, getNoteTypeDef } from "../../lib/noteTypes";
@@ -77,8 +80,12 @@ export function NoteCard({ note, photos = [], onEdit, onDelete }: Props) {
   const type = getNoteType(note);
   const typeDef = getNoteTypeDef(type);
   const TypeIcon = typeDef.icon;
+  // 箇条書きのメモ(2行以上)は、「タスク化」で1行ずつ選んで入れる(第73弾)。1行だけなら今までどおり1件。
+  const [taskSheetOpen, setTaskSheetOpen] = useState(false);
+  const hasManyLines = splitMemoTasks(note.body).length >= 2;
 
   return (
+    <>
     <ListRow interactive className={`note-widget note-widget--${type} h-full p-0 md:min-h-[190px]`}>
       <button
         type="button"
@@ -117,7 +124,7 @@ export function NoteCard({ note, photos = [], onEdit, onDelete }: Props) {
             <>
               <button
                 type="button"
-                onClick={() => convertToTask(note)}
+                onClick={() => (hasManyLines ? setTaskSheetOpen(true) : convertToTask(note))}
                 className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-slate-500 transition-colors active:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
               >
                 <CheckSquare size={14} />
@@ -148,5 +155,16 @@ export function NoteCard({ note, photos = [], onEdit, onDelete }: Props) {
         </div>
       </div>
     </ListRow>
+    {/* シートはカードの外に置く(カードの中だと、カードの変形に引きずられて、一覧の途中に欠けて出る)。 */}
+    {hasManyLines && (
+      <MemoTaskSheet
+        open={taskSheetOpen}
+        onClose={() => setTaskSheetOpen(false)}
+        title={note.title}
+        body={note.body}
+        onTitleOnly={() => void convertToTask(note)}
+      />
+    )}
+    </>
   );
 }

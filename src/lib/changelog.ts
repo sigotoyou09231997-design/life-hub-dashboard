@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-193",
+    date: "2026-11-11",
+    area: "メモ",
+    title: "箇条書きのメモを、1行ずつまとめてタスクにできるようにしました",
+    description:
+      "メモに「・見積もりを出す」「・資料を送る」のように2行以上書いてあると、「タスク化」で行の一覧が開き、入れる行を選んで一度にタスクにできます(入れたあとも「元に戻す」で、今入れた分だけをまとめて消せます)。1行だけのメモは、今までどおり題名の1件です。AIは使わず、文字の形だけで分けます。(今日の Claude Meetings / Whiteboards の、話し合いを「やること」の一覧にする考え方から)",
+  },
+  {
     id: "2026-11-11-192",
     date: "2026-11-11",
     area: "メモ",
