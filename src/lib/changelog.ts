@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-190",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "スマホで、カードとカードの縦のすきまをそろえました",
+    description:
+      "予定の「今日」・お金管理の空のサマリー・アカウントでは、カードの間が10〜12pxで、ホーム(16px)よりつまって見えました。縦に並ぶカードの間を、16pxにそろえました。(余白を測って見つけた直し)",
+  },
+  {
     id: "2026-11-11-189",
     date: "2026-11-11",
     area: "デザイン",
