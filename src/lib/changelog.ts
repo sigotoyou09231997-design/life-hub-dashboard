@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-191",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "ブラウザのタブの題名を、画面ごとに変えました",
+    description:
+      "どの画面も「LIFE HUB」だけだったので、タブを何枚か開いた時や履歴で見分けられませんでした。「予定・タスク — LIFE HUB」のように、画面の名前を付けました。",
+  },
+  {
     id: "2026-11-11-190",
     date: "2026-11-11",
     area: "デザイン",

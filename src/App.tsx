@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
+import { APP_PAGES } from "./lib/commandPalette";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import type { Session } from "@supabase/auth-js";
 import { ensureDefaultSettings } from "./db/schema";
@@ -106,6 +107,14 @@ export default function App() {
   // ログインの壁は通す(本人のアカウントで許可するため)。未ログインで来た人が、Google ログインの
   // 往復(/auth/callback → 設定画面)のあとも戻れるよう、依頼の印を先に預かる。
   const isOAuthConsentRoute = isOAuthConsentPath(location.pathname);
+  // タブ・履歴・共有で、どの画面か分かるように、画面ごとにタブの題名を変える(第71弾)。
+  // 前はどの画面も「LIFE HUB」だけで、タブを何枚か開いた時や履歴に並んだ時に見分けられなかった。
+  // 共有リンクの画面は、旅行の名前を自分で題名にしているので触らない。
+  useEffect(() => {
+    if (isSharedTripRoute) return;
+    const page = APP_PAGES.find((entry) => location.pathname === entry.path || location.pathname.startsWith(`${entry.path}/`));
+    document.title = page ? `${page.label} — LIFE HUB` : "LIFE HUB";
+  }, [location.pathname, isSharedTripRoute]);
   useEffect(() => {
     if (isOAuthConsentRoute) rememberPendingConsent(location.search);
   }, [isOAuthConsentRoute, location.search]);
