@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-189",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "スマホで、ホームの左右の余白を、ほかの画面とそろえました",
+    description:
+      "ホームだけ左右の余白が16pxで、ほかの画面(予定・お金管理・メモ・旅行・ふりかえり・設定)は12pxでした。ホームから他の画面に移るたびにカードの左端が4pxずれて動いて見えたので、ホームを12pxにそろえました。(余白を測って見つけた直し)",
+  },
+  {
     id: "2026-11-11-188",
     date: "2026-11-11",
     area: "デザイン",

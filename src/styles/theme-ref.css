@@ -840,3 +840,10 @@ p {
 .notes-empty-control__types {
   grid-template-columns: repeat(auto-fit, minmax(min(6.4rem, 100%), 1fr));
 }
+
+/* 第69弾: スマホの左右の余白をそろえる。ホームだけ 16px で、ほかの画面(戻るボタン・タブ・カード)は
+   すべて 12px だった(測ると 16 と 12)。ホームから他の画面に移るたび、カードの左端が 4px ずれて動いて見えた。
+   ほかの画面は 12px でそろっているので、ホームを 12px に合わせる。PC幅(lg以上)は今までどおり。 */
+@media (max-width: 639px) {
+  .lh-home { --lh-pad: 0.75rem; }
+}
