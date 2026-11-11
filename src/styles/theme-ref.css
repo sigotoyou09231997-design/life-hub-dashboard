@@ -833,3 +833,10 @@ p {
 /* それでも名前が真ん中の枠に収まらない時(文字サイズ150%以上)は、アイコンの下にはみ出さず、枠の中で切る。 */
 .app-header__title { overflow: hidden; }
 .app-header__mobile-brand { overflow: hidden; text-overflow: ellipsis; }
+
+/* 第68弾: 第50弾で「チェックリスト」を折らない(nowrap)ようにした副作用で、文字サイズ150%のスマホでは
+   メモ0件の3つの箱が横に収まらず、画面が12px横にはみ出していた。箱の列を、幅に収まる数に自動で減らす
+   (ふだんの100%では3つ並びのまま。収まらない大きさの時だけ2つ、1つと段を増やす)。 */
+.notes-empty-control__types {
+  grid-template-columns: repeat(auto-fit, minmax(min(6.4rem, 100%), 1fr));
+}
