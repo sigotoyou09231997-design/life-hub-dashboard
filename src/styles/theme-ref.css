@@ -822,3 +822,14 @@ p {
 .trip-timeline__title {
   overflow-wrap: anywhere;
 }
+
+/* 第67弾: 端末の文字サイズを150%にすると、スマホの上の帯の「LIFE HUB」が大きくなって、
+   虫めがねのアイコンに重なっていた(画面を撮って見つけた)。帯の中の名前は、画面の幅に合わせて
+   大きさを決め、文字サイズの設定で膨らみすぎないよう上限をつける。ふだん(100%)の見た目は変わらない。 */
+.app-header__mobile-brand {
+  font-size: clamp(11px, 3.6vw, 0.94rem);
+  letter-spacing: 0.04em;
+}
+/* それでも名前が真ん中の枠に収まらない時(文字サイズ150%以上)は、アイコンの下にはみ出さず、枠の中で切る。 */
+.app-header__title { overflow: hidden; }
+.app-header__mobile-brand { overflow: hidden; text-overflow: ellipsis; }
