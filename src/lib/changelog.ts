@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-188",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "文字サイズを大きくした時の、メモ0件の画面の横はみ出しを直しました",
+    description:
+      "文字サイズ150%で、メモがまだ無い時の3つの箱(メモ・チェックリスト・買い物リスト)が横に収まらず、画面が少し横にずれていました。収まらない大きさの時だけ、箱を2つ・1つの段に分けます(ふだんは3つ並びのまま)。",
+  },
+  {
     id: "2026-11-11-187",
     date: "2026-11-11",
     area: "デザイン",
