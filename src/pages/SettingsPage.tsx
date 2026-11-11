@@ -50,12 +50,16 @@ export default function SettingsPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [updating, setUpdating] = useState(false);
   const [versionNote, setVersionNote] = useState<string | null>(null);
+  // 公開されている版を読めなかった時は、「最新です」と言い切らない(2026-11-12、公開先が止まっていた時に
+  // 「最新です」と「読めませんでした」が並んでいた)。読めたら戻す。
+  const [checkFailed, setCheckFailed] = useState(false);
   // 使う人には「最新です」か「新しい版があります」だけを出し、開発用の識別子は右に小さく(第8弾 ST-3)。
   const [newerAvailable, setNewerAvailable] = useState(() => isUpdateAvailable());
   useEffect(() => subscribeUpdateAvailable(() => setNewerAvailable(true)), []);
   async function handleUpdateNow() {
     setUpdating(true);
     const result = await updateToLatestNow();
+    setCheckFailed(result === "unknown");
     if (result === "latest") setVersionNote("すでに最新版です");
     else if (result === "updating") setVersionNote("新しい版に切り替えています…");
     else setVersionNote("公開されている版を読めませんでした(通信を確かめてください)");
@@ -274,7 +278,7 @@ export default function SettingsPage() {
                 <div>
                   <span>いま使っている版</span>
                   <strong>
-                    {newerAvailable ? "新しい版があります(押すと更新)" : "最新です"}
+                    {newerAvailable ? "新しい版があります(押すと更新)" : checkFailed ? "最新か確かめられていません" : "最新です"}
                     <span className="settings-version-id">({currentVersion()})</span>
                   </strong>
                 </div>
