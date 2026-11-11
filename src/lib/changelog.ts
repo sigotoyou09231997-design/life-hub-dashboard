@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-192",
+    date: "2026-11-11",
+    area: "メモ",
+    title: "メモの「タスク化」「予定化」を押したら、お知らせと「元に戻す」が出るようにしました",
+    description:
+      "これまでは押しても何も表示されず、入ったのか分からないまま、もう一度押すと同じタスクや予定が重なって入っていました。入れたら「『…』をタスクにしました」と出て、「元に戻す」で今入れたものだけを消せます。(今日の Claude の更新の、変えた所を見せて取り消せるようにする考え方から)",
+  },
+  {
     id: "2026-11-11-191",
     date: "2026-11-11",
     area: "デザイン",

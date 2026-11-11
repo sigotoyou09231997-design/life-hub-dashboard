@@ -4,6 +4,8 @@ import { todayStr } from "../../lib/date";
 import { getNoteType, getNoteTypeDef } from "../../lib/noteTypes";
 import { PhotoStrip } from "../attachments/PhotoStrip";
 import { Badge } from "../ui/Badge";
+import { quoted, showUndoToast } from "../ui/undoToast";
+import { deleteTaskCascade, UNDOABLE_DELETES } from "../../lib/undoableDeletes";
 import { ListRow } from "../ui/ListRow";
 import { Pin, CheckSquare, CalendarPlus, Trash2 } from "lucide-react";
 
@@ -15,23 +17,32 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
+// 押したのに何も起きたように見えず、もう一度押すと同じタスク・予定が重なって入っていた。
+// 入れたらお知らせを出し、「元に戻す」で今入れたものだけを消せるようにする(Claude の共同編集が、
+// 変えた所を見せて取り消せるようにしているのと同じ考え方。第72弾)。
 async function convertToTask(note: Note) {
-  await db.tasks.add({
-    title: note.title,
-    priority: "medium",
-    completed: false,
-    repeat: "none",
-    createdAt: Date.now(),
-  });
+  const id = String(
+    await db.tasks.add({
+      title: note.title,
+      priority: "medium",
+      completed: false,
+      repeat: "none",
+      createdAt: Date.now(),
+    }),
+  );
+  showUndoToast(`${quoted(note.title)}をタスクにしました`, () => deleteTaskCascade(id));
 }
 
 async function convertToEvent(note: Note) {
-  await db.calendarEvents.add({
-    title: note.title,
-    date: todayStr(),
-    memo: note.body || undefined,
-    createdAt: Date.now(),
-  });
+  const id = String(
+    await db.calendarEvents.add({
+      title: note.title,
+      date: todayStr(),
+      memo: note.body || undefined,
+      createdAt: Date.now(),
+    }),
+  );
+  showUndoToast(`${quoted(note.title)}を今日の予定にしました`, () => UNDOABLE_DELETES.calendarEvent.remove(id));
 }
 
 function yen(n: number): string {
