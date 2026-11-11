@@ -847,3 +847,15 @@ p {
 @media (max-width: 639px) {
   .lh-home { --lh-pad: 0.75rem; }
 }
+
+/* 第70弾: カードとカードの縦のすきまが、画面ごとに 10〜12px(予定の今日・お金管理の空のサマリー・アカウント)と、
+   ホームの 16px でばらばらだった(測った)。スマホでは、カードが縦に並ぶ所を 16px にそろえる。 */
+@media (max-width: 639px) {
+  .planning-today__grid,
+  .settings-account-grid {
+    gap: 1rem;
+  }
+  .finance-empty > * + * {
+    margin-top: 1rem !important;
+  }
+}
