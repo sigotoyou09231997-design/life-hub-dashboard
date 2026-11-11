@@ -859,3 +859,8 @@ p {
     margin-top: 1rem !important;
   }
 }
+
+/* 第74弾(2026-11-12): 設定の「いま使っている版」。右の補足(読めませんでした…)が長いと、左の見出しが1文字ずつ折り返していた。
+   収まらない時は補足を下の段へ落とす。 */
+.system-state-control { flex-wrap: wrap; }
+.system-state-control > small { flex: 1 1 11rem; }
