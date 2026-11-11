@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-11-187",
+    date: "2026-11-11",
+    area: "デザイン",
+    title: "文字サイズを大きくした時に、上の帯の「LIFE HUB」がアイコンに重ならないようにしました",
+    description:
+      "端末の文字サイズを150%にすると、スマホの上の帯の名前が膨らんで、虫めがねのアイコンに重なっていたので、名前の大きさに上限をつけました。ふだんの見た目は変わりません。(文字を大きくした状態で画面を撮って見つけた直し)",
+  },
+  {
     id: "2026-11-11-186",
     date: "2026-11-11",
     area: "デザイン",
