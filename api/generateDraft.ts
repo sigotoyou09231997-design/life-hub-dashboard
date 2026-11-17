@@ -327,28 +327,38 @@ export default async (req: VercelRequest, res: VercelResponse) => {
 
   const userMessage = isReply ? buildUserMessage(payload) : buildComposeUserMessage(payload);
 
-  const anthropicRes = await fetch(ANTHROPIC_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      // 1024だと[ポイント]/[候補日]/[件名]等の前置セクションだけで使い切り、[本文]に
-      // 辿り着く前に打ち切られることがあった(userNotesで要望が増えるほど起きやすい)。
-      // 打ち切られると本文が空のまま200を返してしまい、ユーザーには「入力した内容が
-      // 反映されないどころか文章ごと消えた」ように見える無言の失敗になっていた。
-      // 2048でも、取引先のメール全文を「AIに伝えたいこと」へ貼って返信を頼むと、前置き
-      // (ポイント・候補日・件名)が長くなって本文の前に打ち切られ、502「生成が長くなりすぎて
-      // 本文が完成しませんでした」になった(2026-11-17、同じ入力を4回流して2回再現)。
-      // 上げすぎると60秒の関数の上限(vercel.json)に収まらなくなるため、4096で止める。
-      max_tokens: 4096,
-      system: isReply ? REPLY_SYSTEM_PROMPT : COMPOSE_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userMessage }],
-    }),
-  });
+  const callAnthropic = (extra: Record<string, unknown>) =>
+    fetch(ANTHROPIC_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        // 1024だと[ポイント]/[候補日]/[件名]等の前置セクションだけで使い切り、[本文]に
+        // 辿り着く前に打ち切られることがあった(userNotesで要望が増えるほど起きやすい)。
+        // 打ち切られると本文が空のまま200を返してしまい、ユーザーには「入力した内容が
+        // 反映されないどころか文章ごと消えた」ように見える無言の失敗になっていた。
+        // 2048でも、取引先のメール全文を「AIに伝えたいこと」へ貼って返信を頼むと、前置き
+        // (ポイント・候補日・件名)が長くなって本文の前に打ち切られ、502「生成が長くなりすぎて
+        // 本文が完成しませんでした」になった(2026-11-17、同じ入力を4回流して2回再現)。
+        // 上げすぎると60秒の関数の上限(vercel.json)に収まらなくなるため、4096で止める。
+        max_tokens: 4096,
+        system: isReply ? REPLY_SYSTEM_PROMPT : COMPOSE_SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userMessage }],
+        ...extra,
+      }),
+    });
+  // 「考える」（拡張思考）を止める。止めないと、メール全文のような長い依頼のとき、本文を書く前に
+  // 出力の上限を考えるだけで使い切り、30〜50秒かかったうえに502「生成が長くなりすぎて…」になった
+  // (2026-11-17、上限を4096に上げても6回中1回再現)。下書きは考え込む作業ではない。
+  // この指定をAPIが受け付けない場合(400で thinking に触れる)は、指定なしでやり直す。
+  let anthropicRes = await callAnthropic({ thinking: { type: "disabled" } });
+  if (anthropicRes.status === 400 && /thinking/i.test(await anthropicRes.clone().text())) {
+    anthropicRes = await callAnthropic({});
+  }
 
   if (!anthropicRes.ok) {
     const text = await anthropicRes.text();
