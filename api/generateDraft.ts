@@ -340,7 +340,11 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       // 辿り着く前に打ち切られることがあった(userNotesで要望が増えるほど起きやすい)。
       // 打ち切られると本文が空のまま200を返してしまい、ユーザーには「入力した内容が
       // 反映されないどころか文章ごと消えた」ように見える無言の失敗になっていた。
-      max_tokens: 2048,
+      // 2048でも、取引先のメール全文を「AIに伝えたいこと」へ貼って返信を頼むと、前置き
+      // (ポイント・候補日・件名)が長くなって本文の前に打ち切られ、502「生成が長くなりすぎて
+      // 本文が完成しませんでした」になった(2026-11-17、同じ入力を4回流して2回再現)。
+      // 上げすぎると60秒の関数の上限(vercel.json)に収まらなくなるため、4096で止める。
+      max_tokens: 4096,
       system: isReply ? REPLY_SYSTEM_PROMPT : COMPOSE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
     }),
@@ -356,7 +360,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
   const { keyPoints, candidateDates, earliestDate, subject, body: generatedBody } = parseModelOutput(generated);
   const cleanedBody = stripKnownGreetingAndClosing(generatedBody);
   if (!cleanedBody) {
-    // 2048に上げても万一起きた場合、空の下書きを黙って保存させるより、はっきり
+    // 4096に上げても万一起きた場合、空の下書きを黙って保存させるより、はっきり
     // 失敗として返してユーザーに再試行してもらう方がまだよい。
     return jsonResponse(res, 502, {
       error:
