@@ -22,6 +22,12 @@ export default mergeConfig(
       // 時間切れの上限(既定は5秒)。並列で走らせると Mac が混み、重いテスト(旅行の7日ぶん80件など。1件で約4〜5秒)や
       // 重い部品を読み込む最初のテストが、内容は正しいのに5秒を超えて落ちた(2026-10-13、続けて3回)。
       // テストの内容と、確かめる項目は変えず、上限だけ伸ばす。止まったままのテストは、15秒で落ちる。
+      // node_modules を iCloud の同期から外すために node_modules.nosync へ移した(2026-11-15)あと、実体の
+      // パスに「/node_modules/」が含まれなくなり、Vitest が vitest 自身の部品(dist/spy.js など)を外部の
+      // 部品と見なさず、読み込んで変換しようとして落ちる。vi.hoisted などを使うテスト37本が
+      // 「No test suite found」(0 test)になり、全テスト実行も「Unhandled Errors」で終了コードが 0 でなくなった。
+      // .nosync の中は外部の部品として扱う。
+      server: { deps: { external: [/node_modules\.nosync\//] } },
       testTimeout: 15_000,
       hookTimeout: 15_000,
     },
