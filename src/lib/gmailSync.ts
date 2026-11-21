@@ -14,6 +14,7 @@ import {
   stripQuotedReply,
   threadHasSentReplyAfter,
 } from "./gmail";
+import { autoAddConfirmedEvents } from "./mailAutoEvent";
 import { needsPlanText } from "./mailPlanSuggestion";
 import { pullMessageStates, pushPendingMessageStates } from "./gmailMessageState";
 import { addEmailIfAbsent, dedupeSyncedEmails } from "./syncedEmails";
@@ -264,6 +265,15 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
       }
     }
 
+    // 「日時が確定した」と書いてあるメールは、確認なしでカレンダーに入れる(src/lib/mailAutoEvent.ts)。
+    // 本文の頭を取り込んだ後に見る — 日時が抜粋の外にあるメールも拾えるため。失敗しても同期は続ける。
+    let autoEvents: string[] = [];
+    try {
+      autoEvents = await autoAddConfirmedEvents(account, accountId);
+    } catch (error) {
+      console.error("[gmailSync] auto-adding confirmed events failed:", error);
+    }
+
     // Gmail側とのズレ防止: このアプリの外(他デバイス・Gmail本体)から直接返信された
     // 場合、この app には知る手段がないため、まだ未送信扱いのトラッキング中メールは
     // 毎回スレッドの実際の状態と突き合わせて「送信済み」を確定させる。新規追加分より
@@ -345,18 +355,26 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
     if (full) await db.gmailAccounts.update(accountId, { lastSyncedAt: Date.now(), reauthRequiredAt: 0 });
     else if (account.reauthRequiredAt) await db.gmailAccounts.update(accountId, { reauthRequiredAt: 0 });
     lastCheckedAt.set(accountId, Date.now());
+    const baseSummary = buildSyncSummary({
+      freshAdded,
+      handledElsewhere,
+      blockedAdded,
+      reconciled,
+      removed,
+      pushedStates: pushedStates.count,
+      pulledStates: pulledStates.count,
+      failed,
+      deferred,
+    });
+    // 自動で予定を入れた時は、黙って増えないよう、同期のお知らせに添える。
+    const autoNote =
+      autoEvents.length === 0
+        ? ""
+        : autoEvents.length === 1
+          ? `予定を1件入れました(${autoEvents[0]})`
+          : `予定を${autoEvents.length}件入れました`;
     return {
-      summary: buildSyncSummary({
-        freshAdded,
-        handledElsewhere,
-        blockedAdded,
-        reconciled,
-        removed,
-        pushedStates: pushedStates.count,
-        pulledStates: pulledStates.count,
-        failed,
-        deferred,
-      }),
+      summary: autoNote ? (baseSummary && baseSummary !== NO_CHANGES_SUMMARY ? `${baseSummary} / ${autoNote}` : autoNote) : baseSummary,
       stateError: pushedStates.error ?? pulledStates.error ?? null,
       error: null,
     };
