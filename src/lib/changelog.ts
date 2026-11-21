@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-21-199",
+    date: "2026-11-21",
+    area: "全体",
+    title: "iPhone で、ほかのアプリから戻った時に白い画面になりにくくしました",
+    description:
+      "新しい版への切り替えを、iPhone ではほかのアプリへ移った瞬間ではなく、戻ってきて画面が見えた時に行うようにしました(戻った直後に一瞬だけ読み込み直します)。また、不具合の調べもののために、設定の「更新履歴」に「調査用の記録をコピー」を足しました。白い画面などが起きたあとに押して、チャットに貼り付けてください(記録は端末の中にだけあり、外へは送りません)。",
+  },
+  {
     id: "2026-11-21-198",
     date: "2026-11-21",
     area: "全体",
