@@ -31,8 +31,16 @@ function remoteStates(
   const query: Record<string, unknown> = {};
   query.select = vi.fn(() => query);
   query.eq = vi.fn(() => query);
+  query.order = vi.fn(() => query);
+  // 本物と同じく、range で指定した範囲の行だけを返す(指定が無ければ全部)。
+  let window: [number, number] | null = null;
+  query.range = vi.fn((from: number, to: number) => {
+    window = [from, to];
+    return query;
+  });
   query.upsert = vi.fn(async () => ({ error: null }));
-  (query as { then?: unknown }).then = (resolve: (v: unknown) => void) => resolve({ data: rows, error: null });
+  (query as { then?: unknown }).then = (resolve: (v: unknown) => void) =>
+    resolve({ data: window ? rows.slice(window[0], window[1] + 1) : rows, error: null });
   mocks.from.mockReturnValue(query);
   return query;
 }
@@ -59,6 +67,20 @@ describe("pullMessageStates", () => {
     mocks.getSession.mockResolvedValue({ data: { session: { user: { id: "user-1" } } } });
   });
 
+
+  it("サーバーの行が1000件を超えても、ページを分けて全部読む(2026-11-21: 先頭の1000件までしか読まず、残りの既読が届かなかった)", async () => {
+    const remote = Array.from({ length: 2500 }, (_, n) => ({
+      gmail_message_id: `msg-${n}`,
+      read_at: new Date(5_000).toISOString(),
+      sent: false,
+      updated_at: new Date(5_000).toISOString(),
+    }));
+    remoteStates(remote);
+    // 最後のページ(2000番目以降)にだけ行がある、スマホで整理したメール。
+    localEmails([email({ id: "local-last", gmailMessageId: "msg-2400" })]);
+    await pullMessageStates("account-1", "me@example.com");
+    expect(mocks.syncedEmails.update).toHaveBeenCalledWith("local-last", expect.objectContaining({ readAt: 5_000 }));
+  });
   it("他端末で既読にされたメールをこの端末でも既読にする", async () => {
     remoteStates([{ gmail_message_id: "msg-1", read_at: "2026-08-23T00:00:00.000Z", sent: false, updated_at: "2026-08-23T00:00:00.000Z" }]);
     localEmails([email()]);

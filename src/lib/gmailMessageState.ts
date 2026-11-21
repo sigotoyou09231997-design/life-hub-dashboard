@@ -111,21 +111,33 @@ export async function pullMessageStates(accountId: string, accountEmail: string)
   const userId = await currentUserId();
   if (!userId) return { count: 0, error: null };
   const supabase = await getSupabaseDataClient();
-  const { data, error } = await supabase
-    .from("gmail_message_state")
-    .select("gmail_message_id, read_at, important_at, sent, updated_at")
-    .eq("user_id", userId)
-    .eq("account_email", accountEmail);
-  if (error) {
-    console.error("[gmailMessageState] failed to pull states from Supabase:", error.message);
-    return { count: 0, error: error.message };
+  // 1回の問い合わせで返るのは1000行まで(Supabase の既定)。範囲を指定せずに読んでいた頃は、
+  // 既読の行が1000件を超えた時点で、残りの分(スマホで整理した分)がこの端末に一切届かなかった(2026-11-21)。
+  // 並び順を決めないと、ページをまたいで行が重複・欠落するので、更新の新しい順+idで固定して全部読む。
+  const PAGE = 1000;
+  const data: RemoteState[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data: page, error } = await supabase
+      .from("gmail_message_state")
+      .select("gmail_message_id, read_at, important_at, sent, updated_at")
+      .eq("user_id", userId)
+      .eq("account_email", accountEmail)
+      .order("updated_at", { ascending: false })
+      .order("gmail_message_id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.error("[gmailMessageState] failed to pull states from Supabase:", error.message);
+      return { count: 0, error: error.message };
+    }
+    data.push(...((page ?? []) as RemoteState[]));
+    if (!page || page.length < PAGE) break;
   }
 
   const local = await db.syncedEmails.where("accountId").equals(accountId).toArray();
   const byMessageId = new Map(local.map((e) => [e.gmailMessageId, e]));
   let applied = 0;
 
-  for (const remote of (data ?? []) as RemoteState[]) {
+  for (const remote of data) {
     const email = byMessageId.get(remote.gmail_message_id);
     if (!email?.id) continue;
     const remoteUpdatedAt = new Date(remote.updated_at).getTime();
