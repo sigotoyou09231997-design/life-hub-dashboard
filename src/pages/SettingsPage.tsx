@@ -17,6 +17,7 @@ import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
 import { exportBackup, importBackup } from "../lib/backup";
 import { startGmailOAuth } from "../lib/gmail";
+import { clearMailContentCache } from "../lib/mailContentCache";
 import { probeTripCover, type TripCoverProbe } from "../lib/tripCovers";
 import { auth, isSupabaseConfigured } from "../lib/supabase";
 import { getSupabaseDataClient } from "../lib/supabaseData";
@@ -219,6 +220,8 @@ export default function SettingsPage() {
     }
     if (account.id == null) return;
     const accountId = account.id;
+    // 解除したアカウントのメール本文を、メモリの控えにも残さない。
+    clearMailContentCache();
     await db.transaction("rw", [db.gmailAccounts, db.syncedEmails, db.draftReplies], async () => {
       await db.draftReplies.where("accountId").equals(accountId).delete();
       await db.syncedEmails.where("accountId").equals(accountId).delete();

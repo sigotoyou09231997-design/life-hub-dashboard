@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import type { GmailAccount, SyncedEmail } from "../../types";
 import { ToastProvider } from "../ui/ToastProvider";
 import { ConfirmProvider } from "../ui/ConfirmProvider";
+import { clearMailContentCache } from "../../lib/mailContentCache";
 
 const mocks = vi.hoisted(() => ({
   content: { text: "", html: "", preferHtml: false, inlineImages: {} as Record<string, string> },
@@ -112,6 +113,8 @@ function frame(): HTMLIFrameElement | null {
 
 describe("メール1通の画面", () => {
   beforeEach(() => {
+    // 本文は開いている間だけ控える(src/lib/mailContentCache.ts)。同じ id で中身の違うテストが前の控えを拾わないよう空にする。
+    clearMailContentCache();
     mocks.content = { text: "", html: "", preferHtml: false, inlineImages: {} };
     mocks.fetchedIds = [];
   });
