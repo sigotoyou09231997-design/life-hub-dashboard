@@ -12,6 +12,7 @@ import { updateMessageState } from "../../lib/gmailMessageState";
 import { planSuggestionHint } from "../../lib/mailPlanSuggestion";
 import { expenseSuggestionHint } from "../../lib/expenseMailSuggestion";
 import { useMailSuggestions } from "../../hooks/useMailSuggestions";
+import { prefetchMailContent } from "../../lib/mailContentCache";
 import { gmailViewCache, visibleMailsFor } from "../../lib/gmailViewCache";
 import { Badge } from "../ui/Badge";
 import { EmptyState } from "../ui/EmptyState";
@@ -94,6 +95,21 @@ const STATUS_TONE: Record<EmailStatus, "neutral" | "accent" | "warning" | "succe
   sent: "success",
   skipped: "neutral",
 };
+
+/** 一覧を開いた時に、先に本文を取っておく未読メールの数。Gmail への問い合わせが増えるので、多くはしない。 */
+const PRELOAD_COUNT = 3;
+
+/** 並んでいる(新しい順の)メールのうち、未読の先頭 count 通の Gmail 側 id を「,」でつないだもの。
+ * 文字列にしておくと、一覧が作り直されても中身が同じなら useEffect を走らせ直さずに済む。 */
+export function newestUnreadMessageIds(emails: { gmailMessageId: string; readAt?: number }[], count: number): string {
+  const ids: string[] = [];
+  for (const email of emails) {
+    if (email.readAt) continue;
+    ids.push(email.gmailMessageId);
+    if (ids.length >= count) break;
+  }
+  return ids.join(",");
+}
 
 export function GmailInbox({ account, compact = false, selectedMailId = null, mailLink = defaultMailLink }: Props) {
   const showToast = useToast();
@@ -238,6 +254,37 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
     const mode = autoSyncModeOnOpen(account);
     if (mode) void handleSync(mode);
   }, [account.id, account.reauthRequiredAt]);
+
+  // 行に指を置いた・マウスを乗せた時点で、そのメールの本文を取りに行く(押して画面が開くまでの間に取り終わる。
+  // src/lib/mailContentCache.ts)。スクロールで指が通り過ぎただけの行まで取らないよう、少し待ってから
+  // (指が動き出して pointercancel になる・マウスが離れる、で取り消す)。
+  const prefetchTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(prefetchTimer.current), []);
+  const prefetchOnPoint = (gmailMessageId: string) => {
+    const start = (delayMs: number) => {
+      window.clearTimeout(prefetchTimer.current);
+      prefetchTimer.current = window.setTimeout(() => prefetchMailContent(account, gmailMessageId), delayMs);
+    };
+    const cancel = () => window.clearTimeout(prefetchTimer.current);
+    return {
+      onPointerEnter: () => start(150),
+      onPointerDown: () => start(60),
+      onPointerLeave: cancel,
+      onPointerCancel: cancel,
+    };
+  };
+
+  // 一覧が出て手が空いたら、いちばん新しい未読の数通は、先に本文を取っておく。1通目を開く時から待たずに出せる。
+  // 既読にはならない(先に取るだけ)。連携が切れているアカウントでは取らない。
+  const preloadIds = filteredEmails ? newestUnreadMessageIds(filteredEmails, PRELOAD_COUNT) : "";
+  useEffect(() => {
+    if (!preloadIds || account.reauthRequiredAt) return;
+    const timer = window.setTimeout(() => {
+      for (const id of preloadIds.split(",")) prefetchMailContent(account, id);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preloadIds, account.id, account.reauthRequiredAt]);
 
   // 離れる時の見え方を控える。最新の値を掴めるよう、描画のたびにrefへ写しておく
   // (片付けの関数は、最初の描画の時の値を掴んだままになるため)。
@@ -480,6 +527,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
                     to={link.to}
                     replace={link.replace}
                     state={link.state}
+                    {...prefetchOnPoint(email.gmailMessageId)}
                     aria-current={selected ? "true" : undefined}
                     className="mail-compact min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50"
                   >
@@ -549,6 +597,7 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
                   to={link.to}
                   replace={link.replace}
                   state={link.state}
+                  {...prefetchOnPoint(email.gmailMessageId)}
                   className="flex min-w-0 flex-1 items-start gap-3 px-3.5 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 active:bg-white/60"
                 >
                   <div

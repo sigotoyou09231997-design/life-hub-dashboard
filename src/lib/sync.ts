@@ -250,12 +250,20 @@ interface ReconcileResult {
   error: string | null;
 }
 
-async function reconcile(reg: RegisteredTable, forceFull = false): Promise<ReconcileResult> {
+/** 取り込みを「前回の時刻の少し前」から始める幅(アプリに戻った時・つながりが戻った時用)。
+ * カーソルは端末の時計で付けるので、時計が進んでいる端末では、取り込みの直後にサーバーへ入った行が
+ * カーソルより前の時刻になって次の差分から漏れる。数分ぶん重ねて取れば、その漏れも拾える
+ * (同じ行をもう一度受け取っても、applyRemoteRow は自分の発・新しい方優先で何も壊さない)。 */
+export const RESUME_OVERLAP_MS = 2 * 60_000;
+
+async function reconcile(reg: RegisteredTable, forceFull = false, overlapMs = 0): Promise<ReconcileResult> {
   if (!currentUserId) {
     return { tableName: reg.tableName, rows: 0, outcomes: {}, error: "not signed in" };
   }
   const key = lastSyncedKey(reg.tableName);
-  const since = forceFull ? new Date(0).toISOString() : (localStorage.getItem(key) ?? new Date(0).toISOString());
+  const stored = localStorage.getItem(key);
+  const storedMs = stored ? Date.parse(stored) : NaN;
+  const since = forceFull || Number.isNaN(storedMs) ? new Date(0).toISOString() : new Date(Math.max(0, storedMs - overlapMs)).toISOString();
   const nowIso = new Date().toISOString();
   // Filtered on server_updated_at (server-assigned, monotonic) rather than the
   // client-supplied updated_at used for LWW — a client clock can't be trusted as
@@ -280,6 +288,7 @@ function subscribeRealtime(reg: RegisteredTable): void {
   const topic = `${reg.tableName}-${currentUserId}`;
   if (subscribedChannels.has(topic)) return; // defense in depth against double-start races
   subscribedChannels.add(topic);
+  let joined = false;
   const channel = dataClient
     .channel(topic)
     .on(
@@ -290,7 +299,13 @@ function subscribeRealtime(reg: RegisteredTable): void {
         if (row) void applyRemoteRow(reg, row);
       },
     )
-    .subscribe();
+    .subscribe((status: string) => {
+      // つながりが切れて戻った時(電波の切れ目・スマホの休止)は、切れていた間の変更が流れてこない。
+      // 画面を開き直さなくても取りこぼしを埋めるため、2回目以降の「つながった」で差分を取り直す。
+      if (status !== "SUBSCRIBED") return;
+      if (joined && currentUserId) void reconcile(reg, false, RESUME_OVERLAP_MS);
+      joined = true;
+    });
   realtimeChannels.push(channel);
 }
 
@@ -527,7 +542,7 @@ function ensureLifecycleListeners(): void {
   // Realtime WebSocket without an error — re-sync whenever the app is brought
   // back to the foreground so changes made elsewhere while away show up right away.
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") void syncNow();
+    if (document.visibilityState === "visible") void syncOnResume();
   });
 }
 
@@ -577,6 +592,33 @@ export function registerSyncedTable<T extends SyncableRow>(table: EntityTable<T,
  * the WebSocket connection while backgrounded, so this gives users a way to
  * force a refresh instead of waiting for the next natural trigger. No-op
  * when signed out. */
+/** アプリを開き直した・タブに戻った時の同期(2026-11-21、本人「PCとスマホで、もっと素早く同じデータが見られるように」)。
+ *
+ * 以前は戻るたびに syncNow を呼んでいて、全部の表を**全件**取り直していた(数千行を1行ずつ書き込むので、戻った直後に
+ * 画面が重く、新しい変更が見えるまでも遅かった)。いまは、前回の時刻の少し前(RESUME_OVERLAP_MS)からの差分だけを取る。
+ * 時計のずれなどで取りこぼしが溜まらないよう、全件の取り直しは24時間に1回だけ残す(「今すぐ同期」は今までどおり毎回全件)。
+ * 3秒以内の戻りは無視する(切り替えを素早く繰り返した時に、通信を重ねないため)。 */
+export const FULL_PULL_INTERVAL_MS = 24 * 60 * 60_000;
+const RESUME_DEBOUNCE_MS = 3000;
+let lastResumeAt = 0;
+
+function fullPullKey(): string {
+  return scopedKey("lifeHubLastFullPull");
+}
+
+export async function syncOnResume(now: number = Date.now()): Promise<void> {
+  if (!currentUserId) return;
+  if (now - lastResumeAt < RESUME_DEBOUNCE_MS) return;
+  lastResumeAt = now;
+  const lastFull = Number(localStorage.getItem(fullPullKey()) ?? 0);
+  const full = !Number.isFinite(lastFull) || now - lastFull > FULL_PULL_INTERVAL_MS;
+  const results = await Promise.all(registered.map((reg) => reconcile(reg, full, full ? 0 : RESUME_OVERLAP_MS)));
+  // 全件の取り直しは、全部の表がうまくいった時だけ「済み」にする(失敗した表があれば次の機会にまた全件で取る)。
+  if (full && results.every((r) => !r.error)) localStorage.setItem(fullPullKey(), String(now));
+  void refreshSharedTrips();
+  await drainQueue();
+}
+
 export async function syncNow(): Promise<string> {
   if (!currentUserId) return "ログインしていません";
   // A manual tap is infrequent and explicit, so always pull the full table rather
@@ -584,6 +626,7 @@ export async function syncNow(): Promise<string> {
   // and it's the one guaranteed way to recover if the watermark ever gets stuck
   // ahead of data it hasn't actually seen (as happened once already).
   const results = await Promise.all(registered.map((reg) => reconcile(reg, true)));
+  if (results.every((r) => !r.error)) localStorage.setItem(fullPullKey(), String(Date.now()));
   await refreshSharedTrips();
   const queuedBefore = await db.syncQueue.count();
   await drainQueue();

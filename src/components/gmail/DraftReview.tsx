@@ -11,7 +11,6 @@ import {
   fileToAttachment,
   formatCandidateLabel,
   generateDraftForEmail,
-  getMessageContent,
   parseSender,
   sendReply,
   snippetText,
@@ -38,6 +37,7 @@ import { FixedCostForm } from "../fixedCosts/FixedCostForm";
 import { detectJobStageSuggestion } from "../../lib/jobMailSuggestion";
 import { getJobStage } from "../../lib/jobApplications";
 import { AttachmentPicker } from "./AttachmentPicker";
+import { loadMailContent } from "../../lib/mailContentCache";
 import { MailBody } from "./MailBody";
 import { isNoReplySender } from "../../lib/noReplySender";
 
@@ -286,8 +286,8 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
     setInlineImages(NO_INLINE_IMAGES);
     (async () => {
       try {
-        const fresh = await ensureFreshAccessToken(account);
-        const content = await getMessageContent(fresh.accessToken, email.gmailMessageId);
+        // 一覧で指を置いた時に先に取ってあれば、待たずに出る(src/lib/mailContentCache.ts)。
+        const content = await loadMailContent(account, email.gmailMessageId);
         if (!cancelled) {
           setOriginalBody(content.text || snippetText(email.snippet));
           setBodyIsFallback(!content.text);
