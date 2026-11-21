@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-21-197",
+    date: "2026-11-21",
+    area: "Gmail",
+    title: "「今すぐ同期」を速くしました",
+    description:
+      "新しいメールの情報や本文を1通ずつ順番に待っていたのを、何通か並べて取りに行くようにしました。メールの一覧も一度に500件ずつ数えるので、往復の回数が減りました(取り込みの残りが多い時に約80秒かかっていたのを短くするための変更です)。",
+  },
+  {
     id: "2026-11-21-196",
     date: "2026-11-21",
     area: "Gmail",
