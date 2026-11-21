@@ -602,6 +602,10 @@ export interface SyncedEmail {
    * 反映した)時刻。以後そのメールは提案として出さない。planSuggestionDismissedAt
    * と同じで、この端末だけの覚え書き・索引は不要のためDexieのバージョンは上げていない。 */
   jobStageSuggestionDismissedAt?: number;
+  /** 「日時が確定した」メールを、確認なしでカレンダーに入れた(または、すでに入っているのを確かめた)時刻。
+   * 以後そのメールからは入れない(本人が予定を消しても入れ直さない)。この端末だけの覚え書きで、
+   * 索引も要らないためDexieのバージョンは上げていない(src/lib/mailAutoEvent.ts)。 */
+  autoEventAt?: number;
   /** readAt/importantAt/status を最後に人が変えた時刻。端末間で状態を揃える時の
    * last-write-wins の基準(src/lib/gmailMessageState.ts)。索引は不要なので
    * Dexieのバージョンは上げていない。 */
@@ -810,4 +814,7 @@ export interface Settings {
    * this only controls draft generation, never sending; sending still always
    * requires the user to press 送信する in DraftReview. */
   autoDraftEnabled: boolean;
+  /** 「日時が確定した」メールをカレンダーに自動で入れるか(src/lib/mailAutoEvent.ts)。
+   * 未設定はON。settings は同期しない表なので、ここに足しても本番の列は要らない。 */
+  autoEventEnabled?: boolean;
 }
