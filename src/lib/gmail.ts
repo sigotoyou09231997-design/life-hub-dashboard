@@ -412,9 +412,14 @@ export async function mapWithConcurrency<T>(items: T[], limit: number, run: (ite
   await Promise.all(workers);
 }
 
-/** 1回の同期で辿るページ数の上限。1ページ100件なので最大3000件 —
- * 直近1年の受信トレイがこれを超える場合だけ `complete: false` になる。 */
-const MESSAGE_ID_PAGE_LIMIT = 30;
+/** 1回の同期で辿るページ数と、1ページの件数。最大3000件 —
+ * 直近1年の受信トレイがこれを超える場合だけ `complete: false` になる。
+ *
+ * 1ページは Gmail API の上限の500件(2026-11-21)。100件ずつだった頃は、1年ぶん(約1,800通)を数えるのに
+ * 18回の往復を順番に待っていて、「今すぐ同期」だけで約9秒かかっていた(ページは前のページの続きの印が
+ * 無いと取れないので、並べて取れない)。500件ずつなら4回で済む。 */
+const MESSAGE_ID_PAGE_SIZE = 500;
+const MESSAGE_ID_PAGE_LIMIT = 6;
 
 /** `complete` は「この期間の受信トレイを最後まで数えきれたか」。false の時に
  * 「Gmail側に無いローカル行を消す」判断をすると、単に取得しきれていないだけの
@@ -430,7 +435,7 @@ export async function listRecentMessageIds(accessToken: string, sinceEpochSec: n
   const ids: string[] = [];
   let pageToken: string | undefined;
   for (let page = 0; page < MESSAGE_ID_PAGE_LIMIT; page++) {
-    const params = new URLSearchParams({ q: `in:inbox after:${sinceEpochSec}`, maxResults: "100" });
+    const params = new URLSearchParams({ q: `in:inbox after:${sinceEpochSec}`, maxResults: String(MESSAGE_ID_PAGE_SIZE) });
     if (pageToken) params.set("pageToken", pageToken);
     const data = await gmailFetch(accessToken, `/messages?${params.toString()}`);
     for (const m of (data.messages ?? []) as { id: string }[]) ids.push(m.id);

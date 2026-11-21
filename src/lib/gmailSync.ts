@@ -28,7 +28,16 @@ const UNHANDLED_WINDOW_DAYS = 30;
  * そのうち何本まで同時にGmail APIへ投げるか。Gmail APIは1分あたりの利用量に
  * 上限があり、越えると403 RATE_LIMIT_EXCEEDEDで同期全体が失敗する。 */
 const RECONCILE_PER_SYNC = 40;
-const RECONCILE_CONCURRENCY = 4;
+const RECONCILE_CONCURRENCY = 6;
+
+/** 新しいメールの情報(差出人・件名・抜粋)と、予定候補用の本文の頭を、同時に何本まで取りに行くか(2026-11-21)。
+ *
+ * 1通ずつ順番に待っていた頃は、取り込みの残りが多い端末で「今すぐ同期」が約80秒かかっていた
+ * (実測: 情報120通で約55秒・本文20通で約9秒、1通あたり約0.45秒)。Gmail API の1人あたりの上限
+ * (1秒に250単位。情報・本文の取得は1通5単位)に対して、6本並べても1秒に十数通で、十分に下に収まる。
+ * 上限に当たった時は gmailFetch が待ってやり直す。 */
+const META_CONCURRENCY = 6;
+const PLAN_TEXT_CONCURRENCY = 4;
 
 /** 予定候補の判定用に本文の頭を取り込む、1回の同期あたりの上限と文字数。
  *
@@ -198,7 +207,9 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
     // 取り込んだ行のid。既読の取り込み(後述のpullMessageStates)が済んだ時点で
     // 読み直し、そのうち何件が実際に一覧へ出るのかを数えるために持っておく。
     const addedIds: string[] = [];
-    for (const id of newIds) {
+    // 自動下書きは、取り込みが全部済んでから1通ずつ作る(AI の呼び出しを同時に何本も走らせない)。
+    const toDraft: { id: string; email: Parameters<typeof generateDraftForEmail>[1] }[] = [];
+    await mapWithConcurrency(newIds, META_CONCURRENCY, async (id) => {
       // 1通の取得失敗で同期全体を止めない。止めていた頃は、通信が不安定な端末だけ
       // 途中までしか取り込めず、PCとスマホで一覧の件数が食い違う原因になっていた。
       // 取り込めなかった分は保存されないので、次の同期でそのまま再挑戦される。
@@ -207,7 +218,7 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
         meta = await getMessageMeta(fresh.accessToken, id);
       } catch {
         failed++;
-        continue;
+        return;
       }
       // ブロック中の送信者でも保存する。隠すのは表示時(visibleEmails)だけ —
       // ここで捨てていた頃は、後でブロックを解除しても30日窓/取得上限から外れた
@@ -230,18 +241,21 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
       // 別のタブやアカウント統合(src/lib/gmailAccounts.ts)が同じメールを入れている
       // ことがある — そのまま足すと一覧に同じメールが二重で並ぶ。
       const newEmailId = await addEmailIfAbsent(newEmail);
-      if (!newEmailId) continue;
+      if (!newEmailId) return;
       addedIds.push(newEmailId);
       added++;
 
       // 自動下書き: 送信は行わない。draftReplies を作成するところまでで、
       // 送信は必ずDraftReview側で本人が「送信する」を押した場合のみ。
       if (autoDraftEnabled && !blockedSet.has(parseSender(meta.from).email.toLowerCase())) {
-        try {
-          await generateDraftForEmail(account, { ...newEmail, id: newEmailId });
-        } catch {
-          // 同期自体は続行する — 個別メールの下書き生成失敗で全体を止めない。
-        }
+        toDraft.push({ id: newEmailId, email: { ...newEmail, id: newEmailId } });
+      }
+    });
+    for (const item of toDraft) {
+      try {
+        await generateDraftForEmail(account, item.email);
+      } catch {
+        // 同期自体は続行する — 個別メールの下書き生成失敗で全体を止めない。
       }
     }
     // 予定候補の見落としを減らすため、案内らしいのに抜粋からは日付が読めないメールは、
@@ -253,7 +267,7 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
           .sort((a, b) => b.receivedAt - a.receivedAt)
           .slice(0, PLAN_TEXT_PER_SYNC)
       : [];
-    for (const target of planTextTargets) {
+    await mapWithConcurrency(planTextTargets, PLAN_TEXT_CONCURRENCY, async (target) => {
       try {
         const body = await getMessageBody(fresh.accessToken, target.gmailMessageId);
         // 引用部分は落とす — 返信のやり取りでは、前のメールに書かれた古い日時が
@@ -263,7 +277,7 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
       } catch {
         // 1通の取得失敗で同期全体を止めない。印を付けないので次の同期でやり直す。
       }
-    }
+    });
 
     // 「日時が確定した」と書いてあるメールは、確認なしでカレンダーに入れる(src/lib/mailAutoEvent.ts)。
     // 本文の頭を取り込んだ後に見る — 日時が抜粋の外にあるメールも拾えるため。失敗しても同期は続ける。

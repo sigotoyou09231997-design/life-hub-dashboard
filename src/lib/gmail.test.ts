@@ -399,3 +399,35 @@ describe("findInlineImageParts", () => {
     ]);
   });
 });
+
+describe("listRecentMessageIds", () => {
+  it("1ページ500件で取り、続きの印がある間だけ次のページへ。最大6ページ(3000件)で打ち切る", async () => {
+    const { listRecentMessageIds } = await import("./gmail");
+    const urls: string[] = [];
+    const fetchMock = vi.fn(async (url: string) => {
+      urls.push(url);
+      const page = urls.length;
+      return new Response(JSON.stringify({ messages: [{ id: `m${page}` }], nextPageToken: `p${page}` }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const result = await listRecentMessageIds("token", 1_700_000_000);
+      expect(urls).toHaveLength(6);
+      expect(new URL(urls[0]).searchParams.get("maxResults")).toBe("500");
+      expect(new URL(urls[1]).searchParams.get("pageToken")).toBe("p1");
+      expect(result).toEqual({ ids: ["m1", "m2", "m3", "m4", "m5", "m6"], complete: false });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("続きの印が無くなったら、そこで数え切った(complete)とする", async () => {
+    const { listRecentMessageIds } = await import("./gmail");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ messages: [{ id: "a" }, { id: "b" }] }), { status: 200 })));
+    try {
+      expect(await listRecentMessageIds("token", 1_700_000_000)).toEqual({ ids: ["a", "b"], complete: true });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
