@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { logLifecycle } from "./lifecycleLog";
 
 /**
  * 起動の待ち(ログインの確認 → 同期の準備)が終わらないまま、白い画面で止まった時の立て直し(2026-11-09)。
@@ -70,9 +71,11 @@ export function useBootStallWatch(waiting: boolean, reload: () => void = () => w
       done = true;
       window.clearInterval(timer);
       if (decideBootStall(readLastReload(), now) === "reload") {
+        logLifecycle("起動の待ちが止まった(読み込み直す)");
         markReload(now);
         reloadRef.current();
       } else {
+        logLifecycle("起動の待ちがまた止まった(ボタンを出す)");
         setGaveUp(true);
       }
     }, TICK_MS);

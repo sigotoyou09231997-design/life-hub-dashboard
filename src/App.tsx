@@ -9,6 +9,7 @@ import { flushDueSnoozedNotifications } from "./lib/snoozedNotifications";
 import { startSync, stopSync } from "./lib/syncRuntime";
 import { ensureDataOwner } from "./lib/dataOwner";
 import { useBootStallWatch } from "./lib/bootStall";
+import { logLifecycle } from "./lib/lifecycleLog";
 import { IS_ADDING_ACCOUNT } from "./lib/accounts";
 import { isOAuthConsentPath, rememberPendingConsent } from "./lib/oauthConsent";
 import { refreshViewportGap } from "./lib/viewport";
@@ -191,6 +192,7 @@ export default function App() {
       if (active && transition === currentTransition) {
         readyUserId = next.user.id;
         setSyncReady(true);
+        logLifecycle(`起動の準備が済んだ(${Math.round(performance.now() / 100) / 10}秒)`);
       }
     };
     auth.getSession().then(({ data }) => void applySession(data.session));
