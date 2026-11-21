@@ -255,6 +255,28 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
     if (mode) void handleSync(mode);
   }, [account.id, account.reauthRequiredAt]);
 
+  // 開きっぱなしのタブ(PC)に戻ってきた時も、同じ判断で確認する(2026-11-21)。開き直さないと、
+  // スマホで整理した分が、戻ってきても出たままになっていた。1分以内の再確認は autoSyncModeOnOpen が止める。
+  const accountRef = useRef(account);
+  accountRef.current = account;
+  useEffect(() => {
+    if (account.reauthRequiredAt) return;
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      // この関数は最初の描画の時の account を掴んだままなので、最新を ref から取る。
+      const current = accountRef.current;
+      const mode = autoSyncModeOnOpen(current);
+      if (!mode) return;
+      void syncGmailAccount(current, mode).then((result) => {
+        const summary = summarizeGmailSync([{ email: current.email, result }], { quiet: true });
+        if (summary) showToast(summary.message, summary.tone);
+      });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account.id, account.reauthRequiredAt]);
+
   // 行に指を置いた・マウスを乗せた時点で、そのメールの本文を取りに行く(押して画面が開くまでの間に取り終わる。
   // src/lib/mailContentCache.ts)。スクロールで指が通り過ぎただけの行まで取らないよう、少し待ってから
   // (指が動き出して pointercancel になる・マウスが離れる、で取り消す)。

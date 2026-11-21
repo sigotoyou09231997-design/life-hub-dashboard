@@ -217,11 +217,12 @@ describe("軽い確認(quick)", () => {
     mocks.db.gmailAccounts.update.mockClear();
   });
 
-  it("新着の確認(一覧の取得)だけで、既読の共有(Supabase)はしない。lastSyncedAt も進めない", async () => {
+  it("新着の確認(一覧の取得)と既読の共有はする。lastSyncedAt は進めない", async () => {
     await syncGmailAccount(account("q1", "q@example.com"), "quick");
     expect(mocks.listRecentMessageIds).toHaveBeenCalledTimes(1);
-    expect(mocks.pushPendingMessageStates).not.toHaveBeenCalled();
-    expect(mocks.pullMessageStates).not.toHaveBeenCalled();
+    // スマホで整理した既読が、PC で10分以内に開き直しても残らないように(2026-11-21)。
+    expect(mocks.pushPendingMessageStates).toHaveBeenCalledTimes(1);
+    expect(mocks.pullMessageStates).toHaveBeenCalledTimes(1);
     expect(mocks.db.gmailAccounts.update).not.toHaveBeenCalled();
   });
 
@@ -239,7 +240,7 @@ describe("軽い確認(quick)", () => {
     expect(full).not.toBe(quick);
     await Promise.all([quick, full]);
     expect(mocks.listRecentMessageIds).toHaveBeenCalledTimes(2);
-    expect(mocks.pullMessageStates).toHaveBeenCalledTimes(1);
+    expect(mocks.pullMessageStates).toHaveBeenCalledTimes(2);
   });
 
   it("全部の同期が走っている最中に軽い確認が来たら、相乗りする", async () => {

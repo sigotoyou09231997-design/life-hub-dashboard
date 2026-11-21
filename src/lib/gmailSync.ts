@@ -55,8 +55,8 @@ const NEW_EMAILS_PER_SYNC = 120;
 /** 画面を開いた時の自動同期は、2種類ある(2026-10-13、本人「gmailの画面に切り替えるたび・アップデートのたびに
  * 同期されるから直して」)。
  *
- * - 軽い確認(quick): 新着の取り込みと、Gmail 側で消えたメールの掃除だけ。Gmail API は一覧の取得1回(新着があればその分)。
- *   予定候補の本文の取り込み・「Gmail 側で返信済み」の突き合わせ(最大40スレッド)・既読の共有(Supabase)は、しない。
+ * - 軽い確認(quick): 新着の取り込みと、Gmail 側で消えたメールの掃除、既読の共有(Supabase・2026-11-21 に追加)。
+ *   Gmail API は一覧の取得1回(新着があればその分)。予定候補の本文の取り込み・「Gmail 側で返信済み」の突き合わせ(最大40スレッド)は、しない。
  * - 全部の同期(full): 上に加えて、その3つ。ヘッダーの「今すぐ同期」・引っ張る更新は、いつもこちら。
  *
  * 開くたびに全部をやっていた頃は、数十回の通信と端末の書き込みが毎回走り、一覧が組み直されて(iPhone で重い)、
@@ -344,9 +344,11 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
     // 既読の共有。まだ送っていないこの端末の既読(この機能より前の分を含む)を送ってから、
     // 他端末の分を取り込む。取り込みはメールを入れた後 — ローカルに行が無い
     // メッセージの状態は入れる場所が無いため。
-    // 軽い確認では既読の共有(Supabase との行き来)もしない。全部の同期の時に揃える。
-    const pushedStates = full ? await pushPendingMessageStates(accountId, account.email) : { count: 0, error: null };
-    const pulledStates = full ? await pullMessageStates(accountId, account.email) : { count: 0, error: null };
+    // 既読の共有は軽い確認でもやる(2026-11-21)。Gmail API は使わず Supabase に1回ずつ聞くだけで軽い。
+    // 外していた頃は、スマホで既読・整理したメールが、PC では10分以内に開き直しても
+    // 未処理のまま残っていた(全部の同期は10分に1回しか来ないため)。
+    const pushedStates = await pushPendingMessageStates(accountId, account.email);
+    const pulledStates = await pullMessageStates(accountId, account.email);
 
     // 「新着」として数えるのは、実際にこの一覧へ出るものだけにする。取り込んだ中には
     // 他の端末で既に読んだもの(既読タブへ入る)や、ブロック中の送信者のもの(どこにも

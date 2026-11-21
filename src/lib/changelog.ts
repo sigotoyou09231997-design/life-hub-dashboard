@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-21-200",
+    date: "2026-11-21",
+    area: "Gmail",
+    title: "スマホで整理したメールが、PCの未処理にいつまでも残らないようにしました",
+    description:
+      "スマホで既読にしたり重要にしたりしたメールが、PCの「未処理」に残ったままになることがありました。Gmailを開いた時と、開きっぱなしの画面に戻ってきた時に、スマホでの整理をすぐ取り込むようにしました。",
+  },
+  {
     id: "2026-11-21-199",
     date: "2026-11-21",
     area: "全体",
