@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { registerSW } from "virtual:pwa-register";
 import App from "./App";
+import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { installPressFeedback } from "./lib/pressFeedback";
 import { markUpdateAvailable, setUpdateApplier, setUpdateChecker } from "./lib/pwaUpdate";
 import { trackViewportGap } from "./lib/viewport";
@@ -81,7 +82,10 @@ installPressFeedback();
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      {/* 表示のエラーで白いまま止まらないように(src/components/AppErrorBoundary.tsx)。 */}
+      <AppErrorBoundary>
+        <App />
+      </AppErrorBoundary>
     </BrowserRouter>
   </StrictMode>,
 );
