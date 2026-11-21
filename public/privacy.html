@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>プライバシーポリシー - LIFE HUB</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; padding: 24px 16px 64px; font: 16px/1.8 -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", sans-serif; background: #fff; color: #1f2933; }
+  @media (prefers-color-scheme: dark) { body { background: #12161a; color: #e4e7eb; } a { color: #8ab4ff; } }
+  main { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; line-height: 1.5; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 2rem 0 0.4rem; }
+  p, ul { margin: 0.4rem 0; }
+  ul { padding-left: 1.4rem; }
+  .date { color: #7b8794; font-size: 0.9rem; }
+  nav { margin-top: 2.5rem; font-size: 0.9rem; }
+  nav a { margin-right: 1rem; }
+  .en { color: #52606d; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>プライバシーポリシー</h1>
+  <p class="date">制定日: 2026年11月21日</p>
+
+  <p>このページは、生活管理アプリ「LIFE HUB」(以下「このアプリ」)が、Google アカウント(Gmail・Googleカレンダー)と連携したときに、どんな情報を扱い、どこに置き、何に使うかを説明します。旅行の受信箱(ChatGPT 連携)については、<a href="/chatgpt/privacy.html">ChatGPT連携のプライバシーポリシー</a>をご覧ください。</p>
+
+  <h2>1. Google から受け取る情報</h2>
+  <p>利用者が設定画面から Gmail と連携したときだけ、次の許可をお願いします。</p>
+  <ul>
+    <li><strong>Gmail の読み取り</strong>(gmail.readonly): 受信メールの一覧(差出人・件名・抜粋・受信日時)と、利用者が開いたメールの本文を表示するため。AI返信案の文体の見本として、利用者が過去に送ったメールの一部を読むことがあります。</li>
+    <li><strong>Gmail での送信</strong>(gmail.send): 利用者が「送信する」を押したメールを送るため。利用者が押さない限り、メールを送ることはありません。</li>
+    <li><strong>Googleカレンダーの予定</strong>(calendar.events): 利用者が「Googleカレンダーと同期する」をオンにしたとき、予定を取り込み、このアプリで作った予定を書き出すため。</li>
+    <li><strong>Google アカウントのメールアドレス</strong>(openid・email): どのアカウントと連携したかを表示するため。</li>
+  </ul>
+
+  <h2>2. 情報を置く場所</h2>
+  <p><strong>利用者の端末の中</strong>(ブラウザの保存領域)にだけ置くもの:</p>
+  <ul>
+    <li>Google との連携情報(アクセストークン・更新用トークン)。サーバーには保存しません。トークンを更新するときだけ、このアプリのサーバー(Vercel)を経由して Google に送りますが、記録はしません。</li>
+    <li>受信メールの一覧(差出人・件名・抜粋・受信日時)。</li>
+    <li>日時が書かれていそうなメールの本文の先頭(最大2,000文字。予定の候補を見つけるため)。</li>
+    <li>AI が作った返信の下書き。</li>
+  </ul>
+  <p>メールの本文・HTML・画像は、画面を開いている間だけ使い、端末にもサーバーにも保存しません。</p>
+  <p><strong>クラウドのデータベース</strong>(Supabase。その利用者のログインでだけ読み書きできます)に置くもの。PC とスマホで同じ状態を見るためです:</p>
+  <ul>
+    <li>メールごとの「既読」「重要」「返信済み」などの印(メールのIDと印だけ。本文は置きません)。</li>
+    <li>利用者がブロックした送信者のメールアドレス。</li>
+    <li>メールから作った予定と、その元のメールの件名・差出人。</li>
+    <li>Googleカレンダーと同期した予定と、その対応関係。</li>
+  </ul>
+
+  <h2>3. 使いみち</h2>
+  <p>受け取った情報は、利用者本人がこのアプリで、メールを読む・返信する・予定や支出に入れる、ために使います。広告、分析、販売、第三者への提供には使いません。</p>
+
+  <h2>4. AI(Anthropic)に送る情報</h2>
+  <p>次のときだけ、メールの差出人・件名・本文を Anthropic 社の API(Claude)に送り、結果を受け取ります。</p>
+  <ul>
+    <li>利用者が「AI返信案を作る」「予定にする」「支出にする」などのボタンを押したとき。返信案では、文体を合わせるための過去の送信メールの一部と、予定の空き状況も一緒に送ります。</li>
+    <li>利用者が「自動下書き」をオンにしているとき(新しく届いたメールごとに返信案を作ります。はじめはオフです)。</li>
+  </ul>
+  <p>送った内容は、このアプリのサーバーには保存しません。Anthropic での取り扱いは、Anthropic の規約とプライバシーポリシーに従います。</p>
+
+  <h2>5. 関わるサービス</h2>
+  <ul>
+    <li>Google(Gmail・Googleカレンダー): 情報の取得元です。</li>
+    <li>Anthropic: 上の4のときだけ、AI の処理をします。</li>
+    <li>Vercel: このアプリとサーバーの処理を動かしています。通信の記録(日時・IPアドレスなど)が一定期間残ることがあります。</li>
+    <li>Supabase: 上の2のクラウドのデータを保存しています。</li>
+  </ul>
+
+  <h2>6. 連携の解除と削除</h2>
+  <ul>
+    <li>このアプリの「設定 → Gmail → 解除」で、その端末の連携情報・メールの一覧・下書きを消せます。</li>
+    <li>Google アカウントの<a href="https://myaccount.google.com/permissions" rel="noopener">サードパーティのアクセス</a>から、このアプリへの許可をいつでも取り消せます。</li>
+    <li>クラウドのデータの削除を希望するときは、下のお問い合わせ先へご連絡ください。</li>
+  </ul>
+
+  <h2>7. Google のユーザーデータに関する方針</h2>
+  <p>このアプリが Google API から受け取った情報の利用と、ほかのアプリへの受け渡しは、Google API サービスのユーザーデータに関するポリシー(限定使用の要件を含む)に従います。</p>
+  <p class="en">LIFE HUB's use and transfer of information received from Google APIs to any other app will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+  <h2>8. 安全のために</h2>
+  <ul>
+    <li>通信はすべて HTTPS です。</li>
+    <li>Google との連携の情報は、利用者の端末の中にだけ置きます。</li>
+    <li>クラウドのデータは、行ごとの権限(RLS)で、その利用者だけが読み書きできるようにしています。</li>
+  </ul>
+
+  <h2>9. お問い合わせ</h2>
+  <p><a href="mailto:sigotoyou09231997@gmail.com">sigotoyou09231997@gmail.com</a></p>
+
+  <h2>10. 改定</h2>
+  <p>内容を変えるときは、このページを更新し、制定日の下に改定日を書きます。</p>
+
+  <nav><a href="/about.html">LIFE HUB について</a><a href="/terms.html">利用規約</a></nav>
+</main>
+</body>
+</html>
