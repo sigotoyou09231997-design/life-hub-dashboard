@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { logLifecycle } from "../lib/lifecycleLog";
 
 /**
  * 画面の表示でエラーが起きた時の受け皿(2026-11-21、本人「他のアプリに切り替えてまた戻ってきたら、白い画面になって動かない」)。
@@ -91,7 +92,9 @@ export class AppErrorBoundary extends Component<Props, State> {
     console.error("[AppErrorBoundary] the screen crashed:", error, info.componentStack);
     recordCrash(error, info);
     const now = (this.props.now ?? Date.now)();
-    if (decideCrashRecovery(readLastReload(), now) === "reload") {
+    const decision = decideCrashRecovery(readLastReload(), now);
+    logLifecycle(`画面のエラー(${decision === "reload" ? "読み込み直す" : "理由を出す"}) ${error.name}: ${error.message}`.slice(0, 200));
+    if (decision === "reload") {
       markReload(now);
       (this.props.reload ?? (() => window.location.reload()))();
       return;

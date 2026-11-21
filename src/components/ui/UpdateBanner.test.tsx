@@ -227,5 +227,62 @@ describe("UpdateBanner", () => {
     });
     expect(screen.getByText("アップデートが来ています")).toBeTruthy();
   });
-});
 
+  describe("iPhone(2026-11-21、本人「iPhone は特に白い画面になる」)", () => {
+    const pcUserAgent = navigator.userAgent;
+    function useIPhone() {
+      Object.defineProperty(navigator, "userAgent", {
+        configurable: true,
+        get: () => "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15",
+      });
+    }
+    afterEach(() => {
+      Object.defineProperty(navigator, "userAgent", { configurable: true, get: () => pcUserAgent });
+    });
+
+    it("使っている途中に来た更新は、裏に回った瞬間ではなく、戻ってきて画面が見えた時に1回だけ切り替える", async () => {
+      useIPhone();
+      const { pwaUpdate, UpdateBanner } = await freshBanner();
+      render(<UpdateBanner />);
+      await useForAWhile();
+      act(() => pwaUpdate.markUpdateAvailable());
+
+      act(() => setVisibility("hidden"));
+      expect(applyUpdate).not.toHaveBeenCalled();
+      act(() => setVisibility("visible"));
+      expect(applyUpdate).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText("アップデートが来ています")).toBeNull();
+    });
+
+    it("裏に回っている間に見つかった更新も、戻ってきた時に切り替える", async () => {
+      useIPhone();
+      const { pwaUpdate, UpdateBanner } = await freshBanner();
+      render(<UpdateBanner />);
+      await useForAWhile();
+      setVisibility("hidden");
+      act(() => pwaUpdate.markUpdateAvailable());
+      expect(applyUpdate).not.toHaveBeenCalled();
+
+      act(() => setVisibility("visible"));
+      expect(applyUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it("入力のシートを開いたまま離れた時は、戻っても切り替えない(書きかけを捨てない)", async () => {
+      useIPhone();
+      const { pwaUpdate, UpdateBanner } = await freshBanner();
+      render(<UpdateBanner />);
+      await useForAWhile();
+      act(() => pwaUpdate.markUpdateAvailable());
+
+      document.body.style.overflow = "hidden";
+      act(() => setVisibility("hidden"));
+      act(() => setVisibility("visible"));
+      expect(applyUpdate).not.toHaveBeenCalled();
+
+      document.body.style.overflow = "";
+      act(() => setVisibility("hidden"));
+      act(() => setVisibility("visible"));
+      expect(applyUpdate).toHaveBeenCalledTimes(1);
+    });
+  });
+});

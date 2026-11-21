@@ -7,6 +7,7 @@ import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
 import { AutoEventToggle } from "../components/settings/AutoEventToggle";
+import { DiagnosticsCopyButton } from "../components/settings/DiagnosticsCopyButton";
 import { EventPeopleManager } from "../components/settings/EventPeopleManager";
 import { FeedbackInbox } from "../components/feedback/FeedbackInbox";
 import { GoogleCalendarSyncControl } from "../components/settings/GoogleCalendarSyncControl";
@@ -301,6 +302,7 @@ export default function SettingsPage() {
                   何が変わったかを見る
                 </Link>
               </div>
+              <DiagnosticsCopyButton />
             </Card>
 
             <FeedbackInbox />

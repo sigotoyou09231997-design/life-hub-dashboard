@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
+import { isIOSDevice, logLifecycle } from "../../lib/lifecycleLog";
 import { applyUpdate, subscribeUpdateAvailable, wasUpdatedRecently } from "../../lib/pwaUpdate";
 
 const PROGRESS_DURATION_MS = 1500;
@@ -59,11 +60,29 @@ export function UpdateBanner() {
   );
 
   // 待っている間: 画面が隠れたら黙って切り替える。開きっぱなしで3時間たったら帯を出す。
+  //
+  // iPhone・iPad だけは、隠れた瞬間ではなく「戻ってきて画面が見えた時」に切り替える(2026-11-21、本人「iPhone は特に
+  // 白い画面になる」)。iPhone はアプリを裏に回すとすぐ動きを止めるので、隠れた瞬間に始めた読み込み直しが途中で
+  // 止められ、戻った時に白い画面のまま残ることがあった。戻った時に切り替えれば、読み込み直しは画面が見えている
+  // 間に終わる(戻った直後に一瞬だけ読み込み直す)。PC のタブは裏でも止められないので、これまでどおり隠れた時に。
   useEffect(() => {
     if (phase !== "held") return;
+    const deferToReturn = isIOSDevice();
+    let pendingOnReturn = false;
     const handleVisibility = () => {
-      if (document.visibilityState !== "hidden") return;
-      if (isFormOpen()) return; // 書きかけのまま離れた時は、次に離れる時まで待つ
+      if (document.visibilityState === "hidden") {
+        if (isFormOpen()) return; // 書きかけのまま離れた時は、次に離れる時まで待つ
+        if (deferToReturn) {
+          pendingOnReturn = true;
+          return;
+        }
+        logLifecycle("新しい版へ切り替え(裏に回った時)");
+        void applyUpdate();
+        return;
+      }
+      if (!pendingOnReturn) return;
+      pendingOnReturn = false;
+      logLifecycle("新しい版へ切り替え(戻った時)");
       void applyUpdate();
     };
     document.addEventListener("visibilitychange", handleVisibility);

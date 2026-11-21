@@ -5,7 +5,8 @@ import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { installPressFeedback } from "./lib/pressFeedback";
-import { markUpdateAvailable, setUpdateApplier, setUpdateChecker } from "./lib/pwaUpdate";
+import { currentVersion, markUpdateAvailable, setUpdateApplier, setUpdateChecker } from "./lib/pwaUpdate";
+import { installLifecycleLogging } from "./lib/lifecycleLog";
 import { trackViewportGap } from "./lib/viewport";
 import "./index.css";
 import "./styles/hub.css";
@@ -62,6 +63,9 @@ const updateSW = registerSW({
   },
 });
 setUpdateApplier(updateSW);
+
+// 起動・裏に回った・戻った・エラーを端末の中に短く残す(iPhone の白い画面の調べもの。src/lib/lifecycleLog.ts)。
+installLifecycleLogging(currentVersion());
 
 // index.html の先頭の台本が「真っ白になったので取り置きを捨てて読み込み直した」印を
 // 残している。ここまで来た＝立ち上がったので、その印を消す(同じタブで後日また
