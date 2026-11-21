@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-21-198",
+    date: "2026-11-21",
+    area: "全体",
+    title: "ほかのアプリから戻った時に、白い画面のまま止まらないようにしました",
+    description:
+      "新しい版に切り替わった直後などに、画面を読み込めないと、これまでは白いまま何も起きませんでした。いまは自動で1回読み込み直し、それでも開けない時は理由と「読み込み直す」「ホームに戻る」のボタンを出します。",
+  },
+  {
     id: "2026-11-21-197",
     date: "2026-11-21",
     area: "Gmail",
