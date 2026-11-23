@@ -107,21 +107,28 @@ export async function updateMessageState(
 /** 他端末での既読/未読/送信済みをこの端末に取り込む。ローカルに無いメッセージIDの行は
  * 無視する — 一覧そのものは各端末がGmailから取り直すので、状態だけ先に届いても
  * 入れる場所が無い(次の同期でメールが入った後、もう一度pullすれば反映される)。 */
-export async function pullMessageStates(accountId: string, accountEmail: string): Promise<MessageStateSyncResult> {
+export async function pullMessageStates(
+  accountId: string,
+  accountEmail: string,
+  options: { since?: number } = {},
+): Promise<MessageStateSyncResult> {
   const userId = await currentUserId();
   if (!userId) return { count: 0, error: null };
   const supabase = await getSupabaseDataClient();
   // 1回の問い合わせで返るのは1000行まで(Supabase の既定)。範囲を指定せずに読んでいた頃は、
   // 既読の行が1000件を超えた時点で、残りの分(スマホで整理した分)がこの端末に一切届かなかった(2026-11-21)。
   // 並び順を決めないと、ページをまたいで行が重複・欠落するので、更新の新しい順+idで固定して全部読む。
+  // since を渡すと、その時刻より後に変わった行だけを読む(開いている間の見張り。pollMessageStates)。
   const PAGE = 1000;
   const data: RemoteState[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data: page, error } = await supabase
+    let query = supabase
       .from("gmail_message_state")
       .select("gmail_message_id, read_at, important_at, sent, updated_at")
       .eq("user_id", userId)
-      .eq("account_email", accountEmail)
+      .eq("account_email", accountEmail);
+    if (options.since != null) query = query.gt("updated_at", new Date(options.since).toISOString());
+    const { data: page, error } = await query
       .order("updated_at", { ascending: false })
       .order("gmail_message_id", { ascending: true })
       .range(from, from + PAGE - 1);
@@ -132,6 +139,8 @@ export async function pullMessageStates(accountId: string, accountEmail: string)
     data.push(...((page ?? []) as RemoteState[]));
     if (!page || page.length < PAGE) break;
   }
+  // 変わった行が無ければ、端末のメール(数千通)を読みに行かない — 開いている間の1分ごとの確認は、ほとんどがこれ。
+  if (data.length === 0) return { count: 0, error: null };
 
   const local = await db.syncedEmails.where("accountId").equals(accountId).toArray();
   const byMessageId = new Map(local.map((e) => [e.gmailMessageId, e]));
@@ -155,4 +164,19 @@ export async function pullMessageStates(accountId: string, accountEmail: string)
     applied++;
   }
   return { count: applied, error: null };
+}
+
+/** Gmail の画面を開いている間に、他端末の既読・重要を取りに行く間隔(2026-11-23)。
+ * 取りに行くのは画面を開いた時と、隠れていたタブが見えた時だけだったので、PC でウィンドウを
+ * 出しっぱなしにしていると、スマホで付けた「重要」がいつまでも届かなかった。 */
+export const STATE_POLL_INTERVAL_MS = 60_000;
+
+/** updated_at は操作した端末の時計で入る(stateRow)。スマホの時計が少し遅れていても取りこぼさないよう、
+ * 前回の確認からこれだけさかのぼって読む(同じ行を2回読んでも、新しくなければ触らないので害はない)。 */
+export const STATE_POLL_OVERLAP_MS = 10 * 60_000;
+
+/** 開いている画面からの定期確認。Gmail には問い合わせず、前回の確認(を始めた時刻)以降に
+ * サーバーで変わった行だけを Supabase に1回聞く。PC がスリープしていた間の分も、前回の時刻から読むので落ちない。 */
+export function pollMessageStates(accountId: string, accountEmail: string, lastPolledAt: number): Promise<MessageStateSyncResult> {
+  return pullMessageStates(accountId, accountEmail, { since: lastPolledAt - STATE_POLL_OVERLAP_MS });
 }
