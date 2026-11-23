@@ -9,6 +9,7 @@ import { flushDueSnoozedNotifications } from "./lib/snoozedNotifications";
 import { startSync, stopSync } from "./lib/syncRuntime";
 import { ensureDataOwner } from "./lib/dataOwner";
 import { useBootStallWatch } from "./lib/bootStall";
+import { useGmailStateRealtime } from "./hooks/useGmailStateRealtime";
 import { logLifecycle } from "./lib/lifecycleLog";
 import { IS_ADDING_ACCOUNT } from "./lib/accounts";
 import { isOAuthConsentPath, rememberPendingConsent } from "./lib/oauthConsent";
@@ -209,6 +210,8 @@ export default function App() {
     isSupabaseConfigured && !isSharedTripRoute && (session === undefined || (session && !syncReady)) && !isAuthCallbackRoute,
   );
   const bootGaveUp = useBootStallWatch(bootWaiting);
+  // 他の端末で付けたメールの既読・重要を、その場で受け取る(同期の準備が済んでから。src/hooks/useGmailStateRealtime.ts)。
+  useGmailStateRealtime(session && syncReady && !isSharedTripRoute ? session.user.id : null);
 
   useEffect(() => {
     // 共有リンクの人の端末に、この人のものではない設定やDBを作らない。

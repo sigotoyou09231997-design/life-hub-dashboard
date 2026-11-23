@@ -5,13 +5,25 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   getSession: vi.fn(),
   syncedEmails: { where: vi.fn(), update: vi.fn() },
+  gmailAccounts: { where: vi.fn(), toArray: vi.fn() },
+  channel: vi.fn(),
+  removeChannel: vi.fn(),
 }));
 
 vi.mock("./supabase", () => ({ isSupabaseConfigured: true, auth: { getSession: mocks.getSession } }));
-vi.mock("./supabaseData", () => ({ getSupabaseDataClient: vi.fn(async () => ({ from: mocks.from })) }));
-vi.mock("../db/schema", () => ({ db: { syncedEmails: mocks.syncedEmails } }));
+vi.mock("./supabaseData", () => ({
+  getSupabaseDataClient: vi.fn(async () => ({ from: mocks.from, channel: mocks.channel, removeChannel: mocks.removeChannel })),
+}));
+vi.mock("../db/schema", () => ({ db: { syncedEmails: mocks.syncedEmails, gmailAccounts: mocks.gmailAccounts } }));
 
-import { pollMessageStates, pullMessageStates, pushPendingMessageStates, updateMessageState } from "./gmailMessageState";
+import {
+  applyRealtimeMessageState,
+  pollMessageStates,
+  pullMessageStates,
+  pushPendingMessageStates,
+  subscribeMessageStates,
+  updateMessageState,
+} from "./gmailMessageState";
 
 /** Stands in for db.syncedEmails.where("accountId").equals(id).toArray(). */
 function localEmails(rows: SyncedEmail[]) {
@@ -296,5 +308,88 @@ describe("重要の共有", () => {
     const result = await pushPendingMessageStates("account-1", "me@example.com");
     expect(result.count).toBe(1);
     expect(query.upsert).toHaveBeenCalled();
+  });
+});
+
+describe("リアルタイムで届いた既読・重要(2026-11-23、本人「即時にしたい」)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.getSession.mockResolvedValue({ data: { session: { user: { id: "user-1" } } } });
+    mocks.gmailAccounts.where.mockReturnValue({ equals: () => ({ toArray: async () => [{ id: "account-1", email: "me@example.com" }] }) });
+  });
+
+  function localByKey(row: SyncedEmail | undefined) {
+    const equals = vi.fn(() => ({ first: async () => row }));
+    mocks.syncedEmails.where.mockReturnValue({ equals });
+    return equals;
+  }
+
+  const importantRow = {
+    account_email: "me@example.com",
+    gmail_message_id: "msg-1",
+    read_at: null,
+    important_at: "2026-11-23T11:13:21.482Z",
+    sent: false,
+    updated_at: "2026-11-23T11:13:21.482Z",
+  };
+
+  it("スマホで付けた重要を、同じアドレスの手元のメールにその場で付ける", async () => {
+    const equals = localByKey(email());
+    expect(await applyRealtimeMessageState(importantRow)).toBe(true);
+    expect(mocks.syncedEmails.where).toHaveBeenCalledWith("[accountId+gmailMessageId]");
+    expect(equals).toHaveBeenCalledWith(["account-1", "msg-1"]);
+    expect(mocks.syncedEmails.update).toHaveBeenCalledWith(
+      "local-1",
+      expect.objectContaining({ importantAt: Date.parse("2026-11-23T11:13:21.482Z") }),
+    );
+  });
+
+  it("自分が送った変更が跳ね返ってきても、書き直さない(同じ時刻)", async () => {
+    localByKey(email({ importantAt: 1, stateUpdatedAt: Date.parse("2026-11-23T11:13:21.482Z") }));
+    expect(await applyRealtimeMessageState(importantRow)).toBe(false);
+    expect(mocks.syncedEmails.update).not.toHaveBeenCalled();
+  });
+
+  it("手元にまだ無いメールの行は飛ばす(次の同期で入った後の取り込みで揃う)", async () => {
+    localByKey(undefined);
+    expect(await applyRealtimeMessageState(importantRow)).toBe(false);
+    expect(mocks.syncedEmails.update).not.toHaveBeenCalled();
+  });
+
+  it("自分の行だけを購読し、届いた行を当て、つながり直したら切れた時刻からの差分を取り直す", async () => {
+    let onChange: ((payload: { new: Record<string, unknown> | null }) => void) | undefined;
+    let onStatus: ((status: string) => void) | undefined;
+    const channel = {
+      on: vi.fn((_kind: string, filter: Record<string, string>, handler: typeof onChange) => {
+        expect(filter).toMatchObject({ table: "gmail_message_state", filter: "user_id=eq.user-1" });
+        onChange = handler;
+        return channel;
+      }),
+      subscribe: vi.fn((cb: typeof onStatus) => {
+        onStatus = cb;
+        return channel;
+      }),
+    };
+    mocks.channel.mockReturnValue(channel);
+    localByKey(email());
+
+    const stop = await subscribeMessageStates("user-1");
+    onStatus!("SUBSCRIBED");
+    onChange!({ new: importantRow });
+    await vi.waitFor(() => expect(mocks.syncedEmails.update).toHaveBeenCalledTimes(1));
+
+    // 切れて、つながり直した。切れていた間の分を、切れた時刻(から少しさかのぼって)取り直す。
+    const query = remoteStates([]);
+    mocks.gmailAccounts.toArray.mockResolvedValue([{ id: "account-1", email: "me@example.com" }]);
+    const lost = Date.now();
+    onStatus!("CHANNEL_ERROR");
+    onStatus!("SUBSCRIBED");
+    await vi.waitFor(() => expect(query.gt).toHaveBeenCalledTimes(1));
+    const since = Date.parse((query.gt as ReturnType<typeof vi.fn>).mock.calls[0][1] as string);
+    expect(since).toBeLessThanOrEqual(lost - 10 * 60_000);
+    expect(since).toBeGreaterThan(lost - 10 * 60_000 - 5_000);
+
+    stop();
+    expect(mocks.removeChannel).toHaveBeenCalledWith(channel);
   });
 });
