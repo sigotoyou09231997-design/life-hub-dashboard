@@ -147,23 +147,84 @@ export async function pullMessageStates(
   let applied = 0;
 
   for (const remote of data) {
-    const email = byMessageId.get(remote.gmail_message_id);
-    if (!email?.id) continue;
-    const remoteUpdatedAt = new Date(remote.updated_at).getTime();
-    if (Number.isNaN(remoteUpdatedAt)) continue;
-    // 自分の方が新しい(または同時刻)なら触らない。次のpushでサーバー側が揃う。
-    if ((email.stateUpdatedAt ?? 0) >= remoteUpdatedAt) continue;
-
-    const readAt = remote.read_at ? new Date(remote.read_at).getTime() : undefined;
-    const importantAt = remote.important_at ? new Date(remote.important_at).getTime() : undefined;
-    const changes: Partial<SyncedEmail> = { readAt, importantAt, stateUpdatedAt: remoteUpdatedAt };
-    // 送信済みは「取り消す」方向には動かさない — このアプリから実際に送った履歴
-    // (ローカルのdraftReplies.sentAt)が残っている端末で、それと食い違うのを避ける。
-    if (remote.sent && email.status !== "sent") changes.status = "sent";
-    await db.syncedEmails.update(email.id, changes);
-    applied++;
+    if (await applyRemoteState(byMessageId.get(remote.gmail_message_id), remote)) applied++;
   }
   return { count: applied, error: null };
+}
+
+/** サーバーの1行を、手元の1通に当てる。当てたら true。取り込み(pull)とリアルタイムの両方がここを通る。 */
+async function applyRemoteState(email: SyncedEmail | undefined, remote: RemoteState): Promise<boolean> {
+  if (!email?.id) return false;
+  const remoteUpdatedAt = new Date(remote.updated_at).getTime();
+  if (Number.isNaN(remoteUpdatedAt)) return false;
+  // 自分の方が新しい(または同時刻)なら触らない。次のpushでサーバー側が揃う。
+  // 自分が送った変更がリアルタイムで跳ね返ってきた時も、同時刻なのでここで止まる。
+  if ((email.stateUpdatedAt ?? 0) >= remoteUpdatedAt) return false;
+
+  const readAt = remote.read_at ? new Date(remote.read_at).getTime() : undefined;
+  const importantAt = remote.important_at ? new Date(remote.important_at).getTime() : undefined;
+  const changes: Partial<SyncedEmail> = { readAt, importantAt, stateUpdatedAt: remoteUpdatedAt };
+  // 送信済みは「取り消す」方向には動かさない — このアプリから実際に送った履歴
+  // (ローカルのdraftReplies.sentAt)が残っている端末で、それと食い違うのを避ける。
+  if (remote.sent && email.status !== "sent") changes.status = "sent";
+  await db.syncedEmails.update(email.id, changes);
+  return true;
+}
+
+/** リアルタイムで届いた1行を、同じアドレスでつないでいる手元のアカウントのメールに当てる。 */
+export async function applyRealtimeMessageState(row: RemoteState & { account_email: string }): Promise<boolean> {
+  const accounts = await db.gmailAccounts.where("email").equals(row.account_email).toArray();
+  let applied = false;
+  for (const account of accounts) {
+    if (!account.id) continue;
+    const email = await db.syncedEmails
+      .where("[accountId+gmailMessageId]")
+      .equals([account.id, row.gmail_message_id])
+      .first();
+    if (await applyRemoteState(email, row)) applied = true;
+  }
+  return applied;
+}
+
+/** 他の端末で付けた既読・重要を、その場で受け取る(2026-11-23、本人「即時にしたい」)。
+ * サーバー(supabase/sql/041_gmail_message_state_realtime.sql)が変更を流してくるので、こちらから聞きに行かなくてよい。
+ * 予定などの同期と同じ接続(src/lib/sync.ts。ログインのトークンはそちらで渡してある)に、この表の購読を1本足す。
+ *
+ * 切れていた間(スリープ・電波の切れ目)の変更は流れてこないので、つながり直した時に、切れた時刻からの差分を取り直す。
+ * 戻り値は購読をやめる関数。 */
+export async function subscribeMessageStates(userId: string): Promise<() => void> {
+  const supabase = await getSupabaseDataClient();
+  let joined = false;
+  let lostAt: number | null = null;
+  const channel = supabase
+    .channel(`gmail_message_state-${userId}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "gmail_message_state", filter: `user_id=eq.${userId}` },
+      (payload: { new: Record<string, unknown> | null }) => {
+        const row = payload.new;
+        if (!row || typeof row.gmail_message_id !== "string" || typeof row.account_email !== "string") return;
+        void applyRealtimeMessageState(row as unknown as RemoteState & { account_email: string });
+      },
+    )
+    .subscribe((status: string) => {
+      if (status !== "SUBSCRIBED") {
+        lostAt ??= Date.now();
+        return;
+      }
+      if (joined) void catchUpAllAccounts(lostAt ?? Date.now());
+      joined = true;
+      lostAt = null;
+    });
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}
+
+async function catchUpAllAccounts(since: number): Promise<void> {
+  for (const account of await db.gmailAccounts.toArray()) {
+    if (account.id) await pollMessageStates(account.id, account.email, since);
+  }
 }
 
 /** Gmail の画面を開いている間に、他端末の既読・重要を取りに行く間隔(2026-11-23)。
