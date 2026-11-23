@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   replyWaiting: [] as { email: Record<string, unknown>; sentAt: number; waitingDays: number }[],
   /** 既読にした・重要にした等(updateMessageState)の呼び出し。 */
   stateUpdates: [] as { id: unknown; patch: unknown }[],
+  /** 開いている間の既読・重要の取り込み(pollMessageStates)に渡されたアカウント。 */
+  polls: [] as string[],
 }));
 
 vi.mock("../../hooks/useReplyWaiting", () => ({
@@ -77,6 +79,11 @@ vi.mock("../../lib/blockedSenders", () => ({
 vi.mock("../../lib/gmailMessageState", () => ({
   updateMessageState: async (_account: string, email: { id: unknown }, patch: unknown) => {
     mocks.stateUpdates.push({ id: email.id, patch });
+  },
+  STATE_POLL_INTERVAL_MS: 60_000,
+  pollMessageStates: async (accountId: string) => {
+    mocks.polls.push(accountId);
+    return { count: 0, error: null };
   },
 }));
 
@@ -201,6 +208,43 @@ describe("メール一覧", () => {
     renderInbox({ id: "stale", lastSyncedAt: Date.now() - 11 * 60_000 });
     await waitFor(() => expect(mocks.syncCalls).toBe(1));
     expect(mocks.syncModes).toEqual(["full"]);
+  });
+
+  it("PC でウィンドウを前に出した時(focus)も確認する(見えたままなので visibilitychange は起きない。2026-11-23)", async () => {
+    renderInbox({ id: "focus", lastSyncedAt: Date.now() - 5 * 60_000 });
+    await waitFor(() => expect(mocks.syncCalls).toBe(1));
+    fireEvent.focus(window);
+    await waitFor(() => expect(mocks.syncCalls).toBe(2));
+    expect(mocks.syncModes).toEqual(["quick", "quick"]);
+  });
+
+  it("開いている間は1分ごとに、他端末の既読・重要を取り込む(スマホで付けた重要が PC に出なかった。2026-11-23)", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    try {
+      mocks.polls = [];
+      const view = renderInbox({ id: "poll", lastSyncedAt: Date.now() - 5_000 });
+      await screen.findByRole("link", { name: /一次面接のご案内/ });
+      expect(mocks.polls).toEqual([]);
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect(mocks.polls).toEqual(["poll"]);
+      // 隠れている間は聞かない。
+      const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      await act(async () => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect(mocks.polls).toEqual(["poll"]);
+      visibility.mockRestore();
+      // 画面を閉じたら止まる。
+      view.unmount();
+      await act(async () => {
+        vi.advanceTimersByTime(180_000);
+      });
+      expect(mocks.polls).toEqual(["poll"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("一度も同期していないアカウントは、開いた時に全部の同期をする", async () => {

@@ -8,7 +8,7 @@ import { avatarColor, avatarInitial, isUnhandledEmail, parseSender, snippetText 
 import { autoSyncModeOnOpen, summarizeGmailSync, syncGmailAccount, type GmailSyncMode } from "../../lib/gmailSync";
 import { formatGmailTimestamp } from "../../lib/date";
 import { blockSenderRemote, unblockSenderRemote } from "../../lib/blockedSenders";
-import { updateMessageState } from "../../lib/gmailMessageState";
+import { pollMessageStates, STATE_POLL_INTERVAL_MS, updateMessageState } from "../../lib/gmailMessageState";
 import { planSuggestionHint } from "../../lib/mailPlanSuggestion";
 import { expenseSuggestionHint } from "../../lib/expenseMailSuggestion";
 import { useMailSuggestions } from "../../hooks/useMailSuggestions";
@@ -273,9 +273,39 @@ export function GmailInbox({ account, compact = false, selectedMailId = null, ma
       });
     };
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
+    // PC でウィンドウを出しっぱなしのまま別のアプリから戻った時は visibilitychange が起きない(見えたままなので)。
+    // クリックして前に出した時(focus)も同じ判断で確認する(2026-11-23、本人「スマホと状況が一緒じゃない」)。
+    window.addEventListener("focus", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account.id, account.reauthRequiredAt]);
+
+  // 開いている間は1分ごとに、他端末の既読・重要だけを取り込む(Gmail には問い合わせない。2026-11-23)。
+  // 上の2つは「開いた・戻った」きっかけが要るので、PC で画面を出しっぱなしにしていると、スマホで付けた
+  // 「重要」がいつまでも届かなかった。前回の確認からの差分だけ読むので軽い。隠れている間は聞かない。
+  useEffect(() => {
+    if (!account.id) return;
+    const accountId = account.id;
+    let lastPolledAt = Date.now();
+    let running = false;
+    const timer = window.setInterval(() => {
+      if (running || document.visibilityState !== "visible") return;
+      running = true;
+      const startedAt = Date.now();
+      void pollMessageStates(accountId, accountRef.current.email, lastPolledAt)
+        .then((result) => {
+          if (!result.error) lastPolledAt = startedAt;
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          running = false;
+        });
+    }, STATE_POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [account.id]);
 
   // 行に指を置いた・マウスを乗せた時点で、そのメールの本文を取りに行く(押して画面が開くまでの間に取り終わる。
   // src/lib/mailContentCache.ts)。スクロールで指が通り過ぎただけの行まで取らないよう、少し待ってから

@@ -11,7 +11,7 @@ vi.mock("./supabase", () => ({ isSupabaseConfigured: true, auth: { getSession: m
 vi.mock("./supabaseData", () => ({ getSupabaseDataClient: vi.fn(async () => ({ from: mocks.from })) }));
 vi.mock("../db/schema", () => ({ db: { syncedEmails: mocks.syncedEmails } }));
 
-import { pullMessageStates, pushPendingMessageStates, updateMessageState } from "./gmailMessageState";
+import { pollMessageStates, pullMessageStates, pushPendingMessageStates, updateMessageState } from "./gmailMessageState";
 
 /** Stands in for db.syncedEmails.where("accountId").equals(id).toArray(). */
 function localEmails(rows: SyncedEmail[]) {
@@ -31,6 +31,7 @@ function remoteStates(
   const query: Record<string, unknown> = {};
   query.select = vi.fn(() => query);
   query.eq = vi.fn(() => query);
+  query.gt = vi.fn(() => query);
   query.order = vi.fn(() => query);
   // 本物と同じく、range で指定した範囲の行だけを返す(指定が無ければ全部)。
   let window: [number, number] | null = null;
@@ -81,6 +82,38 @@ describe("pullMessageStates", () => {
     await pullMessageStates("account-1", "me@example.com");
     expect(mocks.syncedEmails.update).toHaveBeenCalledWith("local-last", expect.objectContaining({ readAt: 5_000 }));
   });
+  it("開いている間の確認(pollMessageStates)は、前回の確認から10分さかのぼった時刻より後に変わった行だけ聞く", async () => {
+    const query = remoteStates([
+      { gmail_message_id: "msg-1", read_at: null, important_at: "2026-11-23T11:13:21.482Z", sent: false, updated_at: "2026-11-23T11:13:21.482Z" },
+    ]);
+    localEmails([email()]);
+    const lastPolledAt = Date.parse("2026-11-23T11:20:00.000Z");
+
+    const result = await pollMessageStates("account-1", "me@example.com", lastPolledAt);
+
+    expect(query.gt).toHaveBeenCalledWith("updated_at", "2026-11-23T11:10:00.000Z");
+    expect(result).toEqual({ count: 1, error: null });
+    expect(mocks.syncedEmails.update).toHaveBeenCalledWith(
+      "local-1",
+      expect.objectContaining({ importantAt: Date.parse("2026-11-23T11:13:21.482Z") }),
+    );
+  });
+
+  it("変わった行が無ければ、端末のメールを読みに行かない(1分ごとの確認を軽くする)", async () => {
+    const query = remoteStates([]);
+    localEmails([email()]);
+
+    expect(await pollMessageStates("account-1", "me@example.com", Date.now())).toEqual({ count: 0, error: null });
+    expect(query.gt).toHaveBeenCalledTimes(1);
+    expect(mocks.syncedEmails.where).not.toHaveBeenCalled();
+  });
+
+  it("ふだんの取り込み(since なし)は、時刻で絞らず全部読む", async () => {
+    const query = remoteStates([]);
+    await pullMessageStates("account-1", "me@example.com");
+    expect(query.gt).not.toHaveBeenCalled();
+  });
+
   it("他端末で既読にされたメールをこの端末でも既読にする", async () => {
     remoteStates([{ gmail_message_id: "msg-1", read_at: "2026-08-23T00:00:00.000Z", sent: false, updated_at: "2026-08-23T00:00:00.000Z" }]);
     localEmails([email()]);
