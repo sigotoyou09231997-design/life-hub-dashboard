@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-23-202",
+    date: "2026-11-23",
+    area: "Gmail",
+    title: "スマホで付けた「重要」「既読」が、PC にその場で出るように",
+    description:
+      "これまでは、PC が聞きに行った時(画面を開いた・戻った・1分ごと)にしか揃いませんでした。いまは、他の端末で既読・重要を付けると、サーバーからすぐ流れてきて、開いている画面にその場で出ます。Gmail の画面だけでなく、ホームの「重要」の数にも効きます。スリープなどで切れていた間の分は、つながり直した時に取り込みます。",
+  },
+  {
     id: "2026-11-23-201",
     date: "2026-11-23",
     area: "Gmail",
