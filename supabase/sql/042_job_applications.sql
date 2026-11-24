@@ -40,3 +40,8 @@ create policy "user manages own job_applications" on public.job_applications for
 drop trigger if exists job_applications_set_server_updated_at on public.job_applications;
 create trigger job_applications_set_server_updated_at before insert or update on public.job_applications for each row execute function set_server_updated_at();
 alter publication supabase_realtime add table public.job_applications;
+
+-- ChatGPT など OAuth で接続したアプリのトークンは、この表に触れない(028・029・032 と同じ決まり)。
+drop policy if exists "oauth clients blocked" on public.job_applications;
+create policy "oauth clients blocked" on public.job_applications as restrictive for all to authenticated
+  using ((auth.jwt() ->> 'client_id') is null) with check ((auth.jwt() ->> 'client_id') is null);
