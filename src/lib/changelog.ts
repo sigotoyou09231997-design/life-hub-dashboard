@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-24-204",
+    date: "2026-11-24",
+    area: "予定・タスク",
+    title: "就活タブの応募先が、PCとスマホでそろうようにしました",
+    description:
+      "これまで就活タブの応募先は、入れた端末の中にしか残らず、PCで入れた会社がスマホに出ませんでした。応募先(会社名・今の段階・次の予定・メモ)を、ほかの予定と同じように、どの端末でも同じものが見られるようにしました。",
+  },
+  {
     id: "2026-11-24-203",
     date: "2026-11-24",
     area: "Gmail",

@@ -652,7 +652,7 @@ export type JobApplicationStage =
   | "rejected"
   | "declined";
 
-/** 就活の応募先1件。端末内のみ — 同期の対象にはしていない(src/lib/syncRuntime.ts)。 */
+/** 就活の応募先1件。2026-11-24 から端末間で同期する(supabase/sql/042_job_applications.sql、src/lib/syncRuntime.ts)。 */
 export interface JobApplication {
   id?: string;
   companyName: string;

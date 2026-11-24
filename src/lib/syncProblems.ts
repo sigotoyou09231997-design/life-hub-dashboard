@@ -34,6 +34,7 @@ const TABLE_LABELS: Record<string, string> = {
   event_mail_links: "予定と元のメールのつながり",
   google_calendar_links: "Googleカレンダーとの対応",
   subscription_details: "サブスクの詳細",
+  job_applications: "就活の応募先",
 };
 
 export function syncTableLabel(tableName: string): string {
