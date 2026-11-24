@@ -606,6 +606,9 @@ export interface SyncedEmail {
    * 以後そのメールからは入れない(本人が予定を消しても入れ直さない)。この端末だけの覚え書きで、
    * 索引も要らないためDexieのバージョンは上げていない(src/lib/mailAutoEvent.ts)。 */
   autoEventAt?: number;
+  /** 返事のいらないメール(求人の案内・広告など)として、同期で自動的に既読にした時刻。本人が未読に戻しても
+   * 二度は片付けない。この端末だけの覚え書きで、索引も要らないためDexieのバージョンは上げていない(src/lib/mailAutoTriage.ts)。 */
+  autoTriagedAt?: number;
   /** readAt/importantAt/status を最後に人が変えた時刻。端末間で状態を揃える時の
    * last-write-wins の基準(src/lib/gmailMessageState.ts)。索引は不要なので
    * Dexieのバージョンは上げていない。 */
@@ -817,4 +820,7 @@ export interface Settings {
   /** 「日時が確定した」メールをカレンダーに自動で入れるか(src/lib/mailAutoEvent.ts)。
    * 未設定はON。settings は同期しない表なので、ここに足しても本番の列は要らない。 */
   autoEventEnabled?: boolean;
+  /** 返事のいらないメール(求人の案内・広告など)を、同期で自動的に既読にするか(src/lib/mailAutoTriage.ts)。
+   * 未設定はON。settings は同期しない表なので、本番の列は要らない。 */
+  autoTriageEnabled?: boolean;
 }

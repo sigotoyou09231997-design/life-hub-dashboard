@@ -15,6 +15,7 @@ import {
   threadHasSentReplyAfter,
 } from "./gmail";
 import { autoAddConfirmedEvents } from "./mailAutoEvent";
+import { autoTriageEmails } from "./mailAutoTriage";
 import { needsPlanText } from "./mailPlanSuggestion";
 import { pullMessageStates, pushPendingMessageStates } from "./gmailMessageState";
 import { addEmailIfAbsent, dedupeSyncedEmails } from "./syncedEmails";
@@ -350,6 +351,16 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
     const pushedStates = await pushPendingMessageStates(accountId, account.email);
     const pulledStates = await pullMessageStates(accountId, account.email);
 
+    // 返事のいらないメール(求人の案内・広告など)は、確認なしで既読にして未処理から外す(src/lib/mailAutoTriage.ts)。
+    // 他の端末の既読を取り込んだ後に見る — 向こうで本人が未読に戻したものを、こちらで片付け直さないため
+    // (片付けたメールには印を付け、二度は片付けない)。失敗しても同期は続ける。
+    let triaged = 0;
+    try {
+      triaged = await autoTriageEmails(account, accountId);
+    } catch (error) {
+      console.error("[gmailSync] auto-triage failed:", error);
+    }
+
     // 「新着」として数えるのは、実際にこの一覧へ出るものだけにする。取り込んだ中には
     // 他の端末で既に読んだもの(既読タブへ入る)や、ブロック中の送信者のもの(どこにも
     // 出ない)が混ざる。以前はそれも含めて数えていたため、「7件の新着メールしました」と
@@ -359,12 +370,16 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
     const addedRows = addedIds.length > 0 ? await db.syncedEmails.bulkGet(addedIds) : [];
     let blockedAdded = 0;
     let handledElsewhere = 0;
+    // 今回の自動の振り分けで既読にしたものは、「他の端末で処理済み」とは別に数える(そちらはお知らせの triageNote で言う)。
+    let triagedAdded = 0;
     for (const row of addedRows) {
       if (!row) continue;
       if (blockedSet.has(parseSender(row.from).email.toLowerCase())) blockedAdded++;
+      // 既読の時刻が振り分けた時刻と同じ = 今回この端末の振り分けで既読にしたもの(autoTriageEmails は同じ時刻を入れる)。
+      else if (row.autoTriagedAt && row.readAt === row.autoTriagedAt) triagedAdded++;
       else if (!isUnhandledEmail(row)) handledElsewhere++;
     }
-    const freshAdded = added - blockedAdded - handledElsewhere;
+    const freshAdded = added - blockedAdded - handledElsewhere - triagedAdded;
 
     // 同期が通ったということは、連携は生きている。前回の失敗で立てた印は下ろす。
     // lastSyncedAt は「全部の同期をした時刻」。軽い確認では進めない(進めると、全部の同期がいつまでも来ない)。
@@ -383,12 +398,15 @@ async function runSync(account: GmailAccount, accountId: string, mode: GmailSync
       deferred,
     });
     // 自動で予定を入れた時は、黙って増えないよう、同期のお知らせに添える。
-    const autoNote =
+    const eventNote =
       autoEvents.length === 0
         ? ""
         : autoEvents.length === 1
           ? `予定を1件入れました(${autoEvents[0]})`
           : `予定を${autoEvents.length}件入れました`;
+    // 自動で既読にした時も、黙って消えたように見えないよう添える(既読タブで見られる)。
+    const triageNote = triaged > 0 ? `返事のいらないメール${triaged}件を既読にしました` : "";
+    const autoNote = [eventNote, triageNote].filter(Boolean).join(" / ");
     return {
       summary: autoNote ? (baseSummary && baseSummary !== NO_CHANGES_SUMMARY ? `${baseSummary} / ${autoNote}` : autoNote) : baseSummary,
       stateError: pushedStates.error ?? pulledStates.error ?? null,
