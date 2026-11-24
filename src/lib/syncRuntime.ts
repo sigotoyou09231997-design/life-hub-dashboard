@@ -40,6 +40,9 @@ function loadSyncModule(): Promise<SyncModule> {
         module.registerSyncedTable(db.eventMailLinks, "event_mail_links");
         module.registerSyncedTable(db.googleCalendarLinks, "google_calendar_links");
         module.registerSyncedTable(db.subscriptionDetails, "subscription_details");
+        // 2026-11-24、supabase/sql/042 を本番で流した(SQL エディタで Success を確かめた)あとに登録した。
+        // 就活タブの応募先を、PC とスマホで揃える(本人がスマホの就活タブに会社と予定を入れてほしいと頼んだが、端末内だけだった)。
+        module.registerSyncedTable(db.jobApplications, "job_applications");
         return module;
       })
       .catch((error) => {
