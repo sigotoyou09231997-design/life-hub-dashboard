@@ -7,6 +7,7 @@ import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
 import { AutoEventToggle } from "../components/settings/AutoEventToggle";
+import { AutoTriageToggle } from "../components/settings/AutoTriageToggle";
 import { DiagnosticsCopyButton } from "../components/settings/DiagnosticsCopyButton";
 import { EventPeopleManager } from "../components/settings/EventPeopleManager";
 import { FeedbackInbox } from "../components/feedback/FeedbackInbox";
@@ -602,6 +603,7 @@ export default function SettingsPage() {
                 <small>{gmailAccounts && gmailAccounts.length > 0 ? "AI返信 利用可" : "AI返信 利用不可"}</small>
               </div>
               {gmailAccounts && gmailAccounts.length > 0 && <AutoEventToggle />}
+              {gmailAccounts && gmailAccounts.length > 0 && <AutoTriageToggle />}
               {gmailAccounts && gmailAccounts.length > 0 && (
                 <div className="system-account-list space-y-2">
                   {gmailAccounts.map((account) => (
