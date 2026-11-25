@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-26-205",
+    date: "2026-11-26",
+    area: "全体",
+    title: "デモモード（/demo）を追加しました",
+    description:
+      "life-hub-dashboard.vercel.app/demo を開くと、ログインなしで、見本のデータ（予定・家計・サブスク・メモ・旅行・就活）が入った LIFE HUB を触れます。採用担当など、アカウントを持たない人に見せるための入口です。デモ用の保存先は本物のデータとは別で、サーバーにも同期しません。上の帯の「デモを終わる」で、ふだんの画面に戻ります。",
+  },
+  {
     id: "2026-11-24-204",
     date: "2026-11-24",
     area: "予定・タスク",
