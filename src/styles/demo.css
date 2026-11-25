@@ -1,0 +1,49 @@
+/* デモ(/demo)の時だけ出す、画面の一番上の帯(src/components/layout/DemoBanner.tsx)。
+   ふだんの画面には出ないので、ほかの画面の見た目には効かない。 */
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 12px 16px 0;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--ref-50, #eef6f4);
+  border: 1px solid var(--ref-100, #dcebe8);
+  color: var(--ref-900, #0f3b36);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.demo-banner__label {
+  flex: none;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ref-700, #1b5e57);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.demo-banner__text {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.demo-banner__exit {
+  flex: none;
+  margin-left: auto;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ref-700, #1b5e57);
+  background: #fff;
+  color: var(--ref-700, #1b5e57);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.demo-banner__exit:hover {
+  background: var(--ref-700, #1b5e57);
+  color: #fff;
+}

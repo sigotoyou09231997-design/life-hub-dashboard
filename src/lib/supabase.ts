@@ -1,12 +1,15 @@
 import { GoTrueClient } from "@supabase/auth-js";
 import { BOOT_SLOT } from "./accounts";
+import { IS_DEMO } from "./demoMode";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL ?? "";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
 
 /** True once VITE_SUPABASE_URL/VITE_SUPABASE_ANON_KEY are set — lets the UI hide
  * the account-sync section entirely on deployments that haven't configured it yet. */
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+// デモ(src/lib/demoMode.ts)では「未設定」として動かす — ログイン・同期・サーバーへの保存が全部止まり、
+// 端末の中の見本のデータだけで動く(未設定の時の作りをそのまま使う)。
+export const isSupabaseConfigured = !IS_DEMO && Boolean(supabaseUrl && supabaseAnonKey);
 
 const resolvedUrl = supabaseUrl || "https://placeholder.supabase.co";
 const resolvedAnonKey = supabaseAnonKey || "placeholder";

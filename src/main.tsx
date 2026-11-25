@@ -8,6 +8,7 @@ import { installPressFeedback } from "./lib/pressFeedback";
 import { currentVersion, markUpdateAvailable, setUpdateApplier, setUpdateChecker } from "./lib/pwaUpdate";
 import { installLifecycleLogging } from "./lib/lifecycleLog";
 import { trackViewportGap } from "./lib/viewport";
+import { installDemoApiGuard, IS_DEMO, IS_DEMO_ENTRY } from "./lib/demoMode";
 import "./index.css";
 import "./styles/hub.css";
 import "./styles/trips.css";
@@ -39,6 +40,8 @@ import "./styles/gestures.css";
 import "./styles/undo-toast.css";
 // 参考 UI/UX の上塗り(2026-11-09・見本)。この1行を外せば前の見た目に戻る。
 import "./styles/theme-ref.css";
+// デモ(/demo)の時だけ出す上の帯(src/components/layout/DemoBanner.tsx)。
+import "./styles/demo.css";
 
 // A tab left open never re-checks for updates on its own, so it kept serving a
 // stale build until a full reload/reinstall. Polling registration.update()
@@ -83,13 +86,48 @@ trackViewportGap();
 // ボタン・カード・チップ・タブ・下のナビを押すと沈んで、ばねで戻る（src/lib/pressFeedback.ts）。
 installPressFeedback();
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <BrowserRouter>
-      {/* 表示のエラーで白いまま止まらないように(src/components/AppErrorBoundary.tsx)。 */}
-      <AppErrorBoundary>
-        <App />
-      </AppErrorBoundary>
-    </BrowserRouter>
-  </StrictMode>,
-);
+function renderApp(): void {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <BrowserRouter>
+        {/* 表示のエラーで白いまま止まらないように(src/components/AppErrorBoundary.tsx)。 */}
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
+      </BrowserRouter>
+    </StrictMode>,
+  );
+}
+
+/** デモ(src/lib/demoMode.ts)の見本のデータを、画面を出す前に入れる。`/demo` から入った時と、
+ * 日付が変わった時(「今日の予定」が古い日付のままにならないように)だけ入れ直す。 */
+const DEMO_SEEDED_KEY = "lifehub:demo-seeded-on";
+async function prepareDemo(): Promise<void> {
+  if (!IS_DEMO) return;
+  const today = new Date().toDateString();
+  let seededOn: string | null = null;
+  try {
+    seededOn = window.localStorage.getItem(DEMO_SEEDED_KEY);
+  } catch {
+    // 読めなければ毎回入れ直す。
+  }
+  if (IS_DEMO_ENTRY || seededOn !== today) {
+    const [{ db }, { seedDemoData }] = await Promise.all([import("./db/schema"), import("./lib/demoSeed")]);
+    await seedDemoData(db);
+    try {
+      window.localStorage.setItem(DEMO_SEEDED_KEY, today);
+    } catch {
+      // 同上。
+    }
+  }
+  // `/demo` のままだとルートが無いので、ホームを開いた形にしてから画面を出す。
+  if (IS_DEMO_ENTRY) window.history.replaceState(null, "", "/");
+}
+
+// デモでは、AI の窓口(本人の料金がかかる)を呼ばせない(src/lib/demoMode.ts)。
+installDemoApiGuard();
+
+// 見本のデータが入らなくても、画面は出す(空のデモになるだけ)。
+void prepareDemo()
+  .catch((error: unknown) => console.error("demo seed failed", error))
+  .finally(renderApp);
