@@ -1,5 +1,6 @@
 import type { ExtractedTripItem } from "./mailPlanImport";
 import type { ScannedImage } from "./imageDownscale";
+import { authorizationHeader } from "./apiAuth";
 
 /** 写真・文章から旅行の日程を読み取る(netlify/functions/extractTripPlan.ts,
  * api/extractTripPlan.ts)。読み取りはGmailの取り込みと同じ関数を呼ぶ — 同じ
@@ -55,7 +56,7 @@ interface ScanPiece {
 async function requestTripPlan(input: TripPlanScanInput): Promise<ScanPiece> {
   const res = await fetch("/api/extractTripPlan", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(await authorizationHeader()) },
     body: JSON.stringify({
       text: input.text?.trim() || undefined,
       images: input.images?.length ? input.images : undefined,

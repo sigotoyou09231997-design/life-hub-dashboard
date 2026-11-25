@@ -1,4 +1,7 @@
 import { VercelRequest, VercelResponse } from "@vercel/node";
+// ログイン中の人だけに使わせる(AI は呼ぶたびに本人の料金がかかる。2026-11-26 まで誰でも呼べた)。
+// 確かめ方は場所の提案と同じ。api/ どうしの読み込みは .js を付ける(付けないと Vercel で落ちる)。
+import { verifySession } from "./suggestPlaces.js";
 
 const ANTHROPIC_ENDPOINT = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-5";
@@ -297,6 +300,11 @@ ${CANDIDATES_MARKER}に書いた内容と表記を完全に一致させること
 export default async (req: VercelRequest, res: VercelResponse) => {
   if (req.method !== "POST") {
     return jsonResponse(res, 405, { error: "Method not allowed" });
+  }
+
+  const denied = await verifySession(typeof req.headers.authorization === "string" ? req.headers.authorization : undefined);
+  if (denied) {
+    return jsonResponse(res, denied.status, denied.body);
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;

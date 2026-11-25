@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-26-206",
+    date: "2026-11-26",
+    area: "全体",
+    title: "AI の読み取り・下書きをログイン中の人だけが使えるようにしました",
+    description:
+      "レシート・固定費の写真の読み取り、旅行の日程の読み取り、Gmail の返信の下書きを作るサーバーの窓口は、これまでログインしていなくても呼べる作りでした。呼ばれるたびに AI の料金がかかるため、ログイン中の人だけが使えるようにしました。アプリからの使い方は変わりません。",
+  },
+  {
     id: "2026-11-26-205",
     date: "2026-11-26",
     area: "全体",
