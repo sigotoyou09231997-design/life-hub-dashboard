@@ -25,6 +25,8 @@ import { UpdateBanner } from "./components/ui/UpdateBanner";
 import { AmbientBackground } from "./components/layout/AmbientBackground";
 import { PageSkeleton } from "./components/ui/PageSkeleton";
 import { AppHeader } from "./components/layout/AppHeader";
+import { DemoBanner } from "./components/layout/DemoBanner";
+import { IS_DEMO } from "./lib/demoMode";
 import { DesktopSidebar } from "./components/layout/DesktopSidebar";
 import { QuickActionBar } from "./components/layout/QuickActionBar";
 import { usePageMotion } from "./hooks/usePageMotion";
@@ -353,6 +355,7 @@ export default function App() {
         <div className={`app-shell glass-shell ${isGmailListRoute ? "app-shell--fixed" : ""}`}>
           <DesktopSidebar />
           <div className="app-workspace">
+            <DemoBanner />
             <AppHeader />
             <main className={`app-main ${isGmailListRoute ? "app-main--fixed" : ""}`}>
               <div key={location.pathname} ref={pageMotionRef} className="page-transition">
@@ -393,7 +396,8 @@ export default function App() {
             <div id="page-fab-root" />
             {/* 「ここ直した方がいい」を送る入口。右下の「＋」の真上(src/components/feedback/FeedbackButton.tsx)。
                 直している最中は「対応中」になる。持ち主(本人)にも出す。 */}
-            <InAppFeedbackButton />
+            {/* デモ(/demo)では出さない — 見に来た人の文章が、本人の要望の受信箱(と自動で直す見張り)に入らないように。 */}
+            {!IS_DEMO && <InAppFeedbackButton />}
             {/* 「何を追加しますか?」(ホームの「＋」・PCの上の帯の「＋追加」から開く)。 */}
             <AddChooserHost />
           </div>

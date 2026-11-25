@@ -8,7 +8,10 @@
  *
  * このファイルが素のlocalStorageだけで、アプリ内の他のモジュールを一切importしないのは
  * 意図的: src/lib/supabase.ts と src/db/schema.ts の両方が、読み込みの一番最初(モジュール
- * 初期化時)にここを参照するため、どちらかに依存すると循環参照になる。 */
+ * 初期化時)にここを参照するため、どちらかに依存すると循環参照になる。
+ * (例外は src/lib/demoMode.ts だけ。あちらも素のlocalStorageだけで、何もimportしない。) */
+
+import { DEMO_AUTH_SLOT, DEMO_DB_NAME, IS_DEMO } from "./demoMode";
 
 export interface StoredAccount {
   userId: string;
@@ -184,8 +187,13 @@ const bootAccount = getActiveAccount();
 
 /** 追加ログインの最中は、いま使っているアカウントのセッションに触らないよう一時領域を使う。 */
 export const IS_ADDING_ACCOUNT: boolean = isAddingAccount();
-export const BOOT_SLOT: string | null = IS_ADDING_ACCOUNT ? PENDING_SLOT : (bootAccount?.slot ?? null);
-export const BOOT_DB_NAME: string = bootAccount?.dbName ?? DEFAULT_DB_NAME;
+// デモ(src/lib/demoMode.ts)は、本物のアカウントのDBとセッションに触らないよう、どちらも別の場所を使う。
+export const BOOT_SLOT: string | null = IS_DEMO
+  ? DEMO_AUTH_SLOT
+  : IS_ADDING_ACCOUNT
+    ? PENDING_SLOT
+    : (bootAccount?.slot ?? null);
+export const BOOT_DB_NAME: string = IS_DEMO ? DEMO_DB_NAME : (bootAccount?.dbName ?? DEFAULT_DB_NAME);
 
 /** localStorageのキーを、いま開いているアカウント専用にする。既定のDBを使っている
  * アカウント(＝この機能より前からの1つ目)は、今まで通りのキーのまま —
