@@ -3,6 +3,7 @@ import type { CalendarEvent, EmailStatus, GmailAccount, SyncedEmail } from "../t
 import { toDateStr, todayStr } from "./date";
 import { overlapsRange, spanDates, spanDayIndex, spanDays } from "./eventSpan";
 import type { ExtractedTripItem } from "./mailPlanImport";
+import { authorizationHeader } from "./apiAuth";
 
 /** Googleカレンダーの予定の読み書き(src/lib/googleCalendar.ts)。取り込み(第1段)だけなら
  * 読むだけで足りるが、書き出し(第2段)のためにもう一度つなぎ直してもらわずに済むよう、
@@ -88,10 +89,10 @@ export class ApiFunctionError extends Error {
   }
 }
 
-async function callFunction<T>(name: string, body: unknown): Promise<T> {
+async function callFunction<T>(name: string, body: unknown, extraHeaders: Record<string, string> = {}): Promise<T> {
   const res = await fetch(`/api/${name}`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...extraHeaders },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -233,7 +234,8 @@ export interface GenerateDraftResult {
 }
 
 export async function generateDraft(input: GenerateDraftInput): Promise<GenerateDraftResult> {
-  return callFunction<GenerateDraftResult>("generateDraft", input);
+  // 下書きは AI を使うので、ログインの証明を付ける(src/lib/apiAuth.ts)。
+  return callFunction<GenerateDraftResult>("generateDraft", input, await authorizationHeader());
 }
 
 const WEEKDAY_JA = ["日", "月", "火", "水", "木", "金", "土"];

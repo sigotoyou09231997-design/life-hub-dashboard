@@ -1,3 +1,5 @@
+import { authorizationHeader } from "./apiAuth";
+
 /** レシート画像から支出を読み取る(netlify/functions/extractReceipt.ts, api/extractReceipt.ts)。
  * Anthropic APIキーをブラウザに出さないためサーバー経由にする点はGmailのAI下書き生成
  * (src/lib/gmail.tsのgenerateDraft)と同じ。 */
@@ -43,7 +45,7 @@ export function fileToBase64(file: Blob): Promise<string> {
 export async function extractReceiptFromImage(imageBase64: string, mediaType: string, today: string): Promise<ExtractedReceipt | null> {
   const res = await fetch("/api/extractReceipt", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(await authorizationHeader()) },
     body: JSON.stringify({ imageBase64, mediaType, today }),
   });
   if (!res.ok) {
@@ -68,7 +70,7 @@ export interface ExtractedFixedCost {
 export async function extractFixedCostFromImage(imageBase64: string, mediaType: string, today: string): Promise<ExtractedFixedCost | null> {
   const res = await fetch("/api/extractReceipt", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(await authorizationHeader()) },
     body: JSON.stringify({ imageBase64, mediaType, today, kind: "fixedCost" }),
   });
   if (!res.ok) {
