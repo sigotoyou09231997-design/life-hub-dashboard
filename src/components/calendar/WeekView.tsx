@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { addDays, format, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
-import { CheckSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { CheckSquare, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import type { CalendarEvent, EventPerson, Task } from "../../types";
 import { toDateStr, todayStr } from "../../lib/date";
 import { spanTimeText } from "../../lib/eventSpan";
@@ -307,7 +307,10 @@ export function WeekView({
                       onClick={() => onAddEvent(date, time)}
                       aria-label={`${format(parseISO(date), "M月d日(E)", { locale: ja })} ${time}に予定を追加`}
                     >
-                      <span aria-hidden="true">＋ {time.replace(/^0/, "")}</span>
+                      <span aria-hidden="true">
+                        <Plus size={14} />
+                        {time.replace(/^0/, "")}
+                      </span>
                     </button>
                   );
                 }),

@@ -13,6 +13,12 @@
      5. 種類の色(食費=橙・予定=青・ほか=紫)は 8px の点と細い線だけ。面は塗らない。
      6. タブ・切り替えは、1つずつ離した丸いボタン(本人の好み: 灰色の溝に詰めない)。選んだ物=黒、ほか=白＋影。
      7. 下のナビは白い帯＋上向きの薄い影。選んでいる所は黒の太字、ほかは灰。真ん中の「＋」は黒い丸。
+     8. アイコン(2026-11-26 仕上げ②。下の「アイコンの決まり」節):
+        - 線だけの lucide 1種類。線の太さは 1.75 の1つ(選んでいる所も太くしない。選んでいるかは色で見せる)。
+        - 大きさは3段: 22 = 下のナビ・上の帯・PCの左メニュー ／ 18 = ボタン・一覧の行・アイコンの丸の中 ／ 14 = 文の中・小さな札。
+        - 色はふだん補足の灰(#5F6B6A)。選んでいる所は黒。リンク・ボタンの中は、その文字と同じ色。青緑はふやさない。
+        - アイコンを入れる箱は、丸・36px・薄い灰(#F3F5F4)の1種類。色付きの箱は意味のある所だけ
+          (旅行の日程の種類=食事・宿など、サービスの印・頭文字、サッカーの紋章は「見分ける印」なのでそのまま)。
    これまでの好み(地は白・空の箱は引き伸ばさない・ボタンは1つずつ分ける)はそのまま。
    機能・データ・行き先・文の意味は変えない。
 
@@ -550,7 +556,7 @@ input[type="range"] { accent-color: var(--s-ink); }
   font-size: 11px;
   font-weight: 500;
 }
-.glass-nav nav :is(a, button).is-active svg { color: var(--s-ink) !important; stroke-width: 2.2; }
+.glass-nav nav :is(a, button).is-active svg { color: var(--s-ink) !important; }
 .glass-nav nav :is(a, button).is-active span:not(.absolute) { color: var(--s-ink) !important; font-weight: 700; }
 .glass-nav nav a > span.absolute { display: none !important; }
 .glass-nav nav .nav-add .nav-add__circle {
@@ -1626,6 +1632,123 @@ div.warm-card.lh-savings.subs-saved {
 @media (min-width: 640px) {
   .note-widget { min-height: 0 !important; }
 }
+
+/* ---------------------------------------------------------------------------
+   アイコンの決まり(2026-11-26 仕上げ②。上の「決めごと」8)
+   部品ごとに 11〜24px・線 1.6〜3 とばらばらだったのを、ここでまとめてそろえる。
+   lucide は大きさを width/height の属性で持つので、元の大きさの段で3段に寄せる(CSS は属性より強い)。
+   チェックの丸の中の ✓(線の太さの属性が「3」で始まる物)は、塗った小さな丸の中で見えるよう、太さ・大きさとも除く。
+   28px 以上の物(空の表示の絵など)は、この回では触らない。
+   ------------------------------------------------------------------------ */
+svg.lucide:not([stroke-width^="3"]),
+:is([aria-current="page"], [aria-pressed="true"], [aria-selected="true"], .is-active, .is-selected, .sidebar-link--active) svg.lucide:not([stroke-width^="3"]),
+.glass-nav nav :is(a, button).is-active svg {
+  stroke-width: 1.75 !important;
+}
+svg.lucide:not([stroke-width^="3"]):is([width="10"], [width="11"], [width="12"], [width="13"], [width="14"], [width="15"]) {
+  width: 14px;
+  height: 14px;
+}
+svg.lucide:not([stroke-width^="3"]):is([width="16"], [width="17"], [width="18"], [width="19"], [width="20"]) {
+  width: 18px;
+  height: 18px;
+}
+svg.lucide:not([stroke-width^="3"]):is([width="21"], [width="22"], [width="23"], [width="24"]) {
+  width: 22px;
+  height: 22px;
+}
+/* 22 = 下のナビ・上の帯・PCの左メニュー */
+.glass-nav nav svg.lucide,
+.app-header .app-header__actions svg.lucide,
+.app-header .app-header__home svg.lucide,
+.sidebar-link svg.lucide {
+  width: 22px !important;
+  height: 22px !important;
+}
+/* 選んでいるナビのアイコンを 1.08 倍に大きくしていたのをやめる(大きさは段ごとに1つ。選んでいるかは黒い色と太字の名前で)。 */
+.glass-nav a[aria-current="page"] svg,
+.glass-nav a.is-active svg { transform: none !important; }
+/* PCの上の帯の検索欄と「＋追加」はボタンの中なので 18。 */
+.app-header__search-field svg.lucide,
+.app-header__add svg.lucide {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+/* 色: ふだんは補足の灰。薄すぎた灰(ゴミ箱の #CBD5E1・行末の › の #9AA4A2)も、押せる印として読める濃さに。 */
+.app-shell .text-slate-300 { color: var(--s-ink-2); }
+.lh-row__chev,
+.action-row__chev,
+.lh-row svg.lucide-chevron-right,
+.glass-row svg.lucide-chevron-right { color: var(--s-ink-2) !important; }
+.action-row__icon { color: var(--s-ink-2); }
+
+/* アイコンを入れる箱: 丸・36px・薄い灰・中は 18px の灰 */
+.lh-row__icon,
+.lh-row__icon--initial,
+.lh-subs__initial,
+.lh-home .warm-empty__icon,
+.warm-empty__icon,
+.spatial-page .mail-connect-visual__icon,
+.mail-connect-visual__icon,
+.spatial-page .system-section__identity > span,
+.system-section__identity > span,
+.trip-new__icon,
+.trip-new--first .trip-new__icon,
+.trips-board--lead > .trip-new .trip-new__icon,
+.cmd-row__icon,
+.choice-grid__icon,
+.lh-setup__icon,
+.icon-box {
+  display: grid !important;
+  flex: 0 0 auto;
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  place-items: center;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: var(--s-fill) !important;
+  color: var(--s-ink-2) !important;
+  box-shadow: none !important;
+}
+.lh-subs__initial,
+.lh-row__icon--initial { color: var(--s-ink) !important; }
+/* 灰色のタイルの上(すべての機能)では、丸を白にして見分けられるように。 */
+.glass-row .icon-box { background: #ffffff !important; }
+:is(.lh-row__icon, .warm-empty__icon, .mail-connect-visual__icon, .system-section__identity > span, .trip-new__icon, .cmd-row__icon, .choice-grid__icon, .lh-setup__icon, .icon-box) svg.lucide {
+  width: 18px !important;
+  height: 18px !important;
+  color: inherit;
+}
+/* 赤い印(重要な未読など)だけは意味があるので、箱の中のアイコンを赤に。 */
+.lh-row__icon.lh-tone--danger { color: #b42318 !important; }
+/* 検索パレットで選んでいる行の丸は黒(青緑で塗らない)。 */
+@media (hover: hover) and (pointer: fine) {
+  .cmd-row.is-active .cmd-row__icon { background: var(--s-ink) !important; color: #ffffff !important; }
+}
+
+/* 飾りのアイコンに付いていた青緑(メモのピン・ふりかえりの印・浮いたお金の豚・ルートの「日程に入っている場所」の印)は灰に。
+   リンク・ボタンの中のアイコンは、その文字と同じ色のまま(親が a / button の物は除く)。 */
+:not(a):not(button) > svg.lucide.text-accent,
+.subs-saved__note svg,
+.trip-route-picks__icon { color: var(--s-ink-2) !important; }
+
+/* サブスクのカレンダーの前の月・次の月: ほかのアイコンのボタンと同じ丸・36px・薄い灰 */
+.subs-calendar__nav {
+  width: 2.25rem !important;
+  height: 2.25rem !important;
+  border: 0 !important;
+  border-radius: 50% !important;
+  background: var(--s-fill) !important;
+  color: var(--s-ink-2) !important;
+  box-shadow: none !important;
+}
+
+/* 旅行の日程の種類の印(食事・宿・移動など)は色に意味があるので色付きのまま。形だけ丸に。 */
+.trip-timeline__icon { border-radius: 50% !important; }
+
+/* 予定の週の表示の、空いた時間の「＋ 9:00」 */
+.week-view__slot > span { display: inline-flex; align-items: center; gap: 0.125rem; }
 
 /* ---------------------------------------------------------------------------
    15. 動きを減らす設定

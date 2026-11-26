@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
 import { Link } from "react-router-dom";
-import { CalendarArrowUp, CalendarDays, Database, Image as ImageIcon, LayoutGrid, Mail, PiggyBank, Sparkles, Wallet } from "lucide-react";
+import { CalendarArrowUp, CalendarDays, Database, Image as ImageIcon, LayoutGrid, Mail, PiggyBank, Plus, Sparkles, Wallet } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
 import { sortSavingsGoals } from "../lib/savingsGoal";
@@ -488,7 +488,15 @@ export default function SettingsPage() {
               ) : (
                 <div className="system-section__actions">
                   <Button variant="secondary" className="w-full" onClick={() => setGoalDraft({ name: "", amount: "" })}>
-                    {(savingsGoals ?? []).length > 0 ? "+ 目標を追加" : "貯金目標を作る"}
+                    {/* 「+」は文字ではなくアイコンで(2026-11-26 仕上げ②。アイコンの決まりにそろえる)。 */}
+                    {(savingsGoals ?? []).length > 0 ? (
+                      <>
+                        <Plus size={18} aria-hidden="true" />
+                        目標を追加
+                      </>
+                    ) : (
+                      "貯金目標を作る"
+                    )}
                   </Button>
                 </div>
               )}
@@ -579,7 +587,12 @@ export default function SettingsPage() {
                     {budgetCategoryOptions.length === 0
                       ? "すべてのカテゴリに設定済み"
                       : (categoryBudgets ?? []).length > 0
-                        ? "+ カテゴリを追加"
+                        ? (
+                          <>
+                            <Plus size={18} aria-hidden="true" />
+                            カテゴリを追加
+                          </>
+                        )
                         : "カテゴリ別の予算を作る"}
                   </Button>
                 </div>
@@ -625,7 +638,14 @@ export default function SettingsPage() {
               )}
               <div className="system-section__actions">
                 <Button variant="secondary" className="w-full" onClick={startGmailOAuth}>
-                  {gmailAccounts && gmailAccounts.length > 0 ? "+ アカウントを追加" : "連携する"}
+                  {gmailAccounts && gmailAccounts.length > 0 ? (
+                    <>
+                      <Plus size={18} aria-hidden="true" />
+                      アカウントを追加
+                    </>
+                  ) : (
+                    "連携する"
+                  )}
                 </Button>
               </div>
             </Card>
