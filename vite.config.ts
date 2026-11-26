@@ -52,6 +52,10 @@ export default defineConfig({
         // precache/update-banner machinery above is untouched, no need to switch
         // to injectManifest mode just for background push notifications.
         importScripts: ["push-sw.js"],
+        // デモの入口(/demo、src/lib/demoMode.ts)は、取り置いた画面(precache の index.html)で開かない。
+        // デモを足す前の版を取り置いた端末だと、古い画面が /demo を知らずにログイン画面へ飛ばしていた
+        // (2026-11-26、本人「それ開いたらログイン画面になる」)。ここだけは毎回サーバーの最新の画面を読む。
+        navigateFallbackDenylist: [/^\/demo\/?$/],
         // 給与明細の PDF を読む pdf.js(src/lib/payslipPdf.ts、約360KB)は、PDF を選んだ時にだけ読むので、
         // 開いた時の取り置き(precache)には入れない(使わない人の更新のたびの読み込みを増やさない)。
         globIgnores: ["**/node_modules/**/*", "**/pdf-*.js"],

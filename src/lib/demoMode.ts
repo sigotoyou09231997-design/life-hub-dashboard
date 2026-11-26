@@ -10,6 +10,8 @@
 //   3. ログインの保存場所も別の枠(DEMO_AUTH_SLOT)にする。本物のセッションを読まない・更新しない。
 //
 // この値は起動時に1回だけ決まる(アカウント切り替えと同じく、変える時はページごと読み直す)。
+// デモの印は**そのタブの中だけ**(sessionStorage)。タブを閉じれば終わり、同じ端末のほかのタブや
+// ふだんの LIFE HUB はデモにならない(2026-11-26。localStorage だと端末ごとデモに切り替わっていた)。
 // ほかの lib を import しないこと(accounts.ts / supabase.ts がここを読むので、輪になる)。
 
 const DEMO_FLAG_KEY = "lifehub:demo";
@@ -25,14 +27,20 @@ function isDemoEntryPath(pathname: string): boolean {
 }
 
 function detect(): { active: boolean; entry: boolean } {
+  if (typeof window === "undefined") return { active: false, entry: false };
+  const entry = isDemoEntryPath(window.location.pathname);
+  // 前の版は印を localStorage に置いていたので、端末のほかのタブ・ふだんの画面までデモになった。
+  // その印が残っていても効かないよう、ここで消す(2026-11-26)。
   try {
-    if (typeof window === "undefined") return { active: false, entry: false };
-    const entry = isDemoEntryPath(window.location.pathname);
-    if (entry) window.localStorage.setItem(DEMO_FLAG_KEY, "1");
-    return { active: entry || window.localStorage.getItem(DEMO_FLAG_KEY) === "1", entry };
+    window.localStorage.removeItem(DEMO_FLAG_KEY);
   } catch {
-    // localStorage が使えない環境(プライベートウィンドウの一部)では、デモは /demo を開いた時だけ。
-    const entry = typeof window !== "undefined" && isDemoEntryPath(window.location.pathname);
+    // 消せなくても、下で見るのは sessionStorage だけなので害はない。
+  }
+  try {
+    if (entry) window.sessionStorage.setItem(DEMO_FLAG_KEY, "1");
+    return { active: entry || window.sessionStorage.getItem(DEMO_FLAG_KEY) === "1", entry };
+  } catch {
+    // sessionStorage が使えない環境では、デモは /demo を開いた時だけ。
     return { active: entry, entry };
   }
 }
@@ -48,6 +56,7 @@ export const IS_DEMO_ENTRY: boolean = detected.entry;
 /** デモを終えて、ふだんの LIFE HUB(ログイン画面)に戻る。デモのDBは消す(次に入った時は入れ直す)。 */
 export function exitDemo(): void {
   try {
+    window.sessionStorage.removeItem(DEMO_FLAG_KEY);
     window.localStorage.removeItem(DEMO_FLAG_KEY);
   } catch {
     // 書けなくても、下の読み直しで /demo 以外を開けば、印が無い限りふだんの画面になる。

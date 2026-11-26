@@ -107,7 +107,7 @@ async function prepareDemo(): Promise<void> {
   const today = new Date().toDateString();
   let seededOn: string | null = null;
   try {
-    seededOn = window.localStorage.getItem(DEMO_SEEDED_KEY);
+    seededOn = window.sessionStorage.getItem(DEMO_SEEDED_KEY);
   } catch {
     // 読めなければ毎回入れ直す。
   }
@@ -115,7 +115,7 @@ async function prepareDemo(): Promise<void> {
     const [{ db }, { seedDemoData }] = await Promise.all([import("./db/schema"), import("./lib/demoSeed")]);
     await seedDemoData(db);
     try {
-      window.localStorage.setItem(DEMO_SEEDED_KEY, today);
+      window.sessionStorage.setItem(DEMO_SEEDED_KEY, today);
     } catch {
       // 同上。
     }
