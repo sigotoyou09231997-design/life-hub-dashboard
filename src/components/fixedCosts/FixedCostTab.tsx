@@ -120,7 +120,7 @@ function SalaryBreakdown() {
         <div>
           <dt>
             <i className="is-subs" aria-hidden="true" />
-            サブスク
+            サブスク（今期の請求）
           </dt>
           <dd>−{yen(split.subscriptions)}</dd>
         </div>

@@ -1,3 +1,8 @@
+import { IS_DEMO } from "../lib/demoMode";
+
+/** デモ(/demo)の更新履歴では出さない項目(2026-11-27)。就活の機能の話と、本人の旅行の地名が入った例。
+ * デモは応募先の企業にも見せるので、本人の私的なことが分かる物は出さない。本人の画面では全部出す。 */
+const DEMO_HIDDEN_WORDS = /就活|面接|応募|求人|採用|選考|内定|転職|岡山|小金井/;
 import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { CHANGELOG, groupChangelogByDate, splitChangelogBody, unreadChangelog } from "../lib/changelog";
@@ -29,7 +34,7 @@ export default function ChangelogPage() {
           使う人から見て何が変わったかだけを載せています。新しいものが上です。
         </p>
 
-        {groupChangelogByDate(CHANGELOG).map((group) => (
+        {groupChangelogByDate(IS_DEMO ? CHANGELOG.filter((entry) => !DEMO_HIDDEN_WORDS.test(`${entry.title}${entry.description}${entry.detail ?? ""}`)) : CHANGELOG).map((group) => (
           <section key={group.date}>
             <div className="changelog-date">
               <h2>{formatDisplayDate(group.date)}</h2>

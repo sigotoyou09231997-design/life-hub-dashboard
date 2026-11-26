@@ -124,7 +124,8 @@ describe("お金管理の固定費タブ", () => {
     const text = box.textContent ?? "";
     expect(text).toContain("¥262,000");
     expect(text).toContain("固定費−¥78,000");
-    expect(text).toContain("サブスク−¥1,590");
+    // 2026-11-27: 見出しを「サブスク（今期の請求）」に変えた(サブスクのタブの月あたりの額と区別するため)。金額の確かめ方は同じ。
+    expect(text).toContain("サブスク（今期の請求）−¥1,590");
     expect(text).toContain("使った額−¥32,270");
     expect(text).toContain("残り（使えるお金）¥150,140");
   });

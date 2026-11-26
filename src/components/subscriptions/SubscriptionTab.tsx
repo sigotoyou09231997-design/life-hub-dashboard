@@ -132,7 +132,7 @@ export function SubscriptionTab() {
     <div className="subs-home">
       <section className="subs-total" data-page-block>
         <div className="subs-total__head">
-          <p className="subs-total__label">{unit === "year" ? "1年の支払い" : "毎月の支払い"}</p>
+          <p className="subs-total__label">{unit === "year" ? "1年あたりの支払い" : "月あたりの支払い"}</p>
           <div className="subs-unit" role="group" aria-label="合計の単位">
             <button type="button" aria-pressed={unit === "month"} onClick={() => setUnit("month")}>
               月額
@@ -155,7 +155,8 @@ export function SubscriptionTab() {
         </p>
         <dl className="subs-total__stats">
           <div>
-            <dt>今月払う額</dt>
+            {/* 「月あたり」(年払いを12で割った額)とは別に、この暦の月に実際に引き落とされる額。何月かを書く(2026-11-27)。 */}
+            <dt>{new Date().getMonth() + 1}月に払う額</dt>
             <dd>{yen(summary.thisMonthCharge)}</dd>
           </div>
           <div>

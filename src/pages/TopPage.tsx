@@ -347,7 +347,14 @@ export default function TopPage() {
             <div className="warm-trip is-compact lh-trip-loading" aria-hidden="true" />
           ) : featuredTrip ? (
             <Link to={featuredTrip.id ? `/trips/${featuredTrip.id}` : "/trips"} className={`warm-trip${tripSize === "compact" ? " is-compact" : ""}`}>
-              <div className="warm-trip__photo" style={{ backgroundImage: `url('${tripCover.url}')` }} aria-hidden="true" />
+              {tripCover.url ? (
+                <div className="warm-trip__photo" style={{ backgroundImage: `url('${tripCover.url}')` }} aria-hidden="true" />
+              ) : (
+                // 写真が無い時(デモ)は、写真の場所に飛行機の印を置く。
+                <div className="warm-trip__photo is-empty" aria-hidden="true">
+                  <Plane size={22} />
+                </div>
+              )}
               <div className="warm-trip__veil" aria-hidden="true" />
               <span className="warm-trip__kicker">
                 <Plane size={13} strokeWidth={2.2} />

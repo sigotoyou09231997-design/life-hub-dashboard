@@ -1,3 +1,4 @@
+import { IS_DEMO } from "../lib/demoMode";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { parseISO } from "date-fns";
@@ -48,7 +49,8 @@ type EditingTask =
 function tabFromView(view: string | null): Tab {
   if (view === "calendar") return "calendar";
   if (view === "list") return "list";
-  if (view === "jobs") return "jobs";
+  // デモ(/demo)では就活のタブを出さない(2026-11-27。応募先の企業にも見せる見本なので)。?view=jobs で来ても今日へ。
+  if (view === "jobs" && !IS_DEMO) return "jobs";
   return "today";
 }
 
@@ -185,7 +187,7 @@ export default function SchedulePage() {
             { value: "today", label: "今日" },
             { value: "calendar", label: "カレンダー" },
             { value: "list", label: "一覧" },
-            { value: "jobs", label: "就活" },
+            ...(IS_DEMO ? [] : [{ value: "jobs" as const, label: "就活" }]),
           ]}
           value={tab}
           onChange={setTab}

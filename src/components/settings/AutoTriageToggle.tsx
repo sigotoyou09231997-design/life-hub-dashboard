@@ -1,3 +1,4 @@
+import { IS_DEMO } from "../../lib/demoMode";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import { useToast } from "../ui/ToastProvider";
@@ -23,8 +24,18 @@ export function AutoTriageToggle() {
       <div className="min-w-0">
         <div className="text-sm font-medium text-slate-800">返事のいらないメールを自動で既読にする</div>
         <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
-          求人サイトの「おすすめ求人」「新着求人」、自動で届くオファーの知らせ、ポイント・セールの広告などを、未処理に残さず既読にします(既読タブで見られます)。
-          面接・選考・書類・日程や、応募先の企業からのメッセージは片付けません。
+          {IS_DEMO ? (
+            // デモ(/demo)の例は、就活ではない一般的なものにする(2026-11-27)。
+            <>
+              お店の「おすすめ」「新着のお知らせ」、ポイント・セールの広告などを、未処理に残さず既読にします(既読タブで見られます)。
+              予約・配達・支払いの知らせや、知り合いからのメッセージは片付けません。
+            </>
+          ) : (
+            <>
+              求人サイトの「おすすめ求人」「新着求人」、自動で届くオファーの知らせ、ポイント・セールの広告などを、未処理に残さず既読にします(既読タブで見られます)。
+              面接・選考・書類・日程や、応募先の企業からのメッセージは片付けません。
+            </>
+          )}
         </p>
       </div>
       <button
