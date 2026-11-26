@@ -40,6 +40,8 @@ import "./styles/gestures.css";
 import "./styles/undo-toast.css";
 // 参考 UI/UX の上塗り(2026-11-09・見本)。この1行を外せば前の見た目に戻る。
 import "./styles/theme-ref.css";
+// 静かな白＋柔らかい影(2026-11-26・「A+影」)。上の全部の層の上に塗る。この1行を外せば前の見た目に戻る。
+import "./styles/theme-simple.css";
 // デモ(/demo)の時だけ出す上の帯(src/components/layout/DemoBanner.tsx)。
 import "./styles/demo.css";
 

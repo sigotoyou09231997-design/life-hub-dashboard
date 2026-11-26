@@ -1,0 +1,1394 @@
+/* ============================================================================
+   静かな白 ＋ 柔らかい影（2026-11-26・「A+影」）
+
+   本人「徹底的にデザインを変えたい」(就活のポートフォリオにも使う)。本人が選んだ見本は
+   design-canvas の MainS / MoneyS / TripS と決めごとの1枚(Rules)。決めごと:
+     1. 地は真っ白。グラデーション・ぼかし・すりガラスは使わない。
+        文字 #14181A、補足 #5F6B6A(白地で 5.6:1)、線 #E8ECEB は本当に要る所だけ。
+     2. 色(深い青緑 #1B5E57)はリンク・進み具合の線・小さな印だけ。
+        主ボタンは黒 #14181A＋白い字＋影。主ボタンは1画面(1つの区切り)に1つ。ほかは白いボタンか文字のリンク。
+     3. カード・一覧の箱は白・枠なし・角16(大きな主役は20)・柔らかい影。箱の中の行は 1px #EEF1F0 で区切る。
+        小さなカードを細かく積まず、行を1つの箱にまとめる。
+     4. 書体は1つ(端末のゴシック)。明朝はやめる。文字は 28/17/15/13 の4段、大きな金額は 36〜40・等幅数字。
+     5. 種類の色(食費=橙・予定=青・ほか=紫)は 8px の点と細い線だけ。面は塗らない。
+     6. タブ・切り替えは、1つずつ離した丸いボタン(本人の好み: 灰色の溝に詰めない)。選んだ物=黒、ほか=白＋影。
+     7. 下のナビは白い帯＋上向きの薄い影。選んでいる所は黒の太字、ほかは灰。真ん中の「＋」は黒い丸。
+   これまでの好み(地は白・空の箱は引き伸ばさない・ボタンは1つずつ分ける)はそのまま。
+   機能・データ・行き先・文の意味は変えない。
+
+   main.tsx で theme-ref.css の後(demo.css の前)に読む。この1行を外せば前の見た目に戻る
+   (ホームのお金のカード・旅行詳細の「ほかの操作」・下のナビの「＋」は JSX も変えている)。
+   ========================================================================= */
+
+:root {
+  --s-ink: #14181a;
+  --s-ink-2: #5f6b6a;
+  /* 下のナビの選んでいない項目。見本の #7A8482 は白地で 3.8:1 と、読みやすさの目安 4.5:1 に届かないので、
+     届く所まで少しだけ濃くした(4.9:1)。 */
+  --s-ink-3: #6a7573;
+  --s-line: #e8eceb;
+  --s-sep: #eef1f0;
+  --s-fill: #f3f5f4;
+  --s-accent: #1b5e57;
+  --s-accent-ink: #123f3a;
+  --s-card-shadow: 0 1px 2px rgba(20, 24, 26, 0.04), 0 6px 20px rgba(20, 24, 26, 0.07);
+  --s-card-shadow-hover: 0 2px 4px rgba(20, 24, 26, 0.05), 0 10px 28px rgba(20, 24, 26, 0.1);
+  --s-soft-shadow: 0 1px 2px rgba(20, 24, 26, 0.05), 0 3px 10px rgba(20, 24, 26, 0.07);
+  --s-btn-shadow: 0 6px 16px rgba(20, 24, 26, 0.22);
+  --s-float-shadow: 0 2px 6px rgba(20, 24, 26, 0.06), 0 16px 40px rgba(20, 24, 26, 0.14);
+  --s-font: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",
+    "Yu Gothic", "Segoe UI", sans-serif;
+
+  /* 前の層の名前を、ここで全部読み替える(各画面の CSS が直接使っている)。 */
+  --warm-ground: #ffffff;
+  --warm-ground-2: #ffffff;
+  --warm-surface: #ffffff;
+  --warm-surface-soft: var(--s-fill);
+  --warm-surface-sunk: #eef1f0;
+  --warm-line: var(--s-line);
+  --warm-line-strong: #dce2e0;
+  --warm-ink: var(--s-ink);
+  --warm-ink-2: var(--s-ink-2);
+  --warm-ink-3: var(--s-ink-2);
+  --hub-ink: var(--s-ink);
+  --hub-ink-2: var(--s-ink-2);
+  --hub-ink-3: var(--s-ink-2);
+  --hub-navy: var(--s-ink);
+  --hub-inset: var(--s-fill);
+  --hub-inset-2: #eef1f0;
+  --hub-edge: transparent;
+  --hub-hairline: var(--s-line);
+  --spatial-ink: var(--s-ink);
+  --ink-black: var(--s-ink);
+  --ink-black-2: #2a3032;
+  --color-navy: var(--s-ink);
+
+  --ref-900: var(--s-accent-ink);
+  --ref-800: var(--s-accent-ink);
+  --ref-700: var(--s-accent);
+  --ref-600: var(--s-accent);
+  --ref-100: #dcebe8;
+  --ref-50: #f3f5f4;
+  --teal-700: var(--s-accent-ink);
+  --teal-600: var(--s-accent);
+  --teal-500: var(--s-accent);
+  --teal-400: var(--s-accent);
+  --teal-100: #dcebe8;
+  --teal-50: var(--s-fill);
+  --color-accent: var(--s-accent);
+  --color-accent-light: var(--s-fill);
+  --hub-blue: var(--s-accent);
+
+  --shadow-rest: var(--s-card-shadow);
+  --shadow-float: var(--s-float-shadow);
+  --shadow-press: 0 1px 2px rgba(20, 24, 26, 0.05), 0 2px 8px rgba(20, 24, 26, 0.06);
+  --warm-shadow: var(--s-card-shadow);
+  --warm-shadow-lift: var(--s-float-shadow);
+  --warm-shadow-nav: 0 -4px 20px rgba(20, 24, 26, 0.06);
+  --hub-shadow: var(--s-card-shadow);
+  --hub-shadow-lift: var(--s-float-shadow);
+  --hub-shadow-inset: none;
+  --shadow-panel: var(--s-card-shadow);
+  --hub-blur: none;
+
+  --r-card: 16px;
+  --r-control: 12px;
+  --r-tag: 8px;
+  --r-nested: 12px;
+  --r-hero: 20px;
+
+  --fs-display: 2.25rem;
+  --fs-page: 1.75rem;
+  --fs-section: 1.0625rem;
+  --fs-body: 0.9375rem;
+  --fs-caption: 0.8125rem;
+
+  /* 書体は1つ。明朝(--font-display / --font-mincho)と数字だけの Manrope・丸ゴシックを、本文と同じゴシックへ。 */
+  --font-display: var(--s-font);
+  --font-mincho: var(--s-font);
+  --font-num: var(--s-font);
+  --font-rounded: var(--s-font);
+  --font-serif: var(--s-font);
+}
+
+.planning-page,
+.finance-page,
+.notes-page,
+.mail-page,
+.trips-page,
+.trip-detail-page,
+.review-page {
+  --page-tone: var(--s-accent);
+  --page-tint: var(--s-fill);
+}
+
+/* ---------------------------------------------------------------------------
+   1. 地・書体・文字の色
+   ------------------------------------------------------------------------ */
+html,
+body,
+.ambient-background {
+  background: #ffffff !important;
+}
+.ambient-background > * { display: none !important; }
+.app-shell::before,
+.app-shell::after { background: none !important; }
+body {
+  font-family: var(--s-font);
+  color: var(--s-ink);
+  font-feature-settings: "palt";
+}
+::selection { background: #dcebe8; color: var(--s-ink); }
+
+.app-shell .text-slate-400,
+.app-shell .text-slate-400:not(:where(.app-header--home *)) { color: var(--s-ink-2); }
+.app-shell .text-slate-500,
+.app-shell .text-slate-500:not(:where(.app-header--home *)),
+.app-shell .text-slate-600,
+.app-shell .text-slate-600:not(:where(.app-header--home *)) { color: var(--s-ink-2); }
+.app-shell .text-slate-700,
+.app-shell .text-slate-700:not(:where(.app-header--home *)),
+.app-shell .text-slate-800,
+.app-shell .text-slate-800:not(:where(.app-header--home *)),
+.app-shell .text-slate-900,
+.app-shell .text-slate-900:not(:where(.app-header--home *)),
+.app-shell .text-navy { color: var(--s-ink); }
+
+/* 明朝をやめる(ページの見出し・ホームの日付・Gmail の見出し・AIの最新情報)。 */
+.app-shell .spatial-page-header__title,
+.app-shell .mail-page-title,
+.lh-home .lh-today__date,
+:root .warm-amount,
+:root .lh-savings__amount,
+:root .subs-total__amount,
+:root .finance-control-center > .finance-balance-module .num,
+:root .num {
+  font-family: var(--s-font);
+}
+
+/* ---------------------------------------------------------------------------
+   2. 枠組み: 上の帯・PC の左のメニュー・ページの見出し
+   ------------------------------------------------------------------------ */
+.glass-header,
+.app-header,
+.glass-header:not(.app-header--home),
+.app-header:not(.app-header--home),
+.app-header--home {
+  border-bottom: 0 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.app-header::before,
+.app-header::after { display: none !important; }
+.app-header__mobile-brand {
+  color: var(--s-ink) !important;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.app-header :is(button, a):not(.app-header__add):not(.app-header__search-field) { color: var(--s-ink) !important; }
+.app-header__home.is-active { background: var(--s-fill) !important; color: var(--s-ink) !important; }
+.app-header .bg-accent { background: var(--s-accent) !important; }
+
+/* PC の検索欄と「＋追加」 */
+.app-header__search-field {
+  border: 0 !important;
+  background: var(--s-fill) !important;
+  box-shadow: none !important;
+  color: var(--s-ink-2) !important;
+}
+.app-header__search-field-key {
+  border: 0 !important;
+  background: #ffffff !important;
+  color: var(--s-ink-2) !important;
+  box-shadow: var(--s-soft-shadow);
+}
+.app-header__add,
+.app-header__add:hover {
+  border: 0 !important;
+  background: var(--s-ink) !important;
+  color: #ffffff !important;
+  box-shadow: var(--s-btn-shadow) !important;
+}
+
+/* PC の左のメニュー: 白・枠なし。選んでいる所は薄い灰の丸い面＋黒の太字。 */
+.desktop-sidebar {
+  border-right: 0 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.sidebar-brand { color: var(--s-ink) !important; }
+.sidebar-brand__mark {
+  border: 0 !important;
+  background: var(--s-ink) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+.sidebar-brand__name { color: var(--s-ink); letter-spacing: 0.04em; }
+.sidebar-nav__divider { background: var(--s-sep) !important; }
+.sidebar-link {
+  border-radius: 12px !important;
+  color: var(--s-ink-2) !important;
+  font-weight: 500;
+  background: transparent;
+}
+.sidebar-link svg { color: var(--s-ink-2) !important; }
+.sidebar-link:hover { background: var(--s-fill) !important; color: var(--s-ink) !important; }
+.sidebar-link:hover svg { color: var(--s-ink) !important; }
+.sidebar-link--active,
+.sidebar-link--active:hover {
+  background: var(--s-fill) !important;
+  color: var(--s-ink) !important;
+  font-weight: 700;
+  box-shadow: none !important;
+}
+.sidebar-link--active svg { color: var(--s-ink) !important; }
+.sidebar-link__indicator { display: none !important; }
+.sidebar-account {
+  border: 0 !important;
+  background: #ffffff !important;
+  box-shadow: var(--s-card-shadow) !important;
+}
+
+/* ページの見出し 28/700。補足は 13 の灰。 */
+.app-shell .spatial-page-header__title,
+.spatial-page-header__title,
+.spatial-page-header h1,
+.app-shell .mail-page-title {
+  color: var(--s-ink) !important;
+  font-size: var(--fs-page) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.01em !important;
+  line-height: 1.25;
+}
+.spatial-page-header p { color: var(--s-ink-2); font-size: var(--fs-caption); }
+.spatial-page-header,
+.mail-page-header {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.app-shell .spatial-page-header a[aria-label="戻る"],
+.app-shell .spatial-page-header button[aria-label="戻る"] {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--s-ink) !important;
+}
+
+/* 区切りの見出し 17/700(ホーム・お金管理・旅行…)。 */
+.lh-section__title,
+.app-shell .lh-section__title,
+.app-shell .warm-card__title {
+  color: var(--s-ink);
+  font-size: var(--fs-section);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.lh-section__note { color: var(--s-ink-2); font-size: var(--fs-caption); }
+.lh-section__icon { display: none !important; }
+
+/* 「すべて見る」などのリンクは青緑の文字だけ(矢印なし)。 */
+.warm-card__go,
+.lh-section__head .warm-card__go {
+  color: var(--s-accent) !important;
+  font-size: var(--fs-caption) !important;
+  font-weight: 500 !important;
+}
+.warm-card__go svg { display: none; }
+
+/* ---------------------------------------------------------------------------
+   3. カード・一覧の箱
+   ------------------------------------------------------------------------ */
+.warm-card,
+.glass-card,
+.spatial-module,
+.note-widget,
+.notes-toolbar,
+.notes-empty-control,
+.destination-empty-control,
+.planning-timeline-module,
+.planning-task-module,
+.planning-secondary-module,
+.planning-list-module,
+.calendar-workspace__detail,
+.finance-summary-module,
+.finance-metric-module,
+.finance-metric-module--pace,
+.trip-memo-note,
+.mail-inbox-workspace,
+.finance-ledger-workspace,
+.lh-group,
+.lh-finance .lh-group,
+.lh-finance .lh-savings,
+.spatial-page .lh-finance .lh-savings,
+.lh-home .warm-card:not(.lh-money) {
+  border: 0 !important;
+  border-color: transparent !important;
+  border-radius: var(--r-card) !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: var(--s-card-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.warm-card::before,
+.warm-card::after,
+.glass-card::before,
+.glass-card::after { background-image: none !important; }
+
+@media (hover: hover) and (pointer: fine) {
+  a.warm-card:hover,
+  .warm-card:hover,
+  .glass-card:hover {
+    border-color: transparent !important;
+    box-shadow: var(--s-card-shadow) !important;
+    transform: none !important;
+  }
+  a.warm-card:hover,
+  a.glass-card:hover { box-shadow: var(--s-card-shadow-hover) !important; }
+}
+
+/* 箱の中の行: 灰色の面をやめ、白のまま 1px の線で区切る。 */
+.glass-row:not(.note-widget),
+.spatial-control:not(.note-widget),
+.mail-row,
+.system-state-control,
+.profile-state-row,
+.calendar-compact-empty,
+.mail-connect-visual,
+.notes-empty-control__types > div {
+  border: 0 !important;
+  background: var(--s-fill) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-radius: var(--r-control) !important;
+}
+.lh-row + .lh-row::before,
+.lh-row--plain + .lh-row--plain::before { background: var(--s-sep) !important; }
+.lh-row__icon,
+.lh-row__icon--initial,
+.lh-tone--neutral {
+  border-radius: 50% !important;
+  background: var(--s-fill) !important;
+  color: var(--s-ink) !important;
+}
+.lh-row__label { color: var(--s-ink); }
+.lh-row__value { color: var(--s-ink); font-variant-numeric: tabular-nums; font-weight: 700; }
+.lh-row__chev { color: #9aa4a2; }
+
+/* ---------------------------------------------------------------------------
+   4. ボタン
+   ------------------------------------------------------------------------ */
+/* 主ボタン: 黒＋白い字＋影 */
+.app-button.bg-accent,
+.app-shell .app-button.bg-accent,
+.spatial-page .app-button.bg-accent,
+.lh-money__cta,
+.lh-empty .app-button.bg-accent {
+  border: 0 !important;
+  background: var(--s-ink) !important;
+  color: #ffffff !important;
+  box-shadow: var(--s-btn-shadow) !important;
+}
+.app-button.bg-accent:hover:not(:disabled) { background: #2a3032 !important; }
+.app-button.bg-accent:disabled { box-shadow: none !important; }
+
+/* 副ボタン: 白＋柔らかい影＋黒い字 */
+.app-button.bg-white\/35,
+.app-button:not(.bg-accent):not(.bg-transparent):not(.text-danger),
+.system-section__actions .app-button:not(.bg-accent),
+.profile-module__actions .app-button:not(.bg-accent) {
+  border: 0 !important;
+  background: #ffffff !important;
+  color: var(--s-ink) !important;
+  box-shadow: var(--s-soft-shadow) !important;
+}
+.app-button:not(.bg-accent):not(.bg-transparent):not(.text-danger) svg { color: var(--s-ink); }
+.app-button:not(.bg-accent):not(.bg-transparent):hover:not(:disabled) { background: #fafbfb !important; }
+
+/* 文字だけのボタン */
+.app-button.bg-transparent {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--s-ink-2);
+}
+.app-button.bg-transparent:hover:not(:disabled) { background: var(--s-fill) !important; }
+
+/* 削除などの赤いボタン: 白地に赤い字(面は塗らない) */
+.app-button.text-danger {
+  border: 0 !important;
+  background: #ffffff !important;
+  color: #b42318 !important;
+  box-shadow: var(--s-soft-shadow) !important;
+}
+
+.app-button,
+.spatial-page .app-button {
+  border-radius: var(--r-control) !important;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   5. タブ・切り替え — 1つずつ離した丸いボタン。選んだ物=黒、ほか=白＋影。
+   ------------------------------------------------------------------------ */
+/* ページの上のタブ(.spatial-page-tabs)とログイン画面の切り替え(.tabs-primary)。並びの余白は layout-teal.css のまま。 */
+.spatial-page-tabs .spatial-tabs .spatial-tabs__tab,
+.tabs-primary .spatial-tabs .spatial-tabs__tab {
+  min-height: 2.5rem !important;
+  padding: 0.5rem 1.05rem !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: #ffffff !important;
+  color: var(--s-ink) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  box-shadow: var(--s-soft-shadow) !important;
+  animation: none !important;
+}
+.spatial-page-tabs .spatial-tabs .spatial-tabs__tab:hover,
+.tabs-primary .spatial-tabs .spatial-tabs__tab:hover { background: #fafbfb !important; }
+.spatial-page-tabs .spatial-tabs .spatial-tabs__tab.is-selected,
+.tabs-primary .spatial-tabs .spatial-tabs__tab.is-selected {
+  background: var(--s-ink) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: var(--s-btn-shadow) !important;
+}
+@media (min-width: 1024px) {
+  .spatial-page-tabs .spatial-tabs .spatial-tabs__tab { flex-grow: 0; }
+}
+/* 中身の中のタブ(サブスクの「一覧・カレンダー・分析」・シートの中の切り替え)は、1段下の階層なので
+   下線の形のまま(layout-teal.css の P-4)。線と色だけ新しい決まりに。 */
+.spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) { border-bottom-color: var(--s-line) !important; }
+.spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) .spatial-tabs__tab {
+  color: var(--s-ink-2) !important;
+  font-weight: 500 !important;
+}
+.spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) .spatial-tabs__tab.is-selected {
+  color: var(--s-ink) !important;
+  font-weight: 700 !important;
+}
+.spatial-tabs:not(.spatial-page-tabs .spatial-tabs):not(.tabs-primary .spatial-tabs) .spatial-tabs__tab.is-selected::after { background: var(--s-ink) !important; height: 2px !important; }
+
+/* 選ぶボタン(支出/収入・カテゴリ・時刻の候補・絞り込みのチップ) — 同じ決まり */
+.segmented,
+.segmented--separate {
+  background: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+.segmented__option,
+.segmented--separate .segmented__option,
+.lh-chip,
+.subs-chip,
+.time-quick__chip,
+.fx-kind,
+.calendar-mode__btn,
+.person-filter .person-chip--all,
+.trip-route__day,
+.trip-day-pick__chip {
+  border: 0 !important;
+  background: #ffffff !important;
+  color: var(--s-ink) !important;
+  box-shadow: var(--s-soft-shadow) !important;
+}
+.segmented__option[aria-pressed="true"],
+.segmented--separate .segmented__option[aria-pressed="true"],
+.lh-chip[aria-pressed="true"],
+.subs-chip[aria-pressed="true"],
+.time-quick__chip[aria-pressed="true"],
+.fx-kind[aria-pressed="true"],
+.calendar-mode__btn.is-on,
+.person-filter .person-chip--all.is-on,
+.trip-route__day.is-active,
+.trip-day-pick__chip.is-active {
+  background: var(--s-ink) !important;
+  color: #ffffff !important;
+  box-shadow: var(--s-btn-shadow) !important;
+}
+.segmented__option[aria-pressed="true"] svg { color: #ffffff !important; }
+
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] { accent-color: var(--s-ink); }
+
+/* ---------------------------------------------------------------------------
+   6. 下のナビ(スマホ) — 白い帯＋上向きの薄い影。真ん中の「＋」は黒い丸。
+   ------------------------------------------------------------------------ */
+.quick-nav__inner {
+  max-width: none !important;
+  padding: 0 0 env(safe-area-inset-bottom) !important;
+  background: #ffffff;
+  box-shadow: 0 -4px 20px rgba(20, 24, 26, 0.06);
+}
+.glass-nav {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #ffffff !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.glass-nav nav {
+  max-width: 28rem;
+  margin-inline: auto;
+  padding: 0.375rem 0.5rem 0.375rem !important;
+}
+.glass-nav nav::before { display: none !important; }
+.glass-nav nav :is(a, button) svg { color: var(--s-ink-3) !important; }
+.glass-nav nav :is(a, button) span:not(.absolute) {
+  color: var(--s-ink-3) !important;
+  font-size: 11px;
+  font-weight: 500;
+}
+.glass-nav nav :is(a, button).is-active svg { color: var(--s-ink) !important; stroke-width: 2.2; }
+.glass-nav nav :is(a, button).is-active span:not(.absolute) { color: var(--s-ink) !important; font-weight: 700; }
+.glass-nav nav a > span.absolute { display: none !important; }
+.glass-nav nav .nav-add .nav-add__circle {
+  display: flex;
+  width: 3rem;
+  height: 3rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--s-ink);
+  color: #ffffff;
+  box-shadow: var(--s-btn-shadow);
+  transition: transform 200ms ease;
+}
+.glass-nav nav .nav-add svg { color: #ffffff !important; }
+.glass-nav nav .nav-add:focus-visible .nav-add__circle { outline: 2px solid var(--s-accent); outline-offset: 3px; }
+.glass-nav nav .nav-add:active .nav-add__circle { transform: scale(0.94); }
+
+/* 右下に浮いていた「＋」(PageFab)は、ナビの真ん中の「＋」に置き換えた。働きは src/lib/pageAddAction.ts で同じ。 */
+#page-fab-root { display: none !important; }
+@media (max-width: 1023px) {
+  .app-main,
+  .app-shell:has(#page-fab-root > button) .app-main { padding-bottom: 6.5rem !important; }
+  .app-shell:has(.feedback-button) .app-main { padding-bottom: 9.5rem !important; }
+  body:has(#page-fab-root > button):not(:has([role="dialog"][aria-modal="true"])) .undo-toast-region--action { padding-right: 0 !important; }
+}
+
+/* 「修正」(要望を送る): 白い丸い札＋柔らかい影。スマホはナビの上の右端(FeedbackButton.tsx)。 */
+.feedback-button {
+  border: 0 !important;
+  background: #ffffff !important;
+  box-shadow: var(--s-card-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  color: var(--s-ink) !important;
+}
+.feedback-button.text-accent { color: var(--s-accent) !important; }
+.feedback-button.text-amber-700 { color: #b45309 !important; }
+
+/* ---------------------------------------------------------------------------
+   7. シート・ダイアログ・お知らせ・入力欄
+   ------------------------------------------------------------------------ */
+.spatial-sheet,
+.glass-modal {
+  border: 0 !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: var(--s-float-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.spatial-sheet-backdrop {
+  background: rgba(20, 24, 26, 0.32) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* お知らせ(下から出る札)と、上の「アップデート」の帯は、文字と同じ黒。 */
+.undo-toast-region .bg-slate-900,
+.bg-slate-900.text-white { background-color: var(--s-ink) !important; }
+.undo-toast-region .bg-danger { background-color: #b42318 !important; }
+.undo-toast-region > * { border-radius: 14px !important; box-shadow: var(--s-float-shadow) !important; }
+
+/* デモ(/demo)の上の帯: 白い札＋柔らかい影。印は黒、「デモを終える」は白いボタン。 */
+.app-shell .demo-banner {
+  border: 0;
+  background: #ffffff;
+  box-shadow: var(--s-card-shadow);
+  color: var(--s-ink);
+}
+.app-shell .demo-banner__label { background: var(--s-ink); }
+.app-shell .demo-banner__exit {
+  border: 0;
+  background: #ffffff;
+  color: var(--s-ink);
+  box-shadow: var(--s-soft-shadow);
+}
+.app-shell .demo-banner__exit:hover { background: var(--s-fill); color: var(--s-ink); }
+
+/* ---------------------------------------------------------------------------
+   8. ホーム
+   ------------------------------------------------------------------------ */
+.lh-today { gap: 0.25rem; }
+.lh-today__hello,
+.lh-home .lh-today__hello { color: var(--s-ink-2); font-size: var(--fs-caption); font-weight: 400; }
+.lh-home .lh-today__date {
+  color: var(--s-ink);
+  font-size: var(--fs-page);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.lh-home .lh-today__status { color: var(--s-ink-2); font-size: var(--fs-caption); }
+
+/* 今月のお金: 白い主役のカード(角20)。大きな数字・細い線・小さな数字3つ。 */
+.lh-home > .lh-money,
+.lh-home > a.lh-money,
+.lh-home > .lh-money.is-unset {
+  overflow: visible;
+  border: 0 !important;
+  border-radius: var(--r-hero) !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: var(--s-card-shadow) !important;
+  color: var(--s-ink) !important;
+  padding: 1.25rem !important;
+  transform: none !important;
+}
+.lh-home > .lh-money::before,
+.lh-home > .lh-money::after { display: none !important; }
+@media (hover: hover) and (pointer: fine) {
+  .lh-home > a.lh-money:hover { box-shadow: var(--s-card-shadow-hover) !important; }
+}
+.lh-money__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.lh-home .lh-money__label,
+.lh-home > .lh-money .warm-card__title {
+  color: var(--s-ink-2) !important;
+  font-size: var(--fs-caption) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+}
+.lh-home > .lh-money .warm-card__foot {
+  align-self: auto;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  color: var(--s-accent) !important;
+  font-size: var(--fs-caption) !important;
+  font-weight: 500 !important;
+}
+.lh-home > .lh-money .warm-card__foot svg { display: none; }
+.lh-home > .lh-money .warm-amount {
+  margin: 0.375rem 0 0;
+  color: var(--s-ink) !important;
+  font-size: 2.25rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+.lh-home > .lh-money .warm-amount small {
+  margin-right: 0.04em;
+  color: var(--s-ink) !important;
+  font-size: 1em !important;
+  font-weight: 700 !important;
+  vertical-align: baseline !important;
+}
+.lh-home > .lh-money .warm-amount.is-negative { color: #b42318 !important; }
+.lh-home > .lh-money .warm-amount__note { color: var(--s-ink-2) !important; }
+.lh-home .lh-money__bar {
+  display: block;
+  height: 4px;
+  margin-top: 0.875rem;
+  border-radius: 2px;
+  background: var(--s-sep) !important;
+  overflow: hidden;
+}
+.lh-home .lh-money__bar i { height: 100%; border-radius: 2px; background: var(--s-accent) !important; }
+.lh-home .lh-money__bar-note { margin-top: 0.375rem; color: var(--s-ink-2) !important; font-size: 0.75rem; }
+.lh-money__stats--home {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  border: 0;
+}
+.lh-money__stats--home > div { min-width: 0; padding: 0; border: 0; background: none; }
+.lh-money__stats--home dt {
+  margin: 0;
+  color: var(--s-ink-2) !important;
+  font-size: 0.75rem !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+}
+.lh-money__stats--home dd {
+  margin: 0.125rem 0 0;
+  color: var(--s-ink) !important;
+  font-size: var(--fs-body) !important;
+  font-weight: 700 !important;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0 !important;
+}
+.lh-home .lh-money__side { display: none; }
+.lh-home .lh-money .num-delta { color: #b42318; }
+@media (min-width: 1024px) {
+  .lh-home > a.lh-money {
+    grid-template-columns: minmax(0, 1fr) 15rem !important;
+    column-gap: 2.5rem;
+    align-items: end;
+    padding: 1.5rem 1.75rem !important;
+  }
+  .lh-home > .lh-money .warm-amount { font-size: 2.5rem !important; }
+  .lh-home .lh-money__side { display: flex; padding-bottom: 0; }
+  .lh-money__side-label { color: var(--s-ink-2) !important; font-size: 0.75rem; font-weight: 400; }
+  .lh-money__col i { background: #dfe4e3 !important; opacity: 1 !important; }
+  .lh-money__col.is-today i { background: var(--s-accent) !important; }
+  .lh-money__col small { color: var(--s-ink-2) !important; font-size: 0.6875rem; }
+  .lh-money__col.is-today small { color: var(--s-ink) !important; font-weight: 700; }
+  .lh-money__chart-note { color: var(--s-ink-2) !important; }
+}
+/* 給与がまだ無い時の「今月の支出」・すぐ記録する欄も同じ白い面に。 */
+.lh-home > .lh-money.is-unset .warm-amount,
+.lh-home > .lh-money.is-unset .lh-money__line,
+.lh-home > .lh-money.is-unset .lh-money__line b { color: var(--s-ink) !important; }
+.lh-home > .lh-money.is-unset :is(input, select) {
+  border: 1px solid var(--s-line) !important;
+  background: #ffffff !important;
+  color: var(--s-ink) !important;
+}
+.lh-money__line { color: var(--s-ink-2) !important; }
+.lh-money__line b { color: var(--s-ink) !important; }
+
+/* 気になること: 種類の色は 8px の点だけ。右の操作は青緑の文字。 */
+.lh-home .lh-concern__cta {
+  padding: 0.25rem 0.25rem !important;
+  border-radius: 0 !important;
+  background: none !important;
+  color: var(--s-accent) !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+}
+
+/* 7日の帯: 今日だけ黒い四角(影つき)。点は青緑。 */
+.lh-home .lh-week__day {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--s-ink) !important;
+  border-radius: 14px !important;
+}
+.lh-home .lh-week__day small { color: var(--s-ink-2) !important; }
+.lh-home .lh-week__day.is-today {
+  background: var(--s-ink) !important;
+  color: #ffffff !important;
+  box-shadow: var(--s-btn-shadow) !important;
+}
+.lh-home .lh-week__day.is-today small,
+.lh-home .lh-week__day.is-today em { color: #ffffff !important; }
+.lh-home .lh-week__day.is-today .lh-week__dot { background: #ffffff !important; }
+.lh-week__dot,
+.lh-week__dot.is-event { background: #2563eb !important; }
+.lh-week__dot.is-task { background: var(--s-accent) !important; }
+.lh-week__time { color: var(--s-ink-2) !important; font-weight: 500 !important; }
+.lh-week__row strong { color: var(--s-ink); font-weight: 500; }
+.lh-week__row small { color: var(--s-ink-2) !important; }
+.lh-week__rows > * + *,
+.lh-week__row + .lh-week__row { border-color: var(--s-sep) !important; }
+
+/* 「＋予定」(主=黒)、「＋タスク」(白＋影) */
+.lh-home .lh-add-pill {
+  border: 0 !important;
+  background: #ffffff !important;
+  color: var(--s-ink) !important;
+  box-shadow: var(--s-soft-shadow) !important;
+  font-weight: 600 !important;
+}
+.lh-home .lh-add-pill.is-primary,
+.lh-home .lh-add-pill.is-primary:hover {
+  background: var(--s-ink) !important;
+  color: #ffffff !important;
+  box-shadow: var(--s-btn-shadow) !important;
+}
+
+/* 次の旅行: 写真の上に文字を重ねる(暗い膜のグラデーション)のをやめ、白いカードに小さな写真＋文字の行にする。
+   1行目「計画中・あと6日」(青緑の小さな字)、2行目 名前、3行目 日付・持ち物…。 */
+.lh-home .warm-trip,
+.lh-home .lh-section--trip .warm-trip,
+.lh-home .lh-section--trip.is-compact .warm-trip,
+.lh-home .warm-trip.is-compact {
+  display: grid;
+  grid-template-columns: 5.375rem auto minmax(0, 1fr);
+  grid-template-areas:
+    "photo kicker count"
+    "photo place place"
+    "photo when when";
+  align-content: center;
+  align-items: baseline;
+  column-gap: 0;
+  min-height: 0 !important;
+  padding: 0.75rem !important;
+  border: 0 !important;
+  border-radius: var(--r-card) !important;
+  background: #ffffff !important;
+  box-shadow: var(--s-card-shadow) !important;
+  color: var(--s-ink) !important;
+  transform: none !important;
+}
+.lh-home .warm-trip__photo {
+  grid-area: photo;
+  position: relative !important;
+  inset: auto !important;
+  width: 4.5rem;
+  height: 4.5rem;
+  align-self: center;
+  margin-right: 0.875rem;
+  border-radius: 12px;
+  filter: none !important;
+}
+.lh-home .warm-trip__photo:not([style]) { background: var(--s-fill) !important; }
+.lh-home .warm-trip__veil { display: none !important; }
+.lh-home .warm-trip__kicker {
+  grid-area: kicker;
+  align-self: baseline;
+  gap: 0;
+  margin: 0 !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  color: var(--s-accent) !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+}
+.lh-home .warm-trip__kicker svg { display: none; }
+.lh-home .warm-trip__count {
+  grid-area: count;
+  margin: 0 !important;
+  color: var(--s-accent) !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+}
+.lh-home .warm-trip__count::before { content: "・"; }
+.lh-home .warm-trip__place {
+  grid-area: place;
+  margin: 0.125rem 0 0 !important;
+  color: var(--s-ink) !important;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+}
+.lh-home .warm-trip__when {
+  grid-area: when;
+  margin: 0.125rem 0 0 !important;
+  color: var(--s-ink-2) !important;
+  font-size: var(--fs-caption) !important;
+  font-weight: 400 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+@media (min-width: 1024px) {
+  .lh-home .warm-trip,
+  .lh-home .lh-section--trip .warm-trip { grid-template-columns: 6.375rem auto minmax(0, 1fr); }
+  .lh-home .warm-trip__photo { width: 5.5rem; height: 5.5rem; }
+}
+
+/* Gmail 未接続のアイコンの台 */
+.lh-home .warm-empty__icon,
+.warm-empty__icon {
+  border-radius: 50% !important;
+  background: var(--s-fill) !important;
+  color: var(--s-ink) !important;
+}
+
+/* ---------------------------------------------------------------------------
+   9. お金管理
+   ------------------------------------------------------------------------ */
+.finance-control-center > .finance-balance-module,
+.finance-balance-module {
+  border: 0 !important;
+  border-radius: var(--r-hero) !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: var(--s-card-shadow) !important;
+  color: var(--s-ink) !important;
+  --color-accent: var(--s-accent);
+}
+.finance-control-center > .finance-balance-module::before,
+.finance-control-center > .finance-balance-module::after { display: none !important; }
+.finance-control-center > .finance-balance-module :is(.text-navy, .text-slate-800, .text-slate-900) { color: var(--s-ink) !important; }
+.finance-control-center > .finance-balance-module :is(.text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700) { color: var(--s-ink-2) !important; }
+.finance-control-center > .finance-balance-module .text-danger { color: #b42318 !important; }
+.finance-control-center > .finance-balance-module :is(button, a):not(.app-button) { color: var(--s-accent) !important; }
+.finance-control-center > .finance-balance-module .num,
+.finance-control-center > .finance-balance-module p.tabular-nums {
+  font-size: 2.5rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+.finance-control-center > .finance-balance-module p.whitespace-nowrap {
+  font-size: var(--fs-caption) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  color: var(--s-ink-2) !important;
+}
+.finance-control-center > .finance-balance-module .border-t { border-color: var(--s-sep) !important; }
+.lh-finance__stats {
+  border-color: var(--s-sep) !important;
+}
+.lh-finance__stats > div { border-color: var(--s-sep) !important; background: none !important; }
+.lh-finance__stats dt { color: var(--s-ink-2) !important; font-weight: 400 !important; letter-spacing: 0 !important; }
+.lh-finance__stats dd { color: var(--s-ink) !important; font-weight: 700 !important; }
+
+/* 「今期のまとめ」は2列のタイルをやめ、1つの箱に行を並べる(小さなカードを細かく積まない)。 */
+.lh-finance .finance-summary-module.lh-group {
+  flex: none !important;
+  display: flex !important;
+  flex-direction: column;
+  gap: 0;
+  padding: 0 1rem !important;
+  border-radius: var(--r-card) !important;
+  background: #ffffff !important;
+  box-shadow: var(--s-card-shadow) !important;
+}
+.lh-finance .finance-summary-module > .lh-row--plain {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3rem;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.lh-finance .finance-summary-module > .lh-row--plain + .lh-row--plain { border-top: 1px solid var(--s-sep); }
+.lh-finance .finance-summary-module .lh-row__label {
+  color: var(--s-ink);
+  font-size: var(--fs-body);
+  font-weight: 400;
+}
+.lh-finance .finance-summary-module .lh-row__value {
+  color: var(--s-ink);
+  font-size: var(--fs-body);
+  font-weight: 700;
+}
+.lh-savings__kicker { color: var(--s-ink-2) !important; font-weight: 400 !important; }
+.lh-savings__amount { color: var(--s-ink) !important; }
+
+/* 「使えるお金」の推移は線だけ(下の面のグラデーションは塗らない)。 */
+.finance-balance-module svg polygon { display: none; }
+/* 線を引く動き(stroke-dasharray)は、太さを画面に合わせる指定(non-scaling-stroke)と組むと Chrome で線が途切れる。
+   前は下の面の色で隠れていた。線だけにしたので、動きは付けずに1本の線で描く。 */
+.finance-balance-module svg .chart-line {
+  stroke-width: 2;
+  stroke-dasharray: none !important;
+  stroke-dashoffset: 0 !important;
+  animation: none !important;
+}
+
+/* 進み具合の線は青緑(よい時の緑も、同じ青緑にそろえる)。 */
+.bg-success { background-color: var(--s-accent) !important; }
+
+.task-progress {
+  height: 4px !important;
+  border-radius: 2px !important;
+  background: var(--s-sep) !important;
+}
+.task-progress > div { border-radius: 2px !important; }
+.task-progress > div::after { display: none !important; }
+
+/* ---------------------------------------------------------------------------
+   10. 旅行詳細: 表紙は写真だけ(文字を重ねない)。名前・日付はその下の白地に。
+   ------------------------------------------------------------------------ */
+.trip-detail-page .trip-detail-hero:not(.is-compact) {
+  min-height: 0 !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+.trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__photo {
+  position: relative !important;
+  inset: auto !important;
+  height: 13.75rem;
+  border-radius: var(--r-hero);
+  filter: none !important;
+}
+.trip-detail-page .trip-detail-hero .trip-detail-hero__veil { display: none !important; }
+.trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__bar {
+  position: absolute !important;
+  top: 0;
+  right: 0;
+  left: 0;
+  padding: 0.75rem !important;
+}
+.trip-hero-button,
+.trip-detail-hero.is-compact .trip-hero-button {
+  border: 0 !important;
+  background: #ffffff !important;
+  color: var(--s-ink) !important;
+  box-shadow: var(--s-soft-shadow);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.trip-hero-button:hover { background: #fafbfb !important; }
+.trip-hero-button--danger { color: #b42318 !important; }
+.trip-hero-button--danger:hover,
+.trip-hero-button--danger:active { background: #fdecea !important; }
+.trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__content {
+  min-height: 0 !important;
+  max-width: none;
+  padding: 1.125rem 0.25rem 0.25rem !important;
+  color: var(--s-ink) !important;
+}
+.trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__content > span {
+  padding: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  color: var(--s-accent) !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__title {
+  margin: 0.25rem 0 0 !important;
+  color: var(--s-ink) !important;
+  font-size: 1.625rem !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+}
+.trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__content p {
+  margin-top: 0.25rem !important;
+  color: var(--s-ink-2) !important;
+  font-size: var(--fs-caption) !important;
+}
+.trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__credit {
+  position: absolute !important;
+  top: 12.6rem;
+  right: 0.75rem;
+  bottom: auto !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+@media (min-width: 1024px) {
+  .trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__photo { height: 17.5rem; }
+  .trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__credit { top: 16.35rem; }
+  .trip-detail-page .trip-detail-hero:not(.is-compact) .trip-detail-hero__title { font-size: 2rem !important; }
+}
+.trip-detail-page .trip-detail-hero.is-compact {
+  border: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+   11. 旅行詳細: 「ほかの操作」の一覧
+   ------------------------------------------------------------------------ */
+.action-list { display: flex; flex-direction: column; gap: 0.625rem; }
+.action-list__title {
+  margin: 0;
+  color: var(--s-ink-2);
+  font-size: var(--fs-caption);
+  font-weight: 500;
+}
+.action-list__card {
+  overflow: hidden;
+  border-radius: var(--r-card);
+  background: #ffffff;
+  box-shadow: var(--s-card-shadow);
+}
+.action-row {
+  display: flex;
+  width: 100%;
+  min-height: 3.25rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.875rem 0 1rem;
+  border: 0;
+  background: #ffffff;
+  color: var(--s-ink);
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+}
+.action-row + .action-row { box-shadow: inset 0 1px 0 var(--s-sep); }
+.action-row:hover { background: #fafbfb; }
+.action-row:focus-visible { outline: 2px solid var(--s-accent); outline-offset: -2px; }
+.action-row__icon { display: flex; color: var(--s-ink-2); }
+.action-row__label { flex: 1 1 auto; min-width: 0; }
+.action-row__chev { flex-shrink: 0; color: #9aa4a2; }
+
+/* ---------------------------------------------------------------------------
+   12. お金管理: サブスクの「毎月の支払い」・固定費の合計も、白い主役のカードに
+   ------------------------------------------------------------------------ */
+.subs-total {
+  border: 0 !important;
+  border-radius: var(--r-hero) !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: var(--s-card-shadow) !important;
+  color: var(--s-ink) !important;
+}
+.subs-total::after,
+.subs-total::before { display: none !important; }
+.subs-total__label { color: var(--s-ink-2) !important; font-size: var(--fs-caption) !important; font-weight: 400 !important; letter-spacing: 0 !important; }
+.app-shell .subs-total__amount { color: var(--s-ink) !important; font-size: 2.5rem; letter-spacing: -0.01em !important; }
+.subs-total__amount small { color: var(--s-ink-2) !important; }
+.subs-total__note { color: var(--s-ink-2) !important; font-size: 0.75rem !important; }
+.subs-total__stats { border-top: 1px solid var(--s-sep) !important; }
+.subs-total__stats dt { color: var(--s-ink-2) !important; font-size: 0.75rem !important; font-weight: 400 !important; }
+.subs-total__stats dd { color: var(--s-ink) !important; font-size: var(--fs-body) !important; letter-spacing: 0 !important; }
+.subs-total__toggle { color: var(--s-accent) !important; font-weight: 500 !important; }
+.subs-total__top li { background: var(--s-fill) !important; color: var(--s-ink); }
+.subs-total__rank { color: var(--s-accent) !important; }
+.subs-total__value small { color: var(--s-ink-2) !important; }
+.subs-total .subs-icon { box-shadow: none !important; }
+.subs-unit button {
+  border: 0 !important;
+  background: #ffffff !important;
+  color: var(--s-ink) !important;
+  box-shadow: var(--s-soft-shadow) !important;
+  font-weight: 500 !important;
+  animation: none !important;
+}
+.subs-unit button[aria-pressed="true"] {
+  background: var(--s-ink) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: var(--s-btn-shadow) !important;
+}
+.subs-calendar__card,
+.subs-legend__group,
+.subs-saved,
+div.warm-card.lh-savings.subs-saved {
+  border: 0 !important;
+  box-shadow: var(--s-card-shadow) !important;
+}
+.subs-calendar__cell.is-today .subs-calendar__day,
+.spatial-calendar__cell.is-today > span:first-child,
+.spatial-calendar__cell.is-today > :first-child,
+.week-view__day-head.is-today .week-view__date {
+  background: var(--s-ink) !important;
+  color: #ffffff !important;
+}
+.spatial-page .spatial-calendar__cell.is-selected,
+.spatial-page .calendar-workspace__month .spatial-calendar__cell.is-selected { background: var(--s-fill) !important; }
+.spatial-page .spatial-calendar__cell.is-today:not(.is-selected)::after { background: var(--s-ink) !important; }
+.week-view__day.is-today { background-color: #fafbfb !important; }
+
+/* 固定費: 左の太い線をやめ、ほかの主役と同じ白いカードに。 */
+.fx-total,
+.fx-salary {
+  border: 0 !important;
+  border-left: 0 !important;
+  border-radius: var(--r-card) !important;
+  background: #ffffff !important;
+  box-shadow: var(--s-card-shadow) !important;
+}
+.fx-total { border-radius: var(--r-hero) !important; }
+.fx-total__stats { border-color: var(--s-sep) !important; }
+.fx-list { border: 0 !important; box-shadow: var(--s-card-shadow) !important; border-radius: var(--r-card) !important; }
+.fx-salary .is-fixed { background: var(--s-accent-ink) !important; }
+.fx-salary .is-subs { background: #5aa197 !important; }
+.fx-salary .is-spent { background: #cfe3df !important; }
+
+/* 設定の「海外サッカー」: 黒いグラデーションの帯をやめ、白い面に。 */
+.soccer { border: 0 !important; box-shadow: var(--s-card-shadow) !important; }
+.soccer__hero {
+  background: #ffffff !important;
+  background-image: none !important;
+  color: var(--s-ink) !important;
+  border-bottom: 1px solid var(--s-sep);
+}
+.soccer__kicker { color: var(--s-ink-2) !important; letter-spacing: 0.04em !important; }
+.soccer__count strong { color: var(--s-ink); }
+.soccer__count small,
+.soccer__lead { color: var(--s-ink-2) !important; }
+.soccer__notice { border: 0 !important; }
+
+/* ---------------------------------------------------------------------------
+   13. 旅行の一覧: 写真の上に文字を重ねない。写真は上の帯、文字は白地に。
+   ------------------------------------------------------------------------ */
+.trip-lead,
+.trip-plan {
+  justify-content: flex-start !important;
+  min-height: 0 !important;
+  padding: 0.75rem 0.75rem 1rem !important;
+  border: 0 !important;
+  border-radius: var(--r-hero) !important;
+  background: #ffffff !important;
+  box-shadow: var(--s-card-shadow) !important;
+  color: var(--s-ink) !important;
+}
+.trip-plan { border-radius: var(--r-card) !important; }
+.trip-lead__photo,
+.trip-plan__photo {
+  position: relative !important;
+  inset: auto !important;
+  flex: 0 0 auto;
+  height: 11rem;
+  margin-bottom: 0.875rem;
+  border-radius: 14px;
+  transform: none !important;
+}
+.trip-plan__photo { height: 8rem; border-radius: 12px; }
+.trip-lead:hover .trip-lead__photo,
+.trip-plan:hover .trip-plan__photo { transform: none !important; }
+.trip-lead__veil,
+.trip-plan__veil { display: none !important; }
+.trip-lead > *:not(.trip-lead__photo):not(.trip-lead__veil):not(.trip-remove):not(.trip-shared-chip),
+.trip-plan > *:not(.trip-plan__photo):not(.trip-plan__veil):not(.trip-remove):not(.trip-shared-chip) { padding-inline: 0.25rem; }
+.trip-lead__kicker,
+.trip-lead__countdown,
+.trip-plan__countdown {
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.trip-lead__kicker { color: var(--s-ink-2) !important; }
+.trip-lead__kicker svg { display: none; }
+.trip-lead__countdown,
+.trip-plan__countdown { color: var(--s-accent) !important; }
+.trip-plan__countdown { padding-inline: 0.25rem !important; }
+.trip-lead__name,
+.trip-plan__name {
+  margin-top: 0.25rem !important;
+  color: var(--s-ink) !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+}
+.trip-lead__name { font-size: 1.5rem !important; }
+.trip-plan__name { font-size: 1.125rem !important; }
+.trip-lead__meta,
+.trip-plan__meta {
+  color: var(--s-ink-2) !important;
+  font-size: var(--fs-caption) !important;
+  text-shadow: none !important;
+}
+.trip-lead__stats {
+  gap: 0 !important;
+  margin-top: 0.875rem !important;
+  border-top: 1px solid var(--s-sep);
+}
+.trip-lead__stat {
+  padding: 0.75rem 0 0 0.75rem !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.trip-lead__stat:first-child { padding-left: 0 !important; }
+.trip-lead__stat + .trip-lead__stat { border-left: 1px solid var(--s-line) !important; }
+.trip-lead__stat small { color: var(--s-ink-2) !important; font-size: 0.75rem !important; font-weight: 400 !important; }
+.trip-lead__stat strong { color: var(--s-ink) !important; font-size: var(--fs-body) !important; }
+.trip-lead__stat b { color: var(--s-ink-2) !important; font-size: 0.75rem !important; font-weight: 400 !important; }
+.trip-remove {
+  top: 1.25rem !important;
+  right: 1.25rem !important;
+  border: 0 !important;
+  background: #ffffff !important;
+  color: var(--s-ink-2) !important;
+  box-shadow: var(--s-soft-shadow);
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.trip-remove:hover,
+.trip-remove:focus-visible { background: #fdecea !important; color: #b42318 !important; }
+.trip-new {
+  border: 0 !important;
+  background: #ffffff !important;
+  background-image: none !important;
+  box-shadow: var(--s-card-shadow) !important;
+}
+.trip-new__icon { background: var(--s-fill) !important; color: var(--s-ink) !important; }
+.trip-archive { border: 0 !important; box-shadow: var(--s-card-shadow) !important; }
+
+/* 旅行詳細の中身: 枠の線をやめて影だけ。 */
+.trip-day,
+.trip-day-panel,
+.trip-day-panel__block,
+.trip-route-picks,
+.trip-rtime__body {
+  border: 0 !important;
+  box-shadow: var(--s-card-shadow) !important;
+  background: #ffffff !important;
+}
+.trip-day-panel { box-shadow: none !important; }
+.trip-route-link,
+.trip-route-add {
+  border: 0 !important;
+  border-style: solid !important;
+  background: #ffffff !important;
+  box-shadow: var(--s-soft-shadow) !important;
+  color: var(--s-ink) !important;
+}
+.trip-route__open { border: 0 !important; background: #ffffff !important; box-shadow: var(--s-soft-shadow) !important; }
+
+/* 予定・タスクの「この先1週間」: 種類の色は左の細い線だけ。面は薄い灰1色、タスクの点線の枠もやめる。 */
+.planning-week__item,
+.planning-week__item.is-task {
+  border: 0 !important;
+  border-left: 3px solid var(--chip-color) !important;
+  background: var(--s-fill) !important;
+}
+.planning-week__item:hover { background: #eceff0 !important; }
+.planning-week__day { border-color: var(--s-sep) !important; }
+
+/* ふりかえりの開閉の帯・設定の操作の区切り */
+.review-usage-fold__toggle { border: 0 !important; box-shadow: var(--s-card-shadow) !important; background: #ffffff !important; }
+
+/* 予定・タスクの「今日」の進み具合の輪は、色を青緑1色に(グラフなので塗りのまま)。 */
+.task-progress > div { background-image: none !important; background-color: var(--s-accent) !important; }
+
+/* 読みやすさ(白地で 4.5:1 以上): 「明日」「あと2日」の橙・日曜/祝日の赤・収入などの緑の文字を、同じ色みのまま濃く。 */
+.lh-subs__row.is-soon .lh-subs__days { color: #b45309 !important; }
+.planning-week__date small,
+.planning-week__date.is-sun b,
+.planning-week__date.is-sun span,
+.week-view__day-head.is-sun .week-view__weekday,
+.week-view__day-head.is-sun .week-view__date,
+.warm-week__date.is-sun b,
+.warm-week__date.is-sun span { color: #c0304f !important; }
+@media (max-width: 639px) {
+  .spatial-page .calendar-workspace__month .spatial-calendar__weekdays > div:nth-child(7),
+  .spatial-page .calendar-workspace__month .spatial-calendar__days > button:nth-child(7n) > span.text-slate-700 { color: #c0304f !important; }
+}
+.text-success { color: #1f7a63 !important; }
+
+/* ---------------------------------------------------------------------------
+   14. 何もない時の表示 — 丸い台は薄い灰、引き伸ばさない(これまでどおり)
+   ------------------------------------------------------------------------ */
+.lh-empty.has-illustration > svg:first-child,
+.lh-empty.empty-state.spatial-empty > .empty-state-icon,
+.lh-empty .empty-state-icon {
+  background: var(--s-fill) !important;
+  color: var(--s-ink-2) !important;
+  box-shadow: none !important;
+}
+.lh-empty__title { color: var(--s-ink); font-size: 1rem; font-weight: 700; }
+.lh-empty__desc { color: var(--s-ink-2); }
+
+/* ---------------------------------------------------------------------------
+   15. 動きを減らす設定
+   ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .glass-nav nav .nav-add .nav-add__circle { transition: none; }
+}

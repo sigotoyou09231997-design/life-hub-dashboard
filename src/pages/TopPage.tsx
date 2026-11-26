@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowRight, Bell, CalendarDays, ChevronRight, CreditCard, Leaf, Mail, Plane, Plus, type LucideIcon } from "lucide-react";
+import { ArrowRight, Bell, CalendarDays, ChevronRight, CreditCard, Mail, Plane, Plus, type LucideIcon } from "lucide-react";
 import { db } from "../db/schema";
 import { addDays, parseISO } from "date-fns";
 import { formatDisplayDate, formatShortDate, toDateStr, todayStr } from "../lib/date";
@@ -221,36 +221,45 @@ export default function TopPage() {
         <p className="lh-today__status">{statusLine || " "}</p>
       </header>
 
-      {/* 2. 今月のお金(黒)。主役は残り額だけ、ほかは1行の補足。 */}
+      {/* 2. 今月のお金。白い面に大きな数字1つが主役(2026-11-26「静かな白」で、濃い緑の面をやめた)。
+          その下に細い進み具合の線と、小さな数字3つ(1日あたり・給料日まで・今日の支出)。 */}
       {hide.money ? null : budget ? (
         <Link to="/records/expense" className="warm-card lh-money" data-reveal="1">
           <div className="lh-money__main">
-          <span className="lh-money__label">今月、あと使える</span>
-          <p className={`warm-amount ${budget.remaining < 0 ? "is-negative" : ""}`}>
-            <small>¥</small>
-            {/* 支出を記録すると、減った額が「−¥1,280」と浮かんでから、前の残りから数え下がる(第4弾 A-5)。 */}
-            <CountingAmount value={budget.remaining} resetKey={toDateStr(budget.period.periodStart)} showDelta />
-          </p>
-          <p className="lh-money__line lh-money__pills">
-            <span className="lh-money__pill">
-              1日あたり <b>¥{Math.round(Math.max(0, budget.perDayUsable)).toLocaleString()}</b>
+            <div className="lh-money__head">
+              <span className="lh-money__label">今月、あと使える</span>
+              <span className="warm-card__foot">
+                支出を見る <ArrowRight size={14} />
+              </span>
+            </div>
+            <p className={`warm-amount ${budget.remaining < 0 ? "is-negative" : ""}`}>
+              <small>¥</small>
+              {/* 支出を記録すると、減った額が「−¥1,280」と浮かんでから、前の残りから数え下がる(第4弾 A-5)。 */}
+              <CountingAmount value={budget.remaining} resetKey={toDateStr(budget.period.periodStart)} showDelta />
+            </p>
+            {/* 今月の「使った割合」の細いバー(2-1)。残りと使った額の合計に対する使った額。 */}
+            <span className="lh-money__bar" aria-hidden="true">
+              <i style={{ width: `${Math.round(Math.min(100, Math.max(0, usedRatio * 100)))}%` }} />
             </span>
-            <span className="lh-money__pill">
-              給料日まで <b>{budget.period.daysUntilNextPayday}日</b>
-            </span>
-          </p>
-          <span className="warm-card__foot">
-            支出を見る <ArrowRight size={14} />
-          </span>
+            {budget.actualSpending <= 0 && <span className="lh-money__bar-note">まだ使っていません</span>}
+            <dl className="lh-money__stats lh-money__stats--home">
+              <div>
+                <dt>1日あたり</dt>
+                <dd>¥{Math.round(Math.max(0, budget.perDayUsable)).toLocaleString()}</dd>
+              </div>
+              <div>
+                <dt>給料日まで</dt>
+                <dd>{budget.period.daysUntilNextPayday}日</dd>
+              </div>
+              <div>
+                <dt>今日の支出</dt>
+                <dd>¥{Math.round(todaySpend).toLocaleString()}</dd>
+              </div>
+            </dl>
           </div>
-          {/* 右側: 直近7日の支出の棒(第8弾 H-1)。今日だけ白。 */}
+          {/* 右側: 直近7日の支出の棒(第8弾 H-1)。PC の広い幅でだけ出す(スマホは上の3つの数字で足りる)。 */}
           <div className="lh-money__side" aria-label="直近7日の支出">
-            <span className="lh-money__side-label">
-              直近7日の支出
-              {/* 目立たせる1本(今日)には数字も添える(2026-11-09、参考 @nizamdesign の Before/After —
-                  棒グラフは強調する1本にだけ値の札)。今日まだ使っていない日は出さない。 */}
-              {todaySpend > 0 && <b className="lh-money__today-amt">今日 ¥{Math.round(todaySpend).toLocaleString()}</b>}
-            </span>
+            <span className="lh-money__side-label">直近7日の支出</span>
             {weekBars.length > 0 ? (
               <div className="lh-money__chart" role="img" aria-label={weekBars.map((bar) => `${formatShortDate(bar.date)} ¥${Math.round(bar.amount).toLocaleString()}`).join("、")}>
                 {weekBars.map((bar) => (
@@ -264,12 +273,6 @@ export default function TopPage() {
               <p className="lh-money__chart-note">記録するとここにペースが出ます</p>
             )}
           </div>
-          {/* 今月の「使った割合」の細いバー(2-1)。残りと使った額の合計に対する使った額。 */}
-          <span className="lh-money__bar" aria-hidden="true">
-            <i style={{ width: `${Math.round(Math.min(100, Math.max(0, usedRatio * 100)))}%` }} />
-          </span>
-          {budget.actualSpending <= 0 && <span className="lh-money__bar-note">まだ使っていません</span>}
-          <Leaf className="lh-money__leaf" size={220} strokeWidth={0.9} aria-hidden="true" />
         </Link>
       ) : (
         // 給与がまだ無い時。中にリンクが2つあるので、カードそのものはリンクにしない。

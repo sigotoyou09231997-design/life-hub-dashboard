@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutGrid } from "lucide-react";
+import { LayoutGrid, Plus } from "lucide-react";
 import { AllFeaturesSheet } from "./AllFeaturesSheet";
 import { getQuickAction, loadQuickActionKeys, saveQuickActionKeys, type QuickActionKey } from "./quickActions";
 import { pushQuickActions, supabaseQuickActionRemote, syncQuickActions } from "./quickActionsSync";
 import { useToast } from "../ui/ToastProvider";
 import { useHiddenFeatures } from "../../hooks/useHiddenFeatures";
 import { isPathHidden } from "../../lib/hiddenFeatures";
+import { usePageAddAction } from "../../lib/pageAddAction";
+import { openAddChooser } from "./AddChooser";
 
 function useActiveQuickActionKey(): QuickActionKey | null {
   const { pathname } = useLocation();
@@ -33,6 +35,12 @@ export function QuickActionBar() {
   // 光らせる。どれも光らないと現在地が分からなかった(UI/UX 調査メモ A-2)。
   // ホームだけは別 — ナビに無ければヘッダーの家の印が光る(AppHeader.tsx、第2弾 S-2)。
   const allActive = activeKey !== "home" && (activeKey === null || !visibleKeys.includes(activeKey));
+  // 真ん中の「＋」(2026-11-26「静かな白」)。前は右下に浮いた丸(PageFab)で、その真上の「修正」と重なって見えていた。
+  // ナビの中に置き、PC の上の帯の「＋追加」と同じく、画面に追加があればその働き(旅行を追加・新規メール…)、
+  // 無ければ「何を追加しますか?」を開く(src/lib/pageAddAction.ts)。
+  const pageAdd = usePageAddAction();
+  // 「＋」を差し込む位置。項目(右端の「すべて」を含む)の半分の所 — 既定の5つなら「予定」の次。
+  const addIndex = Math.floor((actions.length + 1) / 2);
 
   // 並びはアカウントに紐づけて、別の端末にも同じにする(quickActionsSync.ts)。開いた時と、
   // アプリに戻った時に、サーバーの並びと突き合わせる。通信できない時は、端末の中の並びのまま。
@@ -61,6 +69,19 @@ export function QuickActionBar() {
     showToast("下のナビを更新しました");
   }
 
+  const addButton = (
+    <button
+      type="button"
+      onClick={pageAdd ? pageAdd.run : openAddChooser}
+      aria-label={pageAdd ? pageAdd.label : "追加する"}
+      className="nav-add relative flex min-h-12 items-center justify-center focus-visible:outline-none"
+    >
+      <span className="nav-add__circle" aria-hidden="true">
+        <Plus size={22} strokeWidth={2.2} />
+      </span>
+    </button>
+  );
+
   return (
     <>
       {/* Mobile sits flush with the true viewport bottom (bottom-0) per explicit
@@ -79,21 +100,22 @@ export function QuickActionBar() {
           画面の高さを戻し損ねている間、fixed は「短いままの画面」の下端に貼りつき、この
           バーが画面の途中で止まって見える。その足りない分だけ下へ伸ばして辻褄を合わせる。
           普段は0pxなので、これまでと同じ位置。 */}
-      <div className="fixed inset-x-0 bottom-[calc(-1*var(--viewport-gap,0px))] z-30 transform-gpu lg:hidden">
-        <div className="mx-auto max-w-md px-2 pb-[env(safe-area-inset-bottom)] pt-2">
+      <div className="quick-nav fixed inset-x-0 bottom-[calc(-1*var(--viewport-gap,0px))] z-30 transform-gpu lg:hidden">
+        <div className="quick-nav__inner mx-auto max-w-md px-2 pb-[env(safe-area-inset-bottom)] pt-2">
           <div className="glass-nav">
             {/* 全機能シートの入口は、前はナビの上の細いつまみだけで、押せると気づきにくかった
                 (UI/UX 調査メモ A-2)。いまは右端の「すべて」。入れ替えはできない固定の1つ。 */}
             <nav
               aria-label="追従ナビゲーション"
               className="grid gap-1 px-2 pb-2 pt-2"
-              style={{ gridTemplateColumns: `repeat(${actions.length + 1}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${actions.length + 2}, minmax(0, 1fr))` }}
             >
-              {actions.map(({ key, label, icon: Icon, tintIcon, to, color, underline }) => {
+              {actions.map(({ key, label, icon: Icon, tintIcon, to, color, underline }, index) => {
                 const isActive = activeKey === key;
                 return (
+                  <Fragment key={key}>
+                  {index === addIndex && addButton}
                   <Link
-                    key={key}
                     to={to}
                     className={`relative flex min-h-12 flex-col items-center justify-center gap-1 py-1.5 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/50 ${isActive ? "is-active" : ""}`}
                   >
@@ -101,8 +123,10 @@ export function QuickActionBar() {
                     <span className={`text-[11px] font-medium ${isActive ? `${color} font-semibold` : "text-slate-500"}`}>{label}</span>
                     {isActive && <span className={`absolute -bottom-0.5 h-0.5 w-6 rounded-full ${underline}`} aria-hidden="true" />}
                   </Link>
+                  </Fragment>
                 );
               })}
+              {addIndex >= actions.length && addButton}
               <button
                 type="button"
                 onClick={() => setSheetOpen(true)}
