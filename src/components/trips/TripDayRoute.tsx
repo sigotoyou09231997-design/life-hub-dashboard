@@ -172,7 +172,7 @@ export function TripDayRoute({ items, date, inline = false, asRow = false }: Pro
     <div className="trip-day-route__home-note">
       <p className="trip-day-route__note">「自宅」は地図に入れていません。自宅の住所を入れると、経路の出発・到着に入ります。</p>
       <div className="trip-day-route__home-actions">
-        <Link to="/settings" className="trip-day-route__cta">
+        <Link to="/settings?section=settings-trip" className="trip-day-route__cta">
           自宅の住所を入れる
         </Link>
         <button

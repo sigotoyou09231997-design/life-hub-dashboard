@@ -65,14 +65,14 @@ export function buildSetupItems(facts: SetupFacts): SetupItem[] {
       label: "自宅の住所を入れる",
       hint: "旅行の地図で、出発・到着の場所になります",
       done: facts.homeAddress,
-      to: "/settings",
+      to: "/settings?section=settings-trip",
     },
     {
       id: "googleCalendar",
       label: "Google カレンダーと同期する",
       hint: "Google の予定がここにも出て、ここで足した予定が Google にも入ります",
       done: facts.googleCalendar,
-      to: "/settings",
+      to: "/settings?section=settings-gmail",
     },
   ];
 }

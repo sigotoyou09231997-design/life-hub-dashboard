@@ -296,7 +296,7 @@ export function ExpenseSummary({ onAddSalary }: Props) {
       <section className="lh-section col-span-2 lg:col-span-6" data-page-block>
         <div className="lh-section__head">
           <h2 className="lh-section__title">カテゴリ別支出</h2>
-          <Link to="/settings" className="warm-card__go focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
+          <Link to="/settings?section=settings-money" className="warm-card__go focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
             予算を設定
           </Link>
         </div>

@@ -164,7 +164,9 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
 
   return (
     <div className="trip-day-list" ref={rootRef}>
-      {weather?.status === "ok" && weather.place && (
+      {/* 「京都市(日本)の天気予報」の見出しだけが日にちの札の上に浮き、真下に天気が無かった(2026-11-27)。
+          天気は各日の見出しの横に出ているので、この断りは「先の日はまだ予報が無い」時だけ出す。 */}
+      {weather?.status === "ok" && weather.place && beyondHorizon && (
         <TripWeatherBanner
           placeName={weather.place.name}
           country={weather.place.country}

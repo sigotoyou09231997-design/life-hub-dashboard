@@ -7,18 +7,20 @@
  * 「その他」にまとめて1切れにする。一覧の行ではカテゴリごとに金額を出すので、
  * 色だけで見分ける必要は無い。
  */
+// 2026-11-27(見せる品質 その3): 虹色の8色から、アプリの色(深い青緑)の濃淡8段に変えた。円グラフだけが
+// 派手な色で浮いていたため。切れ目は白い線で分かれ、一覧の行に名前と金額があるので、濃淡でも読み取れる。
 export const CATEGORY_COLORS: Record<string, string> = {
-  動画: "#2a78d6",
-  音楽: "#eb6834",
-  "AI・仕事": "#1baf7a",
-  クラウド: "#eda100",
-  ゲーム: "#e87ba4",
-  "本・雑誌": "#008300",
-  買い物: "#6250d6",
-  通信費: "#e34948",
+  動画: "#123f3a",
+  "AI・仕事": "#1b5e57",
+  音楽: "#2f7d74",
+  クラウド: "#4c9a90",
+  買い物: "#73b5ab",
+  ゲーム: "#9fcdc5",
+  "本・雑誌": "#5f6b6a",
+  通信費: "#a9b3b1",
 };
 
-export const OTHER_COLOR = "#a3abaf";
+export const OTHER_COLOR = "#d5dcda";
 
 export function categoryColor(category: string): string {
   return CATEGORY_COLORS[category] ?? OTHER_COLOR;

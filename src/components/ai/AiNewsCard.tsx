@@ -18,18 +18,18 @@ export function AiNewsCard({ item, compact = false }: { item: AiNewsItem; compac
   const ago = timeAgoJa(item.publishedAt);
   return (
     <a
-      className={`ai-news-card ${SOURCE_TONE[item.sourceId] ?? "ai-news-card--tone-a"} ${compact ? "ai-news-card--compact" : ""}`}
+      className={`ai-news-card${item.image ? "" : " ai-news-card--text"} ${SOURCE_TONE[item.sourceId] ?? "ai-news-card--tone-a"} ${compact ? "ai-news-card--compact" : ""}`}
       href={item.url}
       target="_blank"
       rel="noopener noreferrer"
     >
-      <span className="ai-news-card__media" aria-hidden="true">
-        {item.image ? (
+      {/* 画像の無い記事は、大きな淡い四角に頭文字1字を出していた(何の絵か分からない)。画像の枠ごと出さず、
+          文字だけの小さなカードにする(2026-11-27、見せる品質 その3)。 */}
+      {item.image && (
+        <span className="ai-news-card__media" aria-hidden="true">
           <img src={item.image} alt="" loading="lazy" referrerPolicy="no-referrer" />
-        ) : (
-          <span className="ai-news-card__mark">{item.source.slice(0, 1)}</span>
-        )}
-      </span>
+        </span>
+      )}
       <span className="ai-news-card__body">
         <span className="ai-news-card__meta">
           <span className="ai-news-card__source">{item.source}</span>

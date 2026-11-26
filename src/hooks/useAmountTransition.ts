@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { amountDelta, tweenAmount, type AmountSnapshot } from "../lib/amountDelta";
+import { IS_DEMO } from "../lib/demoMode";
 
 /** 差額が浮かんで見えている時間。CSS の num-delta-float(numbers-empty.css)と同じ長さ。 */
 export const DELTA_FLOAT_MS = 1300;
@@ -14,6 +15,9 @@ export interface FloatingDelta {
 }
 
 function prefersReducedMotion() {
+  // デモ(/demo)では数え上げない(2026-11-27)。開いた直後に見本を入れ直すので、前の値から数え直す途中の数字
+  // (¥87,216 など)が見え、上の行の数字と合わなかった。
+  if (IS_DEMO) return true;
   return typeof window !== "undefined" && Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 }
 

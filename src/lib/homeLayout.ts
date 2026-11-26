@@ -245,7 +245,7 @@ export function buildConcerns(input: ConcernInput): Concern[] {
     rows.push({ id: "overdue", tone: "red", text: `期限を過ぎたタスクが ${input.overdueTasks}件`, cta: "見る", to: "/schedule?view=list" });
   }
   for (const email of input.reauthEmails) {
-    rows.push({ id: `reauth:${email}`, tone: "amber", text: `${email} の連携が切れています`, cta: "つなぐ", to: "/settings" });
+    rows.push({ id: `reauth:${email}`, tone: "amber", text: `${email} の連携が切れています`, cta: "つなぐ", to: "/settings?section=settings-gmail" });
   }
   for (const item of input.setupItems) {
     rows.push({ id: `setup:${item.id}`, tone: "amber", text: item.label, cta: "入れる", to: item.to, action: item.action });

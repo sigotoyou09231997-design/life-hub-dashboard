@@ -1907,6 +1907,52 @@ svg.lucide:not([stroke-width^="3"]):is([width="21"], [width="22"], [width="23"],
 }
 
 /* ---------------------------------------------------------------------------
+   見せる品質 その3(2026-11-27)
+   ------------------------------------------------------------------------ */
+/* ルートの「日程との連動・まとめて入れる」(畳んだ箱)。 */
+.trip-route-more {
+  border-radius: var(--r-card);
+  background: #ffffff;
+  box-shadow: var(--s-card-shadow);
+}
+.trip-route-more > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+  padding: 0.875rem 1rem;
+  color: var(--s-ink);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.trip-route-more > summary::-webkit-details-marker { display: none; }
+.trip-route-more > summary::after {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: auto;
+  border-right: 1.75px solid var(--s-ink-2);
+  border-bottom: 1.75px solid var(--s-ink-2);
+  transform: rotate(45deg);
+  align-self: center;
+}
+.trip-route-more[open] > summary::after { transform: rotate(-135deg); }
+.trip-route-more > summary small { color: var(--s-ink-2); font-size: 0.75rem; font-weight: 400; }
+.trip-route-more__body { display: flex; flex-direction: column; gap: 0.75rem; padding: 0 0.75rem 0.875rem; }
+.trip-route-more__body .trip-route-link,
+.trip-route-more__body .trip-route-picks { box-shadow: none !important; background: var(--s-fill) !important; }
+
+/* 日にちの札の数字に単位を付ける。日程では予定の件数、ルートでは場所の数(同じ形で意味が違っていた)。 */
+.trip-day-list .trip-route__day small::after { content: "件"; }
+.trip-route .trip-route__days[aria-label="日にちで絞る"] .trip-route__day small::after { content: "か所"; }
+
+/* AIの最新情報: 画像の無い記事は文字だけの小さなカード(上詰め・行の高さに伸ばさない)。 */
+.ai-news-card--text { align-self: start; }
+.ai-news-card--text .ai-news-card__body { padding-top: 0.875rem; }
+
+/* ---------------------------------------------------------------------------
    15. 動きを減らす設定
    ------------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {

@@ -581,26 +581,41 @@ export function TripRouteView({
             </div>
           )}
 
-          <label className="trip-route-link">
-            <input type="checkbox" checked={linked} onChange={(e) => changeLinked(e.target.checked)} />
-            <span>
-              日程と連動する
-              <small>日程を直す・足す・消すとルートも、ルートを直すと日程も、一緒に変わります。</small>
-            </span>
-          </label>
+          {/* 「日程と連動する」「日程の住所を反映」「日程に入っている場所」は、使うことが少ないので畳む(2026-11-27、見せる品質 その3。
+              前は中身の前に操作が6段並び、場所の一覧が画面の下へ押し出されていた)。入れられる場所や反映できる住所がある時は、
+              見出しに件数を出して気づけるようにする。 */}
+          <details className="trip-route-more">
+            <summary>
+              日程との連動・まとめて入れる
+              <small>
+                {linked ? "連動中" : "連動していません"}
+                {suggestions.length > 0 ? `・入れられる場所 ${suggestions.length}件` : ""}
+                {addressReflects.length > 0 ? `・反映できる住所 ${addressReflects.length}件` : ""}
+              </small>
+            </summary>
+            <div className="trip-route-more__body">
+            <label className="trip-route-link">
+              <input type="checkbox" checked={linked} onChange={(e) => changeLinked(e.target.checked)} />
+              <span>
+                日程と連動する
+                <small>日程を直す・足す・消すとルートも、ルートを直すと日程も、一緒に変わります。</small>
+              </span>
+            </label>
 
-          {addressReflects.length > 0 && (
-            <div className="trip-route-reflect" role="status">
-              <p>
-                日程に住所が入っている場所が<b>{addressReflects.length}</b>件あります。ルートの地図に、その住所を使うと、同じ名前の別の場所に置かれません。
-              </p>
-              <button type="button" disabled={reflecting} onClick={() => void reflectAddresses()}>
-                {reflecting ? "反映しています…" : "日程の住所を反映"}
-              </button>
+            {addressReflects.length > 0 && (
+              <div className="trip-route-reflect" role="status">
+                <p>
+                  日程に住所が入っている場所が<b>{addressReflects.length}</b>件あります。ルートの地図に、その住所を使うと、同じ名前の別の場所に置かれません。
+                </p>
+                <button type="button" disabled={reflecting} onClick={() => void reflectAddresses()}>
+                  {reflecting ? "反映しています…" : "日程の住所を反映"}
+                </button>
+              </div>
+            )}
+
+            <TripRoutePicks suggestions={shownSuggestions} allSuggestions={suggestions} onAdd={onAddSuggestions} />
             </div>
-          )}
-
-          <TripRoutePicks suggestions={shownSuggestions} allSuggestions={suggestions} onAdd={onAddSuggestions} />
+          </details>
 
           {/* 見たい場所だけを地図に出す。外した場所はルートに残り、ここでいつでも戻せる。 */}
           {dayPlaces.length > 1 && (

@@ -1,3 +1,4 @@
+import { IS_DEMO } from "../lib/demoMode";
 import { useEffect, useRef } from "react";
 
 /**
@@ -125,6 +126,8 @@ export function useDesignMotion(routeKey: string) {
   useEffect(() => {
     if (typeof window === "undefined" || typeof IntersectionObserver === "undefined") return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    // デモでは数え上げ・光沢を出さない(useAmountTransition.ts と同じ理由。2026-11-27)。
+    if (IS_DEMO) return;
 
     const handled = new WeakSet<Element>();
     const observer = new IntersectionObserver(
