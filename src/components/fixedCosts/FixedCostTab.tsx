@@ -220,6 +220,9 @@ export function FixedCostTab() {
             </dl>
           </section>
 
+          {/* 一覧・止めているもの・「固定費を追加」は1つの列にまとめる(2026-11-26 仕上げ①)。PC で右の列のボタンが、
+              左の2枚の高さぶん下へ離れて浮いていたため。スマホの並び順は前と同じ。 */}
+          <div className="fx-list-col">
           <section className="lh-section fx-list-section" data-page-block>
             <div className="lh-section__head">
               <h2 className="lh-section__title">支払日の順</h2>
@@ -250,6 +253,7 @@ export function FixedCostTab() {
           <Button className="w-full lh-add-end" onClick={() => setAdding(true)}>
             <Plus size={16} aria-hidden="true" /> 固定費を追加
           </Button>
+          </div>
         </>
       )}
 

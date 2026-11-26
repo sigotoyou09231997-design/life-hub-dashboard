@@ -1170,7 +1170,6 @@ input[type="range"] { accent-color: var(--s-ink); }
   box-shadow: var(--s-btn-shadow) !important;
 }
 .subs-calendar__card,
-.subs-legend__group,
 .subs-saved,
 div.warm-card.lh-savings.subs-saved {
   border: 0 !important;
@@ -1385,6 +1384,248 @@ div.warm-card.lh-savings.subs-saved {
 }
 .lh-empty__title { color: var(--s-ink); font-size: 1rem; font-weight: 700; }
 .lh-empty__desc { color: var(--s-ink-2); }
+
+/* ---------------------------------------------------------------------------
+   仕上げ①(2026-11-26): 崩れ・揃え・余白
+   ------------------------------------------------------------------------ */
+/* ホーム「今日と、この先」: 日付は行の列から外して日ごとの小さな見出しに(HomeWeekStrip.tsx)。
+   行は 時刻(決まった幅)→名前→「タスク」の印 の順に左から詰め、印を右端まで飛ばさない。 */
+.lh-week__date-head {
+  margin: 0;
+  padding: 0.75rem 1rem 0.25rem;
+  color: var(--s-ink-2);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.lh-week__rows { border-top: 1px solid var(--s-sep) !important; }
+.lh-week__row,
+.lh-week__rowlink { gap: 0.75rem !important; }
+.lh-week__time {
+  flex: 0 0 2.75rem !important;
+  min-width: 2.75rem !important;
+  color: var(--s-ink-2) !important;
+}
+.lh-week__row strong,
+.lh-week__rowlink strong { flex: 0 1 auto !important; }
+.lh-week__row small,
+.lh-week__rowlink small {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: var(--s-fill);
+  color: var(--s-ink-2) !important;
+  font-size: 0.6875rem !important;
+}
+
+/* ホーム「次の請求」: 印は頭文字の丸1つ。右に金額(太字)と残りの日数を縦に。 */
+.lh-subs__row {
+  flex-wrap: nowrap !important;
+  gap: 0.75rem !important;
+  min-height: 3.5rem !important;
+  padding: 0.5rem 1rem !important;
+}
+.lh-subs__row + .lh-subs__row::before { left: 1rem !important; right: 1rem !important; }
+.lh-subs__initial {
+  width: 2rem !important;
+  height: 2rem !important;
+  background: var(--s-fill) !important;
+  color: var(--s-ink) !important;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+.lh-subs .lh-row__copy strong {
+  overflow: hidden;
+  font-size: var(--fs-body);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lh-subs__side {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.0625rem;
+  margin-left: auto;
+}
+.lh-subs__amount {
+  color: var(--s-ink);
+  font-size: var(--fs-body);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.lh-subs__days { color: var(--s-ink-2) !important; font-size: 0.75rem !important; font-weight: 500 !important; }
+.lh-subs__total { padding: 0.75rem 1rem !important; border-top-color: var(--s-sep) !important; color: var(--s-ink-2) !important; }
+
+/* ホーム「今月、あと使える」: 線の下に「使った額」と「残り◯%」(何の線か分かるように)。 */
+.lh-home .lh-money__bar-note {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.375rem;
+  color: var(--s-ink-2) !important;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+/* お金管理「使えるお金」: 線の上の小さな見出し(今期に使った額の積み上がり)。 */
+.finance-trend-label {
+  margin: 0 0 0.25rem;
+  color: var(--s-ink-2);
+  font-size: 0.75rem;
+}
+
+/* PC のホームの下の段(次の旅行・次の請求・Gmail): 隣の高さに合わせて空の面を伸ばさない。中身は上詰め。 */
+@media (min-width: 1024px) {
+  .lh-home .lh-section--trip,
+  .lh-home .lh-section--subs,
+  .lh-home .lh-section--gmail { align-self: start; }
+  .lh-home .lh-section--trip .warm-trip,
+  .lh-home .lh-section--trip.is-compact .warm-trip,
+  .lh-home .lh-section--subs .lh-subs,
+  .lh-home .lh-section--gmail .lh-group {
+    flex: 0 0 auto !important;
+    min-height: 0 !important;
+  }
+  /* 旅行のカードは PC の列の幅があるので、写真を上・文字を下に。 */
+  .lh-home .warm-trip,
+  .lh-home .lh-section--trip .warm-trip,
+  .lh-home .lh-section--trip.is-compact .warm-trip {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    grid-template-areas:
+      "photo photo"
+      "kicker count"
+      "place place"
+      "when when" !important;
+  }
+  .lh-home .warm-trip__photo {
+    width: 100% !important;
+    height: 9rem !important;
+    margin: 0 0 0.75rem !important;
+  }
+}
+
+/* 「修正」の浮いたボタンに、いちばん下までスクロールした中身が隠れないよう、ページの下に余白を取る。 */
+@media (min-width: 1024px) {
+  .app-main { padding-bottom: 6rem !important; }
+}
+
+/* 旅行の日付のタブは2段目: 上のタブ(黒い丸)より小さく、線の枠。選んだ日は黒い枠と太字(塗らない)。1つずつ離したまま。 */
+.trip-route__day,
+.trip-day-pick__chip {
+  min-height: 2rem !important;
+  padding: 0.25rem 0.75rem !important;
+  border: 1px solid var(--s-line) !important;
+  background: #ffffff !important;
+  color: var(--s-ink-2) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+.trip-route__day.is-active,
+.trip-day-pick__chip.is-active {
+  border: 1.5px solid var(--s-ink) !important;
+  background: #ffffff !important;
+  color: var(--s-ink) !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+}
+.trip-route__day small,
+.trip-route__day.is-active small {
+  background: var(--s-fill) !important;
+  color: var(--s-ink-2) !important;
+}
+/* 横に流せる列は、右端を薄くして続きがあると分かるように。最後まで送った時に最後の日が薄くならないよう、右に余白。 */
+.trip-route__days {
+  padding: 0.125rem 2rem 0.25rem 0.0625rem;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+}
+
+/* 旅行の日の見出し: 「並べ替え」を見出しと同じ行の右端に。入りきらない時だけ下の行の右端へ折り返す。 */
+.trip-day__head { flex-wrap: wrap; row-gap: 0.375rem; }
+.trip-day__head h3 { flex: 1 1 8rem !important; }
+.trip-day__head .trip-day__sort {
+  min-height: 2rem;
+  margin-left: auto;
+  padding: 0.25rem 0.7rem;
+  border: 0;
+  background: #ffffff;
+  color: var(--s-ink);
+  font-size: 0.75rem;
+  box-shadow: var(--s-soft-shadow);
+}
+.trip-day__head .trip-day__sort.is-active { background: var(--s-ink); color: #ffffff; }
+.trip-day__head b { background: var(--s-fill) !important; color: var(--s-ink-2) !important; }
+
+/* サブスクの分析: カテゴリの行は1つの箱の中の行(線で区切る)。1行ずつの影のカードにしない。 */
+.subs-legend__group {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+.subs-legend__group + .subs-legend__group { border-top: 1px solid var(--s-sep) !important; }
+
+/* 予定の一覧: 会議の「参加」ボタンがある行は、ボタンを名前の下の行へ回す(右に置くと名前と時刻が細い列に押し込まれて
+   「サイバーコム／一次面接…」のように折れていた)。ゴミ箱は1行目の右のまま。 */
+.glass-row div:has(> .lh-join--pill) { flex-wrap: wrap; row-gap: 0.5rem; }
+.glass-row div:has(> .lh-join--pill) > .min-w-0.flex-1 { flex: 1 1 calc(100% - 3rem); }
+.glass-row div:has(> .lh-join--pill) > .lh-join--pill { order: 2; align-self: flex-start !important; }
+
+/* 設定の「いま使っている版」「保存先」などの小さな表: 枠を外したぶん、説明文と左端をそろえる(中途半端な字下げをなくす)。 */
+.spatial-page .system-state-control {
+  margin-top: 0.75rem;
+  padding: 0.25rem 0 0.5rem !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+.system-state-control .settings-version-id { display: inline !important; margin-left: 0.25rem; }
+
+/* 旅行詳細の、日程以外のタブで畳んだ表紙。
+   スマホ: 1行目 戻る……共有・編集・削除 ／ 2行目 名前(長ければ …)＋あと◯日 ／ 3行目 日付。
+   PC: 戻る・名前＋あと◯日(下に日付)・右端にボタン。前は長い名前の時に、名前が右へ寄ったり、戻るがボタンの列の中に入ったりしていた。 */
+.trip-detail-page .trip-detail-hero.is-compact { flex-wrap: wrap; row-gap: 0.5rem; }
+.trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content { justify-content: flex-start !important; }
+@media (max-width: 639px) {
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__bar {
+    display: flex !important;
+    order: 0 !important;
+    flex: 1 0 100% !important;
+    justify-content: space-between;
+  }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__title { order: 1 !important; flex: 1 1 0 !important; min-width: 0; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content > span { order: 2 !important; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content p { order: 4 !important; }
+}
+@media (min-width: 640px) {
+  .trip-detail-page .trip-detail-hero.is-compact { flex-wrap: nowrap; align-items: center; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__bar { display: contents !important; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__bar > a { order: 0 !important; flex: 0 0 auto; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content {
+    order: 1 !important;
+    flex: 1 1 0 !important;
+    min-width: 0;
+    flex-wrap: wrap !important;
+    align-items: baseline;
+  }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__title { order: 1 !important; flex: 0 1 auto; min-width: 0; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content > span { order: 2 !important; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__content p { order: 3 !important; flex: 1 0 100% !important; }
+  .trip-detail-page .trip-detail-hero.is-compact .trip-detail-hero__actions { order: 2; flex: 0 0 auto; margin-left: auto; }
+}
+
+/* お金管理「固定費」: 右の列(一覧・止めているもの・追加)は縦に詰めて並べる。 */
+.fx-list-col { display: flex; min-width: 0; flex-direction: column; gap: 1.35rem; }
+@media (min-width: 1024px) {
+  .fx-home > .fx-list-col { grid-column: 2; grid-row: 1 / span 2; }
+}
+
+/* メモの一覧(PC): カードに決まった最低の高さ(10rem)を付けず、中身の高さに(空の面を引き伸ばさない)。 */
+@media (min-width: 640px) {
+  .note-widget { min-height: 0 !important; }
+}
 
 /* ---------------------------------------------------------------------------
    15. 動きを減らす設定
