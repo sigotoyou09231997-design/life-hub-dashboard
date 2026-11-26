@@ -105,7 +105,8 @@ export default function TopPage() {
   const todaySpend = weekSpend ? weekSpend[weekSpend.length - 1] : 0;
   // 使った割合 = 使った額 ÷ (使った額 ＋ 残り)。残りがマイナス(使いすぎ)なら満タン。
   const usedRatio = budget ? (budget.remaining < 0 ? 1 : budget.actualSpending / Math.max(1, budget.actualSpending + budget.remaining)) : 0;
-  const remainingPercent = Math.round(Math.min(100, Math.max(0, (1 - usedRatio) * 100)));
+  // 切り捨て: 少しでも使っていれば「残り 100%」とは出さない(1,138万円のうち5千円使った時に 100% と出ていた)。
+  const remainingPercent = Math.floor(Math.min(100, Math.max(0, (1 - usedRatio) * 100)));
   // 給与がまだ無い時の「今月のお金」。給与が無くても分かる今月の支出を出す(UI/UX 調査メモ A-4)。
   const monthStart = `${today.slice(0, 7)}-01`;
   const monthSpending = useLiveQuery(async () => {
