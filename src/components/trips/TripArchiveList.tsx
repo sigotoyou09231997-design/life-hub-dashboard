@@ -29,11 +29,13 @@ function TripArchiveRow({ trip, onDelete }: { trip: Trip; onDelete: (id: string)
 
   return (
     <Link to={`/trips/${trip.id}`} className="trip-archive__row">
-      <div
-        className="trip-archive__thumb"
-        style={{ backgroundImage: `url('${cover.url}')` }}
-        aria-hidden="true"
-      />
+      {cover.url && (
+        <div
+          className="trip-archive__thumb"
+          style={{ backgroundImage: `url('${cover.url}')` }}
+          aria-hidden="true"
+        />
+      )}
       <div className="trip-archive__copy">
         <strong>{trip.name}</strong>
         <small>

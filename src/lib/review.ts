@@ -11,7 +11,7 @@ import {
 } from "date-fns";
 import { ja } from "date-fns/locale";
 import type { CalendarEvent, DiaryEntry, DiaryMood, Note, Task, Transaction } from "../types";
-import { toDateStr } from "./date";
+import { toDateStr, todayStr } from "./date";
 
 export type ReviewSpan = "week" | "month";
 
@@ -89,8 +89,11 @@ export interface ReviewSummary {
   eventCount: number;
   diaryCount: number;
   noteCount: number;
-  /** 何か1つでも記録した日の数。「どれくらい書けたか」のざっくりした手応え。 */
+  /** 何か1つでも記録した日の数。「どれくらい書けたか」のざっくりした手応え。今日より先の日は数えない
+   * (2026-11-27。今週のこれからの予定まで数えて、木曜なのに「6/7日」と出ていた)。 */
   activeDays: number;
+  /** 期間のうち、今日までに過ぎた日の数(過去の期間なら期間の日数と同じ)。「何か記録した日」の分母。 */
+  elapsedDays: number;
   /** 記録がまったく無い期間かどうか。画面はこれを見て空状態に切り替える。 */
   isEmpty: boolean;
 }
@@ -110,7 +113,7 @@ export interface ReviewInput {
  * タスクの完了日は索引に載っていない completedAt から出すので、どのみち
  * JS側で見る必要があり、テーブルごとに絞り方を変えると数え漏れの元になる。
  */
-export function summarizeReview(input: ReviewInput, period: ReviewPeriod): ReviewSummary {
+export function summarizeReview(input: ReviewInput, period: ReviewPeriod, today: string = todayStr()): ReviewSummary {
   const days = eachDayOfInterval({ start: parseISO(period.start), end: parseISO(period.end) }).map(toDateStr);
   const activeDays = new Set<string>();
 
@@ -177,7 +180,8 @@ export function summarizeReview(input: ReviewInput, period: ReviewPeriod): Revie
     eventCount,
     diaryCount,
     noteCount,
-    activeDays: activeDays.size,
+    activeDays: [...activeDays].filter((day) => day <= today).length,
+    elapsedDays: days.filter((day) => day <= today).length,
     isEmpty:
       expenseTotal === 0 &&
       incomeTotal === 0 &&

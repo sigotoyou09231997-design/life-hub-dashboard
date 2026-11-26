@@ -1,3 +1,4 @@
+import { IS_DEMO } from "../../lib/demoMode";
 import { useEffect, useId, useMemo, useState } from "react";
 import type { UpdateSpec } from "dexie";
 import { CalendarClock, CalendarDays, Tag, Users } from "lucide-react";
@@ -468,7 +469,7 @@ export function EventForm({ initial, defaultDate, defaultStartTime, onSaved, onC
                   label="このアカウントでの予定名"
                   value={drafts[account.userId].title}
                   onChange={(e) => updateDraft(account.userId, { title: e.target.value, edited: true })}
-                  placeholder={title || "例: 面接"}
+                  placeholder={title || (IS_DEMO ? "例: 打ち合わせ" : "例: 面接")}
                 />
               )}
             </div>

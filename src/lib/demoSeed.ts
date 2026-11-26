@@ -198,11 +198,7 @@ export async function seedDemoData(db: LifeHubDB, today: Date = new Date()): Pro
     await db.syncedEmails.bulkPut(demoSyncedEmails(now));
     await db.draftReplies.bulkPut(demoDraftReplies(now));
 
-    await db.jobApplications.bulkPut([
-      stamp({ companyName: "株式会社アオイ", role: "Webエンジニア", stage: "interview1" as const, nextDate: d(2), nextTime: "14:00", memo: "オンライン。逆質問を3つ用意する。" }),
-      stamp({ companyName: "ミドリ工業", role: "社内SE", stage: "document" as const, nextDate: d(5) }),
-      stamp({ companyName: "そらデザイン", role: "UIデザイナー", stage: "applied" as const }),
-      stamp({ companyName: "ハルカ商事", stage: "offer" as const, memo: "返事は今週中" }),
-    ]);
+    // 就活の見本(応募先)は入れない(2026-11-27。デモは応募先の企業にも見せるため。就活のタブもデモでは出さない)。
+    // 表は上で空にしてあるので、前に入れた見本も残らない。
   });
 }

@@ -146,7 +146,9 @@ export function ExpenseSummary({ onAddSalary }: Props) {
     // 年払いは請求日がこの期に入るときだけ数える(src/lib/subscriptions.ts の chargeInPeriod)。
     // 給与から先に引くもの。家賃などの固定費とサブスクを分けて出す(2026-10-20、src/lib/fixedCosts.ts)。
     ["固定費", yen(fixedExpenseTotal)],
-    ["サブスク", yen(subscriptionTotal)],
+    // 「今期(この給料日から次の給料日の前日まで)に請求が来る分」。サブスクのタブの「月あたり」「◯月に払う額」とは別の数字なので、
+    // 何の金額か分かるように書き添える(2026-11-27。同じ「サブスク」で3通りの数字が出ていた)。
+    ["サブスク（今期の請求）", yen(subscriptionTotal)],
     ["記録した収入", yen(totalIncome)],
     ["記録した支出", yen(totalExpense)],
   ];

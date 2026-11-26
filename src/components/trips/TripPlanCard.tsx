@@ -18,11 +18,13 @@ export function TripPlanCard({ trip, onDelete }: Props) {
 
   return (
     <Link to={`/trips/${trip.id}`} className="trip-plan hub-tap" data-page-block>
-      <div
-        className="trip-plan__photo"
-        style={{ backgroundImage: `url('${cover.url}')` }}
-        aria-hidden="true"
-      />
+      {cover.url && (
+        <div
+          className="trip-plan__photo"
+          style={{ backgroundImage: `url('${cover.url}')` }}
+          aria-hidden="true"
+        />
+      )}
       <div className="trip-plan__veil" aria-hidden="true" />
 
       <TripRemoveButton trip={trip} onDelete={onDelete} />

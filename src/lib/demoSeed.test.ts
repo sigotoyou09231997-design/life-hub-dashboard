@@ -39,10 +39,13 @@ describe("デモの見本のデータ", () => {
     await seedDemoData(db, today);
     await seedDemoData(db, today);
 
-    for (const name of ["calendarEvents", "tasks", "transactions", "fixedCosts", "notes", "trips", "tripSchedule", "jobApplications"]) {
+    for (const name of ["calendarEvents", "tasks", "transactions", "fixedCosts", "notes", "trips", "tripSchedule", "syncedEmails"]) {
       expect(cleared).toContain(name);
       expect((rows[name] ?? []).length).toBeGreaterThan(0);
     }
+    // 就活の見本は入れない(デモは応募先の企業にも見せる。2026-11-27)。表は空にして、前の見本も残さない。
+    expect(cleared).toContain("jobApplications");
+    expect(rows.jobApplications ?? []).toHaveLength(0);
     // 2回入れても増えない。
     expect(rows.calendarEvents).toHaveLength(7);
     expect(rows.trips).toHaveLength(2);

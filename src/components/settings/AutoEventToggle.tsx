@@ -1,3 +1,4 @@
+import { IS_DEMO } from "../../lib/demoMode";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "../../db/schema";
 import { useToast } from "../ui/ToastProvider";
@@ -23,7 +24,7 @@ export function AutoEventToggle() {
       <div className="min-w-0">
         <div className="text-sm font-medium text-slate-800">確定した予定を自動で入れる</div>
         <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
-          「面接日程が確定しました」のように、日時が決まったと書かれたメール(3日以内に届いたもの)を、確認なしでカレンダーに入れます。
+          {IS_DEMO ? "「ご予約が確定しました」" : "「面接日程が確定しました」"}のように、日時が決まったと書かれたメール(3日以内に届いたもの)を、確認なしでカレンダーに入れます。
           入れた予定には元のメールへのリンクが付きます。候補を並べて選ばせるメールは入れません。
         </p>
       </div>

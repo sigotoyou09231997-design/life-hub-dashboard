@@ -433,8 +433,8 @@ export default function ReviewPage() {
             <MetricCard
               icon={CalendarDays}
               label="何か記録した日"
-              value={`${summary.activeDays} / ${dayCount} 日`}
-              note={`この${spanWord}は ${dayCount} 日間`}
+              value={`${summary.activeDays} / ${summary.elapsedDays} 日`}
+              note={summary.elapsedDays < dayCount ? `この${spanWord}の今日までの ${summary.elapsedDays} 日間` : `この${spanWord}は ${dayCount} 日間`}
             />
             <MetricCard
               icon={NotebookPen}

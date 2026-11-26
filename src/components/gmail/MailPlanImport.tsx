@@ -1,3 +1,4 @@
+import { IS_DEMO } from "../../lib/demoMode";
 import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CalendarPlus, Check, MapPin, TriangleAlert, Users } from "lucide-react";
@@ -501,7 +502,7 @@ export function MailPlanImport({ email, account, open, onClose }: Props) {
                           [account.userId]: { ...current[account.userId], title: e.target.value, edited: true },
                         }))
                       }
-                      placeholder={singleEventTitle || "例: 面接"}
+                      placeholder={singleEventTitle || (IS_DEMO ? "例: 打ち合わせ" : "例: 面接")}
                     />
                   )}
                 </div>

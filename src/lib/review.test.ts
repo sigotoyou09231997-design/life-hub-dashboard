@@ -170,6 +170,18 @@ describe("summarizeReview", () => {
     expect(summary.isEmpty).toBe(false);
   });
 
+  it("今日より先の日(これからの予定)は「記録した日」に数えない。分母は今日までの日数", () => {
+    const input: ReviewInput = {
+      ...emptyInput(),
+      transactions: [transaction({ date: "2026-08-25", amount: 100 })],
+      events: [{ title: "これからの予定", date: "2026-08-28", allDay: false, createdAt: 0 }],
+    };
+    const summary = summarizeReview(input, period, "2026-08-26");
+    expect(summary.activeDays).toBe(1);
+    expect(summary.elapsedDays).toBe(3);
+    expect(summary.eventCount).toBe(1);
+  });
+
   it("同じ日に複数の記録があっても、活動した日は1日", () => {
     const input: ReviewInput = {
       ...emptyInput(),

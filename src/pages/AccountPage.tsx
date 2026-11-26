@@ -167,10 +167,14 @@ export default function AccountPage() {
             <div className="system-section__identity"><span><Cloud size={17} /></span><div><h2>端末間同期</h2></div></div>
           </div>
           <p className="profile-module__description text-xs text-slate-500">
-            {session || IS_DEMO ? "お金管理・予定・タスクなどを、ログインした端末同士で同期します。" : "ログイン後に、端末間のリアルタイム同期を利用できます。"}
+            {IS_DEMO
+              ? "実際のアプリでは、お金管理・予定・タスクなどを、ログインした端末同士で同期します。デモ中は、見本のデータをこの端末の中だけで動かしています。"
+              : session
+                ? "お金管理・予定・タスクなどを、ログインした端末同士で同期します。"
+                : "ログイン後に、端末間のリアルタイム同期を利用できます。"}
           </p>
-          <div className="profile-state-row"><span>現在の状態</span><strong>{IS_DEMO ? "同期オン" : session ? "同期可能" : isSupabaseConfigured ? "ログインが必要" : "未設定"}</strong></div>
-          {IS_DEMO && <p className="mt-2 text-xs text-slate-500">デモでは、見本のデータをこの端末の中だけで動かしています(ほかの端末へは送りません)。</p>}
+          {/* デモでは「同期オン」と「ほかの端末へは送りません」が並んで食い違っていた(2026-11-27)。デモの状態はそのまま書く。 */}
+          <div className="profile-state-row"><span>現在の状態</span><strong>{IS_DEMO ? "デモ中は同期しません" : session ? "同期可能" : isSupabaseConfigured ? "ログインが必要" : "未設定"}</strong></div>
           {session && (
             <div className="profile-module__actions">
               <Button variant="secondary" className="w-full" onClick={handleSync} disabled={syncing}>
