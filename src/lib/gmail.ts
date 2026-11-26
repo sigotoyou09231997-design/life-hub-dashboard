@@ -1,3 +1,5 @@
+import { IS_DEMO } from "./demoMode";
+import { DEMO_MAIL_MESSAGE } from "./demoMail";
 import { db } from "../db/schema";
 import type { CalendarEvent, EmailStatus, GmailAccount, SyncedEmail } from "../types";
 import { toDateStr, todayStr } from "./date";
@@ -175,6 +177,8 @@ export async function extractTripPlanFromEmail(
 
 /** Returns an account guaranteed to have a live access token, refreshing (and persisting) it first if needed. */
 export async function ensureFreshAccessToken(account: GmailAccount): Promise<GmailAccount> {
+  // デモの見本のアカウントは、トークンを更新しに行かない(サーバーへ送らない)。
+  if (IS_DEMO) return account;
   if (account.accessTokenExpiresAt - TOKEN_REFRESH_MARGIN_MS > Date.now()) {
     return account;
   }
@@ -384,6 +388,8 @@ function delay(ms: number): Promise<void> {
 }
 
 async function gmailFetch(accessToken: string, path: string, init?: RequestInit): Promise<any> {
+  // デモ(/demo)では Gmail と通信しない(見本のトークンを Google へ送らない。src/lib/demoMail.ts)。
+  if (IS_DEMO) throw new Error(DEMO_MAIL_MESSAGE);
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`${GMAIL_API_BASE}${path}`, {
       ...init,

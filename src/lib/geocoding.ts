@@ -14,7 +14,9 @@ const GEOCODE_ENDPOINT = "https://geocoding-api.open-meteo.com/v1/search";
 
 /** 地名→緯度経度は変わらないので長めに覚える。 */
 const GEOCODE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-const GEOCODE_CACHE_PREFIX = "lifehub.weatherPlace.v1:";
+// v2(2026-11-27): 「京都」のように「市」を付けないと引けない地名を、付けて引き直すようにした。
+// v1 の時に「見つからなかった」と覚えた地名も引き直せるよう、覚える場所を変えた。
+const GEOCODE_CACHE_PREFIX = "lifehub.weatherPlace.v2:";
 
 export interface GeocodedPlace {
   name: string;
@@ -101,9 +103,24 @@ export async function geocodePlace(destination: string, now: number = Date.now()
 
   const res = await fetch(buildUrl(query, 1));
   if (!res.ok) throw new Error(`geocode failed (${res.status})`);
-  const place = parseGeocodeResults(await res.json())[0];
+  let place = parseGeocodeResults(await res.json())[0];
+  // 地名検索(Open-Meteo)は「京都」では何も返さず、「京都市」なら引ける(2026-11-27 に確かめた)。
+  // 漢字で終わる地名で、市・区・町・村・都道府県が付いていない時だけ、「市」を付けてもう一度引く。
+  const alternative = withCitySuffix(query);
+  if (!place && alternative) {
+    const retry = await fetch(buildUrl(alternative, 1));
+    if (retry.ok) place = parseGeocodeResults(await retry.json())[0];
+  }
   writeCache(key, place ?? null, now);
   return place;
+}
+
+/** 「京都」→「京都市」。漢字で終わり、行政区分の字が付いていない地名だけ。それ以外は undefined。 */
+export function withCitySuffix(query: string): string | undefined {
+  if (!/[\u4e00-\u9fff]$/.test(query)) return undefined;
+  // 「都」「道」は東京都・北海道だけが行政区分(「京都」「水戸」の「都」は地名の一部)。
+  if (/[市区町村県府]$/.test(query) || query.endsWith("東京都") || query.endsWith("北海道")) return undefined;
+  return `${query}市`;
 }
 
 /**

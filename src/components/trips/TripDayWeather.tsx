@@ -88,15 +88,9 @@ export function TripWeatherBanner({ placeName, country, horizon, beyondHorizon }
  */
 export function TripDayWeatherCard({ weather, date }: { weather?: TripWeather; date: string }) {
   if (!weather) return <p className="trip-day-forecast__note">天気予報を調べています…</p>;
-  if (weather.status !== "ok") {
-    return (
-      <p className="trip-day-forecast__note">
-        {weather.status === "unknown-place"
-          ? "行き先の地名から、天気予報の場所が分かりませんでした。"
-          : "天気予報を読み込めませんでした。あとで開き直すと、もう一度調べます。"}
-      </p>
-    );
-  }
+  // 行き先から場所が分からない・読み込めなかった時は、何も出さない(2026-11-27)。前は理由を1行書いていたが、
+  // 天気は「あれば嬉しい」もので、出せない理由が右の欄の先頭に並ぶと、壊れているように見えたため。
+  if (weather.status !== "ok") return null;
 
   const forecast = forecastForDate(weather.days, date);
   // どこの予報かは、PCでは左の日程の上の断り書き(TripWeatherBanner)を出さないので、ここで必ず書く。

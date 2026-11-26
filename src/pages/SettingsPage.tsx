@@ -40,6 +40,11 @@ import { SHEET_DEBUG_KEY } from "../components/ui/Sheet";
 import { useToast } from "../components/ui/ToastProvider";
 import { useConfirm } from "../components/ui/ConfirmProvider";
 
+/** 開発・調べ用の項目(版の印・調査用の記録・画面の大きさの数字)を出すか。ログインして使う本人の画面だけ出し、
+ * デモ(/demo)と、Supabase につながっていない撮影用・開発用の画面では出さない(2026-11-27、見せる画面に開発用の言葉が並んでいたため)。
+ * 本人の画面では今までどおり出す — iPhone の白い画面などを調べる時に、すぐ使えるように。 */
+const showDevTools = isSupabaseConfigured;
+
 export default function SettingsPage() {
   const showToast = useToast();
   const confirm = useConfirm();
@@ -285,7 +290,8 @@ export default function SettingsPage() {
                   <span>いま使っている版</span>
                   <strong>
                     {newerAvailable ? "新しい版があります(押すと更新)" : checkFailed ? "最新か確かめられていません" : "最新です"}
-                    <span className="settings-version-id">({currentVersion()})</span>
+                    {/* 版の印(コミットの頭7文字・開発中は dev)は、本人の画面だけ。デモ・撮影用の画面では出さない(2026-11-27)。 */}
+                    {showDevTools && <span className="settings-version-id">({currentVersion()})</span>}
                   </strong>
                 </div>
                 <small>{versionNote ?? "押すと最新版を確かめます"}</small>
@@ -303,13 +309,13 @@ export default function SettingsPage() {
                   何が変わったかを見る
                 </Link>
               </div>
-              <DiagnosticsCopyButton />
+              {showDevTools && <DiagnosticsCopyButton />}
             </Card>
 
             <FeedbackInbox />
           </SettingsSection>
 
-          <SettingsSection id="settings-features" label="使う機能">
+          <SettingsSection id="settings-features" label="使う機能" showLabel={false}>
             <HiddenFeaturesCard />
           </SettingsSection>
 
@@ -343,7 +349,8 @@ export default function SettingsPage() {
                   className="hidden"
                 />
               </div>
-              {/* 入力画面がキーボードにかぶる時に、iPhone の実際の数字を見るため(2026-10-12)。 */}
+              {/* 入力画面がキーボードにかぶる時に、iPhone の実際の数字を見るため(2026-10-12)。調べ用なので本人の画面だけ。 */}
+              {showDevTools && (
               <SwitchField
                 label="入力画面に、画面の大きさの数字を出す"
                 hint="入力画面がキーボードにかぶる時の調べ用です。入れると、入力画面の見出しの下に小さく数字が出ます。"
@@ -358,6 +365,7 @@ export default function SettingsPage() {
                   }
                 }}
               />
+              )}
             </Card>
           </SettingsSection>
 

@@ -33,7 +33,7 @@ interface Props<T extends string> {
  * 2026-10-12(UI/UX 調査メモ C-2): 6個のタブを3列×2段に折り返すのをやめ、**1段のまま横に
  * スクロールする**形にした。2段だと画面の上を大きく使い、4個の予定・タスクでも狭い幅では
  * 右端の「就活」が切れていた。入りきる時は今までどおり幅いっぱいに均等に広がり、入りきらない
- * 時だけ横に流せる。選んだタブは帯の真ん中へ寄せる(端のタブを選んでも隠れないように)。
+ * 時だけ横に流せる。選んだタブが隠れている時だけ、見える所まで送る(端のタブを選んでも隠れないように。2026-11-27 から真ん中へは寄せない)。
  */
 export function Tabs<T extends string>({ options, value, onChange, dense = false, className = "" }: Props<T>) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -64,9 +64,18 @@ export function Tabs<T extends string>({ options, value, onChange, dense = false
     if (!list || !selected) return;
     // 入りきっている時は動かさない(スクロールする余地が無い)。
     if (list.scrollWidth <= list.clientWidth) return;
-    const left = selected.offsetLeft - (list.clientWidth - selected.offsetWidth) / 2;
+    // 選んだタブが見えていれば動かさない(2026-11-27)。前は必ず真ん中へ寄せていたので、4つ目の「サブスク」を
+    // 開くと先頭の「サマリー」が左で切れて「ﾏリー」と出ていた。見えていない時だけ、見える所まで最小限送る。
+    const margin = 24;
+    const start = selected.offsetLeft - margin;
+    const end = selected.offsetLeft + selected.offsetWidth + margin;
+    const visibleStart = list.scrollLeft;
+    const visibleEnd = list.scrollLeft + list.clientWidth;
+    let left: number | null = null;
+    if (start < visibleStart) left = start;
+    else if (end > visibleEnd) left = end - list.clientWidth;
     // scrollIntoView は画面ごと縦にも動かしてしまうので、帯の中だけを動かす。
-    list.scrollTo?.({ left: Math.max(0, left), behavior: placedOnce.current ? "smooth" : "auto" });
+    if (left !== null) list.scrollTo?.({ left: Math.max(0, left), behavior: placedOnce.current ? "smooth" : "auto" });
     placedOnce.current = true;
   }, [value]);
 

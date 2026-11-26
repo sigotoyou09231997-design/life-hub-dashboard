@@ -218,7 +218,7 @@ export default function ExpensePage() {
                 「CSVで書き出す」は切れていた(UI/UX 調査メモ B-4)。いちばん使う「収支を追加」
                 だけを大きく置き、残りは「ほかの方法」にまとめる。 */}
             <div className="finance-history-actions lh-add-row mt-4">
-              <Button className="w-full lh-add-end" onClick={() => setEditingTransaction("new")}>
+              <Button className="w-full lh-add-end lh-add-end--same-as-header" onClick={() => setEditingTransaction("new")}>
                 <Plus size={16} aria-hidden="true" /> 収支を追加
               </Button>
               <Button variant="secondary" className="w-full lh-add-second" onClick={() => setMoreMethodsOpen(true)}>

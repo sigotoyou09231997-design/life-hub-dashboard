@@ -4,6 +4,7 @@
 // 中身は、画面の確認用のお手本(scripts/probeDemoSeed.mjs・全画面スクショ)と同じもの。日付は「今日から何日」で
 // 決めるので、いつ開いても今週の予定として見える。人の名前・会社名・お店はすべて架空。
 import type { LifeHubDB } from "../db/schema";
+import { demoDraftReplies, demoGmailAccount, demoSyncedEmails } from "./demoMail";
 
 export const DEMO_TRIP_ID = "demo-trip-1";
 export const DEMO_TRIP2_ID = "demo-trip-2";
@@ -26,6 +27,10 @@ const DEMO_TABLES = [
   "categoryBudgets",
   "savingsGoals",
   "subscriptionDetails",
+  // Gmail の見本(2026-11-27。受信メールと AI 返信案を見せる。src/lib/demoMail.ts)。
+  "gmailAccounts",
+  "syncedEmails",
+  "draftReplies",
 ] as const;
 
 function dayOffset(base: Date, offset: number): string {
@@ -161,13 +166,15 @@ export async function seedDemoData(db: LifeHubDB, today: Date = new Date()): Pro
       stamp({ id: DEMO_TRIP2_ID, name: "冬の温泉", destination: "草津", startDate: d(60), endDate: d(62), status: "planning" as const, budget: 50000 }),
     ]);
     await db.tripSchedule.bulkPut([
-      stamp({ tripId: DEMO_TRIP_ID, date: d(6), startTime: "08:30", endTime: "11:00", title: "新幹線で移動", type: "transport", location: "東京→京都" }),
+      // 場所・住所は、下のルートの場所と同じにそろえる(2026-11-27)。前は日程の「清水」とルートの「清水寺」がずれて、
+      // ルートに入っている場所が「まだ入っていない場所」に出たり、時間で見た時に時刻が付かなかったりした。
+      stamp({ tripId: DEMO_TRIP_ID, date: d(6), startTime: "08:30", endTime: "11:00", title: "新幹線で京都へ", type: "transport", location: "京都駅", address: "京都府京都市下京区東塩小路町" }),
       stamp({ tripId: DEMO_TRIP_ID, date: d(6), startTime: "12:00", title: "昼食（湯葉）", type: "meal", location: "南禅寺周辺", address: "京都府京都市左京区南禅寺福地町", openingHours: "11:00〜15:00" }),
-      stamp({ tripId: DEMO_TRIP_ID, date: d(6), endDate: d(8), startTime: "16:00", title: "宿にチェックイン", type: "lodging", location: "四条のホテル" }),
-      stamp({ tripId: DEMO_TRIP_ID, date: d(7), startTime: "09:00", endTime: "10:30", title: "清水寺", type: "sightseeing", location: "清水" }),
-      stamp({ tripId: DEMO_TRIP_ID, date: d(7), startTime: "11:30", endTime: "12:15", title: "八坂神社", type: "sightseeing", location: "八坂神社" }),
-      stamp({ tripId: DEMO_TRIP_ID, date: d(7), startTime: "14:00", title: "嵐山を歩く", type: "sightseeing" }),
-      stamp({ tripId: DEMO_TRIP_ID, date: d(8), startTime: "10:00", title: "伏見稲荷", type: "sightseeing" }),
+      stamp({ tripId: DEMO_TRIP_ID, date: d(6), endDate: d(8), startTime: "16:00", title: "宿にチェックイン", type: "lodging", location: "四条のホテル", address: "京都府京都市下京区四条通烏丸" }),
+      stamp({ tripId: DEMO_TRIP_ID, date: d(7), startTime: "09:00", endTime: "10:30", title: "清水寺", type: "sightseeing", location: "清水寺", address: "京都市東山区清水1丁目294" }),
+      stamp({ tripId: DEMO_TRIP_ID, date: d(7), startTime: "11:30", endTime: "12:15", title: "八坂神社", type: "sightseeing", location: "八坂神社", address: "京都市東山区祇園町北側625" }),
+      stamp({ tripId: DEMO_TRIP_ID, date: d(7), startTime: "14:00", endTime: "15:30", title: "嵐山を歩く", type: "sightseeing", location: "嵐山 竹林の小径", address: "京都市右京区嵯峨天龍寺芒ノ馬場町" }),
+      stamp({ tripId: DEMO_TRIP_ID, date: d(8), startTime: "10:00", title: "伏見稲荷", type: "sightseeing", location: "伏見稲荷大社", address: "京都市伏見区深草藪之内町68" }),
     ]);
     await db.tripExpenses.bulkPut([
       stamp({ tripId: DEMO_TRIP_ID, title: "新幹線（往復）", amount: 28000, category: "transport", paid: true, paidDate: d(-3) }),
@@ -185,6 +192,11 @@ export async function seedDemoData(db: LifeHubDB, today: Date = new Date()): Pro
       stamp({ tripId: DEMO_TRIP_ID, name: "八坂神社", address: "京都市東山区祇園町北側625", sortOrder: 2, date: d(7), visited: false }),
       stamp({ tripId: DEMO_TRIP_ID, name: "嵐山 竹林の小径", address: "京都市右京区嵯峨天龍寺芒ノ馬場町", sortOrder: 3, date: d(7), visited: false }),
     ]);
+
+    // Gmail の見本(受信メール5通・AI 返信案2通)。デモでは通信しない(src/lib/demoMail.ts)。
+    await db.gmailAccounts.bulkPut([demoGmailAccount(now)]);
+    await db.syncedEmails.bulkPut(demoSyncedEmails(now));
+    await db.draftReplies.bulkPut(demoDraftReplies(now));
 
     await db.jobApplications.bulkPut([
       stamp({ companyName: "株式会社アオイ", role: "Webエンジニア", stage: "interview1" as const, nextDate: d(2), nextTime: "14:00", memo: "オンライン。逆質問を3つ用意する。" }),
