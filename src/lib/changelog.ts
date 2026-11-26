@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-26-207",
+    date: "2026-11-26",
+    area: "全体",
+    title: "デモ（/demo）を開いたタブの中だけで動くようにしました",
+    description:
+      "デモを開くと、同じ端末のほかのタブやふだんの LIFE HUB までデモになっていたのを直しました。デモはそのタブの中だけで動き、タブを閉じれば終わります。また、前の版を取り置いた端末で /demo を開くとログイン画面になることがあったので、/demo はいつも最新の画面を読むようにしました。",
+  },
+  {
     id: "2026-11-26-206",
     date: "2026-11-26",
     area: "全体",
