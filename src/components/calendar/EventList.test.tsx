@@ -69,3 +69,23 @@ describe("またがる予定の見え方", () => {
     expect(screen.getByText("10:00〜11:00")).toBeTruthy();
   });
 });
+
+describe("オンライン会議の参加ボタン(2026-11-26)", () => {
+  it("場所に Zoom のリンクがあれば「Zoomで参加」を出し、そのリンクを新しいタブで開く", () => {
+    renderList([{ ...oneDay, id: "iv-1", title: "一次面接", location: "https://us02web.zoom.us/j/81234567890?pwd=abc" }]);
+    const link = screen.getByRole("link", { name: /Zoomで参加/ });
+    expect(link.getAttribute("href")).toBe("https://us02web.zoom.us/j/81234567890?pwd=abc");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+  });
+
+  it("メモの中の Meet のリンクでも出る", () => {
+    renderList([{ ...oneDay, id: "iv-2", title: "カジュアル面談", memo: "当日はこちら https://meet.google.com/abc-defg-hij から" }]);
+    expect(screen.getByRole("link", { name: /Meetで参加/ }).getAttribute("href")).toBe("https://meet.google.com/abc-defg-hij");
+  });
+
+  it("会議のリンクが無い予定には出さない", () => {
+    renderList([oneDay]);
+    expect(screen.queryByRole("link", { name: /で参加/ })).toBeNull();
+  });
+});

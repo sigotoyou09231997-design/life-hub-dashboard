@@ -1,6 +1,7 @@
 import { addDays, differenceInCalendarDays, parseISO } from "date-fns";
 import { toDateStr } from "./date";
 import { occursOn, spanDayIndex, type TimedSpan } from "./eventSpan";
+import { eventMeetingLink, type MeetingLink } from "./meetingLink";
 import { daysUntil, nextBillingDate, summarizeSubscriptions, type SubscriptionItem } from "./subscriptions";
 import { isFixedExpense } from "./fixedCosts";
 
@@ -102,6 +103,8 @@ export interface UpcomingRow {
   date: string;
   time?: string;
   title: string;
+  /** 予定の場所・メモ・名前にオンライン会議のリンクがあれば、その行に「参加」ボタンを出す(2026-11-26)。 */
+  meeting?: MeetingLink;
 }
 
 function eventTime(event: TimedSpan, date: string): string | undefined {
@@ -110,7 +113,7 @@ function eventTime(event: TimedSpan, date: string): string | undefined {
 }
 
 /** 帯の下の行: 今日からこの先の予定と(まだ終わっていない)タスクを、日付の近い順・時刻順に最大 limit 行。 */
-export function upcomingRows<E extends TimedSpan & { id?: string; title: string }, T extends TaskLike & { id?: string; title: string }>(
+export function upcomingRows<E extends TimedSpan & { id?: string; title: string; location?: string; memo?: string }, T extends TaskLike & { id?: string; title: string }>(
   events: E[],
   tasks: T[],
   dates: string[],
@@ -120,7 +123,17 @@ export function upcomingRows<E extends TimedSpan & { id?: string; title: string 
   for (const date of dates) {
     const dayEvents = events
       .filter((event) => occursOn(event, date))
-      .map((event) => ({ key: `e:${event.id ?? event.title}:${date}`, kind: "event" as const, date, time: eventTime(event, date), title: event.title }));
+      .map((event) => {
+        const meeting = eventMeetingLink(event);
+        return {
+          key: `e:${event.id ?? event.title}:${date}`,
+          kind: "event" as const,
+          date,
+          time: eventTime(event, date),
+          title: event.title,
+          ...(meeting ? { meeting } : {}),
+        };
+      });
     const dayTasks = tasks
       .filter((task) => !task.completed && !task.parentTaskId && task.dueDate === date)
       .map((task) => ({ key: `t:${task.id ?? task.title}:${date}`, kind: "task" as const, date, time: task.dueTime, title: task.title }));
