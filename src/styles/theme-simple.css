@@ -1392,3 +1392,47 @@ div.warm-card.lh-savings.subs-saved {
 @media (prefers-reduced-motion: reduce) {
   .glass-nav nav .nav-add .nav-add__circle { transition: none; }
 }
+
+/* ------------------------------------------------------------------------
+   16. オンライン会議の「参加」ボタン(2026-11-26)
+   予定の場所・メモに Zoom・Meet などのリンクがある時だけ出る(src/lib/meetingLink.ts)。
+   1回で押せるよう、黒い主ボタンと同じ扱いにする。
+   ------------------------------------------------------------------------ */
+.lh-join {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  background: var(--s-ink);
+  color: #ffffff !important;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none !important;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(20, 24, 26, 0.18);
+  transition: transform 120ms ease;
+}
+.lh-join:active { transform: scale(0.97); }
+.lh-join:focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
+.lh-join--pill { min-height: 2.25rem; padding: 0 0.85rem; font-size: 0.8125rem; }
+.lh-join--compact { min-height: 2rem; padding: 0 0.75rem; font-size: 0.75rem; }
+.lh-join--block { width: 100%; min-height: 3rem; padding: 0 1rem; border-radius: 14px; font-size: 0.9375rem; }
+
+/* ホームの行: 会議のある行だけ、外側が <div>、中の <Link> が日付・時刻・名前を受け持つ */
+.lh-week__row.has-join { padding-right: 0.75rem; }
+.lh-week__rowlink {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  align-self: stretch;
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lh-join { transition: none; }
+}

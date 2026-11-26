@@ -538,3 +538,19 @@ describe("タイトルに書いた日時", () => {
     expect(screen.queryByRole("button", { name: /で入れる/ })).toBeNull();
   });
 });
+
+describe("オンライン会議の参加ボタン(2026-11-26)", () => {
+  it("メモに Meet のリンクがある予定を開くと、いちばん上に「Meetで参加」が出る", () => {
+    renderForm({ ...existingEvent, memo: "一次面接 https://meet.google.com/gge-eoum-hxx" });
+    const join = screen.getByRole("link", { name: /Meetで参加/ });
+    expect(join.getAttribute("href")).toBe("https://meet.google.com/gge-eoum-hxx");
+    expect(join.getAttribute("target")).toBe("_blank");
+  });
+
+  it("場所に Zoom のリンクを貼ると、その場でボタンが出る", () => {
+    renderForm(existingEvent);
+    expect(screen.queryByRole("link", { name: /で参加/ })).toBeNull();
+    fireEvent.change(screen.getByLabelText(/場所/), { target: { value: "https://zoom.us/j/999" } });
+    expect(screen.getByRole("link", { name: /Zoomで参加/ }).getAttribute("href")).toBe("https://zoom.us/j/999");
+  });
+});

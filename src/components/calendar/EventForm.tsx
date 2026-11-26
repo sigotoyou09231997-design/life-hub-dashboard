@@ -26,6 +26,8 @@ import {
 import { describeTitleDateTime, parseTitleDateTime, type TitleDateTime } from "../../lib/titleDateTime";
 import { RepeatField } from "./RepeatField";
 import { SourceMailLink } from "./SourceMailLink";
+import { findMeetingLink } from "../../lib/meetingLink";
+import { MeetingJoinLink } from "./MeetingJoinLink";
 import { useToast } from "../ui/ToastProvider";
 import {
   applyEventToAccount,
@@ -79,6 +81,7 @@ export function EventForm({ initial, defaultDate, defaultStartTime, onSaved, onC
   const [personIds, setPersonIds] = useState<string[]>(initial?.personIds ?? []);
   const [location, setLocation] = useState(initial?.location ?? "");
   const [memo, setMemo] = useState(initial?.memo ?? "");
+  const meeting = useMemo(() => findMeetingLink(location, memo, title), [location, memo, title]);
   // 通知の欄は 2026-10-21 に外した(画面外の通知をやめた)。前に入れた値は、保存で消さずにそのまま残す。
   const [notify] = useState(initial?.notifyMinutesBefore?.toString() ?? "");
   const [repeat, setRepeat] = useState<RepeatRule>(initial?.repeat ?? "none");
@@ -294,6 +297,9 @@ export function EventForm({ initial, defaultDate, defaultStartTime, onSaved, onC
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {/* 場所・メモにオンライン会議のリンクがあれば、いちばん上に「◯◯で参加」を出す(2026-11-26)。
+          入力中の値から探すので、貼り付けた時点で出る。 */}
+      {meeting && <MeetingJoinLink link={meeting} variant="block" />}
       <FormPanel caption="何の予定" icon={CalendarDays}>
         <div>
           <Input
