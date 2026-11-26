@@ -7,6 +7,7 @@ import { formatDisplayDate, todayStr, tripCountdownLabel, tripDurationLabel } fr
 import { useTripCover } from "../../hooks/useTripCover";
 import { occurringOn } from "../../lib/eventSpan";
 import { TripRemoveButton } from "./TripRemoveButton";
+import { TripCoverArt } from "./TripCoverArt";
 
 interface Props {
   trip: Trip;
@@ -50,12 +51,14 @@ export function TripLeadCard({ trip, onDelete }: Props) {
 
   return (
     <Link to={`/trips/${trip.id}`} className="trip-lead hub-tap" data-page-block>
-      {cover.url && (
+      {cover.url ? (
         <div
           className="trip-lead__photo"
           style={{ backgroundImage: `url('${cover.url}')` }}
           aria-hidden="true"
         />
+      ) : (
+        <TripCoverArt cover={cover} className="trip-lead__photo" note={`${formatDisplayDate(trip.startDate)} 〜 ${formatDisplayDate(trip.endDate)}`} />
       )}
       <div className="trip-lead__veil" aria-hidden="true" />
 

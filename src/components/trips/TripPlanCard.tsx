@@ -4,6 +4,7 @@ import type { Trip } from "../../types";
 import { formatDisplayDate, tripCountdownLabel, tripDurationLabel } from "../../lib/date";
 import { useTripCover } from "../../hooks/useTripCover";
 import { TripRemoveButton } from "./TripRemoveButton";
+import { TripCoverArt } from "./TripCoverArt";
 
 interface Props {
   trip: Trip;
@@ -18,12 +19,14 @@ export function TripPlanCard({ trip, onDelete }: Props) {
 
   return (
     <Link to={`/trips/${trip.id}`} className="trip-plan hub-tap" data-page-block>
-      {cover.url && (
+      {cover.url ? (
         <div
           className="trip-plan__photo"
           style={{ backgroundImage: `url('${cover.url}')` }}
           aria-hidden="true"
         />
+      ) : (
+        <TripCoverArt cover={cover} className="trip-plan__photo" note={countdown || undefined} />
       )}
       <div className="trip-plan__veil" aria-hidden="true" />
 

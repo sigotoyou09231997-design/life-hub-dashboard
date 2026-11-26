@@ -40,7 +40,11 @@ export function useExpenseStatus(): string | undefined {
   if (loading || monthTotal === undefined) return undefined;
   // 給与が登録されていれば、その期間の支出と給料日までの日数。無ければ、今月の支出だけ。
   return budget
-    ? expenseStatusText(budget.actualSpending, budget.period.daysUntilNextPayday)
+    ? expenseStatusText(
+        budget.actualSpending,
+        budget.period.daysUntilNextPayday,
+        `${budget.period.periodStart.getMonth() + 1}/${budget.period.periodStart.getDate()}`,
+      )
     : expenseStatusText(monthTotal, null);
 }
 

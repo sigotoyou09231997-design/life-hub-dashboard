@@ -13,9 +13,12 @@ export function scheduleStatusText(eventCount: number, openTasks: number, totalT
 }
 
 /** お金管理: 「今月の支出 ¥0・給料日まで20日」。給与が未登録なら支出だけ。 */
-export function expenseStatusText(spent: number, daysUntilPayday: number | null): string {
-  const base = `今月の支出 ¥${Math.round(spent).toLocaleString()}`;
-  return daysUntilPayday === null ? base : `${base}・給料日まで${daysUntilPayday}日`;
+export function expenseStatusText(spent: number, daysUntilPayday: number | null, periodStartLabel?: string): string {
+  // 2026-11-27: 「今月の支出」は、給料日からの期間の額なのに「今月」と書いていて、ほかの「今月」「今期」の合計と
+  // 見分けがつかなかった。給与がある時は期間の始まりを名前に入れる(「今期(11/25〜)に使った額」)。
+  if (daysUntilPayday === null) return `今月使った額 ¥${Math.round(spent).toLocaleString()}`;
+  const name = periodStartLabel ? `今期(${periodStartLabel}〜)に使った額` : "今期に使った額";
+  return `${name} ¥${Math.round(spent).toLocaleString()}・給料日まで${daysUntilPayday}日`;
 }
 
 /** メモ・リスト: 「メモ 2・チェックリスト 1・買い物リスト 0」。1つも無ければ「まだ何もありません」。 */

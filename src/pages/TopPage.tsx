@@ -32,6 +32,7 @@ import { HomeAiNews } from "../components/home/HomeAiNews";
 import { pairSubscriptions } from "../lib/subscriptions";
 import { useHiddenFeatures } from "../hooks/useHiddenFeatures";
 import { aheadDates, buildConcerns, homeStatusLine, homeSubscriptions, tripCardSize, tripCountdown, upcomingRows, weekSpendBars, weekStrip } from "../lib/homeLayout";
+import { TripCoverArt } from "../components/trips/TripCoverArt";
 
 const TRIP_STATUS_LABEL: Record<string, string> = { ongoing: "旅行中", planning: "計画中", completed: "完了済み" };
 
@@ -350,10 +351,8 @@ export default function TopPage() {
               {tripCover.url ? (
                 <div className="warm-trip__photo" style={{ backgroundImage: `url('${tripCover.url}')` }} aria-hidden="true" />
               ) : (
-                // 写真が無い時(デモ)は、写真の場所に飛行機の印を置く。
-                <div className="warm-trip__photo is-empty" aria-hidden="true">
-                  <Plane size={22} />
-                </div>
+                // 写真が無い時は、行き先の色の面＋地名の表紙(src/components/trips/TripCoverArt.tsx)。
+                <TripCoverArt cover={tripCover} className="warm-trip__photo" size="thumb" />
               )}
               <div className="warm-trip__veil" aria-hidden="true" />
               <span className="warm-trip__kicker">

@@ -69,6 +69,7 @@ import { TripRouteReflect } from "../components/trips/TripRouteReflect";
 import { mapQueryFor } from "../lib/scheduleDetails";
 import { TRIP_TAB_OPTIONS, VALID_TRIP_TABS, type TripTab } from "../lib/tripTabs";
 import type { RouteSuggestion } from "../lib/tripRouteSuggestions";
+import { TripCoverArt } from "../components/trips/TripCoverArt";
 
 type Tab = TripTab;
 
@@ -371,8 +372,12 @@ export default function TripDetailPage() {
           戻る・共有・編集・削除は、見出しの行ごと表紙の上の端へ移した(写真の上でも読めるよう、
           ボタンには暗いすりガラスの丸を敷く。styles/trips.css)。 */}
       {/* 日程以外のタブでは、表紙を細い1行(戻る・題名・日付・あと◯日)に畳む(第8弾 T-5)。 */}
-      <section className={`trip-detail-hero mx-5 mb-3 lg:mx-8${tab !== "schedule" ? " is-compact" : ""}${cover.url ? "" : " is-no-photo"}`} aria-labelledby="trip-detail-title">
-        {cover.url && <div className="trip-detail-hero__photo" style={{ backgroundImage: `url('${cover.url}')` }} aria-hidden="true" />}
+      <section className={`trip-detail-hero mx-5 mb-3 lg:mx-8${tab !== "schedule" ? " is-compact" : ""}`} aria-labelledby="trip-detail-title">
+        {cover.url ? (
+          <div className="trip-detail-hero__photo" style={{ backgroundImage: `url('${cover.url}')` }} aria-hidden="true" />
+        ) : (
+          <TripCoverArt cover={cover} className="trip-detail-hero__photo" note={`${formatDisplayDate(trip.startDate)} 〜 ${formatDisplayDate(trip.endDate)}${tripCountdown(trip, todayStr()) ? `・${tripCountdown(trip, todayStr())}` : ""}`} />
+        )}
         <div className="trip-detail-hero__veil" aria-hidden="true" />
         <div className="trip-detail-hero__bar">
           <Link to="/trips" aria-label="旅行の一覧へ戻る" className="trip-hero-button">

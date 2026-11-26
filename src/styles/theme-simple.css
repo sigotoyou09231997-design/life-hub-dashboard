@@ -1824,24 +1824,86 @@ svg.lucide:not([stroke-width^="3"]):is([width="21"], [width="22"], [width="23"],
 }
 .note-widget p[title] { font-weight: 700 !important; }
 
-/* 旅行の写真が無い時(デモ): 表紙は写真の帯を出さず、ボタンの行と題名だけ。 */
-.trip-detail-page .trip-detail-hero.is-no-photo:not(.is-compact) .trip-detail-hero__bar {
-  position: static !important;
-  padding: 0 !important;
+/* ---------------------------------------------------------------------------
+   旅行の表紙の「色の面」(2026-11-27、見せる品質 その3。src/components/trips/TripCoverArt.tsx)
+   写真が無い旅行は、行き先ごとの淡い色の面に、大きな地名と、ロゴの葉を薄く置く。
+   大きさ・角丸は、それぞれの写真の枠(trip-detail-hero__photo など)のまま。
+   ------------------------------------------------------------------------ */
+.trip-cover-art {
+  position: relative;
+  display: flex !important;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  padding: 1.25rem 1.375rem;
+  background: var(--cover-bg) !important;
+  background-image: none !important;
+  color: var(--cover-ink);
 }
-.trip-detail-page .trip-detail-hero.is-no-photo:not(.is-compact) .trip-detail-hero__content { padding-top: 0.75rem !important; }
-.trip-lead:not(:has(.trip-lead__photo)) .trip-remove,
-.trip-plan:not(:has(.trip-plan__photo)) .trip-remove { top: 0.75rem !important; right: 0.75rem !important; }
-.trip-lead:not(:has(.trip-lead__photo)),
-.trip-plan:not(:has(.trip-plan__photo)) { padding-top: 1rem !important; }
-.lh-home .warm-trip__photo.is-empty {
-  display: grid !important;
-  place-items: center;
-  background: var(--s-fill) !important;
-  color: var(--s-ink-2);
+.trip-cover-art__leaf {
+  position: absolute;
+  top: -1.5rem;
+  right: -1.25rem;
+  width: 11rem !important;
+  height: 11rem !important;
+  color: var(--cover-ink);
+  opacity: 0.12;
+  transform: rotate(-12deg);
 }
+.trip-cover-art__place {
+  position: relative;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.trip-cover-art__note {
+  position: relative;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.trip-plan__photo.trip-cover-art .trip-cover-art__place { font-size: 1.5rem; }
+.trip-plan__photo.trip-cover-art .trip-cover-art__leaf { width: 8rem !important; height: 8rem !important; }
 @media (min-width: 1024px) {
-  .lh-home .warm-trip__photo.is-empty { display: none !important; }
+  .trip-detail-hero__photo.trip-cover-art .trip-cover-art__place { font-size: 2.75rem; }
+  .trip-detail-hero__photo.trip-cover-art .trip-cover-art__leaf { width: 16rem !important; height: 16rem !important; top: -2rem; right: 2rem; }
+}
+/* 小さな四角(ホームの次の旅行・終わった旅行): 地名だけを真ん中に。 */
+.trip-cover-art--thumb {
+  justify-content: center;
+  align-items: center;
+  padding: 0.375rem;
+  text-align: center;
+}
+.trip-cover-art--thumb .trip-cover-art__place {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 0.9375rem;
+  letter-spacing: 0.02em;
+}
+.trip-cover-art--thumb .trip-cover-art__leaf { top: auto; right: -0.75rem; bottom: -0.75rem; width: 3.25rem !important; height: 3.25rem !important; opacity: 0.16; }
+@media (min-width: 1024px) {
+  .lh-home .trip-cover-art--thumb { justify-content: flex-end; align-items: flex-start; padding: 0.875rem 1rem; text-align: left; }
+  .lh-home .trip-cover-art--thumb .trip-cover-art__place { font-size: 1.5rem; }
+  .lh-home .trip-cover-art--thumb .trip-cover-art__leaf { width: 7rem !important; height: 7rem !important; top: -1rem; bottom: auto; right: -0.5rem; }
+}
+
+/* ロゴの葉を、スマホの上の帯の「LIFE HUB」の前にも小さく置く(PC の左のメニューのロゴと同じ印)。 */
+.app-header__mobile-brand::before {
+  content: "";
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.35em;
+  vertical-align: -0.1em;
+  background: var(--s-accent);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z'/%3E%3Cpath d='M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z'/%3E%3Cpath d='M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 /* ---------------------------------------------------------------------------

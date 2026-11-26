@@ -130,7 +130,11 @@ export function ExpenseSummary({ onAddSalary }: Props) {
   const { period, fixedExpenseTotal, subscriptionTotal, actualSpending, pendingCardSpending, bonusAmount, remaining, perDayUsable } = data;
 
   // 目標が1件も無ければ null が返り、この節ごと出さない — 貯金を強制しない。
-  const savingsPlan = planSavingsGoals(savingsGoals ?? [], remaining);
+  // 「このままいけば残せる額」は、今のペースで給料日まで使ったと見込んだ残り(2026-11-27)。前は「使えるお金」と
+  // 同じ数字をそのまま出していて、同じ ¥171,121 が2回並んでいた。ペースは、今期に記録した支出 ÷ 過ぎた日数。
+  const elapsed = Math.max(1, progress?.elapsedDays ?? 1);
+  const projectedLeftover = remaining - (actualSpending / elapsed) * Math.max(0, period.daysUntilNextPayday);
+  const savingsPlan = planSavingsGoals(savingsGoals ?? [], Math.round(projectedLeftover));
 
   const recentTransactions = [...(periodTransactions ?? [])].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
 
@@ -211,7 +215,8 @@ export function ExpenseSummary({ onAddSalary }: Props) {
 
       <section className="lh-section col-span-2 lg:col-span-4" data-page-block>
         <div className="lh-section__head">
-          <h2 className="lh-section__title">今期のまとめ</h2>
+          {/* 期間を見出しに入れる(2026-11-27。「今月」「今期」の合計が並んで見分けにくかった)。 */}
+          <h2 className="lh-section__title">今期（{`${period.periodStart.getMonth() + 1}/${period.periodStart.getDate()}`}〜）のまとめ</h2>
         </div>
         <Card className="finance-summary-module lh-group flex-1">
           {summaryRows.map(([label, value]) => (

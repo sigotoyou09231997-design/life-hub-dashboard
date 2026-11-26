@@ -1,41 +1,40 @@
 import { useEffect, useState } from "react";
-import { resolveTripCover, tripCoverImage } from "../lib/tripCovers";
+import { resolveTripCover } from "../lib/tripCovers";
+import { tripCoverPlace, tripCoverTone, type TripCoverTone } from "../lib/tripCoverTone";
 import { IS_DEMO } from "../lib/demoMode";
 
 export interface TripCoverResult {
-  /** 背景に敷くURL。同梱の写真から始まり、その土地の写真が用意でき次第そちらに変わる。 */
+  /** その土地の写真の URL。取れていない時は空(各画面は、下の色の面と地名の表紙を出す)。 */
   url: string;
   /** 撮影者のクレジット。Googleの写真の時だけ入る。 */
   attribution?: string;
+  /** 写真が無い時の表紙の色(行き先ごと。src/lib/tripCoverTone.ts)。 */
+  tone: TripCoverTone;
+  /** 写真が無い時の表紙に大きく出す地名。 */
+  place: string;
 }
 
 /**
- * 旅行の表紙写真。
+ * 旅行の表紙。
  *
- * まず同梱の写真（旅行ごとに決まる1枚）を返し、裏でその土地の実際の写真を探して、
- * 見つかったら差し替える。差し替える前に画像を読み込み切ってから入れ替えるので、
- * 表紙が一瞬空白になることはない。見つからなければ同梱の写真のまま。
+ * 2026-11-27(見せる品質 その3)から: その土地の写真が取れた時だけ写真を出し、取れていない時は
+ * 「行き先ごとの色の面＋大きな地名」にする。前は取れるまで同梱の写真(建物・海など)を出していて、
+ * 行き先と合わなかった。デモ(/demo)では写真を取りに行かない(サーバーの AI と地図に費用がかかるため)。
  */
 export function useTripCover(name: string, destination: string): TripCoverResult {
-  // デモ(/demo)では表紙の写真を出さない(2026-11-27)。同梱の写真は建物・海などで行き先と合わず、「秋の京都」が
-  // コンクリートの部屋に見えていた。その土地の写真は地図のキーが無いと取れないので、デモだけ写真なしの形にする。
-  // url が空の時は、各画面が写真なしの見た目にする。本人の画面は今までどおり。
-  if (IS_DEMO) return { url: "" };
-  return useRealTripCover(name, destination);
-}
-
-function useRealTripCover(name: string, destination: string): TripCoverResult {
-  const fallback = tripCoverImage(destination || name);
-  const [cover, setCover] = useState<TripCoverResult>({ url: fallback });
+  const tone = tripCoverTone(destination || name);
+  const place = tripCoverPlace(name, destination);
+  const [photo, setPhoto] = useState<{ url: string; attribution?: string } | null>(null);
 
   useEffect(() => {
+    if (IS_DEMO) return;
     let alive = true;
-    setCover({ url: tripCoverImage(destination || name) });
+    setPhoto(null);
     void resolveTripCover(name, destination).then((resolved) => {
       if (!alive || !resolved) return;
       const image = new Image();
       image.onload = () => {
-        if (alive) setCover(resolved);
+        if (alive) setPhoto(resolved);
       };
       image.src = resolved.url;
     });
@@ -44,5 +43,5 @@ function useRealTripCover(name: string, destination: string): TripCoverResult {
     };
   }, [name, destination]);
 
-  return cover;
+  return { url: photo?.url ?? "", attribution: photo?.attribution, tone, place };
 }
