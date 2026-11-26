@@ -12,6 +12,8 @@ import { getScheduleCategory } from "../../lib/scheduleCategories";
 import { isRepeating, repeatLabel } from "../../lib/repeatRule";
 import { parseSoccerMatch } from "../../lib/soccerMatch";
 import { SoccerMatchTitle } from "./SoccerCrests";
+import { eventMeetingLink } from "../../lib/meetingLink";
+import { MeetingJoinLink } from "./MeetingJoinLink";
 
 interface Props {
   events: CalendarEvent[];
@@ -48,6 +50,7 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
         const category = getScheduleCategory(ev.category);
         const span = spanLabel(ev, onDate);
         const soccer = parseSoccerMatch(ev);
+        const meeting = eventMeetingLink(ev);
         return (
           <ListRow key={ev.id} interactive className={`p-0${soccer ? " event-row--soccer" : ""}`}>
             <button
@@ -92,6 +95,8 @@ export function EventList({ events, onEdit, onDelete, emptyMessage = "予定は�
                   {isRepeating(ev.repeat) && <Badge tone="accent">{repeatLabel(ev.repeat)}</Badge>}
                 </div>
               </div>
+              {/* オンライン会議のリンクがあれば、編集を開かずにそのまま入れるボタン(2026-11-26)。 */}
+              {meeting && <MeetingJoinLink link={meeting} className="pointer-events-auto self-center" />}
               <button
                 type="button"
                 // 確認は聞かない。消したあと5秒間「元に戻す」が出る(UI/UX 調査メモ 第4弾 A-2。

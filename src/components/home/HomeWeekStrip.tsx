@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import type { StripDay, UpcomingRow } from "../../lib/homeLayout";
 import { formatShortDate } from "../../lib/date";
 import { EmptyIllustration } from "../ui/EmptyIllustration";
+import { MeetingJoinLink } from "../calendar/MeetingJoinLink";
 
 interface Props {
   days: StripDay[];
@@ -68,24 +69,40 @@ export function HomeWeekStrip({ days, rows, ready, onAdd }: Props) {
           <div className="lh-week__rows">
             {/* 日付は行の列に置かず、日ごとの小さな見出しにする(2026-11-26 仕上げ①)。前は先頭の行だけ日付が見えて、
                 その行だけ左に飛び出して見え、時刻の列とそろっていなかった。行の名前(読み上げ)には日付を残す。 */}
-            {rows.map((row, index) => (
-              <Fragment key={row.key}>
-                {(index === 0 || rows[index - 1].date !== row.date) && (
-                  <p className="lh-week__date-head" aria-hidden="true">
-                    {formatShortDate(row.date)}
-                  </p>
-                )}
-                <Link
-                  to={row.kind === "event" ? `/schedule?view=calendar&date=${row.date}` : "/schedule?view=list"}
-                  className={`lh-week__row is-${row.kind}`}
-                >
+            {rows.map((row, index) => {
+              const to = row.kind === "event" ? `/schedule?view=calendar&date=${row.date}` : "/schedule?view=list";
+              const cells = (
+                <>
                   <span className="sr-only">{formatShortDate(row.date)} </span>
                   <span className="lh-week__time">{row.time ?? (row.kind === "event" ? "終日" : "")}</span>
                   <strong>{row.title}</strong>
                   {row.kind === "task" && <small>タスク</small>}
-                </Link>
-              </Fragment>
-            ))}
+                </>
+              );
+              return (
+                <Fragment key={row.key}>
+                  {(index === 0 || rows[index - 1].date !== row.date) && (
+                    <p className="lh-week__date-head" aria-hidden="true">
+                      {formatShortDate(row.date)}
+                    </p>
+                  )}
+                  {/* 会議のリンクがある予定は、行(カレンダーへ移る)と「参加」ボタンを横に並べる。
+                      <a> の中に <a> は置けないので、その行だけ外側を <div> にする。 */}
+                  {row.meeting ? (
+                    <div className={`lh-week__row is-${row.kind} has-join`}>
+                      <Link to={to} className="lh-week__rowlink">
+                        {cells}
+                      </Link>
+                      <MeetingJoinLink link={row.meeting} variant="compact" />
+                    </div>
+                  ) : (
+                    <Link to={to} className={`lh-week__row is-${row.kind}`}>
+                      {cells}
+                    </Link>
+                  )}
+                </Fragment>
+              );
+            })}
           </div>
           {addButtons}
         </>
