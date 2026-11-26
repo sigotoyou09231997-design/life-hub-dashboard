@@ -1913,6 +1913,7 @@ svg.lucide:not([stroke-width^="3"]):is([width="21"], [width="22"], [width="23"],
    ------------------------------------------------------------------------ */
 /* ルートの「日程との連動・まとめて入れる」(畳んだ箱)。 */
 .trip-route-more {
+  overflow: hidden;
   border-radius: var(--r-card);
   background: #ffffff;
   box-shadow: var(--s-card-shadow);
