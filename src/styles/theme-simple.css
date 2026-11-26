@@ -1799,9 +1799,13 @@ svg.lucide:not([stroke-width^="3"]):is([width="21"], [width="22"], [width="23"],
 
 /* Gmail の絞り込み: 横に流せる列が、選んだ黒いボタンの影を四角く切り、後ろに灰色の四角が見えていた。影の分だけ内側に余白。 */
 .mail-filter-chips {
-  margin: -0.375rem -0.5rem -0.875rem !important;
-  padding: 0.375rem 0.5rem 0.875rem !important;
+  margin: -0.375rem -0.2rem -0.875rem !important;
+  padding: 0.375rem 0.2rem 0.875rem !important;
 }
+/* メールの行: 中の押せる所が角の丸みからわずかに出ていた(押した時の面が角ばって見える)。 */
+.mail-row { overflow: clip; }
+/* 琥珀の文字(重要の印・注意の文)は、白地で読める濃さに(#CF9448 は 2.6:1)。 */
+.app-shell .text-warning { color: #b45309 !important; }
 
 /* ホームの「AIの最新情報」: 1枚目が画面の左端にくっついていた。ほかのカードと同じ左の余白から始め、送った時もそこで止まる。 */
 .lh-home .ai-news-row {
