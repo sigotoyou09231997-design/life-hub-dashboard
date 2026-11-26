@@ -1754,6 +1754,35 @@ svg.lucide:not([stroke-width^="3"]):is([width="21"], [width="22"], [width="23"],
 .week-view__slot > span { display: inline-flex; align-items: center; gap: 0.125rem; }
 
 /* ---------------------------------------------------------------------------
+   見せる品質の直し(2026-11-27)
+   ------------------------------------------------------------------------ */
+/* PC では、上の帯に同じ「＋◯◯を追加」があるので、一覧の下の同じボタンは出さない(収支・サブスク・固定費)。
+   前は幅いっぱいの黒いボタンになり、上の帯の黒いボタンと二重になっていた。スマホでは今までどおり出す。 */
+@media (min-width: 1024px) {
+  .app-button.lh-add-end--same-as-header { display: none !important; }
+  .app-button.lh-add-end:not(.lh-add-end--same-as-header) {
+    align-self: flex-start;
+    width: auto !important;
+    background: #ffffff !important;
+    color: var(--s-ink) !important;
+    box-shadow: var(--s-soft-shadow) !important;
+  }
+}
+
+/* 旅行一覧(PC)の「次の旅行」: 区切り線と数字の欄が、カードの右端より手前で終わっていた(40rem の上限)。カードの幅いっぱいに。 */
+.trip-lead__stats { max-width: none !important; }
+
+/* メモの絞り込み: 横に流せる列が、丸いボタンの影を四角く切って、後ろに灰色の帯のように見えていた。影の分だけ内側に余白を取る。 */
+[role="group"][aria-label="種類フィルター"] {
+  margin: -0.375rem -0.5rem -0.625rem !important;
+  padding: 0.375rem 0.5rem 0.625rem !important;
+}
+
+/* サブスクの「一覧・カレンダー・分析」: 見出しを外したので、左から並べる。 */
+.subs-views-row { justify-content: flex-start !important; }
+.subs-views-row .subs-views { flex: 1 1 auto; }
+
+/* ---------------------------------------------------------------------------
    15. 動きを減らす設定
    ------------------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {

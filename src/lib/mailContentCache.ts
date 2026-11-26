@@ -1,5 +1,7 @@
 import type { GmailAccount } from "../types";
 import { ensureFreshAccessToken, getMessageContent } from "./gmail";
+import { IS_DEMO } from "./demoMode";
+import { demoMailContent } from "./demoMail";
 
 /**
  * メール本文を、開く前に取っておくための控え(2026-11-21、本人「メールの内容とかも時間かかってると思う」)。
@@ -53,6 +55,8 @@ function trim(): void {
 
 /** メール1通の本文(文章・HTML・同封画像)。控えがあればそれ、取っている最中ならその結果を待つ。 */
 export function loadMailContent(account: GmailAccount, gmailMessageId: string): Promise<Content> {
+  // デモでは Gmail から取らず、見本の本文を出す(src/lib/demoMail.ts)。
+  if (IS_DEMO) return Promise.resolve(demoMailContent(gmailMessageId));
   const key = keyOf(account, gmailMessageId);
   const hit = cache.get(key);
   if (hit) {

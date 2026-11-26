@@ -250,7 +250,7 @@ export function FixedCostTab() {
             </section>
           )}
 
-          <Button className="w-full lh-add-end" onClick={() => setAdding(true)}>
+          <Button className="w-full lh-add-end lh-add-end--same-as-header" onClick={() => setAdding(true)}>
             <Plus size={16} aria-hidden="true" /> 固定費を追加
           </Button>
           </div>

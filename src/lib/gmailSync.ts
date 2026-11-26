@@ -1,3 +1,4 @@
+import { IS_DEMO } from "./demoMode";
 import { db } from "../db/schema";
 import type { GmailAccount } from "../types";
 import {
@@ -157,6 +158,8 @@ const inFlight = new Map<string, { mode: GmailSyncMode; promise: Promise<GmailSy
  * 来たら、軽い確認が終わるのを待ってから全部をやる(軽い確認の結果を、全部の結果として返さない)。 */
 export function syncGmailAccount(account: GmailAccount, mode: GmailSyncMode = "full"): Promise<GmailSyncResult> {
   if (!account.id) return Promise.resolve({ summary: "", stateError: null, error: null });
+  // デモ(/demo)では同期しない。見本のメール(src/lib/demoMail.ts)のまま見せる。
+  if (IS_DEMO) return Promise.resolve({ summary: "", stateError: null, error: null });
   const accountId = account.id;
   const running = inFlight.get(accountId);
   if (running && (running.mode === "full" || mode === "quick")) return running.promise;

@@ -15,6 +15,11 @@ import { Card } from "../components/ui/Card";
 import { Button } from "../components/ui/Button";
 import { useToast } from "../components/ui/ToastProvider";
 import { ConnectedApps } from "../components/account/ConnectedApps";
+import { IS_DEMO } from "../lib/demoMode";
+import { DEMO_GMAIL_ADDRESS } from "../lib/demoMail";
+
+/** デモ(/demo)で見せる見本の人(2026-11-27)。ログインしていない「利用不可」の画面を見せないため。本物のログインはしない。 */
+const DEMO_PERSON = { name: "デモ ユーザー", email: DEMO_GMAIL_ADDRESS };
 
 /** Identity + app-login screen, reached from the header's avatar. Deliberately
  * narrow in scope: profile photo/name/email, app login state, login/logout,
@@ -73,10 +78,21 @@ export default function AccountPage() {
         <Card className="profile-identity-module lg:col-span-2">
           <div className="profile-module__header">
             <div className="system-section__identity"><span><UserRound size={17} /></span><div><h2>プロフィール</h2><p className="brand-tagline">LIFE HUB — くらしを、ひとつに。</p></div></div>
-            <div className={`system-status ${session ? "is-online" : ""}`}><i />{!isSupabaseConfigured ? "利用不可" : session ? "ログイン中" : "未ログイン"}</div>
+            <div className={`system-status ${session || IS_DEMO ? "is-online" : ""}`}><i />{IS_DEMO ? "ログイン中(デモ)" : !isSupabaseConfigured ? "利用不可" : session ? "ログイン中" : "未ログイン"}</div>
           </div>
           <div className="profile-identity-content">
-            {session ? (
+            {IS_DEMO ? (
+              <>
+                <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold text-white ${avatarColor(DEMO_PERSON.name)}`}>
+                  {avatarInitial(DEMO_PERSON.name)}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-900">{DEMO_PERSON.name}</p>
+                  <p className="truncate text-sm text-slate-500">{DEMO_PERSON.email}</p>
+                  <p className="mt-1 text-xs text-success">見本のアカウントでログインしています(デモ)</p>
+                </div>
+              </>
+            ) : session ? (
               <>
               {avatarUrl ? (
                 <img src={avatarUrl} alt="" className="h-14 w-14 shrink-0 rounded-full object-cover" />
@@ -151,9 +167,10 @@ export default function AccountPage() {
             <div className="system-section__identity"><span><Cloud size={17} /></span><div><h2>端末間同期</h2></div></div>
           </div>
           <p className="profile-module__description text-xs text-slate-500">
-            {session ? "お金管理・予定・タスクなどを、ログインした端末同士で同期します。" : "ログイン後に、端末間のリアルタイム同期を利用できます。"}
+            {session || IS_DEMO ? "お金管理・予定・タスクなどを、ログインした端末同士で同期します。" : "ログイン後に、端末間のリアルタイム同期を利用できます。"}
           </p>
-          <div className="profile-state-row"><span>現在の状態</span><strong>{session ? "同期可能" : isSupabaseConfigured ? "ログインが必要" : "未設定"}</strong></div>
+          <div className="profile-state-row"><span>現在の状態</span><strong>{IS_DEMO ? "同期オン" : session ? "同期可能" : isSupabaseConfigured ? "ログインが必要" : "未設定"}</strong></div>
+          {IS_DEMO && <p className="mt-2 text-xs text-slate-500">デモでは、見本のデータをこの端末の中だけで動かしています(ほかの端末へは送りません)。</p>}
           {session && (
             <div className="profile-module__actions">
               <Button variant="secondary" className="w-full" onClick={handleSync} disabled={syncing}>

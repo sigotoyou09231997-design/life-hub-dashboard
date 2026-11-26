@@ -152,7 +152,18 @@ export function SettingsToc({ items }: { items: SettingsTocItem[] }) {
 
 /** 目次から飛ぶ先の区切り。PC では見出し1行＋カード2列、スマホでは箱を持たず(display: contents)
  * 今までどおりカードが1列に並ぶ。1枚だけのカードには lg:col-span-2 を付けて横いっぱいにする。 */
-export function SettingsSection({ id, label, children }: { id: string; label: string; children: ReactNode }) {
+export function SettingsSection({
+  id,
+  label,
+  showLabel = true,
+  children,
+}: {
+  id: string;
+  label: string;
+  /** PC の区切りの見出しを出すか。中のカードの題と同じ言葉になる区切り(「使う機能」)は出さない(2026-11-27)。 */
+  showLabel?: boolean;
+  children: ReactNode;
+}) {
   return (
     <section
       id={id}
@@ -160,7 +171,7 @@ export function SettingsSection({ id, label, children }: { id: string; label: st
       tabIndex={-1}
       className="contents outline-none lg:grid lg:scroll-mt-6 lg:grid-cols-2 lg:gap-x-5 lg:gap-y-4"
     >
-      <p className="hidden px-1 text-sm font-bold text-[var(--warm-ink-2)] lg:col-span-2 lg:block">{label}</p>
+      {showLabel && <p className="hidden px-1 text-sm font-bold text-[var(--warm-ink-2)] lg:col-span-2 lg:block">{label}</p>}
       {children}
     </section>
   );

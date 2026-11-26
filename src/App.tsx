@@ -397,7 +397,9 @@ export default function App() {
             {/* 「ここ直した方がいい」を送る入口。右下の「＋」の真上(src/components/feedback/FeedbackButton.tsx)。
                 直している最中は「対応中」になる。持ち主(本人)にも出す。 */}
             {/* デモ(/demo)では出さない — 見に来た人の文章が、本人の要望の受信箱(と自動で直す見張り)に入らないように。 */}
-            {!IS_DEMO && <InAppFeedbackButton />}
+            {/* 2026-11-27: Supabase につながっていない画面(撮影用・開発用)でも出さない。要望は Supabase に送るので、
+                その画面では送れないうえ、中身に重なって写っていた。ログインした本人の画面では今までどおり出す。 */}
+            {!IS_DEMO && isSupabaseConfigured && <InAppFeedbackButton />}
             {/* 「何を追加しますか?」(ホームの「＋」・PCの上の帯の「＋追加」から開く)。 */}
             <AddChooserHost />
           </div>

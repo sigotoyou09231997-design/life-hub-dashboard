@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { destinationQuery, geocodePlace, parseGeocodeResults, placeSubtitle, searchPlaces } from "./geocoding";
+import { destinationQuery, geocodePlace, parseGeocodeResults, placeSubtitle, searchPlaces, withCitySuffix } from "./geocoding";
 
 const GEOCODE_OK = {
   results: [{ name: "京都市", latitude: 35.0116, longitude: 135.7681, country: "日本", admin1: "京都府" }],
@@ -84,6 +84,24 @@ describe("geocodePlace", () => {
     await geocodePlace("京都", now);
     await geocodePlace("京都", now + 91 * 24 * 60 * 60 * 1000);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("「京都」で見つからない時は「京都市」で引き直す(地名検索は「市」が無いと引けない地名がある)", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      const ok = decodeURIComponent(String(url)).includes("name=京都市");
+      return new Response(JSON.stringify(ok ? GEOCODE_OK : { results: [] }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await geocodePlace("京都"))?.name).toBe("京都市");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("「市」を付けて引き直すのは、漢字で終わり行政区分の字が無い地名だけ", () => {
+    expect(withCitySuffix("京都")).toBe("京都市");
+    expect(withCitySuffix("京都市")).toBeUndefined();
+    expect(withCitySuffix("北海道")).toBeUndefined();
+    expect(withCitySuffix("パリ")).toBeUndefined();
+    expect(withCitySuffix("ここではないどこか")).toBeUndefined();
   });
 
   it("空の行き先は問い合わせない", async () => {

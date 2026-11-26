@@ -207,8 +207,8 @@ export function SubscriptionTab() {
       </section>
 
       {/* 二段目のタブは、上のタブ(サブスク／サマリー…)と見分けがつくよう、見出しの行の右の小さな切り替えにする(第8弾 X-6)。 */}
+      {/* 2026-11-27: 左に出していた見出し(「一覧」「分析」)は、右の選んでいるタブと同じ言葉の繰り返しだったのでやめた。 */}
       <div className="subs-views-row">
-        <span className="subs-views-row__label">{view === "list" ? "一覧" : view === "calendar" ? "請求日のカレンダー" : "分析"}</span>
         <Tabs<View>
           className="subs-views"
           dense
@@ -297,7 +297,7 @@ export function SubscriptionTab() {
                 </section>
               )}
 
-              <Button className="w-full lh-add-end" onClick={openAdd}>
+              <Button className="w-full lh-add-end lh-add-end--same-as-header" onClick={openAdd}>
                 <Plus size={16} aria-hidden="true" /> サブスクを追加
               </Button>
 

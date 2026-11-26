@@ -119,9 +119,9 @@ export const SUBSCRIPTION_TEMPLATES: SubscriptionTemplate[] = [
   { key: "apple-one-family", service: "Apple One", plan: "ファミリー", category: "クラウド", cycle: "monthly", price: 2500, color: "#111111", mark: "A1", manageUrl: "https://support.apple.com/ja-jp/118428" },
 
   // ゲーム
-  { key: "nso-monthly", service: "Nintendo Switch Online", plan: "個人 1か月", category: "ゲーム", cycle: "monthly", price: 400, color: "#e60012", mark: "N", manageUrl: "https://ec.nintendo.com/my/membership" },
-  { key: "nso-yearly", service: "Nintendo Switch Online", plan: "個人 12か月", category: "ゲーム", cycle: "yearly", price: 3000, color: "#e60012", mark: "N", manageUrl: "https://ec.nintendo.com/my/membership" },
-  { key: "nso-expansion", service: "Nintendo Switch Online", plan: "＋追加パック 個人 12か月", category: "ゲーム", cycle: "yearly", price: 5900, color: "#e60012", mark: "N", manageUrl: "https://ec.nintendo.com/my/membership" },
+  { key: "nso-monthly", service: "Nintendo Switch Online", plan: "個人 1か月", category: "ゲーム", cycle: "monthly", price: 400, color: "#e60012", mark: "NS", manageUrl: "https://ec.nintendo.com/my/membership" },
+  { key: "nso-yearly", service: "Nintendo Switch Online", plan: "個人 12か月", category: "ゲーム", cycle: "yearly", price: 3000, color: "#e60012", mark: "NS", manageUrl: "https://ec.nintendo.com/my/membership" },
+  { key: "nso-expansion", service: "Nintendo Switch Online", plan: "＋追加パック 個人 12か月", category: "ゲーム", cycle: "yearly", price: 5900, color: "#e60012", mark: "NS", manageUrl: "https://ec.nintendo.com/my/membership" },
   { key: "ps-plus-essential", service: "PlayStation Plus", plan: "エッセンシャル 1か月", category: "ゲーム", cycle: "monthly", price: 850, color: "#003791", mark: "PS", manageUrl: "https://www.playstation.com/ja-jp/ps-plus/" },
   { key: "ps-plus-essential-yearly", service: "PlayStation Plus", plan: "エッセンシャル 12か月", category: "ゲーム", cycle: "yearly", price: 6800, color: "#003791", mark: "PS", manageUrl: "https://www.playstation.com/ja-jp/ps-plus/" },
   { key: "game-pass-ultimate", service: "Xbox Game Pass", plan: "Ultimate", category: "ゲーム", cycle: "monthly", price: 1550, color: "#107c10", mark: "X", manageUrl: "https://account.microsoft.com/services" },

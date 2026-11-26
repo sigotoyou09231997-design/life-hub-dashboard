@@ -14,6 +14,7 @@ import { AccountSwitcher } from "./AccountSwitcher";
 import { GlobalSearch, usePaletteShortcut } from "./GlobalSearch";
 import { openAddChooser } from "./AddChooser";
 import { usePageAddAction } from "../../lib/pageAddAction";
+import { IS_DEMO } from "../../lib/demoMode";
 
 /** Persistent, app-wide header (avatar / "LIFE HUB" / bell / settings) — shown
  * above every page's own PageHeader (back arrow + title), which keeps its
@@ -48,8 +49,9 @@ export function AppHeader() {
   }, []);
 
   const avatarUrl = session?.user.user_metadata?.avatar_url as string | undefined;
+  // デモ(/demo)では、アカウント画面と同じ見本の人の頭文字を出す(2026-11-27)。
   const displayName =
-    (session?.user.user_metadata?.full_name as string | undefined) ?? session?.user.email ?? "アカウント";
+    (session?.user.user_metadata?.full_name as string | undefined) ?? session?.user.email ?? (IS_DEMO ? "デモ ユーザー" : "アカウント");
 
   const avatar = avatarUrl ? (
     <img src={avatarUrl} alt="" className="h-9 w-9 rounded-full object-cover" />
