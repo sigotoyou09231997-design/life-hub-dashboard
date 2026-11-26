@@ -376,7 +376,7 @@ export default function TripDetailPage() {
         {cover.url ? (
           <div className="trip-detail-hero__photo" style={{ backgroundImage: `url('${cover.url}')` }} aria-hidden="true" />
         ) : (
-          <TripCoverArt cover={cover} className="trip-detail-hero__photo" note={`${formatDisplayDate(trip.startDate)} 〜 ${formatDisplayDate(trip.endDate)}${tripCountdown(trip, todayStr()) ? `・${tripCountdown(trip, todayStr())}` : ""}`} />
+          <TripCoverArt cover={cover} className="trip-detail-hero__photo" note={tripCountdown(trip, todayStr()) || undefined} />
         )}
         <div className="trip-detail-hero__veil" aria-hidden="true" />
         <div className="trip-detail-hero__bar">

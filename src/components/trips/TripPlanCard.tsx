@@ -26,7 +26,7 @@ export function TripPlanCard({ trip, onDelete }: Props) {
           aria-hidden="true"
         />
       ) : (
-        <TripCoverArt cover={cover} className="trip-plan__photo" note={countdown || undefined} />
+        <TripCoverArt cover={cover} className="trip-plan__photo" />
       )}
       <div className="trip-plan__veil" aria-hidden="true" />
 

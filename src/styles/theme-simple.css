@@ -1866,6 +1866,8 @@ svg.lucide:not([stroke-width^="3"]):is([width="21"], [width="22"], [width="23"],
   font-variant-numeric: tabular-nums;
 }
 .trip-plan__photo.trip-cover-art .trip-cover-art__place { font-size: 1.5rem; }
+/* 日程以外のタブで畳んだ表紙には、色の面も出さない(写真と同じ扱い)。 */
+.trip-detail-hero.is-compact .trip-cover-art { display: none !important; }
 .trip-plan__photo.trip-cover-art .trip-cover-art__leaf { width: 8rem !important; height: 8rem !important; }
 @media (min-width: 1024px) {
   .trip-detail-hero__photo.trip-cover-art .trip-cover-art__place { font-size: 2.75rem; }

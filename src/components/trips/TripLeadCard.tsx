@@ -58,7 +58,7 @@ export function TripLeadCard({ trip, onDelete }: Props) {
           aria-hidden="true"
         />
       ) : (
-        <TripCoverArt cover={cover} className="trip-lead__photo" note={`${formatDisplayDate(trip.startDate)} 〜 ${formatDisplayDate(trip.endDate)}`} />
+        <TripCoverArt cover={cover} className="trip-lead__photo" />
       )}
       <div className="trip-lead__veil" aria-hidden="true" />
 
