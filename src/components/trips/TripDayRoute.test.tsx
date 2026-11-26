@@ -171,7 +171,7 @@ describe("TripDayRoute", () => {
     fireEvent.click(screen.getByRole("button", { name: "この日の経路を地図で見る" }));
     expect(mapStops()).toEqual(["東京駅 東京都千代田区", "高松駅 香川県高松市"]);
     expect(screen.queryByRole("checkbox", { name: "自宅" })).toBeNull();
-    expect(screen.getByRole("link", { name: "自宅の住所を入れる" }).getAttribute("href")).toBe("/settings");
+    expect(screen.getByRole("link", { name: "自宅の住所を入れる" }).getAttribute("href")).toBe("/settings?section=settings-trip"); // 2026-11-27: スマホの設定を区切りごとに分けたので、旅行の区切りを名指しで開く
   });
 
   it("「あとで」で案内を閉じると、この端末では次に開いても出ない(仕上げ B-2)", () => {
