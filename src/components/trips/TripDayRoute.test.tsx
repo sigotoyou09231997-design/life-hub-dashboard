@@ -265,3 +265,14 @@ describe("経路の手段は、日程の移動手段を基本にする(2026-10-1
     expect(mapSrc()).toContain("dirflg=w");
   });
 });
+
+describe("「ほかの操作」の1行として出す時(旅行詳細のスマホ、2026-11-26)", () => {
+  it("行の形でも、同じ名前のボタンで同じシート(地図)が開く", () => {
+    const { container } = render(<TripDayRoute items={DAY1} date={DAY} asRow />);
+    const row = screen.getByRole("button", { name: "この日の経路を地図で見る" });
+    expect(row.classList.contains("action-row")).toBe(true);
+    expect(container.querySelector(".app-button")).toBeNull();
+    fireEvent.click(row);
+    expect(screen.getByTitle(/の経路の地図$/)).toBeTruthy();
+  });
+});

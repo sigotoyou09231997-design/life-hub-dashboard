@@ -7,6 +7,7 @@ import { buildRouteEmbedUrl, buildRouteSearchUrl } from "../../lib/googleMaps";
 import { resolveHomeStops, useHomeAddress } from "../../lib/homePlace";
 import { formatDisplayDate } from "../../lib/date";
 import { Button } from "../ui/Button";
+import { ActionRow } from "../ui/ActionList";
 import { Sheet } from "../ui/Sheet";
 import { Tabs } from "../ui/Tabs";
 
@@ -21,6 +22,8 @@ interface Props {
    * どちらでも同じシートで行う(選んだ内容は端末に覚えるので、出し方が変わっても同じ地図になる)。
    */
   inline?: boolean;
+  /** 「ほかの操作」の一覧の1行として出す(旅行詳細のスマホ。src/components/ui/ActionList.tsx)。 */
+  asRow?: boolean;
 }
 
 /** 地図の線の手段。以前の「車/徒歩」の切り替えと同じ鍵に覚える。 */
@@ -102,7 +105,7 @@ function store(key: string, value: string) {
  * どの場所を出すかはチェックで選ぶ(同じ日、「選択式にして、出したくないものは表示しないでほしい」)。
  * 選んだ内容は端末に覚えるので、次に開いた時もそのまま。
  */
-export function TripDayRoute({ items, date, inline = false }: Props) {
+export function TripDayRoute({ items, date, inline = false, asRow = false }: Props) {
   /** 手段を決めていない日(日程に移動手段が無い日)の既定。最後に選んだ手段。 */
   const [fallbackMode, setFallbackMode] = useState<LegMode>(readStoredMode);
   /** 本人が、その日の手段を選び直した記録。 */
@@ -221,6 +224,8 @@ export function TripDayRoute({ items, date, inline = false }: Props) {
             場所と移動手段を選ぶ
           </Button>
         </div>
+      ) : asRow ? (
+        <ActionRow icon={Route} label="この日の経路を地図で見る" onClick={() => setOpen(true)} />
       ) : (
         <Button variant="secondary" className="w-full" onClick={() => setOpen(true)}>
           <Route size={17} />

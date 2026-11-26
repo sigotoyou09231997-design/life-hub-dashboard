@@ -20,6 +20,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Sheet } from "../components/ui/Sheet";
 import { PageFab } from "../components/ui/PageFab";
 import { Button } from "../components/ui/Button";
+import { ActionList, ActionRow } from "../components/ui/ActionList";
 import { Card } from "../components/ui/Card";
 import { TripForm } from "../components/trips/TripForm";
 import { TripScheduleForm } from "../components/trips/TripScheduleForm";
@@ -482,9 +483,9 @@ export default function TripDetailPage() {
                 }}
               />
               {dayList.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  {/* 見ている日の日程を、Googleマップの経路として開く。PCでは右の欄に地図そのものが出ているので出さない。 */}
-                  {!isDesktop && <TripDayRoute items={schedule} date={activeScheduleDay} />}
+                <div className="trip-day-actions mt-5 flex flex-col gap-6">
+                  {/* 主役の操作は「予定を追加」1つだけ(黒いボタン)。ほかは下の「ほかの操作」の行にまとめる
+                      (2026-11-26「静かな白」。前は同じ強さの全幅ボタンが縦に5つ積まれていた)。 */}
                   <Button
                     className="w-full"
                     onClick={() => {
@@ -495,24 +496,18 @@ export default function TripDetailPage() {
                   >
                     予定を追加
                   </Button>
-                  {/* しおり・チケット・案内のメッセージから日程を起こす入り口。1件ずつ
-                      打ち込む「予定を追加」の下に置き、まとめて入れたい時だけ使う。 */}
-                  <Button variant="secondary" className="w-full" onClick={() => setScanOpen(true)}>
-                    <Sparkles size={17} />
-                    写真・文章から追加・更新
-                  </Button>
-                  {/* 日程をGoogleマイマップへ入れるためのCSV。マイマップには外から書き込めないので、
-                      ファイルを渡して取り込んでもらう形(TripMyMapsSheet)。 */}
-                  <Button variant="secondary" className="w-full" onClick={() => setMyMapsOpen(true)}>
-                    <MapPinned size={17} />
-                    Googleマイマップに入れる
-                  </Button>
-                  {/* 「霊山寺」のような名前だけの場所を、都道府県・市区町村つきに表でまとめて直す。
-                      地図(マイマップ・ルート)が別の場所を選ぶのを避けるため。 */}
-                  <Button variant="secondary" className="w-full" onClick={() => setRemapOpen(true)}>
-                    <Replace size={17} />
-                    場所をまとめて直す
-                  </Button>
+                  <ActionList title="ほかの操作">
+                    {/* 見ている日の日程を、Googleマップの経路として開く。PCでは右の欄に地図そのものが出ているので出さない。 */}
+                    {!isDesktop && <TripDayRoute items={schedule} date={activeScheduleDay} asRow />}
+                    {/* しおり・チケット・案内のメッセージから日程を起こす入り口。まとめて入れたい時だけ使う。 */}
+                    <ActionRow icon={Sparkles} label="写真・文章から追加・更新" onClick={() => setScanOpen(true)} />
+                    {/* 日程をGoogleマイマップへ入れるためのCSV。マイマップには外から書き込めないので、
+                        ファイルを渡して取り込んでもらう形(TripMyMapsSheet)。 */}
+                    <ActionRow icon={MapPinned} label="Googleマイマップに入れる" onClick={() => setMyMapsOpen(true)} />
+                    {/* 「霊山寺」のような名前だけの場所を、都道府県・市区町村つきに表でまとめて直す。
+                        地図(マイマップ・ルート)が別の場所を選ぶのを避けるため。 */}
+                    <ActionRow icon={Replace} label="場所をまとめて直す" onClick={() => setRemapOpen(true)} />
+                  </ActionList>
                 </div>
               )}
             </div>

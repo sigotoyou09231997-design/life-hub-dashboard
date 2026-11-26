@@ -7,8 +7,9 @@ import { FeedbackForm } from "./FeedbackForm";
 import { FeedbackProgressList } from "./FeedbackProgressList";
 import { useFeedbackCounts } from "../../hooks/useFeedbackProgress";
 
-/** 「＋」(下端から5.5rem・高さ3.5rem)の上に0.75rem空けて重ねる。PCは「＋」が下端から2rem。 */
-const IN_APP_POSITION = "bottom-[calc(env(safe-area-inset-bottom)+9.75rem-var(--viewport-gap,0px))] right-5 lg:bottom-[6.25rem] lg:right-8";
+/** スマホは下のナビ(高さ約4.1rem)の上に0.75rem空けて、右端に置く。「＋」はナビの真ん中に入った(2026-11-26)ので、
+ * もう「＋」とは重ならない。PC は右下の「＋」が無いので、右下の角に置く。 */
+const IN_APP_POSITION = "feedback-button--in-app bottom-[calc(env(safe-area-inset-bottom)+4.85rem-var(--viewport-gap,0px))] right-4 lg:bottom-8 lg:right-8";
 
 /** 「対応中」の印(脈打つ点)。動きを減らす設定の人には、止めた点で出す。 */
 function WorkingDot() {
@@ -55,7 +56,7 @@ export function FeedbackButton({ shareToken, standalone = false }: Props) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={ariaState ? `${ariaState}。直してほしいことを送る` : "直してほしいことを送る"}
-        className={`feedback-button fixed ${position} z-40 flex transform-gpu items-center gap-1.5 rounded-full border border-white/70 bg-white/90 px-3.5 py-2 text-xs font-semibold shadow-lg backdrop-blur transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${working ? "text-accent" : held ? "text-amber-700" : "text-slate-600"}`}
+        className={`feedback-button fixed ${position} z-40 flex transform-gpu items-center gap-1.5 rounded-full bg-white px-3.5 py-2 text-xs font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ${working ? "text-accent" : held ? "text-amber-700" : "text-slate-600"}`}
       >
         {working ? <WorkingDot /> : held ? <span className="h-2.5 w-2.5 rounded-full bg-amber-500" aria-hidden="true" /> : <MessageSquarePlus size={15} aria-hidden="true" />}
         {label}
