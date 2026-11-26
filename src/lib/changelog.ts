@@ -35,6 +35,14 @@ export function splitChangelogBody(entry: Pick<ChangelogEntry, "description" | "
 /** 新しいものが上。 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    id: "2026-11-26-209",
+    date: "2026-11-26",
+    area: "予定・タスク",
+    title: "Zoom・Meet の面接にワンタップで入れるように",
+    description:
+      "予定の場所かメモに Zoom・Google Meet・Teams などの会議のリンクがあると、「Zoomで参加」のようなボタンが出ます。ホームの「今日と、この先」、予定の一覧、予定を開いた画面のいちばん上から、そのまま会議を開けます。会議サービス以外のリンクにはボタンを出しません。",
+  },
+  {
     id: "2026-11-26-208",
     date: "2026-11-26",
     area: "デザイン",
