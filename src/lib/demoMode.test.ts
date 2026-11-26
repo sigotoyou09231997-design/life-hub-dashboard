@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 describe("デモモード", () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     vi.resetModules();
     window.history.replaceState(null, "", "/");
   });
@@ -37,7 +38,7 @@ describe("デモモード", () => {
     expect(accounts.scopedKey("syncCursor")).toBe("life-hub-demo:syncCursor");
   });
 
-  it("一度入ると、ホーム(/)に移ってもデモのまま(印が残る)", async () => {
+  it("一度入ると、同じタブでホーム(/)に移ってもデモのまま(印はそのタブの sessionStorage に残る)", async () => {
     window.history.replaceState(null, "", "/demo");
     await import("./demoMode");
     vi.resetModules();
@@ -79,6 +80,7 @@ describe("デモモード", () => {
     }
 
     expect(localStorage.getItem("lifehub:demo")).toBeNull();
+    expect(sessionStorage.getItem("lifehub:demo")).toBeNull();
     expect(deleteDatabase).toHaveBeenCalledWith("life-hub-demo");
     expect(replace).toHaveBeenCalledWith("/");
   });
@@ -117,5 +119,31 @@ describe("デモモード", () => {
     } finally {
       window.fetch = originalFetch;
     }
+  });
+
+  it("デモの印はそのタブの中だけ: ほかのタブ(sessionStorage が空)は、ふだんの LIFE HUB のまま", async () => {
+    window.history.replaceState(null, "", "/demo");
+    await import("./demoMode");
+    expect(sessionStorage.getItem("lifehub:demo")).toBe("1");
+    expect(localStorage.getItem("lifehub:demo")).toBeNull();
+
+    // 別のタブを開いた状態(同じ端末の localStorage は共有、sessionStorage は空)。
+    vi.resetModules();
+    sessionStorage.clear();
+    window.history.replaceState(null, "", "/");
+    const demo = await import("./demoMode");
+    const { db } = await import("../db/schema");
+    expect(demo.IS_DEMO).toBe(false);
+    expect(db.name).toBe("life-hub");
+  });
+
+  it("前の版が localStorage に残したデモの印は効かせず、消す(端末ごとデモになったままにしない)", async () => {
+    localStorage.setItem("lifehub:demo", "1");
+    const demo = await import("./demoMode");
+    const { isSupabaseConfigured } = await import("./supabase");
+    expect(demo.IS_DEMO).toBe(false);
+    expect(localStorage.getItem("lifehub:demo")).toBeNull();
+    // テスト環境は Supabase 未設定なので false のまま。デモのせいで false になったのではないことは、IS_DEMO で確かめている。
+    expect(typeof isSupabaseConfigured).toBe("boolean");
   });
 });
