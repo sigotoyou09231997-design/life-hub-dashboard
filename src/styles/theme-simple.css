@@ -1744,6 +1744,9 @@ svg.lucide:not([stroke-width^="3"]):is([width="21"], [width="22"], [width="23"],
   box-shadow: none !important;
 }
 
+/* ボタンの中のアイコンには台を付けない(ルートの「＋ 場所を追加」の小さな丸をやめる)。 */
+.trip-route-add span { width: auto !important; height: auto !important; background: none !important; }
+
 /* 旅行の日程の種類の印(食事・宿・移動など)は色に意味があるので色付きのまま。形だけ丸に。 */
 .trip-timeline__icon { border-radius: 50% !important; }
 
