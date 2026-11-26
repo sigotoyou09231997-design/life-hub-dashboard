@@ -4,6 +4,7 @@ import type { Trip } from "../../types";
 import { formatDisplayDate, tripDurationLabel } from "../../lib/date";
 import { useTripCover } from "../../hooks/useTripCover";
 import { TripRemoveButton } from "./TripRemoveButton";
+import { TripCoverArt } from "./TripCoverArt";
 
 interface Props {
   trips: Trip[];
@@ -29,12 +30,14 @@ function TripArchiveRow({ trip, onDelete }: { trip: Trip; onDelete: (id: string)
 
   return (
     <Link to={`/trips/${trip.id}`} className="trip-archive__row">
-      {cover.url && (
+      {cover.url ? (
         <div
           className="trip-archive__thumb"
           style={{ backgroundImage: `url('${cover.url}')` }}
           aria-hidden="true"
         />
+      ) : (
+        <TripCoverArt cover={cover} className="trip-archive__thumb" size="thumb" />
       )}
       <div className="trip-archive__copy">
         <strong>{trip.name}</strong>

@@ -180,6 +180,8 @@ describe("summarizeReview", () => {
     expect(summary.activeDays).toBe(1);
     expect(summary.elapsedDays).toBe(3);
     expect(summary.eventCount).toBe(1);
+    // 1日あたりも、今日までの日数(3日)で割る。
+    expect(summary.expensePerDay).toBe(33);
   });
 
   it("同じ日に複数の記録があっても、活動した日は1日", () => {

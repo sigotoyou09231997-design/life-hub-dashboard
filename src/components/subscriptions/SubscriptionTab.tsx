@@ -156,7 +156,7 @@ export function SubscriptionTab() {
         <dl className="subs-total__stats">
           <div>
             {/* 「月あたり」(年払いを12で割った額)とは別に、この暦の月に実際に引き落とされる額。何月かを書く(2026-11-27)。 */}
-            <dt>{new Date().getMonth() + 1}月に払う額</dt>
+            <dt>{new Date().getMonth() + 1}月中の引き落とし</dt>
             <dd>{yen(summary.thisMonthCharge)}</dd>
           </div>
           <div>

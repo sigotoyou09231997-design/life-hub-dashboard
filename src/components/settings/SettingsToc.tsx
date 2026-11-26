@@ -1,4 +1,8 @@
-import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+
+/** スマホで、いま開いている区切りの id(2026-11-27、見せる品質 その3)。undefined = 全部出す(PC)。
+ * スマホの設定は約14画面ぶんの長さだったので、最初は区切りの一覧だけ、押した区切りだけを1画面に出す。 */
+export const SettingsOnlySectionContext = createContext<string | null | undefined>(undefined);
 import type { LucideIcon } from "lucide-react";
 
 /* 設定の画面は、カードが縦に長く並んでいて目当ての所が探しにくい(UI/UX 調査メモ P-7)。
@@ -164,6 +168,8 @@ export function SettingsSection({
   showLabel?: boolean;
   children: ReactNode;
 }) {
+  const only = useContext(SettingsOnlySectionContext);
+  if (only !== undefined && only !== id) return null;
   return (
     <section
       id={id}

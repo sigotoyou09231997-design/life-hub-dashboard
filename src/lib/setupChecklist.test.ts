@@ -42,8 +42,9 @@ describe("始め方のチェックリスト — 進み具合", () => {
     expect(byId.salary.to).toBe("/records/expense?new=salary");
     expect(byId.expense.action).toBe("expense");
     expect(byId.event.action).toBe("event");
-    expect(byId.homeAddress.to).toBe("/settings");
-    expect(byId.googleCalendar.to).toBe("/settings");
+    // 2026-11-27: スマホの設定を区切りごとの画面に分けたので、その区切りを名指しで開く。
+    expect(byId.homeAddress.to).toBe("/settings?section=settings-trip");
+    expect(byId.googleCalendar.to).toBe("/settings?section=settings-gmail");
   });
 });
 

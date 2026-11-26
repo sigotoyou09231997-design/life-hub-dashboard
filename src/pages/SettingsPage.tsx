@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { Session } from "@supabase/auth-js";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { CalendarArrowUp, CalendarDays, Database, Image as ImageIcon, LayoutGrid, Mail, PiggyBank, Plus, Sparkles, Wallet } from "lucide-react";
 import { db, ensureDefaultSettings } from "../db/schema";
 import type { CategoryBudget, GmailAccount, SavingsGoal } from "../types";
@@ -14,7 +14,9 @@ import { FeedbackInbox } from "../components/feedback/FeedbackInbox";
 import { GoogleCalendarSyncControl } from "../components/settings/GoogleCalendarSyncControl";
 import { HomeAddressSetting } from "../components/settings/HomeAddressSetting";
 import { currentVersion, isUpdateAvailable, subscribeUpdateAvailable, updateToLatestNow } from "../lib/pwaUpdate";
-import { SettingsSection, SettingsToc, type SettingsTocItem } from "../components/settings/SettingsToc";
+import { SettingsOnlySectionContext, SettingsSection, SettingsToc, type SettingsTocItem } from "../components/settings/SettingsToc";
+import { ActionList, ActionRow } from "../components/ui/ActionList";
+import { useIsDesktop } from "../hooks/useIsDesktop";
 import { sortCategoryBudgets, totalCategoryBudget, unbudgetedCategories } from "../lib/categoryBudget";
 import { buildCalendarIcs, calendarIcsFilename, downloadIcs } from "../lib/ical";
 import { exportBackup, importBackup } from "../lib/backup";
@@ -47,6 +49,9 @@ const showDevTools = isSupabaseConfigured;
 
 export default function SettingsPage() {
   const showToast = useToast();
+  const isDesktop = useIsDesktop();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sectionParam = searchParams.get("section");
   const confirm = useConfirm();
 
   // 更新履歴の新着。読んだ印は画面を開いた時に進むので、ここでは数えるだけ。
@@ -266,11 +271,36 @@ export default function SettingsPage() {
     { id: "settings-gmail", label: "Gmail", icon: Mail },
   ];
 
+  // スマホは、最初は区切りの一覧だけ(Things のような形)。押すと ?section=<id> でその区切りだけを1画面に出す(2026-11-27)。
+  // 前は全部のカードが縦に並び、約14画面ぶんの長さだった。PC は今までどおり左の目次＋全部(?section= ならそこへ送る)。
+  const mobileSection = isDesktop ? undefined : (tocItems.find((item) => item.id === sectionParam)?.id ?? null);
+  const mobileSectionLabel = tocItems.find((item) => item.id === mobileSection)?.label;
+  useEffect(() => {
+    if (!isDesktop || !sectionParam) return;
+    document.getElementById(sectionParam)?.scrollIntoView({ block: "start" });
+  }, [isDesktop, sectionParam]);
+
+  if (mobileSection === null) {
+    return (
+      <div className="spatial-page settings-page micro-contrast mx-auto max-w-[1040px] pb-10">
+        <PageHeader title="設定" backTo="/" />
+        <div className="settings-menu px-5">
+          <ActionList title="設定の項目">
+            {tocItems.map((item) => (
+              <ActionRow key={item.id} icon={item.icon} label={item.label} onClick={() => setSearchParams({ section: item.id })} />
+            ))}
+          </ActionList>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="spatial-page settings-page micro-contrast mx-auto max-w-[1040px] pb-10 lg:pb-8">
-      <PageHeader title="設定" backTo="/" />
+      <PageHeader title={mobileSectionLabel ?? "設定"} backTo={mobileSectionLabel ? "/settings" : "/"} />
 
-      {/* スマホは今までどおりカードが1列。PC は左に目次、右に区切りごとのカード(1区切り2列)。 */}
+      {/* スマホは開いた区切りのカードが1列。PC は左に目次、右に区切りごとのカード(1区切り2列)。 */}
+      <SettingsOnlySectionContext.Provider value={mobileSection}>
       <div className="system-control-panel settings-account-grid grid gap-3 px-5 lg:grid-cols-[10.5rem_minmax(0,1fr)] lg:items-start lg:!gap-x-10 lg:px-8 lg:pt-1">
         <SettingsToc items={tocItems} />
         <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-9">
@@ -294,13 +324,23 @@ export default function SettingsPage() {
                     {showDevTools && <span className="settings-version-id">({currentVersion()})</span>}
                   </strong>
                 </div>
-                <small>{versionNote ?? "押すと最新版を確かめます"}</small>
+                {/* 最新の時は大きなボタンを出さない(2026-11-27。「最新です」の横に「最新版にする」が並んでいた)。
+                    確かめ直したい時のために、小さな文字のボタンだけ残す。 */}
+                {newerAvailable || checkFailed ? (
+                  <small>{versionNote ?? "押すと最新版を確かめます"}</small>
+                ) : (
+                  <button type="button" className="settings-recheck" onClick={handleUpdateNow} disabled={updating}>
+                    {updating ? "確かめています…" : versionNote ?? "もう一度確かめる"}
+                  </button>
+                )}
               </div>
-              <div className="system-section__actions">
-                <Button variant="secondary" className="w-full" onClick={handleUpdateNow} disabled={updating}>
-                  {updating ? "確かめています…" : "最新版にする"}
-                </Button>
-              </div>
+              {(newerAvailable || checkFailed) && (
+                <div className="system-section__actions">
+                  <Button variant="secondary" className="w-full" onClick={handleUpdateNow} disabled={updating}>
+                    {updating ? "確かめています…" : "最新版にする"}
+                  </Button>
+                </div>
+              )}
               <div className="system-section__actions">
                 <Link
                   to="/changelog"
@@ -661,6 +701,7 @@ export default function SettingsPage() {
 
         </div>
       </div>
+      </SettingsOnlySectionContext.Provider>
     </div>
   );
 }

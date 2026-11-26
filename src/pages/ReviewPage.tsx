@@ -428,7 +428,7 @@ export default function ReviewPage() {
               icon={CheckSquare}
               label="片付いたタスク"
               value={`${summary.tasksCompleted} 件`}
-              note={summary.tasksCompleted > 0 ? `1日あたり ${(summary.tasksCompleted / Math.max(1, dayCount)).toFixed(1)} 件` : "この期間の完了はありません"}
+              note={summary.tasksCompleted > 0 ? `1日あたり ${(summary.tasksCompleted / Math.max(1, summary.elapsedDays)).toFixed(1)} 件` : "この期間の完了はありません"}
             />
             <MetricCard
               icon={CalendarDays}

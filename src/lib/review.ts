@@ -175,7 +175,8 @@ export function summarizeReview(input: ReviewInput, period: ReviewPeriod, today:
       .map(([category, amount]) => ({ category, amount }))
       .sort((a, b) => b.amount - a.amount),
     dailyExpenses: days.map((date) => ({ date, amount: perDay.get(date) ?? 0 })),
-    expensePerDay: days.length > 0 ? Math.round(expenseTotal / days.length) : 0,
+    // 今日までの日数で割る(2026-11-27。「今日までの5日間」と並んでいるのに7日で割っていた)。過ぎた期間は期間の日数。
+    expensePerDay: days.length > 0 ? Math.round(expenseTotal / Math.max(1, days.filter((day) => day <= today).length)) : 0,
     tasksCompleted,
     eventCount,
     diaryCount,

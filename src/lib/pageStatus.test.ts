@@ -9,9 +9,10 @@ describe("ページの見出しの下の「いまの状態」", () => {
   });
 
   it("お金管理: 給料日までの日数があれば足す。金額は3桁区切り", () => {
-    expect(expenseStatusText(0, null)).toBe("今月の支出 ¥0");
-    expect(expenseStatusText(12800, 12)).toBe("今月の支出 ¥12,800・給料日まで12日");
-    expect(expenseStatusText(1280.4, 0)).toBe("今月の支出 ¥1,280・給料日まで0日");
+    // 2026-11-27: 名前に期間を入れた(ほかの「今月」「今期」の合計と見分けるため)。数字の出し方は同じ。
+    expect(expenseStatusText(0, null)).toBe("今月使った額 ¥0");
+    expect(expenseStatusText(12800, 12, "11/25")).toBe("今期(11/25〜)に使った額 ¥12,800・給料日まで12日");
+    expect(expenseStatusText(1280.4, 0)).toBe("今期に使った額 ¥1,280・給料日まで0日");
   });
 
   it("メモ・リスト: 種類ごとの数。1つも無ければ「まだ何もありません」", () => {

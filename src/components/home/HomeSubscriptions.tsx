@@ -30,7 +30,8 @@ export function HomeSubscriptions({ rows, thisMonthCharge }: { rows: HomeSubscri
         </Link>
       ))}
       <p className="lh-subs__total">
-        今月の合計 <b>¥{Math.round(thisMonthCharge).toLocaleString()}</b>
+        {/* 固定費(家賃など)も含む、この暦の月の引き落としの合計。サブスクのタブの数字と見分けられるよう書き添える(2026-11-27)。 */}
+        {new Date().getMonth() + 1}月の引き落とし(固定費を含む) <b>¥{Math.round(thisMonthCharge).toLocaleString()}</b>
       </p>
     </div>
   );
