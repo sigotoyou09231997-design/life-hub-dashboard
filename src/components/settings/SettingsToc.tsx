@@ -135,11 +135,11 @@ export function SettingsToc({ items }: { items: SettingsTocItem[] }) {
                 aria-current={active ? "location" : undefined}
                 className={`flex min-h-10 items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--teal-500)] ${
                   active
-                    ? "bg-[var(--teal-50)] font-semibold text-[var(--teal-700)]"
+                    ? "bg-[var(--teal-50)] font-semibold text-[var(--s-ink,#14181a)]"
                     : "text-[var(--warm-ink-2)] hover:bg-[var(--warm-surface-sunk)] hover:text-[var(--warm-ink)]"
                 }`}
               >
-                <Icon size={16} strokeWidth={2} aria-hidden="true" className={active ? "text-[var(--teal-600)]" : ""} />
+                <Icon size={16} aria-hidden="true" className={active ? "text-[var(--s-ink,#14181a)]" : ""} />
                 {label}
               </a>
             </li>

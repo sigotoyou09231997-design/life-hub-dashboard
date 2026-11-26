@@ -134,7 +134,7 @@ export function AllFeaturesSheet({ open, onClose, selectedKeys, onSave }: Props)
           <div className="grid grid-cols-3 gap-3">
             {features.map(({ to, label, icon: Icon, color, bg }) => (
               <Link key={to} to={to} onClick={onClose} className="glass-row flex flex-col items-center gap-2 rounded-2xl py-5 text-center transition-colors active:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${bg} ${color}`}><Icon size={20} /></div>
+                <div className={`icon-box flex h-10 w-10 items-center justify-center rounded-xl ${bg} ${color}`}><Icon size={18} /></div>
                 <span className="text-xs font-medium text-slate-700">{label}</span>
               </Link>
             ))}
