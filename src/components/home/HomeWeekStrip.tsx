@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import type { StripDay, UpcomingRow } from "../../lib/homeLayout";
@@ -66,17 +66,25 @@ export function HomeWeekStrip({ days, rows, ready, onAdd }: Props) {
       ) : (
         <>
           <div className="lh-week__rows">
+            {/* 日付は行の列に置かず、日ごとの小さな見出しにする(2026-11-26 仕上げ①)。前は先頭の行だけ日付が見えて、
+                その行だけ左に飛び出して見え、時刻の列とそろっていなかった。行の名前(読み上げ)には日付を残す。 */}
             {rows.map((row, index) => (
-              <Link
-                key={row.key}
-                to={row.kind === "event" ? `/schedule?view=calendar&date=${row.date}` : "/schedule?view=list"}
-                className={`lh-week__row is-${row.kind}`}
-              >
-                <span className={`lh-week__date${index > 0 && rows[index - 1].date === row.date ? " is-repeat" : ""}`}>{formatShortDate(row.date)}</span>
-                <span className="lh-week__time">{row.time ?? (row.kind === "event" ? "終日" : "")}</span>
-                <strong>{row.title}</strong>
-                {row.kind === "task" && <small>タスク</small>}
-              </Link>
+              <Fragment key={row.key}>
+                {(index === 0 || rows[index - 1].date !== row.date) && (
+                  <p className="lh-week__date-head" aria-hidden="true">
+                    {formatShortDate(row.date)}
+                  </p>
+                )}
+                <Link
+                  to={row.kind === "event" ? `/schedule?view=calendar&date=${row.date}` : "/schedule?view=list"}
+                  className={`lh-week__row is-${row.kind}`}
+                >
+                  <span className="sr-only">{formatShortDate(row.date)} </span>
+                  <span className="lh-week__time">{row.time ?? (row.kind === "event" ? "終日" : "")}</span>
+                  <strong>{row.title}</strong>
+                  {row.kind === "task" && <small>タスク</small>}
+                </Link>
+              </Fragment>
             ))}
           </div>
           {addButtons}

@@ -172,6 +172,8 @@ export function ExpenseSummary({ onAddSalary }: Props) {
         </div>
         {/* 記録が0件の間は、何も表さない空のグラフ(細い横線だけ)を出さず、1行の文(第8弾 M-3)。 */}
         <div className="mt-auto pt-6">
+          {/* 線は「今期に使った額の積み上がり」。見出しの「使えるお金」の推移と読み違えないよう、小さな見出しを添える(2026-11-26 仕上げ①)。 */}
+          {expenses.length > 0 && <p className="finance-trend-label">今期に使った額の積み上がり</p>}
           {expenses.length === 0 ? <p className="finance-trend-empty">記録するとここにペースが出ます</p> : <BalanceTrend expenses={expenses} />}
         </div>
         <div className="mt-2 flex items-center justify-between border-t border-white/35 pt-3 text-xs text-slate-500">

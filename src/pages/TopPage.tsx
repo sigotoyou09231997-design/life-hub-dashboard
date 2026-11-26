@@ -105,6 +105,7 @@ export default function TopPage() {
   const todaySpend = weekSpend ? weekSpend[weekSpend.length - 1] : 0;
   // 使った割合 = 使った額 ÷ (使った額 ＋ 残り)。残りがマイナス(使いすぎ)なら満タン。
   const usedRatio = budget ? (budget.remaining < 0 ? 1 : budget.actualSpending / Math.max(1, budget.actualSpending + budget.remaining)) : 0;
+  const remainingPercent = Math.round(Math.min(100, Math.max(0, (1 - usedRatio) * 100)));
   // 給与がまだ無い時の「今月のお金」。給与が無くても分かる今月の支出を出す(UI/UX 調査メモ A-4)。
   const monthStart = `${today.slice(0, 7)}-01`;
   const monthSpending = useLiveQuery(async () => {
@@ -237,11 +238,16 @@ export default function TopPage() {
               {/* 支出を記録すると、減った額が「−¥1,280」と浮かんでから、前の残りから数え下がる(第4弾 A-5)。 */}
               <CountingAmount value={budget.remaining} resetKey={toDateStr(budget.period.periodStart)} showDelta />
             </p>
-            {/* 今月の「使った割合」の細いバー(2-1)。残りと使った額の合計に対する使った額。 */}
+            {/* 細い線は「残り」の割合(使った額＋残りに対する残り)。2026-11-26(仕上げ①)に「使った割合」から変えた —
+                給料日の直後は使った割合がほぼ0%で、線がほとんど空に見え、何を表すのか分からなかった。
+                見出しの「あと使える」と同じ向き(満タン＝たくさん残っている)にして、下に「使った額」と「残り◯%」を添える。 */}
             <span className="lh-money__bar" aria-hidden="true">
-              <i style={{ width: `${Math.round(Math.min(100, Math.max(0, usedRatio * 100)))}%` }} />
+              <i style={{ width: `${remainingPercent}%` }} />
             </span>
-            {budget.actualSpending <= 0 && <span className="lh-money__bar-note">まだ使っていません</span>}
+            <span className="lh-money__bar-note">
+              <span>{budget.actualSpending > 0 ? `使った額 ¥${Math.round(budget.actualSpending).toLocaleString()}` : "まだ使っていません"}</span>
+              <span>残り {remainingPercent}%</span>
+            </span>
             <dl className="lh-money__stats lh-money__stats--home">
               <div>
                 <dt>1日あたり</dt>

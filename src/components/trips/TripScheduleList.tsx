@@ -208,10 +208,10 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
               </h3>
               {forecast && <TripDayWeather forecast={forecast} />}
               {dayItems.length > 0 && <b>{dayItems.length}件</b>}
-            </header>
-            {canReorder && (
-              <div className="trip-day__tools">
-                {/* 押すと「完了」に変わる。選んでいる間は黒(日にちのチップと同じ、選んでいる所だけ黒の決まり)。 */}
+              {/* 「並べ替え」は見出しと同じ行の右端(2026-11-26 仕上げ①。前は見出しの下の1行をまるごと使っていた)。
+                  入りきらない幅(天気が出ている日など)では、見出しの下の右端へ折り返す。
+                  押すと「完了」に変わる。選んでいる間は黒(選んでいる所だけ黒の決まり)。 */}
+              {canReorder && (
                 <button
                   type="button"
                   className={`trip-day__sort${sorting ? " is-active" : ""}`}
@@ -220,8 +220,8 @@ export function TripScheduleList({ dayList, items, photosBySchedule, expenseBySc
                   {sorting ? <Check size={15} aria-hidden="true" /> : <ArrowUpDown size={15} aria-hidden="true" />}
                   {sorting ? "完了" : "並べ替え"}
                 </button>
-              </div>
-            )}
+              )}
+            </header>
             {sorting && (
               <p className="trip-day__hint" id={hintId}>
                 右の <GripVertical size={13} aria-label="つまみ" className="inline align-[-2px]" /> を上下に動かすと、順番を変えられます。行を長押ししても動かせます。
