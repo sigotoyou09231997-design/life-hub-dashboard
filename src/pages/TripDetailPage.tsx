@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ChevronLeft, MapPinned, NotebookPen, Pencil, Plus, Replace, Share2, Sparkles, Trash2, Users } from "lucide-react";
+import { ChevronLeft, Clock, Map as MapIcon, MapPinned, NotebookPen, Pencil, Plus, Replace, Share2, Sparkles, Trash2, Users } from "lucide-react";
 import { db } from "../db/schema";
 import type {
   TripScheduleItem,
@@ -30,7 +30,7 @@ import { TripExpenseForm } from "../components/trips/TripExpenseForm";
 import { TripExpenseList } from "../components/trips/TripExpenseList";
 import { TripPackingForm } from "../components/trips/TripPackingForm";
 import { TripPackingList } from "../components/trips/TripPackingList";
-import { TripRouteView } from "../components/trips/TripRouteView";
+import { readStoredView, storeRouteView, TripRouteView } from "../components/trips/TripRouteView";
 import { TripRouteForm } from "../components/trips/TripRouteForm";
 import { TripQuickPlanForm } from "../components/trips/TripQuickPlanForm";
 import { TripPlanScanForm } from "../components/trips/TripPlanScanForm";
@@ -134,6 +134,12 @@ export default function TripDetailPage() {
   const [routePreset, setRoutePreset] = useState<{ name: string; address: string } | undefined>(undefined);
   /** 日程の場所を押して、ルートで見せたい場所。at は同じ場所をもう一度押した時にも送り直すため。 */
   const [routeFocus, setRouteFocus] = useState<{ id: string; at: number } | null>(null);
+  /** ルートの見方(地図/時間)。端末に覚える(TripRouteView と同じ鍵)。 */
+  const [routeView, setRouteViewState] = useState<"map" | "time">(readStoredView);
+  function changeRouteView(next: "map" | "time") {
+    setRouteViewState(next);
+    storeRouteView(next);
+  }
   /** ルートのタブの中の切り替え: ふだんのルート表示か、日程の予定ごとに「入れる／入れない」を選ぶ一覧か(2026-10-15)。 */
   const [routeSub, setRouteSub] = useState<"route" | "reflect">("route");
   /** ルートのタブで選んでいる日(「全部」「日付なし」は null)。「まとめて追加」の日付を、見ている日から始めるのに使う。 */
@@ -578,25 +584,58 @@ export default function TripDetailPage() {
 
         {tab === "route" && (
           <>
-            {/* ルートの中の切り替え。予定が1つも無い旅行では、選ぶものが無いので出さない。 */}
-            {schedule.length > 0 && (
+            {/* ルートの中の切り替えを1つの列にまとめた(2026-11-27、見せる品質 その4)。前は「ルート表示/日程から選ぶ」と
+                「地図で見る/時間で見る」が2段に分かれていた。場所がまだ無い時は見方の切り替えは出さず、
+                予定が1つも無い旅行では「日程から選ぶ」を出さない。 */}
+            {(routePlaces.length > 0 || schedule.length > 0) && (
               <div className="trip-route__days mb-3" role="group" aria-label="ルートの画面">
-                <button
-                  type="button"
-                  className={`trip-route__day${routeSub === "route" ? " is-active" : ""}`}
-                  aria-pressed={routeSub === "route"}
-                  onClick={() => setRouteSub("route")}
-                >
-                  ルート表示
-                </button>
-                <button
-                  type="button"
-                  className={`trip-route__day${routeSub === "reflect" ? " is-active" : ""}`}
-                  aria-pressed={routeSub === "reflect"}
-                  onClick={() => setRouteSub("reflect")}
-                >
-                  日程から選ぶ
-                </button>
+                {routePlaces.length > 0 ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`trip-route__day${routeSub === "route" && routeView === "map" ? " is-active" : ""}`}
+                      aria-pressed={routeSub === "route" && routeView === "map"}
+                      onClick={() => {
+                        setRouteSub("route");
+                        changeRouteView("map");
+                      }}
+                    >
+                      <MapIcon size={14} />
+                      地図で見る
+                    </button>
+                    <button
+                      type="button"
+                      className={`trip-route__day${routeSub === "route" && routeView === "time" ? " is-active" : ""}`}
+                      aria-pressed={routeSub === "route" && routeView === "time"}
+                      onClick={() => {
+                        setRouteSub("route");
+                        changeRouteView("time");
+                      }}
+                    >
+                      <Clock size={14} />
+                      時間で見る
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className={`trip-route__day${routeSub === "route" ? " is-active" : ""}`}
+                    aria-pressed={routeSub === "route"}
+                    onClick={() => setRouteSub("route")}
+                  >
+                    ルート
+                  </button>
+                )}
+                {schedule.length > 0 && (
+                  <button
+                    type="button"
+                    className={`trip-route__day${routeSub === "reflect" ? " is-active" : ""}`}
+                    aria-pressed={routeSub === "reflect"}
+                    onClick={() => setRouteSub("reflect")}
+                  >
+                    日程から選ぶ
+                  </button>
+                )}
               </div>
             )}
             {routeSub === "reflect" && schedule.length > 0 ? (
@@ -625,6 +664,7 @@ export default function TripDetailPage() {
               // ルートの場所から、元になった日程の編集を開く(日程のタブへ移らず、その場で開く)。
               onOpenSchedule={(item) => setEditingSchedule(item)}
               onDayChange={setRouteDay}
+              view={routePlaces.length > 0 ? routeView : undefined}
               onEdit={(place) => {
                 setRoutePreset(undefined);
                 setEditingRoute(place);

@@ -189,6 +189,9 @@ export function TripDayRoute({ items, date, inline = false, asRow = false }: Pro
     </div>
   );
 
+  // 「ほかの操作」の1行として出す時、場所の入った予定が無い日は、行ごと出さない(2026-11-27。説明の文が一覧の箱の中に
+  // 入り込んで、行の並びが崩れていた)。
+  if (stops.length === 0 && asRow) return null;
   if (stops.length === 0) {
     return (
       <>

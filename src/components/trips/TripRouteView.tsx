@@ -65,6 +65,8 @@ interface Props {
   onOpenSchedule?: (item: TripScheduleItem) => void;
   /** いま見ている日が変わった時(日にちのチップで選んでいる日。「全部」「日付なし」は null)。「まとめて追加」の日付の初期値に使う。 */
   onDayChange?: (day: string | null) => void;
+  /** 見方(地図/時間)を外から決める時(旅行詳細が「日程から選ぶ」と1つの列にまとめる。2026-11-27)。渡すと、この中の切り替えは出さない。 */
+  view?: RouteViewMode;
 }
 
 /** 現在地から1つ目の場所までの区間につける鍵。場所idと混ざらない名前にしてある。 */
@@ -88,7 +90,7 @@ function readPicksFolded(): boolean {
   }
 }
 
-function readStoredView(): RouteViewMode {
+export function readStoredView(): RouteViewMode {
   try {
     return window.localStorage.getItem(VIEW_KEY) === "time" ? "time" : "map";
   } catch {
@@ -259,6 +261,15 @@ function TripRoutePicks({
  * で送る。折り返して2段にした時は、段ごとに列の高さが変わるのが目についたため
  * (2026-08-26の指摘)。長い旅行では日にちで絞れば、その日のぶんだけが並ぶ。
  */
+/** ルートの見方を端末に覚える(旅行詳細の切り替えの列からも使う)。 */
+export function storeRouteView(next: RouteViewMode) {
+  try {
+    window.localStorage.setItem(VIEW_KEY, next);
+  } catch {
+    // 覚えられない環境でも、見方の切り替え自体は動く。
+  }
+}
+
 export function TripRouteView({
   tripId,
   destination,
@@ -274,6 +285,7 @@ export function TripRouteView({
   onDelete,
   onOpenSchedule,
   onDayChange,
+  view: viewProp,
 }: Props) {
   /** 区間ごとの移動手段。1つにまとめて持っていた頃は、どこかで「車」に変えると
    * ほかの地図まで全部つられて変わり、「この区間は電車・ここは車」という見方が
@@ -305,7 +317,8 @@ export function TripRouteView({
    * の.trip-route-card--match) — 間を抜くと区間(誰から誰まで)の意味が崩れるため。 */
   const [query, setQuery] = useState("");
   /** 地図で見るか、時間で見るか。最後に選んだほうを、この端末では覚えておく。 */
-  const [view, setView] = useState<RouteViewMode>(readStoredView);
+  const [ownView, setView] = useState<RouteViewMode>(readStoredView);
+  const view = viewProp ?? ownView;
   /** 端末から取れた現在地。鎖の先頭に「現在地 → 最初の場所」を出すのに使う。 */
   const [here, setHere] = useState<string | null>(null);
   const [hereState, setHereState] = useState<"asking" | "ready" | "denied">("asking");
@@ -488,18 +501,9 @@ export function TripRouteView({
     <div className="trip-route">
       {/* 1件も無いうちは「地図で開く」を出さない — 開いても行き先の地図が出るだけで、
           この画面でやることは「1件目を入れる」しかない。代わりに入力欄をそのまま出す。 */}
-      {shown.length > 0 && (
+      {shown.length > 0 && places.length > 1 && view === "map" && (
         <div className="trip-route__head">
-          <a
-            className="trip-route__open"
-            href={buildRouteSearchUrl(queries, openAllMode())}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Map size={16} />
-            {shown.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
-            <ExternalLink size={14} />
-          </a>
+          {/* 「全地点をGoogleマップで開く」は、一覧の下の小さなリンクへ移した(2026-11-27。中身の前の段を減らすため)。 */}
           {places.length > 1 && view === "map" && (
             <div className="relative">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
@@ -527,7 +531,8 @@ export function TripRouteView({
         </div>
       ) : (
         <>
-          {/* 見方の切り替え。ボタンは1つずつ分けて並べる(日にちのチップと同じ形)。 */}
+          {/* 見方の切り替え。ボタンは1つずつ分けて並べる(日にちのチップと同じ形)。旅行詳細が外で出している時は出さない。 */}
+          {!viewProp && (
           <div className="trip-route__days" role="group" aria-label="ルートの見方">
             <button
               type="button"
@@ -548,6 +553,7 @@ export function TripRouteView({
               時間で見る
             </button>
           </div>
+          )}
 
           {/* 日にちの切り替え。長い旅行ほど列が伸びるので、その日に回るぶんだけに
               絞れるようにする。日付を決めていない場所は「日付なし」に集まる。 */}
@@ -876,6 +882,21 @@ export function TripRouteView({
                 </button>
               </li>
             </ol>
+          )}
+          {/* 全地点をGoogleマップで開く(前は一覧の上の1段をまるごと使っていた)。 */}
+          {shown.length > 0 && (
+            <div className="trip-route__open-row">
+              <a
+                className="trip-route__open"
+                href={buildRouteSearchUrl(queries, openAllMode())}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <Map size={16} />
+                {shown.length > 1 ? "全地点をGoogleマップで開く" : "Googleマップで開く"}
+                <ExternalLink size={14} />
+              </a>
+            </div>
           )}
         </>
       )}
