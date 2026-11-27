@@ -122,7 +122,8 @@ function SuggestionBanner({ icon, children, onDismiss, actionLabel, onAction }: 
         <button
           type="button"
           onClick={onAction}
-          className="rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-white shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
+          // 副ボタンの見た目(白地＋薄い影＋黒い字)。青緑で塗っていたが、主ボタンは黒・青緑はリンクと印だけの決まりに合わせる(2026-11-27)。
+          className="mail-suggestion__action rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         >
           {actionLabel}
         </button>
@@ -560,15 +561,15 @@ export function DraftReview({ email, account, onSent, variant = "pane", stacked 
           {email.readAt ? <MailOpen size={16} /> : <Mail size={16} />}
         </button>
         {/* 既読/ブロックはこのメール自体の状態を切り替えるもの、こちらは別の場所に予定を
-            作るもの。同じ見た目のアイコンで並べると押し分けにくいので、塗りのボタンにして
-            はっきり別物に見せる。 */}
+            作るもの。同じ見た目のアイコンで並べると押し分けにくいので、白い札のボタン(文字つき)にして
+            はっきり別物に見せる(2026-11-27 から青緑の塗りはやめた。主ボタンは黒・副ボタンは白の決まり)。 */}
         {!showPlanSuggestion && (
           <button
             type="button"
             onClick={() => setPlanImportOpen(true)}
             aria-label="予定に追加する"
             title="このメールの内容から、旅行計画(日程・ルート)・予定・タスクを作る"
-            className="flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-all duration-200 ease-out active:translate-y-px active:bg-accent/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
+            className="flex shrink-0 items-center gap-1.5 rounded-full bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-900 shadow-sm transition-all duration-200 ease-out active:translate-y-px active:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 motion-reduce:transition-none motion-reduce:active:translate-y-0"
           >
             <CalendarPlus size={14} />
             <span className="hidden sm:inline">予定に追加する</span>
